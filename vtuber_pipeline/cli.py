@@ -13,7 +13,8 @@ def cli():
 @click.option('--image', required=True, type=click.Path(exists=True), help='입력 이미지 경로')
 @click.option('--output', required=True, type=click.Path(), help='출력 디렉터리')
 @click.option('--profile', default='commercial', help='라이선스 프로파일 (commercial)')
-def avatar(image, output, profile):
+@click.option('--commercial-usage', type=click.Choice(['personalNonProfit', 'personalProfit', 'corporation']), default='corporation', help='상업용 사용 권한 (기본값: corporation)')
+def avatar(image, output, profile, commercial_usage):
     """이미지에서 VTuber 아바타를 생성합니다."""
     from vtuber_pipeline.avatar.build import build_avatar
     import pathlib
@@ -21,8 +22,9 @@ def avatar(image, output, profile):
     click.echo(f'아바타 빌드 시작: {image}')
     click.echo(f'출력 디렉터리: {output}')
     click.echo(f'프로파일: {profile}')
+    click.echo(f'상업용 권한: {commercial_usage}')
     
-    result = build_avatar(image, output, {"profile": profile})
+    result = build_avatar(image, output, {"profile": profile, "commercial_usage": commercial_usage})
     
     # Report stage results
     stages = result.get("stages", {})

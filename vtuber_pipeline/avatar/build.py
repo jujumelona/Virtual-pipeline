@@ -81,10 +81,37 @@ class AvatarPipeline:
         else:
             results["stages"]["input_gate"] = {"status": "cached", "stage_key": stage_key}
         
-        # Stage 2: Face landmarks (stub)
+        # Stage 2: Face landmarks - call real AnimeFaceDetector
         stage_key = self._get_stage_key("face_landmarks", image_path)
         if not self.manifest.is_complete(stage_key):
-            results["stages"]["face_landmarks"] = {"status": "stub", "landmarks": []}
+            try:
+                from vtuber_pipeline.avatar.face_detector import AnimeFaceDetector
+                detector = AnimeFaceDetector()
+                landmarks_result = detector.detect(image_path)
+                results["stages"]["face_landmarks"] = {
+                    "status": "complete",
+                    "landmarks": landmarks_result.get("landmarks", []),
+                    "bbox": landmarks_result.get("bbox", []),
+                    "score": landmarks_result.get("score", 0.0)
+                }
+            except ImportError as e:
+                results["stages"]["face_landmarks"] = {
+                    "status": "error",
+                    "error": f"Face detector not available: {e}",
+                    "landmarks": []
+                }
+            except ValueError as e:
+                results["stages"]["face_landmarks"] = {
+                    "status": "error",
+                    "error": str(e),
+                    "landmarks": []
+                }
+            except Exception as e:
+                results["stages"]["face_landmarks"] = {
+                    "status": "error",
+                    "error": str(e),
+                    "landmarks": []
+                }
             self.manifest.record_stage(stage_key, results["stages"]["face_landmarks"])
         
         # Stage 3: Reference reconstruction - use real canonical template
@@ -236,9 +263,10 @@ class AvatarPipeline:
         if not self.manifest.is_complete(stage_key):
             rigged_mesh = results["stages"]["rig"].get("rigged_mesh", ref_mesh) if results["stages"]["rig"].get("status") == "complete" else ref_mesh
             expr_data = results["stages"]["expressions"].get("expressions", {}) if results["stages"]["expressions"].get("status") in ["complete", "partial"] else None
+            commercial_usage = config.get("commercial_usage", "corporation") if config else "corporation"
             try:
                 results["stages"]["vrm_export"] = vrm_export.export_vrm(
-                    rigged_mesh, output_dir, expressions=expr_data
+                    rigged_mesh, output_dir, expressions=expr_data, commercial_usage=commercial_usage
                 )
             except Exception as e:
                 results["stages"]["vrm_export"] = {

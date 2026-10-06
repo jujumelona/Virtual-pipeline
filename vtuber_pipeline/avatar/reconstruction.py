@@ -2,19 +2,27 @@
 
 import subprocess
 import pathlib
-from vtuber_pipeline.core.config import check_commercial_profile
 
 
 def reconstruct_avatar(image_path: str, output_dir: str, profile: str = 'commercial') -> str:
     """
     TripoSR로 이미지에서 3D 메시를 생성합니다.
-    commercial 프로파일: --no-remove-bg 사용 (rembg 의존 없음).
+    
+    TripoSR은 MIT 라이선스로 상업적 사용이 가능합니다.
+    nvdiffrast를 사용하지 않으므로 라이선스 제한이 없습니다.
+    
+    Args:
+        image_path: 입력 이미지 경로
+        output_dir: 출력 디렉터리
+        profile: 라이선스 프로파일 (TripoSR은 모든 프로파일에서 사용 가능)
+        
     Returns: 출력 메시 파일 경로
     """
-    if profile == 'commercial':
-        check_commercial_profile('nvdiffrast')  # 차단된 패키지 확인 예시
-        # TripoSR은 상업용 프로파일에서 안전합니다
+    # TripoSR은 MIT 라이선스 - 모든 프로파일에서 안전하게 사용 가능
+    # nvdiffrast 의존성 없음
+    
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
     # TripoSR CLI 호출 (Colab에서 git clone으로 설치됨)
     cmd = [
         'python', 'TripoSR/run.py',

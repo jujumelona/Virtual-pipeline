@@ -174,7 +174,9 @@ class VRMValidator:
         }
     
     def validate_humanoid_bones(self) -> Dict[str, Any]:
-        """Validate humanoid bones are present in humanoidBones.
+        """Validate humanoid bones are present in humanBones.
+        
+        VRM 1.0 스펙: humanBones는 뼈 이름을 키로 하는 객체입니다.
         
         Returns:
             Validation result dictionary with present and missing bones.
@@ -199,29 +201,39 @@ class VRMValidator:
                 "error": "humanoid section not found"
             }
         
-        # Get humanoidBones - VRM 1.0 uses "humanoidBones" (not "humanBones")
-        bone_list = humanoid.get("humanoidBones", [])
+        # VRM 1.0: humanBones는 객체 (뼈 이름 -> {node: index})
+        bone_dict = humanoid.get("humanBones", {})
         
-        if not bone_list:
+        if not bone_dict:
+            # 레거시 호환성: humanoidBones (리스트)도 확인
+            bone_list = humanoid.get("humanoidBones", [])
+            if bone_list:
+                # 이전 포맷 처리
+                present_bones = []
+                if isinstance(bone_list, list):
+                    for bone_entry in bone_list:
+                        if isinstance(bone_entry, dict):
+                            bone_name = bone_entry.get("name", "")
+                            if bone_name:
+                                present_bones.append(bone_name)
+                missing = [bone for bone in self.REQUIRED_BONES if bone not in present_bones]
+                return {
+                    "valid": len(missing) == 0,
+                    "present": present_bones,
+                    "missing": missing,
+                    "warning": "Using legacy humanoidBones format, consider updating to humanBones"
+                }
             return {
                 "valid": False,
                 "present": [],
                 "missing": self.REQUIRED_BONES,
-                "error": "humanoidBones not found in humanoid"
+                "error": "humanBones not found in humanoid"
             }
         
-        # Extract bone names from humanoidBones
-        # VRM 1.0: humanoidBones is a list of objects with "node" and "name" fields
+        # VRM 1.0: humanBones는 딕셔너리
         present_bones = []
-        if isinstance(bone_list, list):
-            for bone_entry in bone_list:
-                if isinstance(bone_entry, dict):
-                    # VRM 1.0 uses "name" field for bone name
-                    bone_name = bone_entry.get("name", "")
-                    if bone_name:
-                        present_bones.append(bone_name)
-        elif isinstance(bone_list, dict):
-            present_bones = list(bone_list.keys())
+        if isinstance(bone_dict, dict):
+            present_bones = list(bone_dict.keys())
         
         # Check for missing required bones
         missing = [bone for bone in self.REQUIRED_BONES if bone not in present_bones]
@@ -235,6 +247,8 @@ class VRMValidator:
     
     def validate_expressions(self) -> Dict[str, Any]:
         """Validate required expression presets are present.
+        
+        VRM 1.0 스펙: expressions.preset은 표현 이름을 키로 하는 객체입니다.
         
         Returns:
             Validation result dictionary with present and missing expressions.
@@ -260,10 +274,22 @@ class VRMValidator:
                 "warning": "expressions section not found (optional in VRM 1.0)"
             }
         
-        # VRM 1.0 uses "preset" key with expression objects
+        # VRM 1.0 uses "preset" key (singular) with expression objects
         presets = expressions.get("preset", {})
         
         if not presets:
+            # 레거시 호환성: "presets" (복수)도 확인
+            legacy_presets = expressions.get("presets", {})
+            if legacy_presets:
+                present_expressions = list(legacy_presets.keys()) if isinstance(legacy_presets, dict) else []
+                missing = [expr for expr in self.REQUIRED_EXPRESSIONS if expr not in present_expressions]
+                return {
+                    "valid": len(missing) == 0,
+                    "present": present_expressions,
+                    "missing": missing,
+                    "warning": "Using legacy 'presets' format, consider updating to 'preset'"
+                }
+            
             # Check if expressions has other keys (custom expressions)
             custom_expressions = expressions.get("custom", [])
             if custom_expressions:
@@ -284,8 +310,8 @@ class VRMValidator:
                 "warning": "No expressions defined (optional in VRM 1.0)"
             }
         
-        # Extract expression names from presets
-        # presets is a dict with expression names as keys and expression objects as values
+        # Extract expression names from preset
+        # preset is a dict with expression names as keys and expression objects as values
         present_expressions = []
         if isinstance(presets, dict):
             for expr_name, expr_value in presets.items():
