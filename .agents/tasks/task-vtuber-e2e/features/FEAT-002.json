@@ -1,0 +1,25 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Generate VRM expression morph targets (blink, visemes, emotions) as vertex position offsets. Create morphs for all 13 required VRM expressions.",
+  "status": "completed",
+  "steps": [
+    "Update vtuber_pipeline/avatar/expressions.py",
+    "Add generate_blink_morph() - close eyelids by moving eye region vertices down 0.01 units",
+    "Add generate_viseme_morphs() - aa (open mouth), ih (smile), ou (round), ee (wide), oh (O shape)",
+    "Add generate_emotion_morphs() - happy, angry, sad, relaxed, surprised with eyebrow/mouth changes",
+    "Identify eye/mouth/face region vertex indices using bounding box heuristics",
+    "Update generate_expressions() to return actual morph data for template mesh",
+    "Store morphs as (vertex_index, [dx,dy,dz]) offset lists"
+  ],
+  "acceptance_criteria": [
+    "generate_expressions() returns dict with all 13 required expressions",
+    "Each morph target has vertex indices and position offsets",
+    "blink morph closes eyes (moves vertices in Y direction)"
+  ],
+  "verification": [
+    "python -c \"from vtuber_pipeline.avatar.expressions import generate_expressions; e = generate_expressions('assets/canonical_vtuber/template.glb'); print(f'Expressions: {list(e.keys())}')\""
+  ],
+  "blocked_reason": null,
+  "findings": "Implemented all 13 VRM expression presets using bounding box heuristics for region detection. Blink morphs (blink, blinkLeft, blinkRight) move eye region vertices down 0.01 units in Y. Viseme morphs (aa, ih, ou, ee, oh) affect mouth/lip regions with appropriate deformations. Emotion morphs (happy, angry, sad, relaxed, surprised) combine eyebrow and mouth region changes. Region detection uses normalized face proportions (e.g., eyes at 40-70% height, mouth at 15-45% height). The canonical template mesh has 2244 vertices with Y range [0.0, 0.39]."
+}
