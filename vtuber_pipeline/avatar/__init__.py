@@ -22,6 +22,7 @@ from vtuber_pipeline.avatar.springbone import generate_springbone_config, SPRING
 from vtuber_pipeline.avatar.materials import configure_materials, MATERIAL_GROUPS
 from vtuber_pipeline.avatar.validator import validate_vrm, VRMValidator
 from vtuber_pipeline.avatar.build import AvatarPipeline, build_avatar
+from vtuber_pipeline.avatar.template_mesh import create_canonical_template, get_bone_hierarchy
 
 __all__ = [
     "AnimeFaceDetector",
@@ -50,4 +51,6 @@ __all__ = [
     "VRMValidator",
     "AvatarPipeline",
     "build_avatar",
+    "create_canonical_template",
+    "get_bone_hierarchy",
 ]

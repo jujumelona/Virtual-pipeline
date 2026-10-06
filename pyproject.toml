@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "vtuber-pipeline"
@@ -16,6 +16,7 @@ dependencies = [
     "pyyaml",
     "pillow",
     "numpy",
+    "scipy",
     "click>=8.0",
 ]
 

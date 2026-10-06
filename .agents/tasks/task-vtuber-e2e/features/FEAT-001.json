@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Create procedural canonical VTuber template mesh with trimesh+numpy. Generate head (sphere), neck (cylinder), upper body (box) merged into single mesh with humanoid bone hierarchy and distance-based vertex groups.",
+  "status": "completed",
+  "steps": [
+    "Add scipy to pyproject.toml dependencies",
+    "Create vtuber_pipeline/avatar/template_mesh.py with create_canonical_template() function",
+    "Implement procedural mesh: UV sphere head (r=0.08), cylinder neck (r=0.02, h=0.05), box body (0.15x0.12x0.08)",
+    "Define bone hierarchy: hips->spine->chest->neck->head, leftEye/rightEye as head children",
+    "Compute vertex groups using distance-based weights with scipy.sparse",
+    "Export as GLB to assets/canonical_vtuber/template.glb",
+    "Update assets/canonical_vtuber/topology.json with actual vertex/face counts"
+  ],
+  "acceptance_criteria": [
+    "template.glb exists in assets/canonical_vtuber/",
+    "File loads in trimesh: trimesh.load('assets/canonical_vtuber/template.glb')",
+    "Contains >= 500 vertices and >= 900 faces",
+    "topology.json reflects actual mesh stats"
+  ],
+  "verification": [
+    "python -c \"import trimesh; m = trimesh.load('assets/canonical_vtuber/template.glb'); print(f'V:{len(m.vertices)} F:{len(m.faces)}')\"",
+    "pytest tests/unit/ -k 'input_gate or contracts' -v"
+  ],
+  "blocked_reason": null,
+  "findings": "Successfully generated canonical VTuber template with 2244 vertices and 4476 faces. Mesh components: head (UV sphere, 2210 verts), neck (cylinder, 26 verts), body (box, 8 verts). Bone hierarchy: hips->spine->chest->neck->head with leftEye/rightEye as head children. Distance-based vertex weights computed and saved to vertex_weights.json."
+}
