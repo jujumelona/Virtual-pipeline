@@ -1,0 +1,26 @@
+{
+  "id": "FEAT-005",
+  "type": "feat",
+  "description": "Validate VRM files against VRM 1.0 schema requirements. Parse VRM extension, check required bones and expressions, report pass/fail with specific errors.",
+  "status": "completed",
+  "steps": [
+    "Update vtuber_pipeline/avatar/validator.py",
+    "Update VRMValidator.parse_vrm() to use pygltflib for loading .vrm",
+    "Extract VRMC_vrm extension from glTF",
+    "Update validate_humanoid_bones() to check humanoid.boneMapping for required bones",
+    "Update validate_expressions() to check expressions.presets for required expressions",
+    "Add validate_vrm_schema() to check VRMC_vrm exists with specVersion='1.0'",
+    "Update run_all() to include all checks"
+  ],
+  "acceptance_criteria": [
+    "validate_vrm() correctly identifies missing bones/expressions",
+    "Returns {\"passed\": true} for valid VRM",
+    "Returns specific errors for invalid VRM",
+    "Reports which bones and expressions are missing"
+  ],
+  "verification": [
+    "python -c \"from vtuber_pipeline.avatar.validator import validate_vrm; result = validate_vrm('output/avatar.vrm', 'output/'); print(f'Passed: {result[\\\"passed\\\"]}')\""
+  ],
+  "blocked_reason": null,
+  "findings": "Implemented VRMValidator class with pygltflib. Key implementation details:\n- parse_vrm() uses GLTF2().load() to read .vrm files\n- validate_vrm_schema() checks VRMC_vrm extension with specVersion='1.0'\n- validate_humanoid_bones() checks humanoid.humanoidBones array for required bone names\n- validate_expressions() checks expressions.preset for required expressions (treats missing expressions as warning since they're optional in VRM 1.0)\n- validate_look_at() checks lookAt.type field\n- validate_springbone() checks VRMC_springBone extension (optional)\n- All validation methods return dict with 'valid' boolean and details"
+}
