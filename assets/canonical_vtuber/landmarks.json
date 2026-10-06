@@ -1,0 +1,5 @@
+{
+  "description": "Placeholder mapping 28 anime-face-detector landmarks to canonical mesh vertex indices",
+  "landmark_count": 28,
+  "landmark_to_vertex": {}
+}
