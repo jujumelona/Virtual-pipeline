@@ -1,19 +1,31 @@
 """VRM export module for VTuber Pipeline.
 
 This module provides functions for exporting rigged meshes to the VRM
-format using the VRM Add-on for Blender.
+format using pygltflib (Pure Python implementation).
 """
 
 import pathlib
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
+
+# Import the new VRM builder
+from vtuber_pipeline.avatar.vrm_builder import (
+    export_vrm as _export_vrm_pure,
+    validate_vrm as _validate_vrm_file,
+    VRM_EXPRESSION_PRESETS
+)
 
 
 def export_vrm(
     rig_path: str,
     output_dir: str,
-    blender_runner=None
+    blender_runner=None,
+    expressions: Optional[Dict[str, Any]] = None,
+    bone_mapping: Optional[Dict[str, int]] = None
 ) -> Dict[str, Any]:
-    """Export rigged mesh to VRM format.
+    """Export rigged mesh to VRM 1.0 format.
+    
+    Uses pure Python implementation with pygltflib.
+    Blender runner is ignored (kept for backward compatibility).
     
     Pre-export validation checks:
     1. Humanoid bones present
@@ -22,9 +34,11 @@ def export_vrm(
     4. Vertex weights assigned
     
     Args:
-        rig_path: Path to the rigged mesh (.blend or .glb).
+        rig_path: Path to the rigged mesh (.glb or .gltf).
         output_dir: Directory to write output files.
-        blender_runner: Optional SubprocessRunner for Blender execution.
+        blender_runner: Ignored (kept for backward compatibility).
+        expressions: Optional dict of expression morph data.
+        bone_mapping: Optional dict mapping VRM bone names to node indices.
         
     Returns:
         Dictionary with export results and output paths.
@@ -48,29 +62,27 @@ def export_vrm(
         _write_vrm_export_report(output_dir, result)
         return result
     
-    # Export VRM
-    if blender_runner is not None:
-        try:
-            # Run Blender export script
-            output_path = pathlib.Path(output_dir) / "avatar.vrm"
-            manifest_path = pathlib.Path(output_dir) / "manifest.json"
+    # Export VRM using pure Python implementation
+    try:
+        export_result = _export_vrm_pure(
+            rigged_glb_path=rig_path,
+            output_dir=output_dir,
+            expressions=expressions,
+            bone_mapping=bone_mapping
+        )
+        
+        # Copy result fields
+        result["status"] = export_result.get("status", "error")
+        result["vrm_path"] = export_result.get("vrm_path")
+        result["vrm_extension"] = export_result.get("vrm_extension")
+        result["file_size_bytes"] = export_result.get("file_size_bytes")
+        
+        if export_result.get("error"):
+            result["error"] = export_result["error"]
             
-            export_result = blender_runner.run(
-                script_path=str(pathlib.Path(__file__).parent.parent / "blender" / "export_vrm.py"),
-                manifest_path=str(manifest_path)
-            )
-            
-            result["blender_output"] = export_result
-            result["vrm_path"] = str(output_path)
-            result["status"] = "complete"
-            
-        except Exception as e:
-            result["status"] = "error"
-            result["error"] = str(e)
-    else:
-        result["status"] = "stub"
-        result["warning"] = "Blender runner not provided, VRM not exported"
-        result["vrm_path"] = str(pathlib.Path(output_dir) / "avatar.vrm")
+    except Exception as e:
+        result["status"] = "error"
+        result["error"] = str(e)
     
     _write_vrm_export_report(output_dir, result)
     
@@ -107,6 +119,13 @@ def _validate_for_vrm(
         "warnings": [],
         "checks": {}
     }
+    
+    # Check if input file exists
+    input_path = pathlib.Path(mesh_path)
+    if not input_path.exists():
+        result["valid"] = False
+        result["errors"].append(f"입력 파일이 존재하지 않습니다: {mesh_path}")
+        return result
     
     # Check humanoid bones (stub)
     required_bones = [
@@ -164,23 +183,13 @@ def _write_vrm_export_report(output_dir: str, result: Dict[str, Any]) -> None:
     save_json(result, str(output_path))
 
 
-# Legacy function for backward compatibility
-def export_vrm_legacy(rigged_mesh_path: str, output_path: str) -> str:
+def validate_vrm_file(vrm_path: str) -> Dict[str, Any]:
+    """Validate an existing VRM file.
+    
+    Args:
+        vrm_path: Path to the VRM file.
+        
+    Returns:
+        Dictionary with validation results.
     """
-    리깅된 메시를 VRM 형식으로 내보냅니다.
-
-    VRM 사양:
-        - 휴머노이드 골격: Hips, Spine, Chest, Neck, Head,
-          Shoulder(L/R), UpperArm(L/R), LowerArm(L/R), Hand(L/R),
-          UpperLeg(L/R), LowerLeg(L/R), Foot(L/R)
-        - 블렌드셰이프 프리셋: Blink, BlinkLeft, BlinkRight,
-          A(aa), I(ih), U(ou), E(ee), O(oh),
-          Happy, Sad, Angry, Surprised, Relaxed
-        - SpringBone: 머리카락, 귀, 가슴, 꼬리 등의 물리 설정
-
-    TODO: pygltflib + VRM 확장을 사용한 구현
-    """
-    raise NotImplementedError(
-        "VRM 내보내기는 아직 구현되지 않았습니다. "
-        "pygltflib 및 VRM 1.0 사양을 참조하세요: https://github.com/vrm-c/vrm-specification"
-    )
+    return _validate_vrm_file(vrm_path)
