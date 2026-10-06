@@ -136,7 +136,15 @@ def _add_morph_targets(
     morph_names = []
     
     for expr_name, morph_data in morph_targets.items():
-        if not morph_data:
+        # Handle both formats:
+        # - Dict with 'morph_targets' key (from generate_expressions)
+        # - Direct list of tuples (legacy format)
+        if isinstance(morph_data, dict):
+            actual_morph_data = morph_data.get('morph_targets', [])
+        else:
+            actual_morph_data = morph_data
+            
+        if not actual_morph_data:
             # Empty morph - create zero delta accessor
             accessor_idx = _create_zero_morph_accessor(gltf, buffer_data, vertex_count)
             morph_accessors.append(accessor_idx)
@@ -145,7 +153,7 @@ def _add_morph_targets(
         
         # Create sparse accessor for non-zero morphs
         accessor_idx = _create_sparse_morph_accessor(
-            gltf, buffer_data, morph_data, vertex_count
+            gltf, buffer_data, actual_morph_data, vertex_count
         )
         morph_accessors.append(accessor_idx)
         morph_names.append(expr_name)
@@ -531,9 +539,8 @@ def export_vrm(
         if gltf.buffers:
             gltf.buffers[0].byteLength = len(buffer_data)
         
-        # Step 5: Write VRM file
-        output_filename = pathlib.Path(rigged_glb_path).stem + ".vrm"
-        output_path = pathlib.Path(output_dir) / output_filename
+        # Step 5: Write VRM file (always as avatar.vrm for consistency)
+        output_path = pathlib.Path(output_dir) / "avatar.vrm"
         
         # Set binary blob and save
         gltf.set_binary_blob(bytes(buffer_data))

@@ -37,6 +37,36 @@ def _load_mesh_vertices(mesh_path: str) -> Tuple[np.ndarray, Dict[str, Any]]:
     Returns:
         Tuple of (vertices array, mesh bounds info).
     """
+    # Try pygltflib first for GLB files (handles skinned meshes better)
+    if mesh_path.lower().endswith(('.glb', '.gltf', '.vrm')):
+        try:
+            from pygltflib import GLTF2
+            gltf = GLTF2().load(mesh_path)
+            
+            # Find the first mesh with POSITION attribute
+            for mesh in gltf.meshes:
+                for primitive in mesh.primitives:
+                    if primitive.attributes.POSITION is not None:
+                        acc = gltf.accessors[primitive.attributes.POSITION]
+                        bv = gltf.bufferViews[acc.bufferView]
+                        blob = gltf.binary_blob()
+                        
+                        offset = bv.byteOffset if bv.byteOffset else 0
+                        data = blob[offset:offset + bv.byteLength]
+                        vertices = np.frombuffer(data, dtype=np.float32).reshape(-1, 3)
+                        
+                        bounds = {
+                            "min": np.array(acc.min) if acc.min else vertices.min(axis=0),
+                            "max": np.array(acc.max) if acc.max else vertices.max(axis=0),
+                            "center": vertices.mean(axis=0),
+                            "vertex_count": len(vertices)
+                        }
+                        
+                        return vertices, bounds
+        except Exception:
+            pass  # Fall through to trimesh
+    
+    # Fallback to trimesh for OBJ and other formats
     mesh = trimesh.load(mesh_path)
     
     # Get vertices - handle Scene vs Mesh

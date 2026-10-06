@@ -15,13 +15,60 @@ def cli():
 @click.option('--profile', default='commercial', help='라이선스 프로파일 (commercial)')
 def avatar(image, output, profile):
     """이미지에서 VTuber 아바타를 생성합니다."""
-    from vtuber_pipeline.avatar.reconstruction import reconstruct_avatar
-    click.echo(f'[1/4] 3D 재구성 중: {image}')
-    mesh = reconstruct_avatar(image, output, profile)
-    click.echo(f'[1/4] 완료: {mesh}')
-    click.echo('[2/4] 템플릿 피팅 (미구현 — 향후 릴리즈 예정)')
-    click.echo('[3/4] 리깅 (미구현 — 향후 릴리즈 예정)')
-    click.echo('[4/4] VRM 내보내기 (미구현 — 향후 릴리즈 예정)')
+    from vtuber_pipeline.avatar.build import build_avatar
+    import pathlib
+    
+    click.echo(f'아바타 빌드 시작: {image}')
+    click.echo(f'출력 디렉터리: {output}')
+    click.echo(f'프로파일: {profile}')
+    
+    result = build_avatar(image, output, {"profile": profile})
+    
+    # Report stage results
+    stages = result.get("stages", {})
+    stage_names = [
+        ("input_gate", "입력 검증"),
+        ("face_landmarks", "얼굴 랜드마크"),
+        ("reference_reconstruction", "3D 재구성"),
+        ("reference_analysis", "메시 분석"),
+        ("template_fitting", "템플릿 피팅"),
+        ("deformation_transfer", "변형 전송"),
+        ("texture_transfer", "텍스처 전송"),
+        ("hair", "헤어 추출"),
+        ("clothing", "의상 추출"),
+        ("rig", "리깅"),
+        ("expressions", "표정 생성"),
+        ("gaze", "시선 설정"),
+        ("springbone", "스프링본"),
+        ("materials", "머티리얼"),
+        ("vrm_export", "VRM 내보내기"),
+        ("validator", "검증")
+    ]
+    
+    for stage_key, stage_name in stage_names:
+        stage_result = stages.get(stage_key, {})
+        status = stage_result.get("status", "unknown")
+        if status == "complete":
+            click.echo(f'  ✓ {stage_name}')
+        elif status == "stub":
+            click.echo(f'  ○ {stage_name} (stub)')
+        elif status == "error":
+            error = stage_result.get("error", "unknown error")
+            click.echo(f'  ✗ {stage_name}: {error}')
+        else:
+            click.echo(f'  · {stage_name}: {status}')
+    
+    # Final result
+    if result.get("status") == "complete":
+        vrm_path = pathlib.Path(output) / "avatar.vrm"
+        click.echo(f'\n완료! VRM 파일: {vrm_path}')
+        validation = stages.get("validator", {})
+        if validation.get("passed"):
+            click.echo('VRM 검증: 통과')
+        else:
+            click.echo('VRM 검증: 경고 (일부 항목 미달)')
+    else:
+        click.echo(f'\n빌드 실패: {result.get("failed_stages", [])}')
 
 
 @cli.command()

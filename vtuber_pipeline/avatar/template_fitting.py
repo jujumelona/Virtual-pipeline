@@ -101,6 +101,18 @@ def fit_template(
         try:
             import trimesh
             mesh = trimesh.load(template_path)
+            
+            # Handle Scene objects - extract first mesh
+            if isinstance(mesh, trimesh.Scene):
+                geometries = list(mesh.geometry.values())
+                if len(geometries) > 0:
+                    mesh = geometries[0]
+                else:
+                    result["error"] = "Scene contains no geometry"
+                    result["status"] = "error"
+                    _write_fit_report(output_dir, result)
+                    return result
+                    
             result["vertex_count"] = len(mesh.vertices)
             result["face_count"] = len(mesh.faces)
         except ImportError:
