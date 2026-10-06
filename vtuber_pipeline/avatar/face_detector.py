@@ -2,6 +2,21 @@
 
 from typing import Dict, List, Any
 
+# Optional dependencies
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    np = None
+    NUMPY_AVAILABLE = False
+
+try:
+    from PIL import Image as PILImage
+    PIL_AVAILABLE = True
+except ImportError:
+    PILImage = None
+    PIL_AVAILABLE = False
+
 
 class AnimeFaceDetector:
     """anime-face-detector 래퍼. bbox와 28개 랜드마크를 반환합니다."""
@@ -21,8 +36,11 @@ class AnimeFaceDetector:
         """
         if self._detector is None:
             raise ImportError("anime-face-detector가 설치되지 않았습니다. pip install anime-face-detector")
-        from PIL import Image as PILImage
-        import numpy as np
+        if not NUMPY_AVAILABLE:
+            raise ImportError("numpy가 설치되지 않았습니다. pip install numpy")
+        if not PIL_AVAILABLE:
+            raise ImportError("Pillow가 설치되지 않았습니다. pip install Pillow")
+        
         img = np.array(PILImage.open(image_path).convert('RGB'))
         preds = self._detector(img)
         if len(preds) == 0:
