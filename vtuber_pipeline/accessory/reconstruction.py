@@ -1,7 +1,10 @@
 """Batch accessory reconstruction through the same pinned TripoSR backend."""
 
 import pathlib
-from vtuber_pipeline.avatar.reconstruction import reconstruct_avatar
+from vtuber_pipeline.avatar.reconstruction import (
+    reconstruct_avatar,
+    TRIPOSR_MODEL_REVISION,
+)
 
 
 def reconstruct_accessories(
@@ -34,6 +37,7 @@ def reconstruct_accessories(
                     "profile": profile,
                     "model_save_format": model_save_format,
                     "remove_background": remove_background,
+                    "model_revision": TRIPOSR_MODEL_REVISION,
                 },
             })
         except Exception as exc:
