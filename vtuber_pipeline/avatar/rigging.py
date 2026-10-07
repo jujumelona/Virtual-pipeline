@@ -262,6 +262,7 @@ def create_gltf_with_skin(
     output_path: str,
     texture_path: str | None = None,
     uv_path: str | None = None,
+    hair_vertex_start: int | None = None,
 ) -> str:
     """Create a binary glTF with skinning and an optional embedded PNG texture."""
     if not PYGLTFLIB_AVAILABLE:
@@ -386,7 +387,22 @@ def create_gltf_with_skin(
         material_index = 0
 
     primitive = Primitive(attributes=attrs, indices=2, mode=4, material=material_index)
-    gltf.meshes.append(Mesh(name="avatar", primitives=[primitive]))
+    mesh_extras = {}
+    if hair_vertex_start is not None:
+        hair_vertex_start = int(hair_vertex_start)
+        if not (0 < hair_vertex_start < len(vertices)):
+            raise ValueError("Invalid hair shell vertex boundary")
+        mesh_extras = {
+            "hairVertexStart": hair_vertex_start,
+            "hairVertexCount": int(len(vertices) - hair_vertex_start),
+        }
+    gltf.meshes.append(
+        Mesh(
+            name="avatar",
+            primitives=[primitive],
+            extras=mesh_extras or None,
+        )
+    )
 
     mesh_node_idx = len(gltf.nodes)
     gltf.nodes.append(Node(name="avatar_mesh", mesh=0, skin=0, translation=[0.0, 0.0, 0.0]))
@@ -495,6 +511,7 @@ def rig_avatar(
         output_path,
         texture_path=texture_path,
         uv_path=rig_uv_path,
+        hair_vertex_start=hair_vertex_start,
     )
     
     return result
