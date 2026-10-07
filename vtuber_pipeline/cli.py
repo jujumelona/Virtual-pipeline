@@ -1,94 +1,113 @@
-"""Click-based CLI for VTuber Pipeline."""
+"""Click CLI for the fail-closed VTuber pipeline."""
 
+import pathlib
 import click
 
 
 @click.group()
 def cli():
-    """VTuber 상업용 파이프라인 CLI"""
+    """VTuber commercial avatar/accessory pipeline."""
     pass
 
 
 @cli.command()
-@click.option('--image', required=True, type=click.Path(exists=True), help='입력 이미지 경로')
-@click.option('--output', required=True, type=click.Path(), help='출력 디렉터리')
-@click.option('--profile', default='commercial', help='라이선스 프로파일 (commercial)')
-@click.option('--commercial-usage', type=click.Choice(['personalNonProfit', 'personalProfit', 'corporation']), default='corporation', help='상업용 사용 권한 (기본값: corporation)')
+@click.option("--image", required=True, type=click.Path(exists=True), help="Input character image")
+@click.option("--output", required=True, type=click.Path(), help="Output directory")
+@click.option("--profile", default="commercial", show_default=True)
+@click.option(
+    "--commercial-usage",
+    type=click.Choice(["personalNonProfit", "personalProfit", "corporation"]),
+    default="corporation",
+    show_default=True,
+)
 def avatar(image, output, profile, commercial_usage):
-    """이미지에서 VTuber 아바타를 생성합니다."""
+    """Build one VTuber avatar VRM from an external source image."""
     from vtuber_pipeline.avatar.build import build_avatar
-    import pathlib
-    
-    click.echo(f'아바타 빌드 시작: {image}')
-    click.echo(f'출력 디렉터리: {output}')
-    click.echo(f'프로파일: {profile}')
-    click.echo(f'상업용 권한: {commercial_usage}')
-    
-    result = build_avatar(image, output, {"profile": profile, "commercial_usage": commercial_usage})
-    
-    # Report stage results
+
+    result = build_avatar(
+        image, output,
+        {"profile": profile, "commercial_usage": commercial_usage},
+    )
     stages = result.get("stages", {})
     stage_names = [
-        ("input_gate", "입력 검증"),
-        ("face_landmarks", "얼굴 랜드마크"),
-        ("reference_reconstruction", "3D 재구성"),
-        ("reference_analysis", "메시 분석"),
-        ("template_fitting", "템플릿 피팅"),
-        ("deformation_transfer", "변형 전송"),
-        ("texture_transfer", "텍스처 전송"),
-        ("hair", "헤어 추출"),
-        ("clothing", "의상 추출"),
-        ("rig", "리깅"),
-        ("expressions", "표정 생성"),
-        ("gaze", "시선 설정"),
-        ("springbone", "스프링본"),
-        ("materials", "머티리얼"),
-        ("vrm_export", "VRM 내보내기"),
-        ("validator", "검증")
+        ("input_gate", "input validation + landmarks"),
+        ("reference_reconstruction", "TripoSR reconstruction"),
+        ("template_fitting", "canonical template fitting"),
+        ("texture_transfer", "texture transfer"),
+        ("rig", "humanoid rig"),
+        ("expressions", "expressions / visemes"),
+        ("gaze", "look-at"),
+        ("springbone", "SpringBone"),
+        ("vrm_export", "VRM export"),
+        ("validator", "strict validation"),
     ]
-    
-    for stage_key, stage_name in stage_names:
-        stage_result = stages.get(stage_key, {})
-        status = stage_result.get("status", "unknown")
+    for key, label in stage_names:
+        stage = stages.get(key)
+        if not stage:
+            continue
+        status = stage.get("status", "unknown")
         if status == "complete":
-            click.echo(f'  ✓ {stage_name}')
-        elif status == "stub":
-            click.echo(f'  ○ {stage_name} (stub)')
-        elif status == "error":
-            error = stage_result.get("error", "unknown error")
-            click.echo(f'  ✗ {stage_name}: {error}')
+            click.echo(f"  ✓ {label}")
         else:
-            click.echo(f'  · {stage_name}: {status}')
-    
-    # Final result
-    if result.get("status") == "complete":
-        vrm_path = pathlib.Path(output) / "avatar.vrm"
-        click.echo(f'\n완료! VRM 파일: {vrm_path}')
-        validation = stages.get("validator", {})
-        if validation.get("passed"):
-            click.echo('VRM 검증: 통과')
-        else:
-            click.echo('VRM 검증: 경고 (일부 항목 미달)')
-    else:
-        click.echo(f'\n빌드 실패: {result.get("failed_stages", [])}')
+            detail = stage.get("error") or stage.get("warning") or status
+            click.echo(f"  ✗ {label}: {detail}")
+
+    if result.get("status") != "complete":
+        raise click.ClickException(
+            str(result.get("failed_reason") or result.get("failed_stages") or "avatar build failed")
+        )
+    click.echo(f"VRM: {result['vrm_path']}")
 
 
 @cli.command()
-@click.option('--images', required=True, multiple=True, type=click.Path(exists=True), help='입력 이미지 경로들')
-@click.option('--output', required=True, type=click.Path(), help='출력 디렉터리')
-def accessory(images, output):
-    """이미지들에서 VTuber 액세서리를 배치 생성합니다."""
+@click.option("--base-vrm", required=True, type=click.Path(exists=True), help="Completed avatar VRM")
+@click.option("--images", required=True, multiple=True, type=click.Path(exists=True), help="Accessory source images")
+@click.option(
+    "--anchor",
+    type=click.Choice([
+        "HEAD_TOP", "FACE", "LEFT_EAR", "RIGHT_EAR", "NECK", "CHEST",
+        "BACK", "LEFT_SHOULDER", "RIGHT_SHOULDER", "LEFT_HAND",
+        "RIGHT_HAND", "LEFT_FOOT", "RIGHT_FOOT", "HIPS",
+    ]),
+    default="HEAD_TOP",
+    show_default=True,
+)
+@click.option("--output", required=True, type=click.Path(), help="Output directory")
+@click.option("--profile", default="commercial", show_default=True)
+def accessory(base_vrm, images, anchor, output, profile):
+    """Reconstruct and independently fit multiple accessories to one avatar."""
     from vtuber_pipeline.accessory.reconstruction import reconstruct_accessories
-    from vtuber_pipeline.accessory.attachment import generate_attachment_config
-    import pathlib
-    click.echo(f'[1/2] {len(images)}개 액세서리 3D 재구성 중...')
-    results = reconstruct_accessories(list(images), output)
-    meshes = [r['mesh'] for r in results if r['mesh']]
-    click.echo(f'[2/2] attachment.json 생성 중...')
-    config_path = str(pathlib.Path(output) / 'attachment.json')
-    generate_attachment_config(meshes, config_path)
-    click.echo(f'완료: {config_path}')
+    from vtuber_pipeline.accessory.build import AccessoryPipeline
+
+    out = pathlib.Path(output)
+    out.mkdir(parents=True, exist_ok=True)
+    recon_dir = out / "reconstruction"
+    reconstructed = reconstruct_accessories(list(images), str(recon_dir), profile=profile)
+
+    failures = []
+    completed = []
+    for index, item in enumerate(reconstructed):
+        if item.get("status") != "complete" or not item.get("mesh"):
+            failures.append({"image": item.get("image"), "error": item.get("error", "reconstruction failed")})
+            continue
+        item_dir = out / f"accessory_{index:03d}"
+        build = AccessoryPipeline(str(item_dir), {"anchor_name": anchor}).build(
+            base_vrm=base_vrm,
+            accessory_glb=item["mesh"],
+        )
+        if build.get("status") == "complete":
+            completed.append(build.get("output_vrm"))
+            click.echo(f"  ✓ {item.get('image')} -> {build.get('output_vrm')}")
+        else:
+            failures.append({
+                "image": item.get("image"),
+                "error": build.get("failed_stages") or build.get("incomplete_stages") or build.get("status"),
+            })
+
+    if failures:
+        raise click.ClickException(f"{len(failures)} accessory item(s) failed: {failures}")
+    click.echo(f"Completed {len(completed)} accessory variant(s).")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()
