@@ -1,6 +1,7 @@
 # VTuber Commercial Pipeline
 
-[![Notebook](https://img.shields.io/badge/notebook-open%20latest-blue.svg)](https://github.com/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
+[![Notebook Source](https://img.shields.io/badge/notebook-source-blue.svg)](https://github.com/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
@@ -76,30 +77,36 @@ Python 3.12 이상이 필요합니다.
 
 ## Google Colab
 
-이 저장소는 **private**이므로 `colab.research.google.com/github/...` 링크를 README에 직접 걸면 Colab 백엔드가 private GitHub Contents API를 익명 호출하면서 404가 발생합니다.
+이 저장소는 **private**입니다. 위 **Open In Colab** 버튼을 처음 누를 때 Colab이 GitHub API 권한을 아직 갖고 있지 않으면 GitHub Contents API가 404를 반환할 수 있습니다.
 
-위의 **Notebook** 배지는 GitHub의 최신 `main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb` 파일을 엽니다. GitHub에서 해당 파일을 내려받아 Colab에 업로드한 뒤 실행하세요.
+처음 한 번만 다음 순서로 처리하면 됩니다.
 
-Colab에서 한 번만 다음 Secret을 등록하면 이후 Setup 셀이 자동으로 처리합니다.
+1. **Open In Colab** 클릭
+2. Colab 화면에서 **Authorize with GitHub / GitHub 승인 요청** 선택
+3. GitHub에서 Colab에 이 private repository 읽기 권한 허용
+4. 노트북이 열리면 Colab Secret에 `GITHUB_TOKEN` 등록
+   - Fine-grained PAT 권장
+   - 이 repository에 **Contents: Read-only**
+5. Setup 셀 실행
 
-- Secret name: `GITHUB_TOKEN`
-- 권한: 이 private repository에 대한 **Contents: Read-only**
-
-Setup 셀은 매 실행마다 다음 순서로 동작합니다.
+노트북 Setup 셀은 매번 다음을 강제로 수행합니다.
 
 ```text
-GitHub 인증
+private GitHub 인증
 → /content/Virtual-pipeline clone 또는 fetch
-→ origin/main으로 checkout + hard reset
+→ origin/main fetch
+→ checkout -B main origin/main
+→ reset --hard origin/main
 → local HEAD == origin/main 검증
 → pinned TripoSR checkout
-→ 최신 checkout을 pip install -e
-→ Avatar / Accessory 단계 실행
+→ 방금 받은 최신 repo를 pip install -e
+→ stale vtuber_pipeline module 제거
+→ Avatar / Accessory 실행
 ```
 
-즉 노트북 자체가 예전에 내려받은 사본이어도 실제 파이프라인 코드는 항상 실행 시점의 최신 `main`을 사용합니다.
+따라서 Colab에 저장된 노트북 사본이 조금 오래돼도 **실제로 실행되는 파이프라인 코드는 실행 시점의 최신 `main`**입니다.
 
-> private repository를 그대로 유지하면서 README 클릭 한 번만으로 Colab이 노트북 파일 자체까지 불러오게 하는 것은 불가능합니다. 그 방식이 필요하면 notebook launcher만 별도 public 저장소/Gist/Drive에 두거나 이 repository를 public으로 바꿔야 합니다.
+Colab의 GitHub 승인이 풀려 direct 버튼에서 다시 404가 나면 위 **Notebook Source** 버튼으로 GitHub 파일을 열어 내려받은 뒤 Colab에 업로드할 수도 있습니다. 이 경우에도 Setup 셀이 최신 main을 다시 받으므로 실행 코드는 동일합니다.
 
 ## CLI
 
