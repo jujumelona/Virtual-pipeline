@@ -432,10 +432,11 @@ def test_cli_avatar_options_reach_avatar_builder(
 def test_model_option_cache_inputs_are_explicit():
     import ast
     import inspect
+    import textwrap
 
     from vtuber_pipeline.avatar.build import AvatarPipeline
 
-    tree = ast.parse(inspect.getsource(AvatarPipeline.build))
+    tree = ast.parse(textwrap.dedent(inspect.getsource(AvatarPipeline.build)))
     matches = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
