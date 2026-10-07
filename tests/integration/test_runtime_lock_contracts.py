@@ -1,0 +1,182 @@
+"""Cross-file runtime, model, notebook, and packaging lock contracts."""
+
+from __future__ import annotations
+
+import ast
+import json
+import pathlib
+import re
+import tomllib
+
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+
+def _read(path: str) -> str:
+    return (ROOT / path).read_text(encoding="utf-8")
+
+
+def _constants(path: str) -> dict[str, object]:
+    tree = ast.parse(_read(path), filename=path)
+    result: dict[str, object] = {}
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and isinstance(node.value, ast.Constant)
+        ):
+            result[node.targets[0].id] = node.value.value
+    return result
+
+
+def _requirement_contract(raw: str) -> tuple[str, tuple[str, ...], str]:
+    req = Requirement(raw)
+    return (
+        canonicalize_name(req.name),
+        tuple(sorted(req.extras)),
+        str(req.specifier),
+    )
+
+
+def test_python_support_contract_matches_ci_and_readme():
+    pyproject = tomllib.loads(_read("pyproject.toml"))
+    workflow = _read(".github/workflows/ci.yml")
+    readme = _read("README.md")
+
+    assert pyproject["project"]["requires-python"] == ">=3.12,<3.14"
+    assert 'python-version: ["3.12", "3.13"]' in workflow
+    assert "3.12 또는 3.13" in readme
+
+
+def test_requirements_and_pyproject_direct_dependencies_match():
+    pyproject = tomllib.loads(_read("pyproject.toml"))
+    project_deps = {
+        _requirement_contract(raw)
+        for raw in pyproject["project"]["dependencies"]
+    }
+    requirements = {
+        _requirement_contract(line.strip())
+        for line in _read("requirements.txt").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+    assert requirements == project_deps
+
+
+def test_all_source_and_model_pins_agree():
+    from vtuber_pipeline.avatar.reconstruction import (
+        TRIPOSR_MODEL_ID,
+        TRIPOSR_MODEL_REVISION,
+        TRIPOSR_MODEL_WEIGHT_SHA256,
+        TRIPOSR_PINNED_COMMIT,
+    )
+    from vtuber_pipeline.avatar.template_mesh import MAKEHUMAN_CC0_COMMIT
+
+    lock = json.loads(_read("third_party.lock.json"))
+    tools = lock["tools"]
+    colab = _constants("tools/colab_app.py")
+    readme = _read("README.md")
+    requirements = _read("requirements.txt")
+
+    assert tools["triposr"]["source_commit"] == TRIPOSR_PINNED_COMMIT
+    assert tools["triposr"]["model_id"] == TRIPOSR_MODEL_ID
+    assert tools["triposr"]["model_revision"] == TRIPOSR_MODEL_REVISION
+    assert tools["triposr"]["model_weight_sha256"] == TRIPOSR_MODEL_WEIGHT_SHA256
+    assert colab["TRIPOSR_COMMIT"] == TRIPOSR_PINNED_COMMIT
+    assert colab["TRIPOSR_MODEL_REVISION"] == TRIPOSR_MODEL_REVISION
+    assert colab["TRIPOSR_MODEL_WEIGHT_SHA256"] == TRIPOSR_MODEL_WEIGHT_SHA256
+    assert TRIPOSR_PINNED_COMMIT in requirements
+    assert TRIPOSR_PINNED_COMMIT in readme
+
+    assert tools["makehuman_cc0"]["source_commit"] == MAKEHUMAN_CC0_COMMIT
+    assert MAKEHUMAN_CC0_COMMIT in readme
+
+    assert tools["torchmcubes"]["source_commit"] == colab["TORCHMCUBES_COMMIT"]
+
+    for value in (
+        TRIPOSR_MODEL_WEIGHT_SHA256,
+        tools["gradio"]["published_wheel_sha256"],
+    ):
+        assert re.fullmatch(r"[0-9a-f]{64}", value)
+
+
+def test_pinned_package_versions_agree_with_runtime_surfaces():
+    lock = json.loads(_read("third_party.lock.json"))
+    pyproject = tomllib.loads(_read("pyproject.toml"))
+    requirements = _read("requirements.txt")
+    colab_source = _read("tools/colab_app.py")
+    notebook = json.loads(_read("notebooks/VTuber_Commercial_Pipeline_Colab.ipynb"))
+    notebook_code = "\n".join(
+        "".join(cell.get("source", []))
+        for cell in notebook.get("cells", [])
+        if cell.get("cell_type") == "code"
+    )
+
+    project_deps = pyproject["project"]["dependencies"]
+
+    anime = lock["tools"]["anime_face_detector"]["package_version"]
+    assert f"anime-face-detector=={anime}" in project_deps
+    assert f"anime-face-detector=={anime}" in requirements
+    assert f"anime-face-detector=={anime}" in colab_source
+
+    pygltf = lock["tools"]["pygltflib"]["package_version"]
+    assert f"pygltflib=={pygltf}" in project_deps
+    assert f"pygltflib=={pygltf}" in requirements
+    assert f"pygltflib=={pygltf}" in colab_source
+
+    gradio = lock["tools"]["gradio"]["package_version"]
+    assert _constants("tools/colab_app.py")["GRADIO_VERSION"] == gradio
+    assert f"gradio=={gradio}" in notebook_code
+
+
+def test_colab_notebook_is_only_a_fresh_main_bootstrap():
+    notebook = json.loads(_read("notebooks/VTuber_Commercial_Pipeline_Colab.ipynb"))
+    code_cells = [
+        "".join(cell.get("source", []))
+        for cell in notebook.get("cells", [])
+        if cell.get("cell_type") == "code"
+    ]
+    code = "\n".join(code_cells)
+
+    assert len(code_cells) == 1
+    assert '"fetch", "--prune", "origin", "main"' in code
+    assert '"reset", "--hard", "origin/main"' in code
+    assert 'REPO_DIR / "tools" / "colab_app.py"' in code
+    assert 'run_name="__main__"' in code
+
+    # The notebook must not carry a stale second implementation of the app.
+    for forbidden in (
+        "class AvatarPipeline",
+        "class AccessoryPipeline",
+        "def reconstruct_avatar",
+        "def build_avatar_ui",
+        "def build_accessories_ui",
+    ):
+        assert forbidden not in code
+
+
+def test_lock_entries_are_fail_closed_and_complete():
+    lock = json.loads(_read("third_party.lock.json"))
+    tools = lock.get("tools")
+    assert isinstance(tools, dict) and tools
+
+    for name, item in tools.items():
+        assert item.get("commercial_safe") is True, name
+        assert isinstance(item.get("license"), str) and item["license"], name
+
+        has_package_pin = bool(
+            item.get("package") and item.get("package_version")
+        )
+        has_source_pin = bool(item.get("source_commit"))
+        assert has_package_pin or has_source_pin, (
+            name,
+            "entry has neither package version nor source revision",
+        )
+
+    triposr = tools["triposr"]
+    assert triposr["model_revision"]
+    assert triposr["model_weight_sha256"]
