@@ -509,7 +509,7 @@ def export_vrm(
                 collider_groups=springbone_config.get("colliderGroups", []),
                 bone_mapping=bone_mapping,
             )
-            if springbone_extension["springs"]:
+            if springbone_extension.get("springs"):
                 if "VRMC_springBone" not in gltf.extensionsUsed:
                     gltf.extensionsUsed.append("VRMC_springBone")
                 gltf.extensions["VRMC_springBone"] = springbone_extension
@@ -650,85 +650,3 @@ def create_springbone_extension(
     if normalized_springs:
         extension["springs"] = normalized_springs
     return extension
-
-def validate_vrm(vrm_path: str) -> Dict[str, Any]:
-    """Validate a VRM file.
-    
-    Checks:
-    1. File exists and size > 0
-    2. VRMC_vrm extension present
-    3. Humanoid bone mapping defined
-    4. Expression presets defined (if any)
-    
-    Args:
-        vrm_path: Path to the VRM file.
-    
-    Returns:
-        Dictionary with validation results.
-    """
-    result = {
-        "valid": True,
-        "errors": [],
-        "warnings": [],
-        "checks": {}
-    }
-    
-    vrm_file = pathlib.Path(vrm_path)
-    
-    # Check file exists
-    if not vrm_file.exists():
-        result["valid"] = False
-        result["errors"].append(f"VRM 파일이 존재하지 않습니다: {vrm_path}")
-        return result
-    
-    # Check file size
-    file_size = vrm_file.stat().st_size
-    result["file_size_bytes"] = file_size
-    result["checks"]["file_exists"] = file_size > 0
-    if file_size == 0:
-        result["valid"] = False
-        result["errors"].append("VRM 파일 크기가 0 bytes입니다")
-        return result
-    
-    # Load and check VRM extension
-    if not PYGLTFLIB_AVAILABLE:
-        result["warnings"].append("pygltflib이 설치되지 않아 내부 검증을 건너뜁니다")
-        return result
-    
-    try:
-        gltf = GLTF2().load(vrm_path)
-        
-        # Check VRMC_vrm extension
-        has_vrm = gltf.extensions and "VRMC_vrm" in gltf.extensions
-        result["checks"]["vrm_extension"] = has_vrm
-        
-        if not has_vrm:
-            result["valid"] = False
-            result["errors"].append("VRMC_vrm 확장이 없습니다")
-        else:
-            vrm_ext = gltf.extensions["VRMC_vrm"]
-            
-            # Check humanoid - VRM 1.0 uses humanBones (object)
-            humanoid = vrm_ext.get("humanoid", {})
-            bones = humanoid.get("humanBones", {})
-            result["checks"]["humanoid_bones"] = len(bones) > 0
-            result["humanoid_bone_count"] = len(bones)
-            
-            if len(bones) == 0:
-                result["valid"] = False
-                result["errors"].append("휴머노이드 뼈대 매핑이 없습니다")
-            
-            # Check expressions - VRM 1.0 uses preset (singular)
-            expressions = vrm_ext.get("expressions", {})
-            presets = expressions.get("preset", {})
-            result["checks"]["expressions"] = True  # Expressions are optional
-            result["expression_count"] = len(presets)
-            
-            if presets:
-                result["warnings"].append(f"표정 프리셋 {len(presets)}개 발견")
-        
-    except Exception as e:
-        result["valid"] = False
-        result["errors"].append(f"VRM 검증 오류: {str(e)}")
-    
-    return result
