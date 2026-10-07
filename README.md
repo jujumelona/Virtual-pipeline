@@ -1,6 +1,6 @@
 # VTuber Commercial Pipeline
 
-[![Notebook Source](https://img.shields.io/badge/notebook-open%20source-blue.svg)](https://github.com/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
@@ -76,41 +76,35 @@ Python 3.12 이상이 필요합니다.
 
 ## Google Colab
 
-현재 저장소가 **private**이면 Colab의 `/github/...` URL이 GitHub Contents API에서 404를 받을 수 있으므로 README에는 깨지는 direct Colab 버튼을 두지 않습니다.
+저장소는 **Public 기준**으로 사용합니다. GitHub 토큰이나 private repository 인증 경로는 사용하지 않습니다.
 
-위 **Notebook Source** 버튼으로 최신 `main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb`를 엽니다.
+위 **Open In Colab** 버튼으로 노트북을 열고 코드 셀 하나만 실행하면 UI가 바로 표시됩니다.
 
-### 저장소가 public인 경우
-
-토큰이 전혀 필요 없습니다.
-
-노트북 Setup은 먼저 **익명 clone/fetch**를 시도하고 그대로 최신 `origin/main`을 설치합니다. 저장소를 public으로 전환하면 다음 direct Colab URL도 정상적으로 사용할 수 있습니다.
-
-```text
-https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb
-```
-
-### 저장소가 private인 경우
-
-노트북 자체를 Colab에 업로드한 뒤 실행하면 됩니다. Setup은 익명 clone을 먼저 시도하고, 그게 실패할 때만 `GITHUB_TOKEN`을 찾습니다.
-
-즉 **토큰은 private 저장소 접근 때문에만 필요하고, public이면 요청하지 않습니다.**
-
-### 사용자 UI
-
-설치가 끝난 뒤에는 코드 셀을 직접 편집할 필요 없이 하나의 UI에서 실행합니다.
+UI에서 할 수 있는 작업:
 
 - **Avatar 만들기 / Accessory 붙이기** 모드 선택
 - 캐릭터 이미지 업로드
-- commercial usage 선택
-- base VRM 업로드 또는 방금 생성한 Avatar VRM 재사용
+- 상업 이용 범위 선택
+- Base VRM 업로드 또는 방금 만든 Avatar VRM 재사용
 - 악세사리 이미지 여러 장 업로드
-- 악세사리 파일별 anchor 드롭다운
-- 실행 버튼
-- 진행 로그
-- 성공 후 VRM 다운로드 버튼
+- 악세사리별 부착 위치 선택
+- 실행
+- 진행 로그 확인
+- 결과 VRM 다운로드
 
-Setup은 매 실행마다 최신 `origin/main`으로 reset한 뒤 그 checkout을 editable install하므로, 노트북 사본이 조금 오래돼도 실제 실행 코드는 최신 main입니다.
+설치와 최신 코드 동기화는 UI의 **실행 버튼을 처음 누를 때 자동으로 수행**합니다.
+
+```text
+UI 즉시 표시
+→ 실행 클릭
+→ public Virtual-pipeline 최신 origin/main clone/fetch
+→ pinned TripoSR checkout
+→ 최신 main editable install
+→ Avatar 또는 Accessory pipeline 실행
+→ VRM 다운로드
+```
+
+GitHub token 입력, Colab Secret, private repository fallback은 없습니다.
 
 ## CLI
 
