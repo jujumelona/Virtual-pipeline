@@ -29,7 +29,7 @@ class AccessoryPipeline:
         """
         self.output_dir = pathlib.Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.config = config or {}
+        self.config = {} if config is None else config
     
     def build(
         self,
