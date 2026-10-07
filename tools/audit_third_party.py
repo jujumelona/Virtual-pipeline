@@ -4,6 +4,7 @@ import hashlib
 import importlib.metadata
 import json
 import pathlib
+import os
 import subprocess
 from typing import Any, Dict, Optional
 
@@ -110,8 +111,22 @@ def audit_tools(lock_path: pathlib.Path = LOCK_PATH) -> Dict[str, Any]:
         }
 
         if name == "triposr":
+            env_path = os.environ.get("TRIPOSR_DIR")
+            candidates = [
+                pathlib.Path(env_path).expanduser() if env_path else None,
+                ROOT / info.get("path", "TripoSR"),
+                pathlib.Path("/content/third_party/TripoSR"),
+            ]
+            checkout = next(
+                (
+                    path for path in candidates
+                    if path is not None and (path / ".git").is_dir()
+                ),
+                candidates[1],
+            )
             item["source"] = check_git_revision(
-                ROOT / info.get("path", "TripoSR"), info["source_commit"]
+                checkout,
+                info["source_commit"],
             )
         elif info.get("package") and info.get("package_version"):
             item["package"] = check_package_version(
