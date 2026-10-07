@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  wiring:
+    name: Pipeline wiring
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check pytest
+      - run: python -m pytest -q tests/integration/test_pipeline_wiring_static.py
+
+  unit:
+    name: Unit / Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install --disable-pip-version-check -U pip
+      - run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - run: python -m pytest -q tests/unit
+
+  integration:
+    name: CPU integration contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VTUBER_E2E: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --disable-pip-version-check -U pip
+      - run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - run: >-
+          python -m pytest -q
+          tests/integration/test_e2e_pipeline.py
+          tests/integration/test_reconstruction.py
+          --maxfail=1
+
+  package-smoke:
+    name: Package and public API smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --disable-pip-version-check -U pip
+      - run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - name: Import public API
+        run: >-
+          python -c "import vtuber_pipeline;
+          from vtuber_pipeline.avatar import build_avatar;
+          from vtuber_pipeline.accessory import AccessoryPipeline, reconstruct_accessories;
+          print('public-api-ok')"
+      - run: vtuber-pipeline --help
+
+  commercial-lock:
+    name: Commercial dependency lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate lock and commercial flags
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+
+          data = json.loads(pathlib.Path("third_party.lock.json").read_text(encoding="utf-8"))
+          tools = data.get("tools")
+          assert isinstance(tools, dict) and tools, "third_party.lock.json has no tools"
+          blocked = [
+              name
+              for name, item in tools.items()
+              if not isinstance(item, dict) or item.get("commercial_safe") is not True
+          ]
+          assert not blocked, f"non-commercial or unresolved tools: {blocked}"
+          for name, item in tools.items():
+              assert item.get("license"), f"{name}: missing license"
+          print("commercial-lock-ok")
+          PY
+
+  gate:
+    name: CI gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ always() }}
+    needs:
+      - wiring
+      - unit
+      - integration
+      - package-smoke
+      - commercial-lock
+    steps:
+      - name: Require every parallel verification path
+        env:
+          WIRING: ${{ needs.wiring.result }}
+          UNIT: ${{ needs.unit.result }}
+          INTEGRATION: ${{ needs.integration.result }}
+          PACKAGE_SMOKE: ${{ needs.package-smoke.result }}
+          COMMERCIAL_LOCK: ${{ needs.commercial-lock.result }}
+        run: |
+          printf '%s\n'             "wiring=$WIRING"             "unit=$UNIT"             "integration=$INTEGRATION"             "package-smoke=$PACKAGE_SMOKE"             "commercial-lock=$COMMERCIAL_LOCK"
+          test "$WIRING" = success
+          test "$UNIT" = success
+          test "$INTEGRATION" = success
+          test "$PACKAGE_SMOKE" = success
+          test "$COMMERCIAL_LOCK" = success
