@@ -16,12 +16,14 @@ def bake_accessories(
 ) -> Dict[str, Any]:
     """Bake selected accessories into base VRM.
     
-    실제 VRM 결합:
-    1. Load base VRM with pygltflib
-    2. For each accessory: load GLB, apply transform from attachment.json, add to scene
-    3. Set parent bone for each accessory
-    4. Export combined VRM
-    5. Validate
+    Full pygltflib merge:
+    1. Load base VRM and get binary_blob()
+    2. For each accessory: load GLB, get binary_blob(), compute offsets
+    3. Remap all index references in bufferViews, accessors, meshes, nodes
+    4. Append remapped nodes/meshes/materials/accessors/bufferViews to base
+    5. Concatenate binary blobs
+    6. Call base.set_binary_blob(merged_binary)
+    7. Save with base.save_binary(output_path)
     
     Args:
         base_vrm: Path to the base VRM file.
@@ -45,10 +47,13 @@ def bake_accessories(
         from pygltflib import GLTF2
         import json
         
-        # 1. Load base VRM
-        gltf = GLTF2().load(base_vrm)
-        result["base_nodes"] = len(gltf.nodes) if gltf.nodes else 0
-        result["base_meshes"] = len(gltf.meshes) if gltf.meshes else 0
+        # 1. Load base VRM and get binary blob
+        base_gltf = GLTF2().load(base_vrm)
+        base_binary = bytearray(base_gltf.binary_blob())
+        
+        result["base_nodes"] = len(base_gltf.nodes) if base_gltf.nodes else 0
+        result["base_meshes"] = len(base_gltf.meshes) if base_gltf.meshes else 0
+        result["base_binary_size"] = len(base_binary)
         
         # 2. Load attachment config if provided
         attachment_data = {}
@@ -61,47 +66,67 @@ def bake_accessories(
                 with open(attachment_path, 'r') as f:
                     attachment_data = json.load(f)
         
-        # 3. Process each accessory with proper index remapping
+        # 3. Process each accessory with proper binary merge and index remapping
         merged_accessories = []
+        
         for i, acc_path in enumerate(accessory_paths):
             try:
                 acc_gltf = GLTF2().load(acc_path)
+                acc_binary = acc_gltf.binary_blob()
                 
                 # Get transform from attachment config
                 acc_name = pathlib.Path(acc_path).stem
                 transform = attachment_data.get(acc_name, attachment_data.get(str(i), {}))
                 
                 # Calculate offsets for index remapping
-                node_offset = len(gltf.nodes) if gltf.nodes else 0
-                mesh_offset = len(gltf.meshes) if gltf.meshes else 0
-                material_offset = len(gltf.materials) if gltf.materials else 0
-                accessor_offset = len(gltf.accessors) if gltf.accessors else 0
-                buffer_view_offset = len(gltf.bufferViews) if gltf.bufferViews else 0
+                node_offset = len(base_gltf.nodes) if base_gltf.nodes else 0
+                mesh_offset = len(base_gltf.meshes) if base_gltf.meshes else 0
+                material_offset = len(base_gltf.materials) if base_gltf.materials else 0
+                accessor_offset = len(base_gltf.accessors) if base_gltf.accessors else 0
+                buffer_view_offset = len(base_gltf.bufferViews) if base_gltf.bufferViews else 0
+                buffer_offset = len(base_binary)
                 
-                # Copy and remap nodes
-                for node in acc_gltf.nodes:
-                    new_node_dict = node.to_dict() if hasattr(node, 'to_dict') else {}
+                # Remap and copy buffer views with updated byteOffset
+                for bv in acc_gltf.bufferViews:
+                    new_bv_dict = bv.to_dict() if hasattr(bv, 'to_dict') else {}
                     
-                    # Remap mesh index
-                    if 'mesh' in new_node_dict and new_node_dict['mesh'] is not None:
-                        new_node_dict['mesh'] += mesh_offset
+                    # Update byteOffset to account for base binary
+                    if 'byteOffset' in new_bv_dict:
+                        new_bv_dict['byteOffset'] = new_bv_dict.get('byteOffset', 0) + buffer_offset
+                    else:
+                        new_bv_dict['byteOffset'] = buffer_offset
                     
-                    # Remap skin index
-                    if 'skin' in new_node_dict and new_node_dict['skin'] is not None:
-                        # Skin will be added at the end, so no remap needed yet
-                        pass
-                    
-                    # Remap children indices
-                    if 'children' in new_node_dict and new_node_dict['children']:
-                        new_node_dict['children'] = [c + node_offset for c in new_node_dict['children']]
-                    
-                    gltf.nodes.append(type(node)(**new_node_dict) if hasattr(node, '__init__') else node)
+                    # Create new BufferView object
+                    from pygltflib import BufferView
+                    new_bv = BufferView(**new_bv_dict)
+                    base_gltf.bufferViews.append(new_bv)
                 
-                # Copy and remap meshes
+                # Remap and copy accessors with updated bufferView indices
+                for acc in acc_gltf.accessors:
+                    new_acc_dict = acc.to_dict() if hasattr(acc, 'to_dict') else {}
+                    
+                    # Remap bufferView index
+                    if 'bufferView' in new_acc_dict and new_acc_dict['bufferView'] is not None:
+                        new_acc_dict['bufferView'] += buffer_view_offset
+                    
+                    # Remap sparse accessor indices if present
+                    if 'sparse' in new_acc_dict:
+                        sparse = new_acc_dict['sparse']
+                        if 'indices' in sparse and 'bufferView' in sparse['indices']:
+                            sparse['indices']['bufferView'] += buffer_view_offset
+                        if 'values' in sparse and 'bufferView' in sparse['values']:
+                            sparse['values']['bufferView'] += buffer_view_offset
+                    
+                    # Create new Accessor object
+                    from pygltflib import Accessor
+                    new_acc = Accessor(**new_acc_dict)
+                    base_gltf.accessors.append(new_acc)
+                
+                # Remap and copy meshes
                 for mesh in acc_gltf.meshes:
                     new_mesh_dict = mesh.to_dict() if hasattr(mesh, 'to_dict') else {}
                     
-                    # Remap primitive material indices
+                    # Remap primitive material and accessor indices
                     if 'primitives' in new_mesh_dict:
                         for prim in new_mesh_dict['primitives']:
                             if 'material' in prim and prim['material'] is not None:
@@ -116,45 +141,47 @@ def bake_accessories(
                             if 'indices' in prim and prim['indices'] is not None:
                                 prim['indices'] += accessor_offset
                     
-                    gltf.meshes.append(type(mesh)(**new_mesh_dict) if hasattr(mesh, '__init__') else mesh)
+                    # Create new Mesh object
+                    from pygltflib import Mesh
+                    new_mesh = Mesh(**new_mesh_dict)
+                    base_gltf.meshes.append(new_mesh)
                 
                 # Copy materials (no index remapping needed, just append)
                 if acc_gltf.materials:
                     for mat in acc_gltf.materials:
-                        gltf.materials.append(mat)
+                        base_gltf.materials.append(mat)
                 
-                # Copy and remap accessors
-                if acc_gltf.accessors:
-                    for acc in acc_gltf.accessors:
-                        new_acc_dict = acc.to_dict() if hasattr(acc, 'to_dict') else {}
-                        
-                        # Remap bufferView index
-                        if 'bufferView' in new_acc_dict and new_acc_dict['bufferView'] is not None:
-                            new_acc_dict['bufferView'] += buffer_view_offset
-                        
-                        # Remap sparse accessor indices if present
-                        if 'sparse' in new_acc_dict:
-                            sparse = new_acc_dict['sparse']
-                            if 'indices' in sparse and 'bufferView' in sparse['indices']:
-                                sparse['indices']['bufferView'] += buffer_view_offset
-                            if 'values' in sparse and 'bufferView' in sparse['values']:
-                                sparse['values']['bufferView'] += buffer_view_offset
-                        
-                        gltf.accessors.append(type(acc)(**new_acc_dict) if hasattr(acc, '__init__') else acc)
+                # Remap and copy nodes
+                for node in acc_gltf.nodes:
+                    new_node_dict = node.to_dict() if hasattr(node, 'to_dict') else {}
+                    
+                    # Remap mesh index
+                    if 'mesh' in new_node_dict and new_node_dict['mesh'] is not None:
+                        new_node_dict['mesh'] += mesh_offset
+                    
+                    # Remap skin index
+                    if 'skin' in new_node_dict and new_node_dict['skin'] is not None:
+                        # Skin remap would go here if we're merging skins
+                        pass
+                    
+                    # Remap children indices
+                    if 'children' in new_node_dict and new_node_dict['children']:
+                        new_node_dict['children'] = [c + node_offset for c in new_node_dict['children']]
+                    
+                    # Create new Node object
+                    from pygltflib import Node
+                    new_node = Node(**new_node_dict)
+                    base_gltf.nodes.append(new_node)
                 
-                # Copy and remap buffer views
-                if acc_gltf.bufferViews:
-                    for bv in acc_gltf.bufferViews:
-                        new_bv_dict = bv.to_dict() if hasattr(bv, 'to_dict') else {}
-                        
-                        # Buffer view indices are already remapped in accessors
-                        gltf.bufferViews.append(type(bv)(**new_bv_dict) if hasattr(bv, '__init__') else bv)
+                # Append accessory binary to base binary
+                base_binary.extend(acc_binary)
                 
                 merged_accessories.append({
                     "path": acc_path,
                     "name": acc_name,
                     "nodes_added": len(acc_gltf.nodes) if acc_gltf.nodes else 0,
                     "meshes_added": len(acc_gltf.meshes) if acc_gltf.meshes else 0,
+                    "binary_size": len(acc_binary),
                     "remapped": True
                 })
                 
@@ -166,17 +193,20 @@ def bake_accessories(
         
         result["merged_accessories"] = merged_accessories
         
-        # 4. Export combined VRM
-        # Save as GLB first, then rename to VRM
-        temp_glb = pathlib.Path(output_path).with_suffix('.glb')
-        gltf.save_binary(str(temp_glb))
+        # 4. Update buffer size
+        if base_gltf.buffers:
+            base_gltf.buffers[0].byteLength = len(base_binary)
         
-        if temp_glb.exists():
-            temp_glb.rename(output_path)
+        # 5. Set merged binary blob and save
+        base_gltf.set_binary_blob(bytes(base_binary))
+        
+        # Save as VRM
+        base_gltf.save_binary(output_path)
         
         result["output_path"] = output_path
-        result["final_nodes"] = len(gltf.nodes) if gltf.nodes else 0
-        result["final_meshes"] = len(gltf.meshes) if gltf.meshes else 0
+        result["final_nodes"] = len(base_gltf.nodes) if base_gltf.nodes else 0
+        result["final_meshes"] = len(base_gltf.meshes) if base_gltf.meshes else 0
+        result["final_binary_size"] = len(base_binary)
         result["status"] = "complete"
         
     except ImportError as e:

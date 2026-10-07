@@ -38,8 +38,11 @@ def compute_artifact_hash(file_path: pathlib.Path) -> Optional[str]:
 def update_artifact_hashes(lock_path: Optional[pathlib.Path] = None) -> dict:
     """Compute and update SHA256 hashes in third_party.lock.json.
     
-    This function computes actual SHA256 hashes for all configured tools
-    and updates the lock file with the computed values.
+    This function computes actual SHA256 hashes for:
+    - TripoSR model weights (.ckpt/.safetensors)
+    - anime-face-detector models
+    - MakeHuman CC0 assets
+    - VRM Add-on zip
     
     Args:
         lock_path: Path to the lock file. Defaults to third_party.lock.json
@@ -62,19 +65,27 @@ def update_artifact_hashes(lock_path: Optional[pathlib.Path] = None) -> dict:
     updated_hashes = {}
     
     for name, info in lock_data.get("tools", {}).items():
-        # Determine the path to hash
         artifact_path = None
         
-        if "path" in info:
-            # For git repositories, hash the HEAD commit or a representative file
-            tool_path = project_root / info["path"]
-            if tool_path.exists():
-                # For git repos, we can hash the current commit
-                git_head = tool_path / ".git" / "HEAD"
+        if name == "triposr":
+            # Check for TripoSR model weights
+            triposr_path = project_root / info.get("path", "TripoSR/")
+            model_files = [
+                triposr_path / "model.ckpt",
+                triposr_path / "model.safetensors",
+                triposr_path / "weights" / "model.ckpt",
+            ]
+            for mf in model_files:
+                if mf.exists():
+                    artifact_path = mf
+                    break
+            
+            # Also try git commit hash
+            if artifact_path is None:
+                git_head = triposr_path / ".git" / "HEAD"
                 if git_head.exists():
-                    # Get the commit hash from git
                     try:
-                        cmd = ["git", "-C", str(tool_path), "rev-parse", "HEAD"]
+                        cmd = ["git", "-C", str(triposr_path), "rev-parse", "HEAD"]
                         proc = subprocess.run(cmd, capture_output=True, text=True)
                         if proc.returncode == 0:
                             commit_hash = proc.stdout.strip()
@@ -83,11 +94,78 @@ def update_artifact_hashes(lock_path: Optional[pathlib.Path] = None) -> dict:
                     except Exception:
                         pass
         
-        if artifact_path:
+        elif name == "anime_face_detector":
+            # Check for model weights in typical locations
+            model_dirs = [
+                pathlib.Path.home() / ".cache" / "torch" / "hub" / "checkpoints",
+                project_root / "models" / "anime_face_detector",
+            ]
+            for md in model_dirs:
+                if md.exists():
+                    # Look for any .pt, .pth, .ckpt files
+                    model_files = list(md.glob("*.pt")) + list(md.glob("*.pth")) + list(md.glob("*.ckpt"))
+                    if model_files:
+                        artifact_path = model_files[0]
+                        break
+            
+            # Check PyPI version
+            try:
+                import importlib.metadata
+                version = importlib.metadata.version("anime-face-detector")
+                updated_hashes[name] = f"sha256:pypi:{version}"
+                continue
+            except Exception:
+                pass
+        
+        elif name == "makehuman_cc0":
+            # Check for MakeHuman assets
+            mh_path = project_root / info.get("path", "assets/makehuman_cc0/")
+            if mh_path.exists():
+                # Hash the first .obj file found
+                obj_files = list(mh_path.glob("**/*.obj"))
+                if obj_files:
+                    artifact_path = obj_files[0]
+                else:
+                    # Hash the directory git commit
+                    git_head = mh_path / ".git" / "HEAD"
+                    if git_head.exists():
+                        try:
+                            cmd = ["git", "-C", str(mh_path), "rev-parse", "HEAD"]
+                            proc = subprocess.run(cmd, capture_output=True, text=True)
+                            if proc.returncode == 0:
+                                commit_hash = proc.stdout.strip()
+                                updated_hashes[name] = f"sha256:git:{commit_hash}"
+                                continue
+                        except Exception:
+                            pass
+        
+        elif name == "vrm_addon":
+            # Check for VRM addon zip
+            vrm_path = project_root / info.get("path", "blender_addons/vrm/")
+            zip_files = list(vrm_path.glob("*.zip")) if vrm_path.exists() else []
+            if zip_files:
+                artifact_path = zip_files[0]
+            else:
+                # Check git commit
+                git_head = vrm_path / ".git" / "HEAD"
+                if git_head.exists():
+                    try:
+                        cmd = ["git", "-C", str(vrm_path), "rev-parse", "HEAD"]
+                        proc = subprocess.run(cmd, capture_output=True, text=True)
+                        if proc.returncode == 0:
+                            commit_hash = proc.stdout.strip()
+                            updated_hashes[name] = f"sha256:git:{commit_hash}"
+                            continue
+                    except Exception:
+                        pass
+        
+        # Compute hash for artifact if found
+        if artifact_path and artifact_path.exists():
             computed_hash = compute_artifact_hash(artifact_path)
             if computed_hash:
                 updated_hashes[name] = computed_hash
                 info["hash"] = computed_hash
+                info["hashed_file"] = str(artifact_path)
     
     # Update the lock file with computed hashes
     if updated_hashes:

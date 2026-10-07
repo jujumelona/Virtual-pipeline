@@ -631,7 +631,7 @@ def create_springbone_extension(
         springbone_groups: Optional list of springbone group configs.
             Each group should have:
             - "name": Group name (e.g., "hair", "ears")
-            - "stiffiness": Stiffness value (0.0-1.0)
+            - "stiffness": Stiffness value (0.0-1.0)
             - "gravityPower": Gravity power
             - "dragForce": Drag force
             - "hitRadius": Collision hit radius
@@ -648,32 +648,29 @@ def create_springbone_extension(
     # Build collider groups (empty for now - can be extended)
     collider_groups = []
     
-    # Build spring bone groups
+    # Build spring bone groups - VRM 1.0 uses "joints" array, not "jointEdges"
     springs = []
     for i, group in enumerate(springbone_groups):
         spring = {
             "name": group.get("name", f"spring_{i}"),
-            "jointEdges": []
+            "joints": [],  # VRM 1.0 spec uses "joints", not "jointEdges"
+            "colliderGroups": []  # VRM 1.0 requires colliderGroups on each spring
         }
         
         # Get bone indices
         bone_indices = group.get("bones", [])
         
-        # Build joint edges for each bone in the chain
+        # Build joints for each bone in the chain (VRM 1.0 schema)
         for j, bone_idx in enumerate(bone_indices):
-            joint_edge = {
-                "startNode": bone_idx,
-                "stiffiness": group.get("stiffiness", 0.5),
+            joint = {
+                "node": bone_idx,
+                "hitRadius": group.get("hitRadius", 0.02),
+                "stiffness": group.get("stiffness", 0.5),  # Fixed typo: "stiffness" not "stiffiness"
                 "gravityPower": group.get("gravityPower", 0.1),
-                "dragForce": group.get("dragForce", 0.2),
-                "hitRadius": group.get("hitRadius", 0.02)
+                "gravityDir": [0.0, -1.0, 0.0],  # VRM 1.0 requires gravityDir
+                "dragForce": group.get("dragForce", 0.2)
             }
-            
-            # End node is the next bone in chain, or -1 if last
-            if j < len(bone_indices) - 1:
-                joint_edge["endNode"] = bone_indices[j + 1]
-            
-            spring["jointEdges"].append(joint_edge)
+            spring["joints"].append(joint)
         
         springs.append(spring)
     

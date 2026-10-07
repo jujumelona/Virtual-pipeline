@@ -207,42 +207,57 @@ class AvatarPipeline:
                 }
             self.manifest.record_stage(stage_key, results["stages"]["template_fitting"])
         
-        # Stage 6: Deformation transfer
-        fit_npz = str(pathlib.Path(output_dir) / "fit.npz")
+        # CRITICAL FIX: Extract fitted_mesh from fitting result and use it for all downstream stages
+        # Previously, downstream stages incorrectly used ref_mesh instead of fitted_mesh
+        fitting_result = results["stages"]["template_fitting"]
+        fitted_mesh = fitting_result.get("fitted_mesh", ref_mesh_path) if fitting_result.get("status") == "complete" else ref_mesh_path
+        fit_npz = fitting_result.get("fit_npz", str(pathlib.Path(output_dir) / "fit.npz"))
+        
+        # Validate fitted_mesh exists
+        if fitted_mesh and pathlib.Path(fitted_mesh).exists():
+            results["fitted_mesh"] = fitted_mesh
+        else:
+            # Fallback to ref_mesh if fitted_mesh doesn't exist
+            fitted_mesh = ref_mesh_path
+            results["fitted_mesh"] = fitted_mesh
+            results["fitting_warning"] = "fitted_mesh not found, using ref_mesh as fallback"
+        
+        # Stage 6: Deformation transfer - use fitted_mesh
         stage_key = self._get_stage_key("deformation_transfer", fit_npz)
         if not self.manifest.is_complete(stage_key):
+            template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
             results["stages"]["deformation_transfer"] = deformation_transfer.transfer_deformation(
-                ref_mesh, ref_mesh, fit_npz, output_dir
+                str(template_path) if template_path.exists() else fitted_mesh, fitted_mesh, fit_npz, output_dir
             )
             self.manifest.record_stage(stage_key, results["stages"]["deformation_transfer"])
         
-        # Stage 7: Texture transfer
+        # Stage 7: Texture transfer - use fitted_mesh
         stage_key = self._get_stage_key("texture_transfer", image_path)
         if not self.manifest.is_complete(stage_key):
             results["stages"]["texture_transfer"] = texture_transfer.transfer_texture(
-                image_path, ref_mesh, output_dir
+                image_path, fitted_mesh, output_dir
             )
             self.manifest.record_stage(stage_key, results["stages"]["texture_transfer"])
         
-        # Stage 8: Hair extraction
-        stage_key = self._get_stage_key("hair", ref_mesh)
+        # Stage 8: Hair extraction - use fitted_mesh
+        stage_key = self._get_stage_key("hair", fitted_mesh)
         if not self.manifest.is_complete(stage_key):
-            results["stages"]["hair"] = hair.extract_hair(ref_mesh, output_dir)
+            results["stages"]["hair"] = hair.extract_hair(fitted_mesh, output_dir)
             self.manifest.record_stage(stage_key, results["stages"]["hair"])
         
-        # Stage 9: Clothing extraction
-        stage_key = self._get_stage_key("clothing", ref_mesh)
+        # Stage 9: Clothing extraction - use fitted_mesh
+        stage_key = self._get_stage_key("clothing", fitted_mesh)
         if not self.manifest.is_complete(stage_key):
-            results["stages"]["clothing"] = clothing.extract_clothing(ref_mesh, ref_mesh, output_dir)
+            results["stages"]["clothing"] = clothing.extract_clothing(fitted_mesh, fitted_mesh, output_dir)
             self.manifest.record_stage(stage_key, results["stages"]["clothing"])
         
-        # Stage 10: Rigging - call real rig_avatar()
-        stage_key = self._get_stage_key("rig", ref_mesh)
+        # Stage 10: Rigging - call real rig_avatar() with fitted_mesh
+        stage_key = self._get_stage_key("rig", fitted_mesh)
         if not self.manifest.is_complete(stage_key):
             from vtuber_pipeline.avatar.rigging import rig_avatar
             try:
                 rigged_path = str(pathlib.Path(output_dir) / "rigged.glb")
-                rig_result = rig_avatar(ref_mesh, rigged_path)
+                rig_result = rig_avatar(fitted_mesh, rigged_path)
                 results["stages"]["rig"] = {
                     "status": "complete",
                     "rigged_mesh": rig_result,
@@ -260,10 +275,10 @@ class AvatarPipeline:
                 }
             self.manifest.record_stage(stage_key, results["stages"]["rig"])
         
-        # Stage 11: Expressions - call real generate_expressions()
-        stage_key = self._get_stage_key("expressions", ref_mesh)
+        # Stage 11: Expressions - call real generate_expressions() with fitted_mesh
+        stage_key = self._get_stage_key("expressions", fitted_mesh)
         if not self.manifest.is_complete(stage_key):
-            rigged_mesh = results["stages"]["rig"].get("rigged_mesh", ref_mesh) if results["stages"]["rig"].get("status") == "complete" else ref_mesh
+            rigged_mesh = results["stages"]["rig"].get("rigged_mesh", fitted_mesh) if results["stages"]["rig"].get("status") == "complete" else fitted_mesh
             try:
                 expr_result = expressions.generate_expressions(rigged_mesh)
                 # Validate the generated expressions
@@ -282,22 +297,22 @@ class AvatarPipeline:
                 }
             self.manifest.record_stage(stage_key, results["stages"]["expressions"])
         
-        # Stage 12: Gaze
-        stage_key = self._get_stage_key("gaze", ref_mesh)
+        # Stage 12: Gaze - use fitted_mesh
+        stage_key = self._get_stage_key("gaze", fitted_mesh)
         if not self.manifest.is_complete(stage_key):
-            results["stages"]["gaze"] = gaze.configure_gaze(ref_mesh, output_dir)
+            results["stages"]["gaze"] = gaze.configure_gaze(fitted_mesh, output_dir)
             self.manifest.record_stage(stage_key, results["stages"]["gaze"])
         
-        # Stage 13: SpringBone
-        stage_key = self._get_stage_key("springbone", ref_mesh)
+        # Stage 13: SpringBone - use fitted_mesh
+        stage_key = self._get_stage_key("springbone", fitted_mesh)
         if not self.manifest.is_complete(stage_key):
-            results["stages"]["springbone"] = springbone.generate_springbone_config(ref_mesh, output_dir)
+            results["stages"]["springbone"] = springbone.generate_springbone_config(fitted_mesh, output_dir)
             self.manifest.record_stage(stage_key, results["stages"]["springbone"])
         
-        # Stage 14: Materials
-        stage_key = self._get_stage_key("materials", ref_mesh)
+        # Stage 14: Materials - use fitted_mesh
+        stage_key = self._get_stage_key("materials", fitted_mesh)
         if not self.manifest.is_complete(stage_key):
-            results["stages"]["materials"] = materials.configure_materials(ref_mesh, output_dir)
+            results["stages"]["materials"] = materials.configure_materials(fitted_mesh, output_dir)
             self.manifest.record_stage(stage_key, results["stages"]["materials"])
         
         # Stage 15: VRM export - call real export_vrm()

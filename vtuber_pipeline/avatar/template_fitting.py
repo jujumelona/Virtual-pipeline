@@ -210,7 +210,7 @@ def fit_template(
             total = objective.compute_total(e_landmark, e_surface, e_laplacian, e_symmetry)
             return total
         
-        # Run optimization with L-BFGS-B
+        # PHASE 1: Rigid similarity transform (7 DOF)
         initial_params = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         bounds = [
             (0.5, 2.0),    # scale
@@ -230,7 +230,7 @@ def fit_template(
             options={'maxiter': 100}
         )
         
-        # Extract optimized parameters
+        # Extract optimized parameters from rigid phase
         params = opt_result.x
         scale = params[0]
         rx, ry, rz = params[1:4]
@@ -245,11 +245,97 @@ def fit_template(
         Rz = np.array([[cos_z, -sin_z, 0], [sin_z, cos_z, 0], [0, 0, 1]])
         R = Rz @ Ry @ Rx
         
-        fitted_vertices = (scale * (R @ original_vertices.T)).T + np.array([tx, ty, tz])
+        # Apply rigid transform to get initial fitted vertices
+        rigid_transformed = (scale * (R @ original_vertices.T)).T + np.array([tx, ty, tz])
         
-        result["objective_value"] = float(opt_result.fun)
-        result["iterations"] = int(opt_result.nit)
-        result["converged"] = bool(opt_result.success)
+        # PHASE 2: Non-rigid per-vertex displacement optimization
+        # Variables: per-vertex displacement (N x 3)
+        n_vertices = len(original_vertices)
+        
+        # Build Laplacian matrix for smoothness regularization
+        laplacian_matrix = _build_laplacian_matrix(mesh)
+        
+        def nonrigid_energy(displacement_flat):
+            """Non-rigid energy with per-vertex displacements."""
+            displacements = displacement_flat.reshape(n_vertices, 3)
+            deformed = rigid_transformed + displacements
+            
+            # E_landmark: Landmark projection error
+            e_landmark = 0.0
+            if len(landmarks_2d) > 0:
+                projected = deformed[:, [0, 2]]  # Project to XZ plane (front view)
+                landmarks_array = np.array(landmarks_2d)
+                
+                # Normalize to similar scale
+                proj_center = projected.mean(axis=0)
+                lm_center = landmarks_array.mean(axis=0)
+                proj_scaled = projected - proj_center
+                lm_scaled = landmarks_array - lm_center
+                
+                for lm in lm_scaled:
+                    distances = np.linalg.norm(proj_scaled - lm, axis=1)
+                    e_landmark += distances.min()
+                e_landmark /= len(landmarks_2d)
+            
+            # E_surface: Surface-to-surface distance (ICP)
+            e_surface = 0.0
+            if reference_tree is not None:
+                distances, _ = reference_tree.query(deformed)
+                e_surface = np.mean(distances)
+            
+            # E_laplacian: Smoothness regularization (preserve mesh detail)
+            e_laplacian = 0.0
+            if laplacian_matrix is not None:
+                lap_coords = laplacian_matrix @ deformed
+                e_laplacian = np.mean(np.linalg.norm(lap_coords, axis=1))
+            
+            # E_symmetry: Bilateral symmetry
+            e_symmetry = 0.0
+            left_mask = deformed[:, 0] > 0
+            right_mask = deformed[:, 0] < 0
+            if np.any(left_mask) and np.any(right_mask):
+                left_center = deformed[left_mask].mean(axis=0)
+                right_center = deformed[right_mask].mean(axis=0)
+                e_symmetry = abs(left_center[1] - right_center[1]) + abs(left_center[2] - right_center[2])
+            
+            # Displacement magnitude penalty (regularization)
+            e_displacement = np.mean(np.linalg.norm(displacements, axis=1))
+            
+            total = (
+                objective.lambda_landmark * e_landmark +
+                objective.lambda_surface * e_surface +
+                objective.lambda_laplacian * e_laplacian +
+                objective.lambda_symmetry * e_symmetry +
+                0.01 * e_displacement  # Small weight for displacement regularization
+            )
+            return total
+        
+        # Run non-rigid optimization
+        initial_displacements = np.zeros(n_vertices * 3)
+        
+        # Limit displacement magnitude
+        disp_bounds = [(-0.1, 0.1)] * (n_vertices * 3)
+        
+        nonrigid_result = minimize(
+            nonrigid_energy,
+            initial_displacements,
+            method='L-BFGS-B',
+            bounds=disp_bounds,
+            options={'maxiter': 100, 'maxfun': 500}
+        )
+        
+        # Apply final displacements
+        final_displacements = nonrigid_result.x.reshape(n_vertices, 3)
+        fitted_vertices = rigid_transformed + final_displacements
+        
+        result["nonrigid_iterations"] = int(nonrigid_result.nit)
+        result["nonrigid_objective"] = float(nonrigid_result.fun)
+        result["displacement_norm"] = float(np.linalg.norm(final_displacements))
+        
+        # Total objective and iterations (combining rigid and non-rigid phases)
+        result["objective_value"] = float(nonrigid_result.fun)
+        result["iterations"] = int(opt_result.nit + nonrigid_result.nit)
+        result["converged"] = bool(opt_result.success) and bool(nonrigid_result.success)
         result["optimized_params"] = {
             "scale": float(scale),
             "rotation": [float(rx), float(ry), float(rz)],
@@ -262,14 +348,16 @@ def fit_template(
         result["energy_laplacian"] = float(objective.lambda_laplacian)
         result["energy_symmetry"] = float(objective.lambda_symmetry)
         
-        # Save fit.npz with deformation field
+        # Save fit.npz with deformation field (includes non-rigid displacements)
         deltas = fitted_vertices - original_vertices
         fit_path = pathlib.Path(output_dir) / "fit.npz"
         np.savez(
             fit_path,
             vertices=fitted_vertices,
             original_vertices=original_vertices,
+            rigid_transformed=rigid_transformed,
             deltas=deltas,
+            nonrigid_displacements=final_displacements,
             objective_weights=result["objective_weights"],
             optimized_params=result["optimized_params"]
         )

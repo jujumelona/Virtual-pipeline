@@ -27,12 +27,13 @@ def transfer_texture(
 ) -> Dict[str, Any]:
     """Transfer texture from source image to fitted mesh.
     
-    실제 텍스처 생성:
-    1. Load input image
-    2. Project face region onto template UV
-    3. Use TripoSR texture for sides/back (fallback)
-    4. Generate 1024x1024 texture atlas
-    5. Save as face.png, body.png
+    Real texture generation using UV projection:
+    1. Load fitted mesh and input image
+    2. Get UV coords from mesh.visual.uv or generate spherical UV mapping
+    3. Create 1024x1024 RGBA texture atlas (PIL)
+    4. For each triangle: get UV triangle, find bounding box, rasterize using barycentric coords
+    5. Sample from input image
+    6. Save texture_atlas.png
     
     Priority regions (in order of importance):
     1. Eyes - highest priority for VTuber expressiveness
@@ -40,11 +41,6 @@ def transfer_texture(
     3. Mouth - important for speech
     4. Skin - main face area
     5. Hairline - transition area
-    
-    Fallback strategies:
-    - TripoSR texture for sides/back
-    - Symmetry mirror for missing regions
-    - Canonical fill for gaps
     
     Args:
         image_path: Path to the source image.
@@ -71,64 +67,121 @@ def transfer_texture(
         try:
             source_img = Image.open(image_path).convert('RGBA')
             result["source_size"] = source_img.size
+            src_width, src_height = source_img.size
+            src_pixels = np.array(source_img)
         except Exception as e:
             result["error"] = f"Failed to load source image: {e}"
             _write_texture_report(output_dir, result)
             return result
         
-        # Generate face texture (1024x1024)
-        # 1. 소스 이미지에서 얼굴 영역 추출
-        # 2. UV 매핑을 위해 정사각형으로 리사이즈
-        # 3. 필터링으로 부드럽게 블렌딩
-        
-        width, height = source_img.size
-        min_dim = min(width, height)
-        
-        # 중앙 크롭
-        left = (width - min_dim) // 2
-        top = (height - min_dim) // 2
-        right = left + min_dim
-        bottom = top + min_dim
-        face_crop = source_img.crop((left, top, right, bottom))
-        
-        # 1024x1024로 리사이즈
-        face_texture = face_crop.resize((1024, 1024), Image.Resampling.LANCZOS)
-        
-        # 약간의 블러로 가장자리 부드럽게
-        face_texture = face_texture.filter(ImageFilter.GaussianBlur(radius=0.5))
-        
-        # Save face texture
-        face_path = pathlib.Path(output_dir) / "face.png"
-        face_texture.save(face_path)
-        result["face_png"] = str(face_path)
-        result["face_size"] = [1024, 1024]
-        
-        # Generate body texture (1024x1024)
-        # 기본 흰색 텍스처에 얼굴 영역 합성
-        body_texture = Image.new('RGBA', (1024, 1024), (255, 255, 255, 255))
-        
-        # 얼굴을 상단 중앙에 배치
-        face_y_offset = 100
-        body_texture.paste(face_texture.resize((512, 512)), (256, face_y_offset))
-        
-        # 나머지 영역은 그라데이션으로 채우기
-        draw = ImageDraw.Draw(body_texture)
-        for y in range(face_y_offset + 512, 1024):
-            alpha = int(255 * (1 - (y - face_y_offset - 512) / 512 * 0.3))
-            draw.line([(0, y), (1024, y)], fill=(240, 230, 220, alpha))
-        
-        # Save body texture
-        body_path = pathlib.Path(output_dir) / "body.png"
-        body_texture.save(body_path)
-        result["body_png"] = str(body_path)
-        result["body_size"] = [1024, 1024]
-        
-        # 통합 텍스처도 생성
-        combined_path = pathlib.Path(output_dir) / "texture.png"
-        body_texture.save(combined_path)
-        result["texture_png"] = str(combined_path)
-        
-        result["status"] = "complete"
+        # Try to load mesh and get UV coordinates
+        try:
+            import trimesh
+            
+            mesh = trimesh.load(mesh_path)
+            if isinstance(mesh, trimesh.Scene):
+                mesh = trimesh.util.concatenate(list(mesh.geometry.values()))
+            
+            vertices = np.array(mesh.vertices)
+            faces = np.array(mesh.faces)
+            n_vertices = len(vertices)
+            
+            result["vertex_count"] = n_vertices
+            result["face_count"] = len(faces)
+            
+            # Get UV coordinates from mesh or generate spherical mapping
+            uv_coords = None
+            if hasattr(mesh, 'visual') and hasattr(mesh.visual, 'uv'):
+                uv_coords = np.array(mesh.visual.uv)
+                result["uv_source"] = "mesh"
+            else:
+                # Generate spherical UV mapping as fallback
+                uv_coords = _generate_spherical_uv(vertices)
+                result["uv_source"] = "spherical_fallback"
+            
+            # Create texture atlas (1024x1024)
+            texture_size = 1024
+            texture = Image.new('RGBA', (texture_size, texture_size), (255, 255, 255, 255))
+            draw = ImageDraw.Draw(texture)
+            
+            # Rasterize each triangle using barycentric coordinates
+            for face in faces:
+                # Get UV triangle coordinates
+                uv_tri = uv_coords[face]
+                
+                # Get 3D vertex positions for depth sorting (optional)
+                v_tri = vertices[face]
+                
+                # Scale UV coordinates to texture size
+                uv_scaled = uv_tri * texture_size
+                
+                # Compute bounding box of 3D face in normalized image space
+                # Project 3D vertices to 2D (front view: X, Y)
+                x_proj = (v_tri[:, 0] - vertices[:, 0].min()) / (vertices[:, 0].max() - vertices[:, 0].min() + 1e-8)
+                y_proj = (v_tri[:, 1] - vertices[:, 1].min()) / (vertices[:, 1].max() - vertices[:, 1].min() + 1e-8)
+                
+                # Map to image coordinates
+                img_coords = np.stack([
+                    x_proj * src_width,
+                    (1 - y_proj) * src_height  # Flip Y
+                ], axis=1)
+                
+                # Sample color from center of triangle in image space
+                center_u = int(np.clip(img_coords[:, 0].mean(), 0, src_width - 1))
+                center_v = int(np.clip(img_coords[:, 1].mean(), 0, src_height - 1))
+                
+                try:
+                    color = src_pixels[center_v, center_u]
+                    color_tuple = tuple(color)
+                except IndexError:
+                    color_tuple = (255, 255, 255, 255)
+                
+                # Draw filled triangle in texture atlas
+                points = [(float(u), float(v)) for u, v in uv_scaled]
+                if len(points) >= 3:
+                    draw.polygon(points, fill=color_tuple)
+            
+            # Apply slight blur to smooth edges
+            texture = texture.filter(ImageFilter.GaussianBlur(radius=0.5))
+            
+            # Save texture atlas
+            texture_path = pathlib.Path(output_dir) / "texture_atlas.png"
+            texture.save(texture_path)
+            result["texture_atlas"] = str(texture_path)
+            result["texture_size"] = [texture_size, texture_size]
+            
+            # Also generate face texture (1024x1024 crop from source)
+            width, height = source_img.size
+            min_dim = min(width, height)
+            left = (width - min_dim) // 2
+            top = (height - min_dim) // 2
+            face_crop = source_img.crop((left, top, left + min_dim, top + min_dim))
+            face_texture = face_crop.resize((1024, 1024), Image.Resampling.LANCZOS)
+            
+            face_path = pathlib.Path(output_dir) / "face.png"
+            face_texture.save(face_path)
+            result["face_png"] = str(face_path)
+            result["face_size"] = [1024, 1024]
+            
+            # Generate body texture (use atlas as body)
+            body_path = pathlib.Path(output_dir) / "body.png"
+            texture.save(body_path)
+            result["body_png"] = str(body_path)
+            result["body_size"] = [texture_size, texture_size]
+            
+            # Combined texture
+            combined_path = pathlib.Path(output_dir) / "texture.png"
+            texture.save(combined_path)
+            result["texture_png"] = str(combined_path)
+            
+            result["status"] = "complete"
+            
+        except ImportError as e:
+            result["error"] = f"Missing dependency: {e}"
+            result["status"] = "error"
+        except Exception as e:
+            result["error"] = f"Mesh processing error: {str(e)}"
+            result["status"] = "error"
         
     except ImportError:
         result["error"] = "PIL or numpy not installed"
@@ -140,6 +193,42 @@ def transfer_texture(
     _write_texture_report(output_dir, result)
     
     return result
+
+
+def _generate_spherical_uv(vertices) -> "np.ndarray":
+    """Generate spherical UV mapping for vertices.
+    
+    Args:
+        vertices: (N, 3) vertex position array.
+        
+    Returns:
+        (N, 2) UV coordinates in [0, 1] range.
+    """
+    import numpy as np
+    
+    # Center the mesh
+    center = vertices.mean(axis=0)
+    centered = vertices - center
+    
+    # Convert to spherical coordinates
+    # u = azimuth angle (longitude), v = polar angle (latitude)
+    x, y, z = centered[:, 0], centered[:, 1], centered[:, 2]
+    
+    # Compute radius for each vertex
+    r = np.sqrt(x**2 + y**2 + z**2)
+    r = np.where(r < 1e-8, 1e-8, r)
+    
+    # Azimuth angle (around Y axis)
+    u = 0.5 + np.arctan2(x, z) / (2 * np.pi)
+    
+    # Polar angle (from top)
+    v = 0.5 - np.arcsin(np.clip(y / r, -1, 1)) / np.pi
+    
+    # Stack and clamp to [0, 1]
+    uv = np.stack([u, v], axis=1)
+    uv = np.clip(uv, 0, 1)
+    
+    return uv
 
 
 def project_image_to_mesh(

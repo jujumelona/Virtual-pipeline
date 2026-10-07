@@ -16,15 +16,13 @@ def extract_clothing(
     """Extract clothing shell from mesh and transfer skin weights.
     
     Algorithm:
-    1. Identify clothing vertices (bottom 60% of mesh, excluding hands)
-    2. Create separate clothing mesh
-    3. Transfer skin weights from body mesh to clothing
-    4. Export as separate GLB for accessory attachment
-    
-    Skin weight transfer:
-    - For each clothing vertex, find nearest body vertex
-    - Copy skin weights with smooth falloff
-    - Handle multi-layer clothing with offset shells
+    1. Load ref and body trimesh meshes
+    2. Find clothing vertices: those in ref mesh that are further than a threshold from the nearest body surface point
+    3. If none found: return {status: 'skipped', reason: 'No clothing detected'}
+    4. Extract submesh from clothing vertex indices
+    5. Transfer skin weights from body using nearest-neighbor mapping
+    6. Export clothing.glb
+    7. Return {status: 'complete', clothing_mesh: path}
     
     Args:
         mesh_path: Path to the input mesh (with clothing).
@@ -50,36 +48,125 @@ def extract_clothing(
         
         try:
             import trimesh
+            from scipy.spatial import cKDTree
             
-            # Load mesh
-            mesh = trimesh.load(mesh_path)
+            # Load reference mesh (the fitted mesh with potential clothing)
+            ref_mesh = trimesh.load(mesh_path)
+            if isinstance(ref_mesh, trimesh.Scene):
+                ref_mesh = trimesh.util.concatenate(list(ref_mesh.geometry.values()))
             
-            if hasattr(mesh, 'vertices'):
-                vertices = np.array(mesh.vertices)
-                
-                # Stub clothing detection: bottom 60% of mesh by Y coordinate
-                y_coords = vertices[:, 1]  # Assuming Y is up
-                y_threshold = np.percentile(y_coords, 40)
-                clothing_vertex_mask = y_coords < y_threshold
-                clothing_vertex_count = np.sum(clothing_vertex_mask)
-                
-                result["clothing_vertex_count"] = int(clothing_vertex_count)
-                result["clothing_ratio"] = float(clothing_vertex_count / len(vertices))
-                
-                # Transfer skin weights (stub)
-                result["skin_weights_transferred"] = False
-                
-                # Export clothing.glb (stub)
-                result["clothing_glb"] = str(pathlib.Path(output_dir) / "clothing.glb")
-                result["status"] = "complete"
-                
+            ref_vertices = np.array(ref_mesh.vertices)
+            ref_faces = np.array(ref_mesh.faces)
+            
+            # Load body mesh for comparison
+            body_mesh = trimesh.load(body_mesh_path)
+            if isinstance(body_mesh, trimesh.Scene):
+                body_mesh = trimesh.util.concatenate(list(body_mesh.geometry.values()))
+            
+            body_vertices = np.array(body_mesh.vertices)
+            
+            result["ref_vertex_count"] = len(ref_vertices)
+            result["body_vertex_count"] = len(body_vertices)
+            
+            # Build KD-tree for body vertices
+            body_tree = cKDTree(body_vertices)
+            
+            # Find distance from each ref vertex to nearest body vertex
+            distances, _ = body_tree.query(ref_vertices)
+            
+            # Threshold for clothing detection
+            # Vertices further than threshold from body are considered clothing
+            distance_threshold = 0.02  # 2cm threshold
+            clothing_mask = distances > distance_threshold
+            clothing_vertex_count = np.sum(clothing_mask)
+            
+            result["distance_threshold"] = distance_threshold
+            result["mean_distance"] = float(np.mean(distances))
+            result["max_distance"] = float(np.max(distances))
+            result["clothing_vertex_count"] = int(clothing_vertex_count)
+            
+            if clothing_vertex_count == 0:
+                result["status"] = "skipped"
+                result["reason"] = "No clothing detected (all vertices within threshold of body)"
+                return result
+            
+            result["clothing_ratio"] = float(clothing_vertex_count / len(ref_vertices))
+            
+            # Find faces that contain only clothing vertices
+            clothing_faces = []
+            vertex_map = {}  # Map old vertex indices to new ones
+            new_vertex_idx = 0
+            
+            for face in ref_faces:
+                # Check if all vertices in this face are clothing vertices
+                if all(clothing_mask[v] for v in face):
+                    # Remap vertex indices
+                    new_face = []
+                    for v in face:
+                        if v not in vertex_map:
+                            vertex_map[v] = new_vertex_idx
+                            new_vertex_idx += 1
+                        new_face.append(vertex_map[v])
+                    clothing_faces.append(new_face)
+            
+            if len(clothing_faces) == 0:
+                result["status"] = "skipped"
+                result["reason"] = "No complete clothing faces found"
+                return result
+            
+            # Extract clothing vertices
+            clothing_vertex_indices = sorted(vertex_map.keys())
+            clothing_vertices = ref_vertices[clothing_vertex_indices]
+            
+            # Create new face indices
+            final_faces = np.array(clothing_faces, dtype=np.int32)
+            
+            # Create clothing mesh
+            clothing_mesh = trimesh.Trimesh(vertices=clothing_vertices, faces=final_faces)
+            
+            # Transfer skin weights from body using nearest-neighbor mapping
+            # Get nearest body vertices for each clothing vertex
+            clothing_to_body_dist, clothing_to_body_idx = body_tree.query(clothing_vertices)
+            
+            # Load body weights if available
+            body_weights_path = pathlib.Path(body_mesh_path).parent / "vertex_weights.json"
+            if body_weights_path.exists():
+                import json
+                with open(body_weights_path, 'r') as f:
+                    body_weights_data = json.load(f)
+                result["body_weights_loaded"] = True
             else:
-                result["warning"] = "Mesh has no vertices attribute"
-                result["status"] = "stub"
+                body_weights_data = {}
+                result["body_weights_loaded"] = False
+            
+            # Map body weights to clothing vertices
+            if body_weights_data:
+                clothing_weights = {}
+                for bone_name, weights_array in body_weights_data.items():
+                    weights = np.array(weights_array)
+                    clothing_weights[bone_name] = weights[clothing_to_body_idx].tolist()
                 
-        except ImportError:
-            result["warning"] = "trimesh not installed, using stub values"
-            result["status"] = "stub"
+                # Save clothing weights
+                weights_path = pathlib.Path(output_dir) / "clothing_weights.json"
+                with open(weights_path, 'w') as f:
+                    json.dump(clothing_weights, f)
+                result["clothing_weights_path"] = str(weights_path)
+                result["skin_weights_transferred"] = True
+            
+            # Export clothing.glb
+            clothing_path = pathlib.Path(output_dir) / "clothing.glb"
+            clothing_mesh.export(str(clothing_path))
+            
+            result["clothing_mesh"] = str(clothing_path)
+            result["clothing_face_count"] = len(final_faces)
+            result["status"] = "complete"
+            
+        except ImportError as e:
+            result["error"] = f"Missing dependency: {e}"
+            result["status"] = "error"
+        except Exception as e:
+            result["error"] = str(e)
+            result["status"] = "error"
             
     except ImportError:
         result["error"] = "numpy not installed"
