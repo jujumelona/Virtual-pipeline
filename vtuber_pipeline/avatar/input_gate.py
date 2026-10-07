@@ -34,7 +34,16 @@ def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
         face = AnimeFaceDetector().detect(image_path)
         bbox = np.asarray(face["bbox"], dtype=float)
         landmarks = np.asarray(face.get("landmarks", []), dtype=float)
+        landmark_scores = np.asarray(
+            face.get("landmark_scores", []),
+            dtype=float,
+        )
         score = float(face.get("score", 0.0))
+
+        if bbox.shape != (4,) or not np.all(np.isfinite(bbox)):
+            raise ValueError("Detected face bbox must contain 4 finite values")
+        if bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
+            raise ValueError("Detected face bbox has non-positive extent")
 
         result["checks"]["face_detected"] = True
         result["checks"]["confidence"] = score >= 0.5
@@ -45,11 +54,29 @@ def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
         result["face_area_ratio"] = face_area_ratio
         result["checks"]["face_area_ratio"] = 0.05 <= face_area_ratio <= 0.8
 
-        valid_landmarks = landmarks.ndim == 2 and len(landmarks) >= 28 and landmarks.shape[1] >= 2
-        result["checks"]["landmark_confidence"] = bool(valid_landmarks)
+        valid_landmarks = (
+            landmarks.shape == (28, 2)
+            and np.all(np.isfinite(landmarks))
+            and landmark_scores.shape == (28,)
+            and np.all(np.isfinite(landmark_scores))
+        )
+        if valid_landmarks:
+            landmark_median = float(np.median(landmark_scores))
+            landmark_min = float(np.min(landmark_scores))
+        else:
+            landmark_median = 0.0
+            landmark_min = 0.0
+
+        result["landmark_score_median"] = landmark_median
+        result["landmark_score_min"] = landmark_min
+        result["checks"]["landmark_confidence"] = bool(
+            valid_landmarks
+            and landmark_median >= 0.50
+            and landmark_min >= 0.15
+        )
         result["landmark_count"] = int(len(landmarks)) if landmarks.ndim else 0
         result["bbox"] = bbox.tolist()
-        result["landmarks"] = landmarks.tolist() if landmarks.ndim == 2 else []
+        result["landmarks"] = landmarks.tolist() if valid_landmarks else []
 
         if valid_landmarks:
             xy = landmarks[:28, :2]
