@@ -90,24 +90,6 @@ def export_vrm(
     return result
 
 
-def validate_for_vrm(
-    mesh_path: str,
-    rig_data: Optional[Dict[str, Any]] = None,
-    expressions: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
-    """Validate a mesh is ready for VRM export.
-    
-    Args:
-        mesh_path: Path to the mesh.
-        rig_data: Optional rig data.
-        expressions: Optional expression data.
-        
-    Returns:
-        Dictionary with validation results.
-    """
-    return _validate_for_vrm(mesh_path, rig_data, expressions)
-
-
 def _validate_for_vrm(
     mesh_path: str,
     rig_data: Optional[Dict[str, Any]] = None,
@@ -127,10 +109,12 @@ def _validate_for_vrm(
         node_names = {node.name for node in (gltf.nodes or []) if node.name}
         required_bones = {
             "hips", "spine", "chest", "neck", "head",
+            "leftEye", "rightEye",
             "leftShoulder", "leftUpperArm", "leftLowerArm", "leftHand",
             "rightShoulder", "rightUpperArm", "rightLowerArm", "rightHand",
             "leftUpperLeg", "leftLowerLeg", "leftFoot",
             "rightUpperLeg", "rightLowerLeg", "rightFoot",
+            "hairRoot", "hairMid", "hairTip",
         }
         missing = sorted(required_bones - node_names)
         result["checks"]["humanoid_bones"] = not missing
