@@ -1,113 +1,121 @@
-"""Unit tests for input gate validation."""
+"""Unit tests for deterministic input-gate logic."""
+
+import pathlib
 
 import pytest
-import tempfile
-import pathlib
 from PIL import Image
 
 
 def create_test_image(width: int, height: int, path: pathlib.Path) -> None:
-    """Create a test image with given dimensions."""
-    img = Image.new('RGB', (width, height), color='white')
-    img.save(path)
+    Image.new("RGB", (width, height), color="white").save(path)
 
 
-class TestValidateInput:
-    """Tests for validate_input function."""
-    
-    def test_valid_256x256_image(self, tmp_path):
-        """Test validation with a valid 256x256 image."""
-        from vtuber_pipeline.avatar.input_gate import validate_input
-        
-        # Create test image
-        image_path = tmp_path / "test.png"
-        create_test_image(256, 256, image_path)
-        
-        # Run validation
-        result = validate_input(str(image_path), str(tmp_path))
-        
-        # Check image was decoded
-        assert result["checks"]["image_decodes"] == True
-        assert result["width"] == 256
-        assert result["height"] == 256
-        
-        # Check minimum resolution
-        assert result["checks"]["min_resolution"] == True
-        
-        # Check aspect ratio
-        assert result["checks"]["aspect_ratio"] == True
-    
-    def test_too_small_image(self, tmp_path):
-        """Test validation rejects images below minimum resolution."""
-        from vtuber_pipeline.avatar.input_gate import validate_input
-        
-        # Create test image below minimum
-        image_path = tmp_path / "small.png"
-        create_test_image(128, 128, image_path)
-        
-        # Run validation
-        result = validate_input(str(image_path), str(tmp_path))
-        
-        # Check resolution check fails
-        assert result["checks"]["min_resolution"] == False
-        assert result["valid"] == False
-    
-    def test_wide_aspect_ratio(self, tmp_path):
-        """Test validation with wide aspect ratio."""
-        from vtuber_pipeline.avatar.input_gate import validate_input
-        
-        # Create wide image
-        image_path = tmp_path / "wide.png"
-        create_test_image(500, 250, image_path)
-        
-        # Run validation
-        result = validate_input(str(image_path), str(tmp_path))
-        
-        # Check aspect ratio is within range
-        assert result["aspect_ratio"] == 2.0
-        assert result["checks"]["aspect_ratio"] == True
-    
-    def test_invalid_aspect_ratio(self, tmp_path):
-        """Test validation rejects extreme aspect ratios."""
-        from vtuber_pipeline.avatar.input_gate import validate_input
-        
-        # Create very wide image
-        image_path = tmp_path / "wide.png"
-        create_test_image(600, 200, image_path)
-        
-        # Run validation
-        result = validate_input(str(image_path), str(tmp_path))
-        
-        # Check aspect ratio check fails
-        assert result["aspect_ratio"] == 3.0
-        assert result["checks"]["aspect_ratio"] == False
-    
-    def test_quality_json_written(self, tmp_path):
-        """Test that quality.json is written."""
-        from vtuber_pipeline.avatar.input_gate import validate_input
-        
-        # Create test image
-        image_path = tmp_path / "test.png"
-        create_test_image(256, 256, image_path)
-        
-        # Run validation
-        validate_input(str(image_path), str(tmp_path))
-        
-        # Check quality.json was created
-        quality_path = tmp_path / "quality.json"
-        assert quality_path.exists()
-    
-    def test_input_hash_computed(self, tmp_path):
-        """Test that input hash is computed."""
-        from vtuber_pipeline.avatar.input_gate import validate_input
-        
-        # Create test image
-        image_path = tmp_path / "test.png"
-        create_test_image(256, 256, image_path)
-        
-        # Run validation
-        result = validate_input(str(image_path), str(tmp_path))
-        
-        # Check hash was computed
-        assert "input_hash" in result
-        assert len(result["input_hash"]) == 64  # SHA256 hex string
+class FakeDetector:
+    score = 0.95
+    landmark_score = 0.90
+
+    def detect(self, image_path: str):
+        with Image.open(image_path) as image:
+            width, height = image.size
+        cx = width * 0.5
+        landmarks = []
+        for index in range(28):
+            side = -1.0 if index < 14 else 1.0
+            y = height * (0.38 + 0.012 * (index % 14))
+            landmarks.append([cx + side * width * 0.10, y])
+        return {
+            "bbox": [
+                width * 0.25,
+                height * 0.20,
+                width * 0.75,
+                height * 0.80,
+            ],
+            "landmarks": landmarks,
+            "landmark_scores": [self.landmark_score] * 28,
+            "score": self.score,
+        }
+
+
+@pytest.fixture(autouse=True)
+def fake_detector(monkeypatch):
+    import vtuber_pipeline.avatar.face_detector as detector_module
+
+    monkeypatch.setattr(detector_module, "AnimeFaceDetector", FakeDetector)
+
+
+def test_valid_256x256_image(tmp_path):
+    from vtuber_pipeline.avatar.input_gate import validate_input
+
+    image_path = tmp_path / "test.png"
+    create_test_image(256, 256, image_path)
+
+    result = validate_input(str(image_path), str(tmp_path))
+
+    assert result["status"] == "complete", result
+    assert result["valid"] is True
+    assert result["checks"]["image_decodes"] is True
+    assert result["checks"]["min_resolution"] is True
+    assert result["checks"]["landmark_confidence"] is True
+    assert result["landmark_count"] == 28
+    assert result["landmark_score_median"] == pytest.approx(0.9)
+
+
+def test_too_small_image_is_rejected(tmp_path):
+    from vtuber_pipeline.avatar.input_gate import validate_input
+
+    image_path = tmp_path / "small.png"
+    create_test_image(128, 128, image_path)
+
+    result = validate_input(str(image_path), str(tmp_path))
+
+    assert result["checks"]["min_resolution"] is False
+    assert result["valid"] is False
+    assert result["status"] == "error"
+
+
+def test_extreme_aspect_ratio_is_rejected(tmp_path):
+    from vtuber_pipeline.avatar.input_gate import validate_input
+
+    image_path = tmp_path / "wide.png"
+    create_test_image(600, 200, image_path)
+
+    result = validate_input(str(image_path), str(tmp_path))
+
+    assert result["aspect_ratio"] == pytest.approx(3.0)
+    assert result["checks"]["aspect_ratio"] is False
+    assert result["valid"] is False
+
+
+def test_low_landmark_confidence_is_rejected(tmp_path, monkeypatch):
+    from vtuber_pipeline.avatar.input_gate import validate_input
+    import vtuber_pipeline.avatar.face_detector as detector_module
+
+    class LowConfidenceDetector(FakeDetector):
+        landmark_score = 0.10
+
+    monkeypatch.setattr(
+        detector_module,
+        "AnimeFaceDetector",
+        LowConfidenceDetector,
+    )
+
+    image_path = tmp_path / "low-confidence.png"
+    create_test_image(512, 512, image_path)
+
+    result = validate_input(str(image_path), str(tmp_path))
+
+    assert result["checks"]["landmark_confidence"] is False
+    assert result["valid"] is False
+
+
+def test_quality_json_and_sha_are_written(tmp_path):
+    from vtuber_pipeline.avatar.input_gate import validate_input
+
+    image_path = tmp_path / "test.png"
+    create_test_image(512, 512, image_path)
+
+    result = validate_input(str(image_path), str(tmp_path))
+
+    quality_path = tmp_path / "quality.json"
+    assert quality_path.is_file()
+    assert len(result["input_hash"]) == 64
