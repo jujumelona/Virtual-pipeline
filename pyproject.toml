@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Commercial VTuber avatar and accessory pipeline using open-source tools"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "anime-face-detector",
     "trimesh[easy]",
@@ -30,8 +30,5 @@ dev = ["pytest", "ruff"]
 [tool.setuptools.packages.find]
 where = ["."]
 
-[tool.setuptools.package-data]
-vtuber_pipeline = ["../assets/**/*"]
-
 [tool.setuptools]
-include-package-data = true
+include-package-data = false
