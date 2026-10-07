@@ -386,10 +386,10 @@ def fit_template(
         
         result["nonrigid_method"] = "sparse_laplacian"
         
-        # Total objective and iterations (combining rigid and non-rigid phases)
-        result["objective_value"] = float(nonrigid_result.fun)
-        result["iterations"] = int(opt_result.nit + nonrigid_result.nit)
-        result["converged"] = bool(opt_result.success) and bool(nonrigid_result.success)
+        # Sparse solve doesn't have iterations like L-BFGS-B, use rigid phase results
+        # objective_value will be computed after delta_norm is available
+        result["iterations"] = int(opt_result.nit)
+        result["converged"] = bool(opt_result.success) and result.get("sparse_solve_success", False)
         result["optimized_params"] = {
             "scale": float(scale),
             "rotation": [float(rx), float(ry), float(rz)],
@@ -417,6 +417,13 @@ def fit_template(
         )
         result["fit_npz"] = str(fit_path)
         result["delta_norm"] = float(np.linalg.norm(deltas))
+        
+        # Compute objective value from rigid phase and non-rigid displacement
+        # Using opt_result.fun if available, otherwise estimate from delta_norm
+        if hasattr(opt_result, 'fun') and opt_result.fun is not None:
+            result["objective_value"] = float(opt_result.fun) + result["delta_norm"] * 0.01
+        else:
+            result["objective_value"] = float(result["delta_norm"])
         
         # 피팅된 메시 저장
         fitted_mesh = trimesh.Trimesh(vertices=fitted_vertices, faces=mesh.faces)
