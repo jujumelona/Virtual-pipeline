@@ -60,10 +60,15 @@ def find_triposr_installation() -> str:
     
     # 7. Check if triposr is in PATH
     try:
-        result = subprocess.run(['which', 'triposr'], capture_output=True, text=True)
+        result = subprocess.run(
+            ["which", "triposr"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
         if result.returncode == 0:
             return result.stdout.strip()
-    except Exception:
+    except (OSError, subprocess.TimeoutExpired):
         pass
     
     # Not found - raise error with installation instructions
