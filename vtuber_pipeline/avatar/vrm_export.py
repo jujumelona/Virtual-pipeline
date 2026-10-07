@@ -5,14 +5,10 @@ format using pygltflib (Pure Python implementation).
 """
 
 import pathlib
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional
 
 # Import the new VRM builder
-from vtuber_pipeline.avatar.vrm_builder import (
-    export_vrm as _export_vrm_pure,
-    validate_vrm as _validate_vrm_file,
-    VRM_EXPRESSION_PRESETS
-)
+from vtuber_pipeline.avatar.vrm_builder import export_vrm as _export_vrm_pure
 
 
 def export_vrm(
@@ -190,15 +186,3 @@ def _write_vrm_export_report(output_dir: str, result: Dict[str, Any]) -> None:
     
     output_path = pathlib.Path(output_dir) / "vrm_export_report.json"
     save_json(result, str(output_path))
-
-
-def validate_vrm_file(vrm_path: str) -> Dict[str, Any]:
-    """Validate an existing VRM file.
-    
-    Args:
-        vrm_path: Path to the VRM file.
-        
-    Returns:
-        Dictionary with validation results.
-    """
-    return _validate_vrm_file(vrm_path)
