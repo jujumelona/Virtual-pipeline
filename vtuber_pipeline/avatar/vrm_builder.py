@@ -195,7 +195,9 @@ def _create_zero_morph_accessor(
     zeros = np.zeros((vertex_count, 3), dtype=np.float32)
     zeros_bytes = zeros.tobytes()
     
-    # Add to buffer
+    # Add to buffer with glTF's 4-byte alignment.
+    while len(buffer_data) % 4:
+        buffer_data.append(0)
     byte_offset = len(buffer_data)
     buffer_data.extend(zeros_bytes)
     
@@ -230,10 +232,24 @@ def _create_sparse_morph_accessor(
     vertex_count: int
 ) -> int:
     """Create a glTF sparse POSITION accessor for one morph target."""
-    sorted_data = sorted(morph_data, key=lambda x: int(x[0]))
+    # glTF sparse indices must be strictly increasing. Merge repeated
+    # vertex contributions deterministically before serialization.
+    merged: Dict[int, np.ndarray] = {}
+    for raw_index, raw_delta in morph_data:
+        index = int(raw_index)
+        delta = np.asarray(raw_delta, dtype=np.float32)
+        if delta.shape != (3,) or not np.all(np.isfinite(delta)):
+            raise ValueError(
+                f"Invalid morph delta for vertex {index}: {raw_delta!r}"
+            )
+        if index in merged:
+            merged[index] = merged[index] + delta
+        else:
+            merged[index] = delta.copy()
 
-    indices = np.asarray([int(d[0]) for d in sorted_data], dtype=np.uint32)
-    values = np.asarray([d[1] for d in sorted_data], dtype=np.float32)
+    sorted_indices = sorted(merged)
+    indices = np.asarray(sorted_indices, dtype=np.uint32)
+    values = np.asarray([merged[index] for index in sorted_indices], dtype=np.float32)
 
     if len(indices) == 0:
         return _create_zero_morph_accessor(gltf, buffer_data, vertex_count)
@@ -304,6 +320,16 @@ def create_vrm_extension(
     commercial_usage: str = "corporation",
 ) -> Dict[str, Any]:
     """Build the VRMC_vrm 1.0 extension from actual glTF nodes/targets."""
+    allowed_commercial_usage = {
+        "personalNonProfit",
+        "personalProfit",
+        "corporation",
+    }
+    if commercial_usage not in allowed_commercial_usage:
+        raise ValueError(
+            f"Invalid VRM commercialUsage: {commercial_usage!r}"
+        )
+
     if bone_mapping is None:
         bone_mapping = _auto_detect_bone_mapping(gltf)
 
