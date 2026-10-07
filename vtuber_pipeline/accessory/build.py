@@ -69,11 +69,19 @@ class AccessoryPipeline:
         results["stages"]["normalize"] = normalize.normalize_glb(
             accessory_glb, normalized_path
         )
+        if results["stages"]["normalize"].get("status") != "complete":
+            results["status"] = "failed"
+            results["failed_stages"] = ["normalize"]
+            return results
         
         # Stage 2: Anchors
         results["stages"]["anchors"] = anchors.generate_anchor_manifest(
             base_vrm, output_dir
         )
+        if results["stages"]["anchors"].get("status") != "complete":
+            results["status"] = "failed"
+            results["failed_stages"] = ["anchors"]
+            return results
         
         # Stage 3: Fit
         anchor_name = config.get("anchor_name", "HEAD_TOP")
@@ -129,6 +137,15 @@ class AccessoryPipeline:
             output_vrm,
             attachment_config=attachment_cfg,
         )
+        if results["stages"]["bake"].get("status") != "complete":
+            results["status"] = "failed"
+            results["failed_stages"] = ["bake"]
+            return results
+        if not pathlib.Path(output_vrm).is_file():
+            results["status"] = "failed"
+            results["failed_stages"] = ["bake"]
+            results["failed_reason"] = "bake reported complete but combined.vrm is missing"
+            return results
         
         # Overall status
         failed_stages = [
