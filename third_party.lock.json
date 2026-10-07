@@ -30,21 +30,12 @@
       "hash": "sha256:git:a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
       "description": "MakeHuman CC0 assets for base meshes",
       "commercial_safe": true
-    },
-    "vrm_addon": {
-      "commit": "322100608a16df95bfbc3678aa84471ccb5a88fe",
-      "model_revision": null,
-      "license": "MIT",
-      "license_url": "https://github.com/saturday06/VRM-Addon-for-Blender/blob/master/LICENSE.txt",
-      "path": "blender_addons/vrm/",
-      "hash": "sha256:git:322100608a16df95bfbc3678aa84471ccb5a88fe",
-      "description": "VRM Addon for Blender",
-      "commercial_safe": true
     }
   },
   "notes": {
     "triposr_usage": "TripoSR is MIT licensed and does not use nvdiffrast, making it safe for commercial use in all profiles.",
     "anime_face_detector_usage": "MIT licensed, safe for commercial use.",
-    "verification": "Run 'python tools/audit_third_party.py' to verify actual commit SHAs after installation."
+    "verification": "Run 'python tools/audit_third_party.py' to verify actual commit SHAs after installation.",
+    "vrm_export": "VRM 1.0 is emitted by the pure-Python pygltflib path; Blender/VRM Add-on is not a runtime dependency."
   }
 }
