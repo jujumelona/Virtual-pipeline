@@ -463,3 +463,60 @@ def test_model_option_cache_inputs_are_explicit():
         and item.id == "reconstruction_options"
         for item in cache_inputs.elts
     )
+
+
+def test_model_pins_agree_across_package_lock_code_and_colab():
+    import ast
+    import json
+    import tomllib
+
+    from vtuber_pipeline.avatar.reconstruction import TRIPOSR_PINNED_COMMIT
+
+    root = pathlib.Path(__file__).resolve().parents[2]
+    lock = json.loads(
+        (root / "third_party.lock.json").read_text(encoding="utf-8")
+    )
+    pyproject = tomllib.loads(
+        (root / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    colab_source = (root / "tools" / "colab_app.py").read_text(
+        encoding="utf-8"
+    )
+    colab_tree = ast.parse(colab_source)
+
+    constants = {}
+    for node in colab_tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and isinstance(node.value, ast.Constant)
+        ):
+            constants[node.targets[0].id] = node.value.value
+
+    tools = lock["tools"]
+    assert TRIPOSR_PINNED_COMMIT == tools["triposr"]["source_commit"]
+    assert constants["TRIPOSR_COMMIT"] == TRIPOSR_PINNED_COMMIT
+    assert tools["triposr"]["model_id"] == "stabilityai/TripoSR"
+
+    anime_version = tools["anime_face_detector"]["package_version"]
+    project_dependencies = pyproject["project"]["dependencies"]
+    assert f"anime-face-detector=={anime_version}" in project_dependencies
+    assert f'"anime-face-detector=={anime_version}"' in colab_source
+
+
+def test_invalid_reconstruction_option_type_fails_before_model_call(tmp_path):
+    from vtuber_pipeline.avatar.build import AvatarPipeline
+
+    result = AvatarPipeline(
+        str(tmp_path / "out"),
+        config={
+            "reconstruction": {
+                "remove_background": "false",
+            }
+        },
+    ).build(str(tmp_path / "source.png"))
+
+    assert result["status"] == "failed"
+    assert result["failed_stages"] == ["orchestrator"]
+    assert "remove_background" in result["failed_reason"]
