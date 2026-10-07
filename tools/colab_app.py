@@ -24,7 +24,7 @@ REPO_DIR = pathlib.Path("/content/Virtual-pipeline")
 TRIPOSR_DIR = pathlib.Path("/content/third_party/TripoSR")
 TRIPOSR_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
 TORCHMCUBES_COMMIT = "879926d0ef58e6ce0ac2630fdecb5e53af7ed3ff"
-RUNTIME_CONTRACT = "colab-runtime-v3"
+RUNTIME_CONTRACT = "colab-runtime-v4"
 WORK_ROOT = pathlib.Path("/content/vtuber_builder")
 OUTPUT_ROOT = WORK_ROOT / "output"
 
@@ -233,7 +233,6 @@ def _install_runtime(head: str) -> None:
         "rembg==2.0.85",
         "huggingface-hub>=0.34.0,<1.0",
         "imageio[ffmpeg]>=2.34.0",
-        "pydantic>=2.0",
         "PyYAML>=6.0",
         "scipy>=1.13",
         "click>=8.0",
