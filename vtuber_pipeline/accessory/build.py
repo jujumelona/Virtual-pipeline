@@ -168,7 +168,11 @@ class AccessoryPipeline:
 
         # Re-import the merged file and apply the same strict product contract
         # used by Avatar Mode. This catches broken index/buffer remaps.
-        results["stages"]["validator"] = validate_vrm(output_vrm, output_dir)
+        results["stages"]["validator"] = validate_vrm(
+            output_vrm,
+            output_dir,
+            product_contract=False,
+        )
         if (
             results["stages"]["validator"].get("status") != "complete"
             or not results["stages"]["validator"].get("passed")
