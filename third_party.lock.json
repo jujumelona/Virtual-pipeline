@@ -30,12 +30,21 @@
       "path": "assets/makehuman_cc0/",
       "description": "MakeHuman CC0 base mesh used as canonical topology seed",
       "commercial_safe": true
+    },
+    "torchmcubes": {
+      "source_commit": "879926d0ef58e6ce0ac2630fdecb5e53af7ed3ff",
+      "artifact_sha256": null,
+      "license": "MPL-2.0",
+      "license_url": "https://github.com/tatsy/torchmcubes/blob/master/LICENSE",
+      "description": "Marching Cubes extension compiled against the active Colab PyTorch with --no-build-isolation",
+      "commercial_safe": true
     }
   },
   "notes": {
     "integrity": "source_revision and artifact_sha256 are separate fields. artifact_sha256 is populated only from actual downloaded bytes and is never substituted with a git SHA or package version.",
     "triposr_usage": "Commercial profile requires the pinned TripoSR source commit.",
     "anime_face_detector_usage": "Package version is pinned exactly in pyproject.toml.",
-    "vrm_export": "VRM 1.0 is emitted by the pure-Python pygltflib path; Blender/VRM Add-on is not a runtime dependency."
+    "vrm_export": "VRM 1.0 is emitted by the pure-Python pygltflib path; Blender/VRM Add-on is not a runtime dependency.",
+    "torchmcubes_usage": "Install after PyTorch and build dependencies with --no-build-isolation; native build parallelism is capped for Colab."
   }
 }
