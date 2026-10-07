@@ -180,3 +180,20 @@ def test_lock_entries_are_fail_closed_and_complete():
     triposr = tools["triposr"]
     assert triposr["model_revision"]
     assert triposr["model_weight_sha256"]
+
+
+def test_ci_actions_are_immutable_sha_pinned_and_full_suite_is_gated():
+    workflow = _read(".github/workflows/ci.yml")
+
+    checkout_sha = "3d3c42e5aac5ba805825da76410c181273ba90b1"
+    setup_python_sha = "5fda3b95a4ea91299a34e894583c3862153e4b97"
+
+    assert f"actions/checkout@{checkout_sha}" in workflow
+    assert f"actions/setup-python@{setup_python_sha}" in workflow
+    assert "actions/checkout@v" not in workflow
+    assert "actions/setup-python@v" not in workflow
+
+    assert "full-suite:" in workflow
+    assert "python -m pytest -q tests" in workflow
+    assert "- full-suite" in workflow
+    assert 'test "$FULL_SUITE" = success' in workflow
