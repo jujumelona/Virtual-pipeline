@@ -1,145 +1,88 @@
-"""Unit tests for SpringBone configuration.
+"""Unit tests for current VRMC_springBone configuration contracts."""
 
-Tests for VRMC_springBone 1.0 schema compliance:
-- Uses 'joints' array (not 'jointEdges')
-- Uses 'stiffness' (not 'stiffiness')
-- Each joint has required fields: stiffness, gravityDir, dragForce
-"""
+import json
 
-import pytest
 from vtuber_pipeline.avatar.springbone import (
-    generate_springbone_config,
-    classify_springbone_chains,
+    SPRING_BONE_PRESETS,
     apply_springbone_preset,
-    SPRING_BONE_PRESETS
+    classify_springbone_chains,
+    generate_springbone_config,
 )
 
 
-class TestSpringBonePresets:
-    """Tests for SpringBone presets."""
-    
-    def test_preset_has_stiffness_not_stiffiness(self):
-        """Verify all presets use 'stiffness' not 'stiffiness'."""
-        for bone_class, preset in SPRING_BONE_PRESETS.items():
-            assert "stiffness" in preset, f"Preset '{bone_class}' missing 'stiffness'"
-            assert "stiffiness" not in preset, f"Preset '{bone_class}' has typo 'stiffiness'"
-    
-    def test_preset_has_required_fields(self):
-        """Verify all presets have required fields."""
-        required_fields = ["stiffness", "gravity", "drag", "hit_radius"]
-        for bone_class, preset in SPRING_BONE_PRESETS.items():
-            for field in required_fields:
-                assert field in preset, f"Preset '{bone_class}' missing '{field}'"
+def _write_hair_gltf(path):
+    from pygltflib import GLTF2, Node
+
+    gltf = GLTF2()
+    gltf.nodes = [
+        Node(name="hairRoot", children=[1]),
+        Node(name="hairMid", children=[2]),
+        Node(name="hairTip"),
+    ]
+    gltf.save(str(path))
 
 
-class TestGenerateSpringboneConfig:
-    """Tests for generate_springbone_config function."""
-    
-    def test_springbone_extension_schema(self, tmp_path):
-        """Test that generated config follows VRMC_springBone 1.0 schema."""
-        result = generate_springbone_config(
-            mesh_path="test.glb",
-            output_dir=str(tmp_path)
-        )
-        
-        # Check top-level structure
-        assert result["status"] == "complete"
-        assert "springs" in result
-        assert "specVersion" in result
-        assert result["specVersion"] == "1.0"
-    
-    def test_springs_have_joints_not_joint_edges(self, tmp_path):
-        """Test that springs use 'joints' array, not 'jointEdges'."""
-        result = generate_springbone_config(
-            mesh_path="test.glb",
-            output_dir=str(tmp_path)
-        )
-        
-        # Each spring must have 'joints', not 'jointEdges'
-        for spring in result["springs"]:
-            assert "joints" in spring, f"Spring '{spring.get('name')}' missing 'joints'"
-            assert "jointEdges" not in spring, f"Spring '{spring.get('name')}' has deprecated 'jointEdges'"
-    
-    def test_joint_has_correct_fields(self, tmp_path):
-        """Test that joints have all required VRMC_springBone 1.0 fields."""
-        result = generate_springbone_config(
-            mesh_path="test.glb",
-            output_dir=str(tmp_path)
-        )
-        
-        # If there are any joints, verify their structure
-        for spring in result["springs"]:
-            for joint in spring.get("joints", []):
-                # Must have 'stiffness' (not 'stiffiness')
-                assert "stiffness" in joint, f"Joint missing 'stiffness'"
-                assert "stiffiness" not in joint, f"Joint has typo 'stiffiness'"
-                
-                # Must have 'gravityDir'
-                assert "gravityDir" in joint, f"Joint missing 'gravityDir'"
-                
-                # Must have 'dragForce'
-                assert "dragForce" in joint, f"Joint missing 'dragForce'"
-    
-    def test_config_written_to_file(self, tmp_path):
-        """Test that config is written to springbone.json."""
-        import json
-        from pathlib import Path
-        
-        result = generate_springbone_config(
-            mesh_path="test.glb",
-            output_dir=str(tmp_path)
-        )
-        
-        springbone_file = Path(tmp_path) / "springbone.json"
-        assert springbone_file.exists(), "springbone.json not created"
-        
-        with open(springbone_file) as f:
-            loaded = json.load(f)
-        
-        assert loaded["status"] == "complete"
-        assert "springs" in loaded
+def test_presets_use_current_field_names():
+    for name, preset in SPRING_BONE_PRESETS.items():
+        assert "stiffness" in preset, name
+        assert "stiffiness" not in preset, name
+        for field in ("stiffness", "gravity", "drag", "hit_radius"):
+            assert field in preset, (name, field)
 
 
-class TestClassifySpringboneChains:
-    """Tests for classify_springbone_chains function."""
-    
-    def test_returns_list(self):
-        """Test that function returns a list."""
-        result = classify_springbone_chains(
-            mesh_path="test.glb",
-            skeleton={}
-        )
-        assert isinstance(result, list)
-    
-    def test_chain_structure(self):
-        """Test that returned chains have correct structure."""
-        result = classify_springbone_chains(
-            mesh_path="test.glb",
-            skeleton={}
-        )
-        
-        for chain in result:
-            assert "name" in chain, "Chain missing 'name'"
-            assert "joints" in chain, "Chain missing 'joints'"
-            assert isinstance(chain["joints"], list), "'joints' must be a list"
+def test_classify_uses_actual_secondary_node_names():
+    chains = classify_springbone_chains(
+        mesh_path="unused.glb",
+        skeleton={"names": ["head", "hairRoot", "hairMid", "hairTip"]},
+    )
+    hair = next(chain for chain in chains if chain["name"] == "hair")
+    assert [joint["node"] for joint in hair["joints"]] == [
+        "hairRoot", "hairMid", "hairTip"
+    ]
+    assert "jointEdges" not in hair
+    assert "stiffiness" not in json.dumps(hair)
 
 
-class TestApplySpringbonePreset:
-    """Tests for apply_springbone_preset function."""
-    
-    def test_default_preset(self):
-        """Test applying default preset."""
-        preset = apply_springbone_preset("hair")
-        assert preset["stiffness"] == 0.5
-        assert preset["gravity"] == 0.1
-    
-    def test_custom_preset_merge(self):
-        """Test merging custom preset."""
-        preset = apply_springbone_preset("hair", {"stiffness": 0.8})
-        assert preset["stiffness"] == 0.8  # Custom value
-        assert preset["gravity"] == 0.1  # Original value preserved
-    
-    def test_unknown_class_uses_hair_default(self):
-        """Test unknown class falls back to hair preset."""
-        preset = apply_springbone_preset("unknown_class")
-        assert preset["stiffness"] == 0.5  # Hair preset default
+def test_generate_config_from_real_gltf_nodes(tmp_path):
+    mesh_path = tmp_path / "rig.gltf"
+    _write_hair_gltf(mesh_path)
+
+    result = generate_springbone_config(str(mesh_path), str(tmp_path))
+    assert result["status"] == "complete"
+    assert result["specVersion"] == "1.0"
+    assert result["springs"]
+
+    hair = next(s for s in result["springs"] if s["name"] == "hair")
+    assert len(hair["joints"]) == 3
+    for joint in hair["joints"]:
+        assert "stiffness" in joint
+        assert "gravityDir" in joint
+        assert "dragForce" in joint
+        assert "stiffiness" not in joint
+
+    persisted = json.loads((tmp_path / "springbone.json").read_text())
+    assert persisted["status"] == "complete"
+
+
+def test_missing_secondary_nodes_is_not_fake_complete(tmp_path):
+    from pygltflib import GLTF2, Node
+
+    path = tmp_path / "rig.gltf"
+    gltf = GLTF2()
+    gltf.nodes = [Node(name="head")]
+    gltf.save(str(path))
+
+    result = generate_springbone_config(str(path), str(tmp_path))
+    assert result["status"] == "partial"
+    assert result["springs"] == []
+
+
+def test_preset_override():
+    preset = apply_springbone_preset("hair", {"stiffness": 0.8})
+    assert preset["stiffness"] == 0.8
+    assert preset["gravity"] == SPRING_BONE_PRESETS["hair"]["gravity"]
+
+
+def test_unknown_class_uses_hair_default():
+    preset = apply_springbone_preset("unknown_class")
+    assert preset == SPRING_BONE_PRESETS["hair"]
