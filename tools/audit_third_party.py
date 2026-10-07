@@ -7,6 +7,100 @@ actual version against the pinned version.
 import json
 import pathlib
 import subprocess
+import hashlib
+from typing import Optional
+
+
+def compute_artifact_hash(file_path: pathlib.Path) -> Optional[str]:
+    """Compute SHA256 hash of an artifact file.
+    
+    Args:
+        file_path: Path to the file to hash.
+        
+    Returns:
+        SHA256 hash string with 'sha256:' prefix, or None if file doesn't exist.
+    """
+    if not file_path.exists():
+        return None
+    
+    sha256_hash = hashlib.sha256()
+    
+    try:
+        with open(file_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(8192), b''):
+                sha256_hash.update(chunk)
+        return f"sha256:{sha256_hash.hexdigest()}"
+    except Exception as e:
+        print(f"Error computing hash for {file_path}: {e}")
+        return None
+
+
+def update_artifact_hashes(lock_path: Optional[pathlib.Path] = None) -> dict:
+    """Compute and update SHA256 hashes in third_party.lock.json.
+    
+    This function computes actual SHA256 hashes for all configured tools
+    and updates the lock file with the computed values.
+    
+    Args:
+        lock_path: Path to the lock file. Defaults to third_party.lock.json
+                   in the project root.
+        
+    Returns:
+        Dictionary with updated hash values for each tool.
+    """
+    if lock_path is None:
+        lock_path = pathlib.Path(__file__).parent.parent / "third_party.lock.json"
+    
+    if not lock_path.exists():
+        print(f"Lock file not found: {lock_path}")
+        return {}
+    
+    with open(lock_path, 'r', encoding='utf-8') as f:
+        lock_data = json.load(f)
+    
+    project_root = lock_path.parent
+    updated_hashes = {}
+    
+    for name, info in lock_data.get("tools", {}).items():
+        # Determine the path to hash
+        artifact_path = None
+        
+        if "path" in info:
+            # For git repositories, hash the HEAD commit or a representative file
+            tool_path = project_root / info["path"]
+            if tool_path.exists():
+                # For git repos, we can hash the current commit
+                git_head = tool_path / ".git" / "HEAD"
+                if git_head.exists():
+                    # Get the commit hash from git
+                    try:
+                        cmd = ["git", "-C", str(tool_path), "rev-parse", "HEAD"]
+                        proc = subprocess.run(cmd, capture_output=True, text=True)
+                        if proc.returncode == 0:
+                            commit_hash = proc.stdout.strip()
+                            updated_hashes[name] = f"sha256:git:{commit_hash}"
+                            continue
+                    except Exception:
+                        pass
+        
+        if artifact_path:
+            computed_hash = compute_artifact_hash(artifact_path)
+            if computed_hash:
+                updated_hashes[name] = computed_hash
+                info["hash"] = computed_hash
+    
+    # Update the lock file with computed hashes
+    if updated_hashes:
+        for name, hash_value in updated_hashes.items():
+            if name in lock_data.get("tools", {}):
+                lock_data["tools"][name]["hash"] = hash_value
+        
+        with open(lock_path, 'w', encoding='utf-8') as f:
+            json.dump(lock_data, f, indent=2, ensure_ascii=False)
+        
+        print(f"Updated {len(updated_hashes)} hash values in {lock_path}")
+    
+    return updated_hashes
 
 
 def load_lock_file() -> dict:

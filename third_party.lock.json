@@ -7,7 +7,7 @@
       "license": "MIT",
       "license_url": "https://github.com/VAST-AI-Research/TripoSR/blob/main/LICENSE",
       "path": "TripoSR/",
-      "hash": "sha256:triposr_model_weights_hash_placeholder",
+      "hash": "sha256:git:107cefdc244c39106fa830359024f6a2f1c78871",
       "description": "TripoSR - Fast 3D Object Reconstruction from a Single Image",
       "commercial_safe": true
     },
@@ -17,7 +17,7 @@
       "license": "MIT",
       "license_url": "https://github.com/hysts/anime-face-detector/blob/main/LICENSE",
       "pypi": "anime-face-detector",
-      "hash": "sha256:anime_face_detector_hash_placeholder",
+      "hash": "sha256:git:98a9fb480fa04bdd96acbe4d98da191a898267f3",
       "description": "Anime Face Detector with YOLOv3",
       "commercial_safe": true
     },
@@ -27,7 +27,7 @@
       "license": "CC0",
       "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
       "path": "assets/makehuman_cc0/",
-      "hash": "sha256:makehuman_cc0_hash_placeholder",
+      "hash": "sha256:git:a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
       "description": "MakeHuman CC0 assets for base meshes",
       "commercial_safe": true
     },
@@ -37,7 +37,7 @@
       "license": "MIT",
       "license_url": "https://github.com/saturday06/VRM-Addon-for-Blender/blob/master/LICENSE.txt",
       "path": "blender_addons/vrm/",
-      "hash": "sha256:vrm_addon_hash_placeholder",
+      "hash": "sha256:git:322100608a16df95bfbc3678aa84471ccb5a88fe",
       "description": "VRM Addon for Blender",
       "commercial_safe": true
     }

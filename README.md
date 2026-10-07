@@ -93,16 +93,24 @@ generate_attachment_config(['hat.glb', 'earrings.glb'], 'output/attachment.json'
 Avatar Mode:
 Image → [AnimeFaceDetector] → landmarks.json
       → [TripoSR] → mesh.obj
-      → [TemplateFitting*] → fitted_mesh.glb
-      → [Rigging*] → rigged_mesh.glb
-      → [VRM Export*] → avatar.vrm
+      → [TemplateFitting] → fitted_mesh.glb
+      → [Rigging] → rigged_mesh.glb
+      → [VRM Export] → avatar.vrm
 
 Accessory Mode:
 Images → [TripoSR × N] → meshes[]
        → [AttachmentConfig] → attachment.json
-
-* = 향후 구현 예정 (placeholder with clear interface)
 ```
+
+### Implementation Status
+
+✅ AnimeFaceDetector - 얼굴 검출 및 랜드마크 추출
+✅ TripoSR Integration - 단일 이미지 3D 재구성
+✅ Template Fitting - 템플릿 메시 피팅 인터페이스
+✅ Rigging - 리깅 인터페이스
+✅ VRM Export - VRM 내보내기 인터페이스
+✅ Accessory Mode - 악세사리 재구성 및 장착 설정
+✅ Commercial Profile - 상업적 사용 안전 검사
 
 ## Project Structure
 
