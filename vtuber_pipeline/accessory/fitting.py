@@ -82,6 +82,8 @@ def fit_accessory(
             "source_extents": extents.tolist(),
             "target_size": target_size,
             "baked_uniform_scale": uniform_scale,
+            "world_to_local_linear": anchor.get("world_to_local_linear"),
+            "anchor_node_index": anchor.get("node_index"),
         })
     except Exception as exc:
         result["status"] = "error"
