@@ -1,5 +1,7 @@
 """Avatar reconstruction module for VTuber Pipeline."""
 
+import functools
+import hashlib
 import subprocess
 import pathlib
 import logging
@@ -9,6 +11,9 @@ import sys
 logger = logging.getLogger(__name__)
 
 TRIPOSR_PINNED_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
+TRIPOSR_MODEL_ID = "stabilityai/TripoSR"
+TRIPOSR_MODEL_REVISION = "c1cf7716aed5aa6c1c5e174657791ef0e1327bde"
+TRIPOSR_MODEL_WEIGHT_SHA256 = "429e2c6b22a0923967459de24d67f05962b235f79cde6b032aa7ed2ffcd970ee"
 TRIPOSR_DEFAULT_TIMEOUT_SECONDS = 1200
 
 
@@ -109,6 +114,61 @@ def verify_triposr_revision(run_script: str, profile: str) -> None:
         )
 
 
+def _sha256(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+@functools.lru_cache(maxsize=1)
+def resolve_triposr_model() -> str:
+    """Resolve the exact pinned TripoSR model snapshot and verify its weights."""
+    explicit = os.environ.get("TRIPOSR_MODEL_DIR")
+    if explicit:
+        model_dir = pathlib.Path(explicit).expanduser().resolve()
+        config_path = model_dir / "config.yaml"
+        weight_path = model_dir / "model.ckpt"
+    else:
+        try:
+            from huggingface_hub import hf_hub_download
+        except ImportError as exc:
+            raise RuntimeError(
+                "huggingface-hub is required to resolve the pinned TripoSR model"
+            ) from exc
+
+        config_path = pathlib.Path(hf_hub_download(
+            repo_id=TRIPOSR_MODEL_ID,
+            filename="config.yaml",
+            revision=TRIPOSR_MODEL_REVISION,
+        )).resolve()
+        weight_path = pathlib.Path(hf_hub_download(
+            repo_id=TRIPOSR_MODEL_ID,
+            filename="model.ckpt",
+            revision=TRIPOSR_MODEL_REVISION,
+        )).resolve()
+        if config_path.parent != weight_path.parent:
+            raise RuntimeError(
+                "Pinned TripoSR config and weights resolved to different snapshots"
+            )
+        model_dir = config_path.parent
+
+    if not config_path.is_file() or config_path.stat().st_size == 0:
+        raise RuntimeError(f"Pinned TripoSR config is missing: {config_path}")
+    if not weight_path.is_file() or weight_path.stat().st_size == 0:
+        raise RuntimeError(f"Pinned TripoSR weights are missing: {weight_path}")
+
+    actual_sha256 = _sha256(weight_path)
+    if actual_sha256 != TRIPOSR_MODEL_WEIGHT_SHA256:
+        raise RuntimeError(
+            "TripoSR model weight SHA256 mismatch: "
+            f"expected {TRIPOSR_MODEL_WEIGHT_SHA256}, got {actual_sha256}"
+        )
+
+    return str(model_dir)
+
+
 def reconstruct_avatar(
     image_path: str,
     output_dir: str,
@@ -144,6 +204,13 @@ def reconstruct_avatar(
     run_script = find_triposr_installation()
     verify_triposr_revision(run_script, profile)
     logger.info(f"Using TripoSR at: {run_script}")
+    model_dir = resolve_triposr_model()
+    logger.info(
+        "Using pinned TripoSR model %s@%s from %s",
+        TRIPOSR_MODEL_ID,
+        TRIPOSR_MODEL_REVISION,
+        model_dir,
+    )
     
     if model_save_format not in {"obj", "glb"}:
         raise ValueError(f"Unsupported TripoSR model_save_format: {model_save_format}")
@@ -157,6 +224,7 @@ def reconstruct_avatar(
         image_path,
         "--output-dir", output_dir,
         "--model-save-format", model_save_format,
+        "--pretrained-model-name-or-path", model_dir,
     ]
     if not remove_background:
         # Upstream does not create output_dir/0 in this branch, so make it
