@@ -50,12 +50,26 @@ class AnimeFaceDetector:
 
         # Use the highest-confidence face instead of relying on detector order.
         pred = max(preds, key=lambda item: float(item["bbox"][4]))
-        bbox = pred["bbox"][:4].tolist()
-        landmarks = pred["keypoints"][:28].tolist() if "keypoints" in pred else []
+        bbox_raw = np.asarray(pred["bbox"], dtype=float)
+        keypoints = np.asarray(pred.get("keypoints"), dtype=float)
+
+        if bbox_raw.shape[0] < 5 or not np.all(np.isfinite(bbox_raw[:5])):
+            raise ValueError("anime-face-detector returned an invalid bbox")
+        if (
+            keypoints.ndim != 2
+            or keypoints.shape[0] < 28
+            or keypoints.shape[1] < 3
+            or not np.all(np.isfinite(keypoints[:28, :3]))
+        ):
+            raise ValueError(
+                "anime-face-detector returned fewer than 28 scored landmarks"
+            )
+
         return {
-            "bbox": bbox,
-            "landmarks": landmarks,
-            "score": float(pred["bbox"][4]),
+            "bbox": bbox_raw[:4].astype(float).tolist(),
+            "landmarks": keypoints[:28, :2].astype(float).tolist(),
+            "landmark_scores": keypoints[:28, 2].astype(float).tolist(),
+            "score": float(bbox_raw[4]),
         }
 
     def detect_and_save(self, image_path: str, output_json: str) -> dict:
