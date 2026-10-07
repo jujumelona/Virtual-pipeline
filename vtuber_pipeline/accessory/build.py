@@ -16,8 +16,7 @@ class AccessoryPipeline:
     2. anchors - Generate anchor manifest
     3. fit - Fit accessory to anchor
     4. collision - Check and resolve collisions
-    5. physics - Add physics configuration
-    6. bake - Bake into base VRM
+    5. bake - Bake into base VRM
     """
     
     def __init__(self, output_dir: str, config: Optional[Dict[str, Any]] = None):
@@ -62,7 +61,7 @@ class AccessoryPipeline:
         
         # Import stage modules
         from vtuber_pipeline.accessory import normalize, anchors, fitting
-        from vtuber_pipeline.accessory import collision, physics, bake
+        from vtuber_pipeline.accessory import collision, bake
         from vtuber_pipeline.avatar.validator import validate_vrm
         
         # Stage 1: Normalize
@@ -137,12 +136,7 @@ class AccessoryPipeline:
                 base_translation + local_push
             ).astype(float).tolist()
         
-        # Stage 5: Physics
-        results["stages"]["physics"] = physics.add_physics_chain(
-            fitted_path, output_dir, config.get("physics")
-        )
-        
-        # Stage 6: Bake
+        # Stage 5: Bake
         output_vrm = str(pathlib.Path(output_dir) / "combined.vrm")
         attachment_cfg = {
             pathlib.Path(fitted_path).stem: {
@@ -190,17 +184,9 @@ class AccessoryPipeline:
             name for name, result in results["stages"].items()
             if isinstance(result, dict) and result.get("status") == "error"
         ]
-        incomplete_stages = [
-            name for name, result in results["stages"].items()
-            if isinstance(result, dict) and result.get("status") in {"stub", "partial"}
-        ]
-        
         if failed_stages:
             results["status"] = "failed"
             results["failed_stages"] = failed_stages
-        elif incomplete_stages:
-            results["status"] = "partial"
-            results["incomplete_stages"] = incomplete_stages
         else:
             results["status"] = "complete"
             results["output_vrm"] = output_vrm
