@@ -129,6 +129,7 @@ class AvatarPipeline:
                 results["stages"]["reference_reconstruction"] = {
                     "status": "complete",
                     "mesh_path": reference_mesh,
+                    "output_path": reference_mesh,  # For manifest caching
                     "source": "triposr"
                 }
             except Exception as e:
@@ -151,17 +152,34 @@ class AvatarPipeline:
                 results["stages"]["reference_reconstruction"] = {
                     "status": "fallback",
                     "mesh_path": str(template_path),
+                    "output_path": str(template_path),  # For manifest caching
                     "source": "canonical_template",
                     "error": str(e)
                 }
             self.manifest.record_stage(stage_key, results["stages"]["reference_reconstruction"])
         else:
-            template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
-            results["stages"]["reference_reconstruction"] = {
-                "status": "cached",
-                "mesh_path": str(template_path),
-                "stage_key": stage_key
-            }
+            # Retrieve cached result from manifest
+            cached_stage = self.manifest.get_stage(stage_key)
+            if cached_stage and cached_stage.get("output_path"):
+                cached_mesh_path = cached_stage["output_path"]
+                # Determine source from cached status
+                cached_status = cached_stage.get("status", "complete")
+                results["stages"]["reference_reconstruction"] = {
+                    "status": "cached",
+                    "mesh_path": cached_mesh_path,
+                    "source": "cached_tripsr" if cached_status == "complete" else "cached_fallback",
+                    "stage_key": stage_key
+                }
+            else:
+                # Fallback if cache data is incomplete
+                template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
+                results["stages"]["reference_reconstruction"] = {
+                    "status": "cached",
+                    "mesh_path": str(template_path),
+                    "source": "canonical_template",
+                    "stage_key": stage_key,
+                    "warning": "Cache hit but output_path not found in manifest"
+                }
         
         # Stage 4: Reference analysis
         ref_mesh = results["stages"]["reference_reconstruction"].get("mesh_path", "")

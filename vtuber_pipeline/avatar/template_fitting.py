@@ -227,7 +227,7 @@ def fit_template(
             initial_params,
             method='L-BFGS-B',
             bounds=bounds,
-            options={'maxiter': 100, 'disp': False}
+            options={'maxiter': 100}
         )
         
         # Extract optimized parameters
