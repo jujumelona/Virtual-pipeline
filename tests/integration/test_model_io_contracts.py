@@ -97,6 +97,8 @@ def test_triposr_wrapper_maps_options_to_cli_timeout_and_output(
     output_dir = tmp_path / "triposr-output"
 
     captured = {}
+    model_dir = tmp_path / "pinned-model"
+    model_dir.mkdir()
 
     monkeypatch.setattr(
         reconstruction,
@@ -110,6 +112,11 @@ def test_triposr_wrapper_maps_options_to_cli_timeout_and_output(
             "revision_check",
             (run_script, profile),
         ),
+    )
+    monkeypatch.setattr(
+        reconstruction,
+        "resolve_triposr_model",
+        lambda: str(model_dir),
     )
     monkeypatch.setenv("TRIPOSR_TIMEOUT_SECONDS", "77")
 
@@ -178,6 +185,9 @@ def test_triposr_wrapper_maps_options_to_cli_timeout_and_output(
         captured["cmd"].index("--model-save-format") + 1
     ] == "glb"
     assert "--no-remove-bg" in captured["cmd"]
+    assert captured["cmd"][
+        captured["cmd"].index("--pretrained-model-name-or-path") + 1
+    ] == str(model_dir)
     assert captured["timeout"] == 77
     assert captured["cwd"] == str(triposr_dir)
     assert result == str(output_dir / "0" / "mesh.glb")
@@ -195,6 +205,8 @@ def test_triposr_background_true_omits_no_remove_bg(
     image_path.write_bytes(b"image")
     output_dir = tmp_path / "out"
     captured = {}
+    model_dir = tmp_path / "pinned-model"
+    model_dir.mkdir()
 
     monkeypatch.setattr(
         reconstruction,
@@ -205,6 +217,11 @@ def test_triposr_background_true_omits_no_remove_bg(
         reconstruction,
         "verify_triposr_revision",
         lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        reconstruction,
+        "resolve_triposr_model",
+        lambda: str(model_dir),
     )
 
     class FakeScene:
@@ -242,6 +259,9 @@ def test_triposr_background_true_omits_no_remove_bg(
     assert captured["cmd"][
         captured["cmd"].index("--model-save-format") + 1
     ] == "obj"
+    assert captured["cmd"][
+        captured["cmd"].index("--pretrained-model-name-or-path") + 1
+    ] == str(model_dir)
     assert result.endswith("/0/mesh.obj")
 
 
@@ -301,6 +321,7 @@ def test_accessory_reconstruction_forwards_model_options_and_maps_outputs(
             "profile": "production",
             "model_save_format": "obj",
             "remove_background": False,
+            "model_revision": module.TRIPOSR_MODEL_REVISION,
         }
         for item in result
     )
@@ -470,7 +491,12 @@ def test_model_pins_agree_across_package_lock_code_and_colab():
     import json
     import tomllib
 
-    from vtuber_pipeline.avatar.reconstruction import TRIPOSR_PINNED_COMMIT
+    from vtuber_pipeline.avatar.reconstruction import (
+        TRIPOSR_MODEL_ID,
+        TRIPOSR_MODEL_REVISION,
+        TRIPOSR_MODEL_WEIGHT_SHA256,
+        TRIPOSR_PINNED_COMMIT,
+    )
 
     root = pathlib.Path(__file__).resolve().parents[2]
     lock = json.loads(
@@ -497,7 +523,12 @@ def test_model_pins_agree_across_package_lock_code_and_colab():
     tools = lock["tools"]
     assert TRIPOSR_PINNED_COMMIT == tools["triposr"]["source_commit"]
     assert constants["TRIPOSR_COMMIT"] == TRIPOSR_PINNED_COMMIT
-    assert tools["triposr"]["model_id"] == "stabilityai/TripoSR"
+    assert tools["triposr"]["model_id"] == TRIPOSR_MODEL_ID
+    assert tools["triposr"]["model_revision"] == TRIPOSR_MODEL_REVISION
+    assert (
+        tools["triposr"]["model_weight_sha256"]
+        == TRIPOSR_MODEL_WEIGHT_SHA256
+    )
 
     anime_version = tools["anime_face_detector"]["package_version"]
     project_dependencies = pyproject["project"]["dependencies"]
