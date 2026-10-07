@@ -249,7 +249,7 @@ def transfer_texture(
     return result
 
 
-def _generate_spherical_uv(vertices) -> "np.ndarray":
+def _generate_spherical_uv(vertices):
     """Generate spherical UV mapping for vertices.
     
     Args:
