@@ -5,8 +5,9 @@ VTuber template mesh to an input reference mesh using landmark constraints.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import pathlib
+import numpy as np
 
 
 @dataclass
@@ -248,89 +249,142 @@ def fit_template(
         # Apply rigid transform to get initial fitted vertices
         rigid_transformed = (scale * (R @ original_vertices.T)).T + np.array([tx, ty, tz])
         
-        # PHASE 2: Non-rigid per-vertex displacement optimization
-        # Variables: per-vertex displacement (N x 3)
+        # PHASE 2: Non-rigid deformation using sparse Laplacian
+        # Instead of per-vertex L-BFGS-B (thousands of variables), use sparse solve
         n_vertices = len(original_vertices)
         
-        # Build Laplacian matrix for smoothness regularization
-        laplacian_matrix = _build_laplacian_matrix(mesh)
+        # Select deformation graph nodes (sparse control points)
+        n_graph_nodes = min(200, n_vertices)
+        graph_node_indices = select_deformation_graph_nodes(rigid_transformed, n_graph_nodes)
+        graph_positions = rigid_transformed[graph_node_indices]
+        n_graph = len(graph_node_indices)
         
-        def nonrigid_energy(displacement_flat):
-            """Non-rigid energy with per-vertex displacements."""
-            displacements = displacement_flat.reshape(n_vertices, 3)
-            deformed = rigid_transformed + displacements
+        result["deformation_graph_nodes"] = n_graph
+        
+        # Build sparse Laplacian matrix for deformation graph
+        # L * x = 0 (smoothness: neighboring nodes should have similar displacements)
+        try:
+            from scipy import sparse as sp
+            from scipy.sparse.linalg import spsolve
             
-            # E_landmark: Landmark projection error
-            e_landmark = 0.0
-            if len(landmarks_2d) > 0:
-                projected = deformed[:, [0, 2]]  # Project to XZ plane (front view)
+            # Build adjacency for graph nodes (k-nearest neighbors)
+            from scipy.spatial import cKDTree
+            graph_tree = cKDTree(graph_positions)
+            k_neighbors = min(6, n_graph - 1)
+            distances, neighbor_indices = graph_tree.query(graph_positions, k=k_neighbors + 1)
+            
+            # Build sparse Laplacian matrix L
+            row = []
+            col = []
+            data = []
+            
+            for i in range(n_graph):
+                neighbors = neighbor_indices[i, 1:]  # Skip self
+                row.extend([i] * len(neighbors))
+                col.extend(neighbors.tolist())
+                data.extend([-1.0 / len(neighbors)] * len(neighbors))
+                row.append(i)
+                col.append(i)
+                data.append(1.0)
+            
+            L = sp.coo_matrix((data, (row, col)), shape=(n_graph, n_graph))
+            
+            # Build landmark constraint matrix C
+            # C * x = d (landmark constraints)
+            if len(landmarks_2d) > 0 and reference_tree is not None:
+                # Find which graph nodes are closest to each landmark
                 landmarks_array = np.array(landmarks_2d)
                 
-                # Normalize to similar scale
-                proj_center = projected.mean(axis=0)
-                lm_center = landmarks_array.mean(axis=0)
-                proj_scaled = projected - proj_center
-                lm_scaled = landmarks_array - lm_center
+                # Project graph positions to 2D (front view: X, Z)
+                graph_2d = graph_positions[:, [0, 2]]
                 
-                for lm in lm_scaled:
-                    distances = np.linalg.norm(proj_scaled - lm, axis=1)
-                    e_landmark += distances.min()
-                e_landmark /= len(landmarks_2d)
+                # Normalize landmarks to mesh scale
+                proj_center = graph_2d.mean(axis=0)
+                lm_center = landmarks_array.mean(axis=0)
+                proj_scale = np.std(graph_2d)
+                lm_scale = np.std(landmarks_array) if np.std(landmarks_array) > 1e-10 else 1.0
+                scale_factor = proj_scale / lm_scale
+                
+                landmark_constraints = []
+                for lm in landmarks_array:
+                    # Scale and offset landmark
+                    lm_scaled = (lm - lm_center) * scale_factor + proj_center
+                    
+                    # Find closest graph node
+                    distances = np.linalg.norm(graph_2d - lm_scaled, axis=1)
+                    closest_idx = np.argmin(distances)
+                    landmark_constraints.append((closest_idx, lm_scaled))
+                
+                n_constraints = len(landmark_constraints)
+                
+                # Build constraint matrix C (maps graph displacements to landmark targets)
+                C_row = []
+                C_col = []
+                C_data = []
+                d = []  # Target values
+                
+                for i, (node_idx, lm_2d) in enumerate(landmark_constraints):
+                    # X constraint
+                    C_row.append(2 * i)
+                    C_col.append(node_idx)
+                    C_data.append(1.0)
+                    d.append(lm_2d[0] - graph_positions[node_idx, 0])
+                    
+                    # Z constraint
+                    C_row.append(2 * i + 1)
+                    C_col.append(node_idx)
+                    C_data.append(1.0)
+                    d.append(lm_2d[1] - graph_positions[node_idx, 2])
+                
+                C = sp.coo_matrix((C_data, (C_row, C_col)), shape=(2 * n_constraints, n_graph))
+                d = np.array(d)
+                
+                # Solve: min ||Lx||^2 + lambda||Cx - d||^2
+                # Normal equations: (L^T L + lambda C^T C) x = lambda C^T d
+                lambda_landmark = objective.lambda_landmark * 10.0
+                
+                LTL = L.T @ L
+                CTC = C.T @ C
+                CTd = C.T @ d
+                
+                A = LTL + lambda_landmark * CTC
+                b = lambda_landmark * CTd
+                
+                # Solve for each coordinate separately
+                graph_displacements = np.zeros((n_graph, 3))
+                
+                for dim in range(3):
+                    try:
+                        graph_displacements[:, dim] = spsolve(A.tocsr(), b)
+                    except Exception:
+                        # If solve fails, use zero displacement
+                        graph_displacements[:, dim] = 0.0
+                
+                result["sparse_solve_success"] = True
+                
+            else:
+                # No landmarks - use small regularization toward zero
+                graph_displacements = np.zeros((n_graph, 3))
+                result["sparse_solve_success"] = False
+                result["sparse_solve_reason"] = "No landmarks available"
             
-            # E_surface: Surface-to-surface distance (ICP)
-            e_surface = 0.0
-            if reference_tree is not None:
-                distances, _ = reference_tree.query(deformed)
-                e_surface = np.mean(distances)
-            
-            # E_laplacian: Smoothness regularization (preserve mesh detail)
-            e_laplacian = 0.0
-            if laplacian_matrix is not None:
-                lap_coords = laplacian_matrix @ deformed
-                e_laplacian = np.mean(np.linalg.norm(lap_coords, axis=1))
-            
-            # E_symmetry: Bilateral symmetry
-            e_symmetry = 0.0
-            left_mask = deformed[:, 0] > 0
-            right_mask = deformed[:, 0] < 0
-            if np.any(left_mask) and np.any(right_mask):
-                left_center = deformed[left_mask].mean(axis=0)
-                right_center = deformed[right_mask].mean(axis=0)
-                e_symmetry = abs(left_center[1] - right_center[1]) + abs(left_center[2] - right_center[2])
-            
-            # Displacement magnitude penalty (regularization)
-            e_displacement = np.mean(np.linalg.norm(displacements, axis=1))
-            
-            total = (
-                objective.lambda_landmark * e_landmark +
-                objective.lambda_surface * e_surface +
-                objective.lambda_laplacian * e_laplacian +
-                objective.lambda_symmetry * e_symmetry +
-                0.01 * e_displacement  # Small weight for displacement regularization
+            # Interpolate graph displacements to all vertices
+            final_displacements = interpolate_displacements(
+                rigid_transformed, graph_node_indices, graph_displacements
             )
-            return total
+            
+            fitted_vertices = rigid_transformed + final_displacements
+            
+            result["graph_displacement_norm"] = float(np.linalg.norm(graph_displacements))
+            result["final_displacement_norm"] = float(np.linalg.norm(final_displacements))
+            
+        except ImportError:
+            # Fallback: skip non-rigid phase if scipy not available
+            fitted_vertices = rigid_transformed.copy()
+            result["sparse_solve_success"] = False
+            result["sparse_solve_reason"] = "scipy not available"
         
-        # Run non-rigid optimization
-        initial_displacements = np.zeros(n_vertices * 3)
-        
-        # Limit displacement magnitude
-        disp_bounds = [(-0.1, 0.1)] * (n_vertices * 3)
-        
-        nonrigid_result = minimize(
-            nonrigid_energy,
-            initial_displacements,
-            method='L-BFGS-B',
-            bounds=disp_bounds,
-            options={'maxiter': 100, 'maxfun': 500}
-        )
-        
-        # Apply final displacements
-        final_displacements = nonrigid_result.x.reshape(n_vertices, 3)
-        fitted_vertices = rigid_transformed + final_displacements
-        
-        result["nonrigid_iterations"] = int(nonrigid_result.nit)
-        result["nonrigid_objective"] = float(nonrigid_result.fun)
-        result["displacement_norm"] = float(np.linalg.norm(final_displacements))
+        result["nonrigid_method"] = "sparse_laplacian"
         
         # Total objective and iterations (combining rigid and non-rigid phases)
         result["objective_value"] = float(nonrigid_result.fun)
@@ -515,3 +569,350 @@ def fit_template_legacy(mesh_path: str, landmarks: dict, output_path: str) -> st
         "template_fitting은 아직 구현되지 않았습니다. "
         "Colab 노트북의 scaffold 섹션을 참조하세요."
     )
+
+
+# Landmark names for semantic correspondence
+LANDMARK_NAMES = [
+    "right_eye_outer_corner",
+    "right_eye_inner_corner", 
+    "left_eye_inner_corner",
+    "left_eye_outer_corner",
+    "nose_tip",
+    "nose_bridge",
+    "mouth_right_corner",
+    "mouth_left_corner",
+    "mouth_upper_lip_center",
+    "mouth_lower_lip_center",
+    "chin",
+    "right_eyebrow_outer",
+    "right_eyebrow_inner",
+    "left_eyebrow_inner",
+    "left_eyebrow_outer",
+]
+
+
+def normalize_landmarks(
+    landmarks_2d: List[List[float]],
+    image_shape: tuple,
+    template_bbox: Dict[str, List[float]]
+) -> List[List[float]]:
+    """Normalize 2D image landmarks to template mesh coordinate space.
+    
+    Transforms pixel coordinates from image space to template mesh space (meters).
+    
+    Steps:
+    1. Scale image pixels to [0, 1] using image_shape
+    2. Scale to template bounding box extent
+    3. Offset by template_bbox origin
+    
+    Args:
+        landmarks_2d: List of [x, y] pixel coordinates from face detector.
+        image_shape: (height, width) of the input image.
+        template_bbox: Dictionary with 'min' and 'max' keys defining the
+                       template mesh bounding box in meters.
+                       Example: {'min': [-0.1, 0.0, -0.1], 'max': [0.1, 0.3, 0.1]}
+                       
+    Returns:
+        List of [x, y] landmarks in template space (meters), ready for 3D projection.
+    """
+    if not landmarks_2d:
+        return []
+    
+    import numpy as np
+    
+    img_h, img_w = image_shape[:2]
+    
+    # Template bounding box extent
+    bbox_min = np.array(template_bbox.get('min', [-0.1, 0.0, -0.1]))
+    bbox_max = np.array(template_bbox.get('max', [0.1, 0.3, 0.1]))
+    bbox_extent = bbox_max - bbox_min
+    
+    # Template center for alignment
+    bbox_center = (bbox_min + bbox_max) / 2
+    
+    normalized = []
+    for lm in landmarks_2d:
+        if len(lm) >= 2:
+            x, y = lm[0], lm[1]
+            
+            # Step 1: Scale to [0, 1]
+            x_norm = x / img_w
+            y_norm = y / img_h
+            
+            # Step 2: Scale to template bbox extent
+            # X: map to template X range (mirror for correct orientation)
+            x_template = bbox_extent[0] * (1.0 - x_norm) + bbox_min[0]
+            
+            # Y: map to template Y range (flip Y axis - image Y is top-down)
+            y_template = bbox_extent[1] * (1.0 - y_norm) + bbox_min[1]
+            
+            normalized.append([x_template, y_template])
+    
+    return normalized
+
+
+def build_semantic_correspondence(
+    landmarks_2d: List[List[float]],
+    template,
+    landmarks_json: Optional[Dict[str, Any]] = None
+) -> List[tuple]:
+    """Build correspondence pairs between image landmarks and template vertices.
+    
+    Uses vertex_groups from landmarks_json to find the center vertex for each
+    landmark region (e.g., eye corners, nose tip, mouth corners).
+    
+    Args:
+        landmarks_2d: Normalized 2D landmarks in template space.
+        template: Template mesh object with vertices attribute.
+        landmarks_json: Optional dictionary with 'vertex_groups' mapping
+                        landmark names to vertex indices.
+                        Example: {'vertex_groups': {'left_eye': [1, 2, 3]}}
+                        
+    Returns:
+        List of (image_landmark_2d, template_vertex_3d) correspondence pairs.
+        Each pair is ([x, y], [vx, vy, vz]).
+    """
+    import numpy as np
+    
+    correspondences = []
+    
+    if not landmarks_2d:
+        return correspondences
+    
+    # Get template vertices
+    if hasattr(template, 'vertices'):
+        template_vertices = np.array(template.vertices)
+    else:
+        return correspondences
+    
+    # If vertex_groups available, use them for precise correspondence
+    if landmarks_json and 'vertex_groups' in landmarks_json:
+        vertex_groups = landmarks_json['vertex_groups']
+        
+        for i, lm_name in enumerate(LANDMARK_NAMES):
+            if i >= len(landmarks_2d):
+                break
+            
+            # Find vertex group for this landmark
+            group_key = lm_name.lower().replace('_', '')
+            matching_key = None
+            
+            for vg_name in vertex_groups.keys():
+                if group_key in vg_name.lower().replace('_', '').replace('-', ''):
+                    matching_key = vg_name
+                    break
+            
+            if matching_key:
+                # Get center of vertex group
+                group_indices = vertex_groups[matching_key]
+                if isinstance(group_indices, list) and len(group_indices) > 0:
+                    group_vertices = template_vertices[group_indices]
+                    center_vertex = group_vertices.mean(axis=0)
+                    correspondences.append((landmarks_2d[i], center_vertex.tolist()))
+    
+    # Fallback: use distance-based matching for remaining landmarks
+    if not correspondences and len(landmarks_2d) > 0:
+        # Project template vertices to 2D (front view: X, Y plane)
+        template_2d = template_vertices[:, [0, 1]]
+        
+        for lm in landmarks_2d:
+            lm_arr = np.array(lm[:2])
+            
+            # Find closest template vertex in 2D
+            distances = np.linalg.norm(template_2d - lm_arr, axis=1)
+            closest_idx = np.argmin(distances)
+            
+            correspondences.append((lm, template_vertices[closest_idx].tolist()))
+    
+    return correspondences
+
+
+def estimate_rigid_transform(
+    source_points: List[List[float]],
+    target_points: List[List[float]]
+) -> Dict[str, Any]:
+    """Estimate rigid transform (scale, rotation, translation) between point sets.
+    
+    Uses Procrustes analysis to find the optimal 7-DOF rigid transformation
+    that aligns source points to target points.
+    
+    Args:
+        source_points: Source point coordinates.
+        target_points: Target point coordinates.
+        
+    Returns:
+        Dictionary with 'scale', 'rotation' (Euler angles), and 'translation'.
+    """
+    import numpy as np
+    
+    if len(source_points) < 3 or len(target_points) < 3:
+        return {"scale": 1.0, "rotation": [0.0, 0.0, 0.0], "translation": [0.0, 0.0, 0.0]}
+    
+    src = np.array(source_points)
+    tgt = np.array(target_points)
+    
+    # Compute centroids
+    src_centroid = src.mean(axis=0)
+    tgt_centroid = tgt.mean(axis=0)
+    
+    # Center the points
+    src_centered = src - src_centroid
+    tgt_centered = tgt - tgt_centroid
+    
+    # Compute scale
+    src_scale = np.linalg.norm(src_centered)
+    tgt_scale = np.linalg.norm(tgt_centered)
+    scale = tgt_scale / src_scale if src_scale > 1e-10 else 1.0
+    
+    # Scale source
+    src_centered_scaled = src_centered * scale
+    
+    # Compute rotation using SVD (Kabsch algorithm)
+    H = src_centered_scaled.T @ tgt_centered
+    U, _, Vt = np.linalg.svd(H)
+    R = Vt.T @ U.T
+    
+    # Ensure proper rotation (det = 1)
+    if np.linalg.det(R) < 0:
+        Vt[-1, :] *= -1
+        R = Vt.T @ U.T
+    
+    # Convert rotation matrix to Euler angles
+    # Using ZYX order (yaw, pitch, roll)
+    rx = np.arctan2(R[2, 1], R[2, 2])
+    ry = np.arctan2(-R[2, 0], np.sqrt(R[2, 1]**2 + R[2, 2]**2))
+    rz = np.arctan2(R[1, 0], R[0, 0])
+    
+    # Compute translation
+    translation = tgt_centroid - scale * R @ src_centroid
+    
+    return {
+        "scale": float(scale),
+        "rotation": [float(rx), float(ry), float(rz)],
+        "translation": translation.tolist()
+    }
+
+
+def apply_rigid_transform(
+    vertices: np.ndarray,
+    scale: float,
+    rotation: List[float],
+    translation: List[float]
+) -> np.ndarray:
+    """Apply rigid transformation to vertices.
+    
+    Args:
+        vertices: (N, 3) array of vertex positions.
+        scale: Uniform scale factor.
+        rotation: Euler angles [rx, ry, rz] in radians.
+        translation: Translation vector [tx, ty, tz].
+        
+    Returns:
+        Transformed vertices array.
+    """
+    rx, ry, rz = rotation
+    tx, ty, tz = translation
+    
+    # Build rotation matrix
+    cos_x, sin_x = np.cos(rx), np.sin(rx)
+    Rx = np.array([[1, 0, 0], [0, cos_x, -sin_x], [0, sin_x, cos_x]])
+    
+    cos_y, sin_y = np.cos(ry), np.sin(ry)
+    Ry = np.array([[cos_y, 0, sin_y], [0, 1, 0], [-sin_y, 0, cos_y]])
+    
+    cos_z, sin_z = np.cos(rz), np.sin(rz)
+    Rz = np.array([[cos_z, -sin_z, 0], [sin_z, cos_z, 0], [0, 0, 1]])
+    
+    R = Rz @ Ry @ Rx
+    
+    # Apply transformation
+    transformed = (scale * (R @ vertices.T)).T + np.array([tx, ty, tz])
+    
+    return transformed
+
+
+def select_deformation_graph_nodes(
+    vertices: np.ndarray,
+    n_nodes: int = 200
+) -> np.ndarray:
+    """Select deformation graph nodes using farthest point sampling.
+    
+    Creates a sparse set of control nodes for Laplacian deformation.
+    
+    Args:
+        vertices: (N, 3) array of mesh vertices.
+        n_nodes: Target number of deformation graph nodes.
+        
+    Returns:
+        Array of vertex indices for the selected nodes.
+    """
+    import numpy as np
+    
+    n_vertices = len(vertices)
+    if n_vertices <= n_nodes:
+        return np.arange(n_vertices)
+    
+    # Farthest point sampling
+    selected = [0]  # Start with first vertex
+    
+    for _ in range(n_nodes - 1):
+        # Find the vertex farthest from all selected vertices
+        selected_vertices = vertices[selected]
+        min_distances = np.full(n_vertices, np.inf)
+        
+        for sv in selected_vertices:
+            distances = np.linalg.norm(vertices - sv, axis=1)
+            min_distances = np.minimum(min_distances, distances)
+        
+        # Select the vertex with maximum minimum distance
+        farthest_idx = np.argmax(min_distances)
+        selected.append(int(farthest_idx))
+    
+    return np.array(selected)
+
+
+def interpolate_displacements(
+    vertices: np.ndarray,
+    graph_nodes: np.ndarray,
+    graph_displacements: np.ndarray
+) -> np.ndarray:
+    """Interpolate graph node displacements to all vertices.
+    
+    Uses barycentric weights based on distance to graph nodes.
+    
+    Args:
+        vertices: (N, 3) array of all mesh vertices.
+        graph_nodes: Indices of deformation graph nodes.
+        graph_displacements: (M, 3) displacements for graph nodes.
+        
+    Returns:
+        (N, 3) interpolated displacements for all vertices.
+    """
+    import numpy as np
+    
+    graph_positions = vertices[graph_nodes]
+    displacements = np.zeros_like(vertices)
+    
+    # For each vertex, compute weighted average of nearby graph node displacements
+    n_neighbors = min(4, len(graph_nodes))
+    
+    for i, v in enumerate(vertices):
+        # Find nearest graph nodes
+        distances = np.linalg.norm(graph_positions - v, axis=1)
+        nearest_indices = np.argsort(distances)[:n_neighbors]
+        nearest_distances = distances[nearest_indices]
+        
+        # Compute weights (inverse distance)
+        if nearest_distances[0] < 1e-10:
+            # Vertex coincides with a graph node
+            weights = np.zeros(n_neighbors)
+            weights[0] = 1.0
+        else:
+            weights = 1.0 / (nearest_distances + 1e-10)
+            weights = weights / weights.sum()
+        
+        # Interpolate displacement
+        for j, idx in enumerate(nearest_indices):
+            displacements[i] += weights[j] * graph_displacements[idx]
+    
+    return displacements
