@@ -48,6 +48,8 @@ def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
         valid_landmarks = landmarks.ndim == 2 and len(landmarks) >= 28 and landmarks.shape[1] >= 2
         result["checks"]["landmark_confidence"] = bool(valid_landmarks)
         result["landmark_count"] = int(len(landmarks)) if landmarks.ndim else 0
+        result["bbox"] = bbox.tolist()
+        result["landmarks"] = landmarks.tolist() if landmarks.ndim == 2 else []
 
         if valid_landmarks:
             xy = landmarks[:28, :2]
