@@ -143,10 +143,19 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
             "bbox": [1.0, 2.0, 3.0, 4.0],
         }
 
-    def fake_reconstruct(image_path, output_dir, profile="commercial", **kwargs):
+    def fake_reconstruct(
+        image_path,
+        output_dir,
+        profile="commercial",
+        *,
+        model_save_format="obj",
+        remove_background=True,
+    ):
         calls.append("reference_reconstruction")
         assert image_path == str(source)
-        assert profile == "commercial"
+        assert profile == "production"
+        assert model_save_format == "glb"
+        assert remove_background is False
         return str(artifacts["reference.glb"])
 
     def fake_fit(
@@ -161,6 +170,14 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
         assert template_path == str(artifacts["template.glb"])
         assert received_landmarks == landmarks
         assert reference_mesh_path == str(artifacts["reference.glb"])
+        assert config == {
+            "fitting_objective": {
+                "lambda_landmark": 1.7,
+                "lambda_surface": 0.6,
+                "lambda_laplacian": 0.12,
+                "lambda_symmetry": 0.25,
+            }
+        }
         return {
             "status": "complete",
             "fitted_mesh": str(artifacts["fitted.glb"]),
@@ -219,7 +236,7 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
         calls.append("vrm_export")
         assert rigged_mesh == str(artifacts["rigged.glb"])
         assert expressions is expression_map
-        assert commercial_usage == "corporation"
+        assert commercial_usage == "personalProfit"
         assert springbone_config is spring_config
         assert gaze_config is expected_gaze_config
         return {
@@ -263,10 +280,33 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
     monkeypatch.setattr(export_module, "export_vrm", fake_export)
     monkeypatch.setattr(validator_module, "validate_vrm", fake_validate)
 
-    result = AvatarPipeline(str(tmp_path / "out")).build(str(source))
+    result = AvatarPipeline(
+        str(tmp_path / "out"),
+        config={
+            "profile": "production",
+            "commercial_usage": "personalProfit",
+            "reconstruction": {
+                "model_save_format": "glb",
+                "remove_background": False,
+            },
+            "fitting": {
+                "fitting_objective": {
+                    "lambda_landmark": 1.7,
+                    "lambda_surface": 0.6,
+                    "lambda_laplacian": 0.12,
+                    "lambda_symmetry": 0.25,
+                }
+            },
+        },
+    ).build(str(source))
 
     assert result["status"] == "complete", result
     assert result["vrm_path"] == str(artifacts["avatar.vrm"])
+    assert result["stages"]["reference_reconstruction"]["model_options"] == {
+        "profile": "production",
+        "model_save_format": "glb",
+        "remove_background": False,
+    }
     assert calls == [
         "input_gate",
         "reference_reconstruction",
