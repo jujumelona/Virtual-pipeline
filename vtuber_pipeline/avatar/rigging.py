@@ -189,6 +189,7 @@ def create_gltf_with_skin(
     joint_weights: np.ndarray,
     output_path: str,
     texture_path: str | None = None,
+    uv_path: str | None = None,
 ) -> str:
     """Create a binary glTF with skinning and an optional embedded PNG texture."""
     if not PYGLTFLIB_AVAILABLE:
@@ -231,19 +232,19 @@ def create_gltf_with_skin(
     uv = None
     uv_off = uv_len = image_off = image_len = None
     texture_file = pathlib.Path(texture_path) if texture_path else None
+    uv_file = pathlib.Path(uv_path) if uv_path else None
     if texture_file and texture_file.is_file():
-        visual_uv = getattr(getattr(mesh, "visual", None), "uv", None)
-        if visual_uv is not None and len(visual_uv) == len(vertices):
-            uv = np.asarray(visual_uv, dtype=np.float32)
-        else:
-            center = vertices.mean(axis=0)
-            centered = vertices - center
-            x, y, z = centered[:, 0], centered[:, 1], centered[:, 2]
-            radius = np.linalg.norm(centered, axis=1)
-            radius = np.where(radius < 1e-8, 1e-8, radius)
-            u = 0.5 + np.arctan2(x, z) / (2.0 * np.pi)
-            v = 0.5 - np.arcsin(np.clip(y / radius, -1.0, 1.0)) / np.pi
-            uv = np.stack([u, v], axis=1).astype(np.float32)
+        if uv_file is None or not uv_file.is_file():
+            raise ValueError(
+                "Texture artifact exists but exact UV artifact is missing"
+            )
+        uv = np.asarray(np.load(uv_file), dtype=np.float32)
+        if uv.shape != (len(vertices), 2):
+            raise ValueError(
+                f"Texture UV shape {uv.shape} does not match {len(vertices)} vertices"
+            )
+        if not np.all(np.isfinite(uv)):
+            raise ValueError("Texture UV contains non-finite values")
         uv_off, uv_len = append_aligned(uv.tobytes())
         image_off, image_len = append_aligned(texture_file.read_bytes())
 
@@ -347,7 +348,12 @@ def create_gltf_with_skin(
         raise RuntimeError("WEIGHTS_0 must use FLOAT")
     return str(output)
 
-def rig_avatar(mesh_path: str, output_path: str, texture_path: str | None = None) -> str:
+def rig_avatar(
+    mesh_path: str,
+    output_path: str,
+    texture_path: str | None = None,
+    uv_path: str | None = None,
+) -> str:
     """
     메시에 기본 휴머노이드 리그를 추가합니다.
     
@@ -368,7 +374,7 @@ def rig_avatar(mesh_path: str, output_path: str, texture_path: str | None = None
         )
     
     # 메시 로드
-    mesh = trimesh.load(mesh_path)
+    mesh = trimesh.load(mesh_path, process=False)
     
     # Scene인 경우 첫 번째 메시 추출
     if isinstance(mesh, trimesh.Scene):
@@ -393,6 +399,7 @@ def rig_avatar(mesh_path: str, output_path: str, texture_path: str | None = None
     result = create_gltf_with_skin(
         mesh, skeleton, joint_indices, joint_weights, output_path,
         texture_path=texture_path,
+        uv_path=uv_path,
     )
     
     return result
