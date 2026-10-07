@@ -50,6 +50,8 @@ def fit_accessory(
             raise ValueError("Accessory mesh has zero extent")
 
         target_size = float(anchor.get("target_size", 0.12))
+        if not np.isfinite(target_size) or target_size <= 0.0:
+            raise ValueError("Anchor target_size must be a positive finite number")
         uniform_scale = target_size / max_extent
 
         # Canonicalize accessory around its own origin and bake the uniform
@@ -64,20 +66,25 @@ def fit_accessory(
             raise RuntimeError("Fitted accessory export produced no file")
 
         local_translation = list(anchor.get("offset", [0.0, 0.0, 0.0]))
+        local_rotation = list(
+            anchor.get("attachment_rotation", [0.0, 0.0, 0.0, 1.0])
+        )
         world_position = list(anchor.get("position", local_translation))
+        world_rotation = list(anchor.get("rotation", local_rotation))
+        world_scale = list(anchor.get("world_scale", [1.0, 1.0, 1.0]))
         result.update({
             "status": "complete",
             "output_path": str(output_path),
             "parent_bone": anchor.get("bone", "head"),
             "transform": {
                 "translation": local_translation,
-                "rotation": [0.0, 0.0, 0.0, 1.0],
+                "rotation": local_rotation,
                 "scale": [1.0, 1.0, 1.0],
             },
             "world_transform": {
                 "translation": world_position,
-                "rotation": list(anchor.get("rotation", [0.0, 0.0, 0.0, 1.0])),
-                "scale": [1.0, 1.0, 1.0],
+                "rotation": world_rotation,
+                "scale": world_scale,
             },
             "source_extents": extents.tolist(),
             "target_size": target_size,
