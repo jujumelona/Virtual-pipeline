@@ -1,15 +1,15 @@
-"""Procedural canonical VTuber template mesh generation.
+"""Canonical VTuber template mesh support.
 
-This module creates a canonical VTuber template mesh with:
-- Head: UV sphere
-- Neck: Cylinder
-- Upper body: Box
-- Humanoid bone hierarchy with distance-based vertex groups
+Production uses the pinned CC0 MakeHuman base mesh as the topology seed.
+The procedural sphere/cylinder/box generator is retained only as a small
+test fixture helper and is never selected by the production resolver.
 """
 
 from dataclasses import dataclass
 from typing import Dict, List, Any, Optional, Tuple
+import os
 import pathlib
+import urllib.request
 import numpy as np
 
 try:
@@ -229,7 +229,11 @@ def create_canonical_template(
     neck_height: float = 0.05,
     body_extents: Tuple[float, float, float] = (0.15, 0.12, 0.08)
 ) -> Dict[str, Any]:
-    """Canonical VTuber 템플릿 메시를 생성합니다.
+    """Create a minimal procedural test template.
+    
+    This helper is for unit tests and geometry smoke tests only. Production
+    code must use get_template_path(), which resolves the pinned CC0
+    MakeHuman-derived canonical template.
     
     절차적 메시 생성:
     - Head: UV sphere (r=0.08)
@@ -603,43 +607,112 @@ def create_canonical_template_from_makehuman(base_obj_path: str, output_path: st
         return {"status": "error", "error": str(e)}
 
 
-if __name__ == "__main__":
-    # 테스트 실행
-    result = create_canonical_template("assets/canonical_vtuber/template.glb")
-    print(f"Status: {result['status']}")
-    if result['status'] == 'complete':
-        print(f"Vertices: {result['vertex_count']}")
-        print(f"Faces: {result['face_count']}")
-        print(f"Bones: {result['bones']}")
+
+MAKEHUMAN_CC0_COMMIT = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
+MAKEHUMAN_BASE_URL = (
+    "https://raw.githubusercontent.com/makehumancommunity/makehuman/"
+    f"{MAKEHUMAN_CC0_COMMIT}/makehuman/data/3dobjs/base.obj"
+)
+
+
+def _cache_root() -> pathlib.Path:
+    """Return a writable cache root for generated canonical assets."""
+    override = os.environ.get("VTUBER_PIPELINE_CACHE")
+    if override:
+        return pathlib.Path(override).expanduser().resolve()
+    return pathlib.Path.home() / ".cache" / "vtuber-pipeline"
+
+
+def _find_local_makehuman_base() -> Optional[pathlib.Path]:
+    """Find a previously fetched pinned MakeHuman CC0 base mesh."""
+    repo_root = pathlib.Path(__file__).resolve().parents[2]
+    candidates = [
+        repo_root / "assets" / "makehuman_cc0" / "base.obj",
+        _cache_root() / "makehuman_cc0" / "base.obj",
+    ]
+    env_path = os.environ.get("MAKEHUMAN_BASE_OBJ")
+    if env_path:
+        candidates.insert(0, pathlib.Path(env_path).expanduser())
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+
+def _download_pinned_makehuman_base() -> pathlib.Path:
+    """Download only the pinned CC0 base.obj into the writable cache."""
+    target = _cache_root() / "makehuman_cc0" / "base.obj"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_suffix(".obj.tmp")
+    try:
+        urllib.request.urlretrieve(MAKEHUMAN_BASE_URL, tmp)
+        if not tmp.is_file() or tmp.stat().st_size == 0:
+            raise RuntimeError("Downloaded MakeHuman base.obj is empty")
+        tmp.replace(target)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+    return target.resolve()
 
 
 def ensure_template_exists() -> pathlib.Path:
-    """Ensure the canonical template.glb exists, generating it if necessary.
-    
-    This function is called on module import to guarantee that the template
-    mesh is available for the fitting pipeline.
-    
-    Returns:
-        Path to the template.glb file.
+    """Return a production canonical template, creating it when necessary.
+
+    Resolution order:
+    1. VTUBER_TEMPLATE_PATH, when explicitly supplied and existing.
+    2. Repository asset assets/canonical_vtuber/template.glb.
+    3. Writable cache generated from the pinned MakeHuman CC0 base.obj.
+
+    Production never falls back to the procedural sphere/cylinder/box test
+    template because that would silently degrade the avatar topology.
     """
-    template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
-    
-    if not template_path.exists():
-        # Generate the template if it doesn't exist
-        template_path.parent.mkdir(parents=True, exist_ok=True)
-        result = create_canonical_template(str(template_path))
-        if result.get("status") != "complete":
-            raise RuntimeError(f"Failed to generate template: {result.get('error', 'Unknown error')}")
-    
-    return template_path
+    explicit = os.environ.get("VTUBER_TEMPLATE_PATH")
+    if explicit:
+        explicit_path = pathlib.Path(explicit).expanduser().resolve()
+        if not explicit_path.is_file():
+            raise FileNotFoundError(
+                f"VTUBER_TEMPLATE_PATH does not exist: {explicit_path}"
+            )
+        return explicit_path
+
+    repo_root = pathlib.Path(__file__).resolve().parents[2]
+    repo_template = repo_root / "assets" / "canonical_vtuber" / "template.glb"
+    if repo_template.is_file():
+        return repo_template.resolve()
+
+    cached_template = _cache_root() / "canonical_vtuber" / "template.glb"
+    if cached_template.is_file():
+        return cached_template.resolve()
+
+    base_obj = _find_local_makehuman_base()
+    if base_obj is None:
+        try:
+            base_obj = _download_pinned_makehuman_base()
+        except Exception as exc:
+            raise RuntimeError(
+                "Canonical VTuber template is missing and the pinned MakeHuman "
+                "CC0 base.obj could not be fetched. Set MAKEHUMAN_BASE_OBJ or "
+                "VTUBER_TEMPLATE_PATH explicitly."
+            ) from exc
+
+    cached_template.parent.mkdir(parents=True, exist_ok=True)
+    result = create_canonical_template_from_makehuman(
+        str(base_obj), str(cached_template)
+    )
+    if result.get("status") != "complete" or not cached_template.is_file():
+        raise RuntimeError(
+            "Failed to generate MakeHuman-CC0 canonical template: "
+            f"{result.get('error', 'unknown error')}"
+        )
+    return cached_template.resolve()
 
 
-# Auto-ensure template exists on import
-_template_path = None
+_template_path: Optional[pathlib.Path] = None
+
 
 def get_template_path() -> pathlib.Path:
-    """Get the path to the canonical template, ensuring it exists."""
+    """Get the single production canonical template path."""
     global _template_path
-    if _template_path is None:
+    if _template_path is None or not _template_path.is_file():
         _template_path = ensure_template_exists()
     return _template_path
