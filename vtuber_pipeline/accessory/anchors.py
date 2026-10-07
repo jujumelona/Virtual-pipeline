@@ -1,7 +1,7 @@
 """Accessory anchor extraction from a real VRM/glTF skeleton."""
 
 import pathlib
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 
 ANCHOR_POINTS: List[Dict[str, Any]] = [
@@ -42,31 +42,150 @@ def _local_matrix(node):
 
 
 def _world_matrices(gltf):
-    import numpy as np
-
     nodes = gltf.nodes or []
     parents = {}
     for parent_idx, node in enumerate(nodes):
         for child in (node.children or []):
+            child = int(child)
+            if child in parents:
+                raise ValueError(f"VRM node {child} has multiple parents")
             parents[child] = parent_idx
 
     cache = {}
+    visiting = set()
+
     def world(idx):
         if idx in cache:
             return cache[idx]
+        if idx in visiting:
+            raise ValueError("VRM node hierarchy contains a cycle")
+        visiting.add(idx)
         local = _local_matrix(nodes[idx])
         parent = parents.get(idx)
-        cache[idx] = world(parent) @ local if parent is not None else local
-        return cache[idx]
+        value = world(parent) @ local if parent is not None else local
+        visiting.remove(idx)
+        cache[idx] = value
+        return value
 
     return [world(i) for i in range(len(nodes))]
 
 
-def generate_anchor_manifest(vrm_path: str, output_dir: str) -> Dict[str, Any]:
-    """Read actual bone nodes and derive accessory anchor transforms."""
-    result: Dict[str, Any] = {"status": "pending", "vrm_path": vrm_path, "anchors": []}
+def _validate_vector(
+    value: Any,
+    length: int,
+    *,
+    name: str,
+    default: Optional[List[float]] = None,
+) -> List[float]:
+    import numpy as np
+
+    if value is None:
+        if default is None:
+            raise ValueError(f"{name} is required")
+        value = default
+    arr = np.asarray(value, dtype=float)
+    if arr.shape != (length,) or not np.all(np.isfinite(arr)):
+        raise ValueError(f"{name} must contain {length} finite numbers")
+    return arr.astype(float).tolist()
+
+
+def _decompose_world_linear(linear):
+    """Return pure rotation quaternion and inherited scale for a bone world matrix."""
+    import numpy as np
+    from scipy.spatial.transform import Rotation
+
+    linear = np.asarray(linear, dtype=float)
+    if linear.shape != (3, 3) or not np.all(np.isfinite(linear)):
+        raise ValueError("Bone world transform contains an invalid linear matrix")
+    if abs(float(np.linalg.det(linear))) < 1e-10:
+        raise ValueError("Bone world transform is singular")
+
+    scale = np.linalg.norm(linear, axis=0)
+    if np.any(scale <= 1e-10):
+        raise ValueError("Bone world transform contains zero scale")
+
+    # Polar decomposition removes inherited scale/shear before converting to
+    # the quaternion used by the collision-space transform.
+    u, _, vh = np.linalg.svd(linear)
+    rotation = u @ vh
+    if np.linalg.det(rotation) < 0.0:
+        u[:, -1] *= -1.0
+        rotation = u @ vh
+    quaternion = Rotation.from_matrix(rotation).as_quat()
+    return rotation, quaternion.astype(float).tolist(), scale.astype(float).tolist()
+
+
+def _build_anchor(
+    *,
+    name: str,
+    bone: str,
+    offset: List[float],
+    target_size: float,
+    node_index: int,
+    world,
+    attachment_rotation: Optional[List[float]] = None,
+) -> Dict[str, Any]:
+    import numpy as np
+    from scipy.spatial.transform import Rotation
+
+    if not isinstance(target_size, (int, float)) or not np.isfinite(target_size):
+        raise ValueError(f"{name}.target_size must be finite")
+    target_size = float(target_size)
+    if target_size <= 0.0:
+        raise ValueError(f"{name}.target_size must be > 0")
+
+    offset = _validate_vector(offset, 3, name=f"{name}.offset")
+    local_quat = _validate_vector(
+        attachment_rotation,
+        4,
+        name=f"{name}.rotation",
+        default=[0.0, 0.0, 0.0, 1.0],
+    )
+    local_norm = float(np.linalg.norm(local_quat))
+    if local_norm <= 1e-10:
+        raise ValueError(f"{name}.rotation quaternion has zero length")
+    local_quat = (np.asarray(local_quat, dtype=float) / local_norm).tolist()
+
+    linear = np.asarray(world[:3, :3], dtype=float)
+    parent_rotation_matrix, parent_quat, world_scale = _decompose_world_linear(linear)
+    local_rotation_matrix = Rotation.from_quat(local_quat).as_matrix()
+    world_rotation = Rotation.from_matrix(
+        parent_rotation_matrix @ local_rotation_matrix
+    ).as_quat().astype(float).tolist()
+
+    offset_h = np.array([*offset, 1.0], dtype=float)
+    position = (world @ offset_h)[:3]
+    if not np.all(np.isfinite(position)):
+        raise ValueError(f"{name} world position is non-finite")
+
+    return {
+        "name": name,
+        "bone": bone,
+        "node_index": int(node_index),
+        "offset": offset,
+        "position": position.astype(float).tolist(),
+        "attachment_rotation": local_quat,
+        "rotation": world_rotation,
+        "parent_world_rotation": parent_quat,
+        "world_scale": world_scale,
+        "world_linear": linear.tolist(),
+        "world_to_local_linear": np.linalg.inv(linear).tolist(),
+        "target_size": target_size,
+    }
+
+
+def generate_anchor_manifest(
+    vrm_path: str,
+    output_dir: str,
+    custom_anchor: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Read real bone nodes and derive preset plus optional CUSTOM anchors."""
+    result: Dict[str, Any] = {
+        "status": "pending",
+        "vrm_path": vrm_path,
+        "anchors": [],
+    }
     try:
-        import numpy as np
         from pygltflib import GLTF2
 
         path = pathlib.Path(vrm_path)
@@ -83,30 +202,44 @@ def generate_anchor_manifest(vrm_path: str, output_dir: str) -> Dict[str, Any]:
             if idx is None:
                 missing.append(anchor["bone"])
                 continue
-            world = worlds[idx]
-            offset_h = np.array([*anchor["offset"], 1.0], dtype=float)
-            position = (world @ offset_h)[:3].tolist()
-            linear = world[:3, :3]
-            if abs(float(np.linalg.det(linear))) < 1e-10:
-                raise ValueError(f"Anchor bone has singular world transform: {anchor['bone']}")
-            world_to_local_linear = np.linalg.inv(linear)
-            result["anchors"].append({
-                "name": anchor["name"],
-                "bone": anchor["bone"],
-                "node_index": idx,
-                "offset": anchor["offset"],
-                "position": position,
-                "rotation": list(nodes[idx].rotation or [0.0, 0.0, 0.0, 1.0]),
-                "world_linear": linear.tolist(),
-                "world_to_local_linear": world_to_local_linear.tolist(),
-                "target_size": anchor["target_size"],
-            })
+            result["anchors"].append(_build_anchor(
+                name=anchor["name"],
+                bone=anchor["bone"],
+                offset=anchor["offset"],
+                target_size=float(anchor["target_size"]),
+                node_index=idx,
+                world=worlds[idx],
+            ))
+
+        if custom_anchor is not None:
+            if not isinstance(custom_anchor, dict):
+                raise ValueError("custom_anchor must be an object")
+            parent_bone = str(custom_anchor.get("parent_bone") or "").strip()
+            if not parent_bone:
+                raise ValueError("CUSTOM anchor requires parent_bone")
+            idx = name_to_idx.get(parent_bone)
+            if idx is None:
+                raise ValueError(
+                    f"CUSTOM anchor parent bone/node not found: {parent_bone!r}"
+                )
+            result["anchors"].append(_build_anchor(
+                name="CUSTOM",
+                bone=parent_bone,
+                offset=custom_anchor.get("offset"),
+                target_size=float(custom_anchor.get("target_size", 0.12)),
+                node_index=idx,
+                world=worlds[idx],
+                attachment_rotation=custom_anchor.get("rotation"),
+            ))
 
         if not result["anchors"]:
             raise ValueError("No supported humanoid anchor bones were found in the VRM")
         result["status"] = "complete"
         if missing:
-            result["warnings"] = [f"Missing anchor bone: {name}" for name in sorted(set(missing))]
+            result["warnings"] = [
+                f"Missing anchor bone: {name}"
+                for name in sorted(set(missing))
+            ]
     except Exception as exc:
         result["status"] = "error"
         result["error"] = str(exc)
