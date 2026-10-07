@@ -64,18 +64,22 @@ def avatar(image, output, profile, commercial_usage):
 @click.option("--images", required=True, multiple=True, type=click.Path(exists=True), help="Accessory source images")
 @click.option(
     "--anchor",
+    "anchors",
+    multiple=True,
     type=click.Choice([
         "HEAD_TOP", "FACE", "LEFT_EAR", "RIGHT_EAR", "NECK", "CHEST",
         "BACK", "LEFT_SHOULDER", "RIGHT_SHOULDER", "LEFT_HAND",
         "RIGHT_HAND", "LEFT_FOOT", "RIGHT_FOOT", "HIPS",
     ]),
-    default="HEAD_TOP",
-    show_default=True,
+    help=(
+        "Accessory anchor. Repeat once per --images item. "
+        "If omitted, all items use HEAD_TOP."
+    ),
 )
 @click.option("--output", required=True, type=click.Path(), help="Output directory")
 @click.option("--profile", default="commercial", show_default=True)
-def accessory(base_vrm, images, anchor, output, profile):
-    """Reconstruct and independently fit multiple accessories to one avatar."""
+def accessory(base_vrm, images, anchors, output, profile):
+    """Reconstruct and cumulatively attach multiple accessories to one avatar."""
     from vtuber_pipeline.accessory.reconstruction import reconstruct_accessories
     from vtuber_pipeline.accessory.build import AccessoryPipeline
 
@@ -84,29 +88,63 @@ def accessory(base_vrm, images, anchor, output, profile):
     recon_dir = out / "reconstruction"
     reconstructed = reconstruct_accessories(list(images), str(recon_dir), profile=profile)
 
-    failures = []
-    completed = []
-    for index, item in enumerate(reconstructed):
-        if item.get("status") != "complete" or not item.get("mesh"):
-            failures.append({"image": item.get("image"), "error": item.get("error", "reconstruction failed")})
-            continue
-        item_dir = out / f"accessory_{index:03d}"
-        build = AccessoryPipeline(str(item_dir), {"anchor_name": anchor}).build(
-            base_vrm=base_vrm,
-            accessory_glb=item["mesh"],
+    image_list = list(images)
+    anchor_list = list(anchors)
+    if anchor_list and len(anchor_list) != len(image_list):
+        raise click.ClickException(
+            "--anchor must be omitted or repeated exactly once per --images item"
         )
-        if build.get("status") == "complete":
-            completed.append(build.get("output_vrm"))
-            click.echo(f"  ✓ {item.get('image')} -> {build.get('output_vrm')}")
-        else:
+    if not anchor_list:
+        anchor_list = ["HEAD_TOP"] * len(image_list)
+
+    failures = []
+    current_vrm = base_vrm
+    completed = 0
+
+    for index, (item, anchor_name) in enumerate(
+        zip(reconstructed, anchor_list),
+        start=1,
+    ):
+        if item.get("status") != "complete" or not item.get("mesh"):
             failures.append({
                 "image": item.get("image"),
-                "error": build.get("failed_stages") or build.get("incomplete_stages") or build.get("status"),
+                "error": item.get("error", "reconstruction failed"),
             })
+            break
+
+        item_dir = out / f"accessory_{index:03d}"
+        build = AccessoryPipeline(
+            str(item_dir),
+            {"anchor_name": anchor_name},
+        ).build(
+            base_vrm=current_vrm,
+            accessory_glb=item["mesh"],
+        )
+
+        if build.get("status") != "complete":
+            failures.append({
+                "image": item.get("image"),
+                "error": (
+                    build.get("failed_stages")
+                    or build.get("failed_reason")
+                    or build.get("status")
+                ),
+            })
+            break
+
+        current_vrm = build["output_vrm"]
+        completed += 1
+        click.echo(
+            f"  ✓ [{index}/{len(image_list)}] "
+            f"{item.get('image')} -> {anchor_name}"
+        )
 
     if failures:
-        raise click.ClickException(f"{len(failures)} accessory item(s) failed: {failures}")
-    click.echo(f"Completed {len(completed)} accessory variant(s).")
+        raise click.ClickException(
+            f"Accessory pipeline stopped after {completed} completed item(s): {failures}"
+        )
+
+    click.echo(f"VRM: {current_vrm}")
 
 
 if __name__ == "__main__":
