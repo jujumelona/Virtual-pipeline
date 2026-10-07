@@ -1,5 +1,6 @@
 """Avatar rigging module for VTuber Pipeline."""
 
+import pathlib
 import numpy as np
 from typing import Dict, List, Tuple, Any
 
