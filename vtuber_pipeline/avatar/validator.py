@@ -656,29 +656,66 @@ class VRMValidator:
 
         kind = look_at.get("type")
         offset = look_at.get("offsetFromHeadBone")
+        range_keys = (
+            "rangeMapHorizontalInner",
+            "rangeMapHorizontalOuter",
+            "rangeMapVerticalDown",
+            "rangeMapVerticalUp",
+        )
+
+        def valid_number(value: Any) -> bool:
+            return (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and bool(np.isfinite(float(value)))
+            )
+
+        def valid_range_map(value: Any, *, require_motion: bool) -> bool:
+            if not isinstance(value, dict):
+                return False
+            input_max = value.get("inputMaxValue")
+            output_scale = value.get("outputScale")
+            if not valid_number(input_max) or not valid_number(output_scale):
+                return False
+            if float(input_max) <= 0.0 or float(output_scale) < 0.0:
+                return False
+            if require_motion and float(output_scale) <= 0.0:
+                return False
+            return True
+
+        offset_valid = (
+            isinstance(offset, list)
+            and len(offset) == 3
+            and all(valid_number(v) for v in offset)
+        )
 
         if self.product_contract:
-            valid = (
-                kind == "bone"
-                and isinstance(offset, list)
-                and len(offset) == 3
-                and all(isinstance(v, (int, float)) for v in offset)
+            range_valid = all(
+                valid_range_map(look_at.get(key), require_motion=True)
+                for key in range_keys
             )
+            valid = kind == "bone" and offset_valid and range_valid
         else:
             valid = True
             if kind is not None and kind not in {"bone", "expression"}:
                 valid = False
-            if offset is not None and (
-                not isinstance(offset, list)
-                or len(offset) != 3
-                or not all(isinstance(v, (int, float)) for v in offset)
-            ):
+            if offset is not None and not offset_valid:
                 valid = False
+            for key in range_keys:
+                if key in look_at and not valid_range_map(
+                    look_at.get(key),
+                    require_motion=False,
+                ):
+                    valid = False
 
         return {
             "valid": valid,
             "type": kind,
             "offset": offset,
+            "range_maps": {
+                key: look_at.get(key)
+                for key in range_keys
+            },
             "error": (
                 None
                 if valid
