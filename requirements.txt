@@ -6,5 +6,5 @@ pillow
 numpy
 scipy
 click>=8.0
-pygltflib
+pygltflib==1.16.5
 # TripoSR source is cloned separately and pinned to 107cefdc244c39106fa830359024f6a2f1c78871
