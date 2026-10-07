@@ -1,6 +1,5 @@
 anime-face-detector==0.1.0
 trimesh[easy]
-pydantic>=2.0
 pyyaml
 pillow
 numpy
