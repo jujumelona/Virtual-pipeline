@@ -49,7 +49,7 @@ class AccessoryPipeline:
             Summary dictionary with all stage results.
         """
         output_dir = output_dir or str(self.output_dir)
-        config = config or self.config
+        config = {**self.config, **(config or {})}
         
         results = {
             "status": "running",
@@ -148,6 +148,20 @@ class AccessoryPipeline:
                 base_translation + local_push
             ).astype(float).tolist()
         
+        physics_cfg = config.get("physics") or {}
+        if bool(physics_cfg.get("enabled")):
+            results["status"] = "failed"
+            results["failed_stages"] = ["physics"]
+            results["failed_reason"] = (
+                "Dynamic accessory physics is not supported by the static "
+                "accessory baker; skinned bone/skin merging is required"
+            )
+            results["stages"]["physics"] = {
+                "status": "error",
+                "error": results["failed_reason"],
+            }
+            return results
+
         # Stage 5: Portable prepared artifacts. This is the core API default.
         results["stages"]["attachment"] = artifacts.write_attachment_manifest(
             fitted_path,
