@@ -60,7 +60,7 @@ def compute_eye_bones(mesh_path: str) -> Dict[str, Any]:
     gltf = GLTF2().load(str(path))
     nodes = gltf.nodes or []
     by_name = {node.name: i for i, node in enumerate(nodes) if node.name}
-    missing = [name for name in ("leftEye", "rightEye") if name not in by_name]
+    missing = [name for name in ("head", "leftEye", "rightEye") if name not in by_name]
     if missing:
         raise ValueError(f"Missing eye bone nodes: {missing}")
 
@@ -77,6 +77,10 @@ def compute_eye_bones(mesh_path: str) -> Dict[str, Any]:
             "position": world[:3, 3].tolist(),
             "forward": forward.tolist(),
         }
+    result["head"] = {
+        "node_index": by_name["head"],
+        "position": worlds[by_name["head"]][:3, 3].tolist(),
+    }
     return result
 
 
@@ -90,6 +94,14 @@ def configure_gaze(mesh_path: str, output_dir: str) -> Dict[str, Any]:
         forward = [
             (left["forward"][i] + right["forward"][i]) / 2.0
             for i in range(3)
+        ]
+        head = bones["head"]
+        eye_mid = [
+            (left["position"][i] + right["position"][i]) / 2.0
+            for i in range(3)
+        ]
+        offset_from_head = [
+            float(eye_mid[i] - head["position"][i]) for i in range(3)
         ]
         config = GazeConfig(
             left_eye_center=left["position"],
@@ -105,6 +117,9 @@ def configure_gaze(mesh_path: str, output_dir: str) -> Dict[str, Any]:
             "pitch_limit_deg": config.pitch_limit_deg,
             "left_eye_node": left["node_index"],
             "right_eye_node": right["node_index"],
+            "head_node": head["node_index"],
+            "offsetFromHeadBone": offset_from_head,
+            "type": "bone",
         }
     except Exception as exc:
         result["status"] = "error"
