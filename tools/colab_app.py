@@ -616,7 +616,6 @@ def build_accessories_ui(
                     "anchor_name": anchor,
                     "custom_anchor": slot.get("custom_anchor"),
                     "bake": True,
-                    "physics": {"enabled": False},
                 },
             )
             logs.extend(
