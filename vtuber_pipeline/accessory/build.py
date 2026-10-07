@@ -63,6 +63,7 @@ class AccessoryPipeline:
         # Import stage modules
         from vtuber_pipeline.accessory import normalize, anchors, fitting
         from vtuber_pipeline.accessory import collision, physics, bake
+        from vtuber_pipeline.avatar.validator import validate_vrm
         
         # Stage 1: Normalize
         normalized_path = str(pathlib.Path(output_dir) / "normalized.glb")
@@ -163,6 +164,21 @@ class AccessoryPipeline:
             results["status"] = "failed"
             results["failed_stages"] = ["bake"]
             results["failed_reason"] = "bake reported complete but combined.vrm is missing"
+            return results
+
+        # Re-import the merged file and apply the same strict product contract
+        # used by Avatar Mode. This catches broken index/buffer remaps.
+        results["stages"]["validator"] = validate_vrm(output_vrm, output_dir)
+        if (
+            results["stages"]["validator"].get("status") != "complete"
+            or not results["stages"]["validator"].get("passed")
+        ):
+            results["status"] = "failed"
+            results["failed_stages"] = ["validator"]
+            results["failed_reason"] = (
+                results["stages"]["validator"].get("error")
+                or "strict validation failed after accessory bake"
+            )
             return results
         
         # Overall status
