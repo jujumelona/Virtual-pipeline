@@ -14,7 +14,7 @@ class AvatarPipeline:
     expressions → gaze → SpringBone → VRM export → strict validation.
     """
 
-    CACHE_SCHEMA = "avatar-pipeline-v4"
+    CACHE_SCHEMA = "avatar-pipeline-v5"
 
     def __init__(self, output_dir: str, config: Optional[Dict[str, Any]] = None):
         self.output_dir = pathlib.Path(output_dir)
@@ -35,6 +35,18 @@ class AvatarPipeline:
         if core_manifest.is_file():
             digest.update(core_manifest.name.encode("utf-8"))
             digest.update(core_manifest.read_bytes())
+
+        # Dependency/model pins are part of the computational contract. A
+        # package/model revision change must never reuse artifacts produced by
+        # the previous runtime.
+        repo_root = avatar_dir.parent.parent
+        for contract_path in (
+            repo_root / "pyproject.toml",
+            repo_root / "third_party.lock.json",
+        ):
+            if contract_path.is_file():
+                digest.update(contract_path.name.encode("utf-8"))
+                digest.update(contract_path.read_bytes())
         return digest.hexdigest()
 
     def _fingerprint(self, value: Any) -> str:
@@ -133,6 +145,37 @@ class AvatarPipeline:
         output_dir = str(self.output_dir)
         cfg = {**self.config, **(config or {})}
         profile = cfg.get("profile", "commercial")
+        reconstruction_cfg = cfg.get("reconstruction") or {}
+        if not isinstance(reconstruction_cfg, dict):
+            return {
+                "status": "failed",
+                "image_path": image_path,
+                "output_dir": output_dir,
+                "stages": {},
+                "failed_stages": ["orchestrator"],
+                "failed_reason": "reconstruction config must be an object",
+            }
+        model_save_format = str(
+            reconstruction_cfg.get("model_save_format", "obj")
+        )
+        remove_background = reconstruction_cfg.get(
+            "remove_background", True
+        )
+        if not isinstance(remove_background, bool):
+            return {
+                "status": "failed",
+                "image_path": image_path,
+                "output_dir": output_dir,
+                "stages": {},
+                "failed_stages": ["orchestrator"],
+                "failed_reason": "reconstruction.remove_background must be boolean",
+            }
+        reconstruction_options = {
+            "profile": profile,
+            "model_save_format": model_save_format,
+            "remove_background": remove_background,
+        }
+
         results: Dict[str, Any] = {
             "status": "running",
             "image_path": image_path,
@@ -169,19 +212,26 @@ class AvatarPipeline:
         reconstruction_dir = str(pathlib.Path(output_dir) / "reconstruction")
         def reconstruct_stage() -> Dict[str, Any]:
             try:
-                mesh_path = reconstruct_avatar(image_path, reconstruction_dir, profile=profile)
+                mesh_path = reconstruct_avatar(
+                    image_path,
+                    reconstruction_dir,
+                    profile=profile,
+                    model_save_format=model_save_format,
+                    remove_background=remove_background,
+                )
                 return {
                     "status": "complete",
                     "mesh_path": mesh_path,
                     "output_path": mesh_path,
                     "source": "triposr",
+                    "model_options": dict(reconstruction_options),
                 }
             except Exception as exc:
                 return {"status": "error", "error": str(exc), "source": "triposr"}
 
         reconstruction = self._run_stage(
             "reference_reconstruction",
-            (image_path, profile),
+            (image_path, reconstruction_options),
             reconstruct_stage,
         )
         results["stages"]["reference_reconstruction"] = reconstruction
