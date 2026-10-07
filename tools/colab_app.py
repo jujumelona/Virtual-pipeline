@@ -24,6 +24,7 @@ REPO_DIR = pathlib.Path("/content/Virtual-pipeline")
 TRIPOSR_DIR = pathlib.Path("/content/third_party/TripoSR")
 TRIPOSR_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
 TORCHMCUBES_COMMIT = "879926d0ef58e6ce0ac2630fdecb5e53af7ed3ff"
+RUNTIME_CONTRACT = "colab-runtime-v3"
 WORK_ROOT = pathlib.Path("/content/vtuber_builder")
 OUTPUT_ROOT = WORK_ROOT / "output"
 
@@ -154,11 +155,14 @@ def _sync_triposr() -> None:
 
 
 def _install_runtime(head: str) -> None:
-    marker = WORK_ROOT / f".runtime-{head}.ready"
+    python_tag = f"py{sys.version_info.major}{sys.version_info.minor}"
+    marker = WORK_ROOT / f".runtime-{RUNTIME_CONTRACT}-{python_tag}.ready"
     if marker.is_file():
         os.environ["TRIPOSR_DIR"] = str(TRIPOSR_DIR)
         if str(REPO_DIR) not in sys.path:
             sys.path.insert(0, str(REPO_DIR))
+        # Editable installation points at the stable /content/Virtual-pipeline
+        # path, so a git reset to a newer main immediately exposes new source.
         return
 
     if not ((3, 12) <= sys.version_info[:2] <= (3, 13)):
@@ -338,7 +342,8 @@ def _install_runtime(head: str) -> None:
     marker.write_text(
         "\n".join(
             [
-                f"main={head}",
+                f"runtime_contract={RUNTIME_CONTRACT}",
+                f"installed_from_main={head}",
                 f"python={sys.version.split()[0]}",
                 f"triposr={TRIPOSR_COMMIT}",
                 f"torchmcubes={TORCHMCUBES_COMMIT}",
