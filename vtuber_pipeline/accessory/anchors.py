@@ -7,8 +7,8 @@ from typing import Dict, Any, List
 ANCHOR_POINTS: List[Dict[str, Any]] = [
     {"name": "HEAD_TOP", "bone": "head", "offset": [0.0, 0.10, 0.0], "target_size": 0.18},
     {"name": "FACE", "bone": "head", "offset": [0.0, 0.0, 0.07], "target_size": 0.14},
-    {"name": "LEFT_EAR", "bone": "head", "offset": [-0.08, 0.02, 0.0], "target_size": 0.06},
-    {"name": "RIGHT_EAR", "bone": "head", "offset": [0.08, 0.02, 0.0], "target_size": 0.06},
+    {"name": "LEFT_EAR", "bone": "head", "offset": [0.08, 0.02, 0.0], "target_size": 0.06},
+    {"name": "RIGHT_EAR", "bone": "head", "offset": [-0.08, 0.02, 0.0], "target_size": 0.06},
     {"name": "NECK", "bone": "neck", "offset": [0.0, 0.0, 0.0], "target_size": 0.12},
     {"name": "CHEST", "bone": "chest", "offset": [0.0, 0.0, 0.07], "target_size": 0.18},
     {"name": "BACK", "bone": "chest", "offset": [0.0, 0.0, -0.08], "target_size": 0.28},
