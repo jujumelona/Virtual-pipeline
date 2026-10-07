@@ -59,6 +59,7 @@ jobs:
           python -m pytest -q
           tests/integration/test_model_io_contracts.py
           tests/integration/test_runtime_lock_contracts.py
+          tests/integration/test_config_contracts.py
 
   unit:
     name: Unit / Python ${{ matrix.python-version }}
