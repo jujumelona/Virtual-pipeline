@@ -69,16 +69,25 @@ def avatar(image, output, profile, commercial_usage):
     type=click.Choice([
         "HEAD_TOP", "FACE", "LEFT_EAR", "RIGHT_EAR", "NECK", "CHEST",
         "BACK", "LEFT_SHOULDER", "RIGHT_SHOULDER", "LEFT_HAND",
-        "RIGHT_HAND", "LEFT_FOOT", "RIGHT_FOOT", "HIPS",
+        "RIGHT_HAND", "LEFT_FOOT", "RIGHT_FOOT", "HIPS", "CUSTOM",
     ]),
     help=(
         "Accessory anchor. Repeat once per --images item. "
         "If omitted, all items use HEAD_TOP."
     ),
 )
+@click.option(
+    "--custom-anchor",
+    "custom_anchors",
+    multiple=True,
+    help=(
+        "CUSTOM anchor spec: PARENT_BONE,X,Y,Z,TARGET_SIZE. "
+        "Repeat once for each --anchor CUSTOM, in the same order."
+    ),
+)
 @click.option("--output", required=True, type=click.Path(), help="Output directory")
 @click.option("--profile", default="commercial", show_default=True)
-def accessory(base_vrm, images, anchors, output, profile):
+def accessory(base_vrm, images, anchors, custom_anchors, output, profile):
     """Reconstruct and cumulatively attach multiple accessories to one avatar."""
     from vtuber_pipeline.accessory.reconstruction import reconstruct_accessories
     from vtuber_pipeline.accessory.build import AccessoryPipeline
@@ -97,9 +106,41 @@ def accessory(base_vrm, images, anchors, output, profile):
     if not anchor_list:
         anchor_list = ["HEAD_TOP"] * len(image_list)
 
+    custom_count = sum(name == "CUSTOM" for name in anchor_list)
+    if len(custom_anchors) != custom_count:
+        raise click.ClickException(
+            "--custom-anchor must be repeated exactly once for each "
+            "--anchor CUSTOM"
+        )
+
+    parsed_custom_anchors = []
+    for raw in custom_anchors:
+        parts = [part.strip() for part in raw.split(",")]
+        if len(parts) != 5 or not parts[0]:
+            raise click.ClickException(
+                "--custom-anchor format must be PARENT_BONE,X,Y,Z,TARGET_SIZE"
+            )
+        try:
+            offset = [float(parts[1]), float(parts[2]), float(parts[3])]
+            target_size = float(parts[4])
+        except ValueError as exc:
+            raise click.ClickException(
+                "--custom-anchor X,Y,Z,TARGET_SIZE must be numbers"
+            ) from exc
+        if target_size <= 0.0:
+            raise click.ClickException(
+                "--custom-anchor TARGET_SIZE must be > 0"
+            )
+        parsed_custom_anchors.append({
+            "parent_bone": parts[0],
+            "offset": offset,
+            "target_size": target_size,
+        })
+
     failures = []
     current_vrm = base_vrm
     completed = 0
+    custom_index = 0
 
     for index, (item, anchor_name) in enumerate(
         zip(reconstructed, anchor_list),
@@ -113,9 +154,18 @@ def accessory(base_vrm, images, anchors, output, profile):
             break
 
         item_dir = out / f"accessory_{index:03d}"
+        custom_anchor = None
+        if anchor_name == "CUSTOM":
+            custom_anchor = parsed_custom_anchors[custom_index]
+            custom_index += 1
+
         build = AccessoryPipeline(
             str(item_dir),
-            {"anchor_name": anchor_name},
+            {
+                "anchor_name": anchor_name,
+                "custom_anchor": custom_anchor,
+                "physics": {"enabled": False},
+            },
         ).build(
             base_vrm=current_vrm,
             accessory_glb=item["mesh"],
