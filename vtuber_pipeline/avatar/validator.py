@@ -77,9 +77,32 @@ class VRMValidator:
             and bool(meta.get("name"))
             and isinstance(meta.get("authors"), list)
             and bool(meta.get("authors"))
-            and all(isinstance(author, str) and author for author in meta["authors"])
+            and all(
+                isinstance(author, str) and author
+                for author in meta["authors"]
+            )
             and isinstance(meta.get("licenseUrl"), str)
             and bool(meta.get("licenseUrl"))
+            and meta.get("avatarPermission", "onlyAuthor")
+                in {
+                    "onlyAuthor",
+                    "onlySeparatelyLicensedPerson",
+                    "everyone",
+                }
+            and meta.get("commercialUsage", "personalNonProfit")
+                in {
+                    "personalNonProfit",
+                    "personalProfit",
+                    "corporation",
+                }
+            and meta.get("creditNotation", "required")
+                in {"required", "unnecessary"}
+            and meta.get("modification", "prohibited")
+                in {
+                    "prohibited",
+                    "allowModification",
+                    "allowModificationRedistribution",
+                }
         )
         valid = (
             version == "1.0"
