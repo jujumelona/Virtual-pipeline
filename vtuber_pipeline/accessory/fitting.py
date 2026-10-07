@@ -33,12 +33,12 @@ def fit_accessory(
         import numpy as np
         import trimesh
 
-        mesh = trimesh.load(accessory_path)
+        mesh = trimesh.load(accessory_path, process=False)
         if isinstance(mesh, trimesh.Scene):
-            geometries = list(mesh.geometry.values())
-            if not geometries:
-                raise ValueError("Accessory GLB contains no geometry")
-            mesh = trimesh.util.concatenate(geometries)
+            mesh = mesh.to_mesh()
+        if not isinstance(mesh, trimesh.Trimesh):
+            raise ValueError("Accessory GLB contains no triangle geometry")
+        source_visual_kind = getattr(mesh.visual, "kind", None)
         if len(mesh.vertices) == 0:
             raise ValueError("Accessory mesh is empty")
 
@@ -65,6 +65,18 @@ def fit_accessory(
         if not output_path.is_file() or output_path.stat().st_size == 0:
             raise RuntimeError("Fitted accessory export produced no file")
 
+        reloaded = trimesh.load(str(output_path), process=False)
+        if isinstance(reloaded, trimesh.Scene):
+            reloaded = reloaded.to_mesh()
+        if not isinstance(reloaded, trimesh.Trimesh) or len(reloaded.vertices) == 0:
+            raise RuntimeError("Fitted accessory cannot be re-imported")
+        output_visual_kind = getattr(reloaded.visual, "kind", None)
+        if source_visual_kind in {"vertex", "texture"} and output_visual_kind is None:
+            raise RuntimeError(
+                f"Accessory visual data was lost during fitting: "
+                f"{source_visual_kind} -> {output_visual_kind}"
+            )
+
         local_translation = list(anchor.get("offset", [0.0, 0.0, 0.0]))
         local_rotation = list(
             anchor.get("attachment_rotation", [0.0, 0.0, 0.0, 1.0])
@@ -87,6 +99,8 @@ def fit_accessory(
                 "scale": world_scale,
             },
             "source_extents": extents.tolist(),
+            "source_visual_kind": source_visual_kind,
+            "output_visual_kind": output_visual_kind,
             "target_size": target_size,
             "baked_uniform_scale": uniform_scale,
             "world_to_local_linear": anchor.get("world_to_local_linear"),
