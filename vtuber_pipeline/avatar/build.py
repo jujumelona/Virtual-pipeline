@@ -72,6 +72,7 @@ class AvatarPipeline:
         from vtuber_pipeline.avatar import input_gate, reference_analysis, template_fitting
         from vtuber_pipeline.avatar import deformation_transfer, texture_transfer, hair, clothing
         from vtuber_pipeline.avatar import expressions, gaze, springbone, materials, vrm_export, validator
+        from vtuber_pipeline.avatar.template_mesh import get_template_path
         
         # Stage 1: Input gate
         stage_key = self._get_stage_key("input_gate", image_path)
@@ -171,15 +172,16 @@ class AvatarPipeline:
                     "stage_key": stage_key
                 }
             else:
-                # Fallback if cache data is incomplete
-                template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
+                # A cache entry without its artifact is invalid. Never substitute a
+                # canonical template for a missing TripoSR result.
                 results["stages"]["reference_reconstruction"] = {
-                    "status": "cached",
-                    "mesh_path": str(template_path),
-                    "source": "canonical_template",
-                    "stage_key": stage_key,
-                    "warning": "Cache hit but output_path not found in manifest"
+                    "status": "error",
+                    "error": "Cached reconstruction is missing output_path/artifact",
+                    "stage_key": stage_key
                 }
+                results["status"] = "failed"
+                results["failed_stages"] = ["reference_reconstruction"]
+                return results
         
         # Stage 4: Reference analysis
         ref_mesh = results["stages"]["reference_reconstruction"].get("mesh_path", "")
@@ -193,41 +195,46 @@ class AvatarPipeline:
         ref_mesh_path = results["stages"]["reference_reconstruction"].get("mesh_path", "")
         stage_key = self._get_stage_key("template_fitting", ref_mesh_path)
         if not self.manifest.is_complete(stage_key):
-            # Call real fit_template with the canonical template and reference mesh
-            template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
-            if template_path.exists():
+            # Resolve one canonical template path. get_template_path() creates the
+            # MakeHuman-CC0-derived template in a writable cache when necessary.
+            try:
+                template_path = get_template_path()
                 results["stages"]["template_fitting"] = template_fitting.fit_template(
                     str(template_path), landmarks, output_dir, config.get("fitting"),
                     reference_mesh_path=ref_mesh_path
                 )
-            else:
+            except Exception as e:
                 results["stages"]["template_fitting"] = {
                     "status": "error",
-                    "error": f"Template not found: {template_path}"
+                    "error": f"Canonical template unavailable: {e}"
                 }
             self.manifest.record_stage(stage_key, results["stages"]["template_fitting"])
         
         # CRITICAL FIX: Extract fitted_mesh from fitting result and use it for all downstream stages
         # Previously, downstream stages incorrectly used ref_mesh instead of fitted_mesh
         fitting_result = results["stages"]["template_fitting"]
-        fitted_mesh = fitting_result.get("fitted_mesh", ref_mesh_path) if fitting_result.get("status") == "complete" else ref_mesh_path
+        if fitting_result.get("status") != "complete":
+            results["status"] = "failed"
+            results["failed_stages"] = ["template_fitting"]
+            return results
+        fitted_mesh = fitting_result.get("fitted_mesh")
         fit_npz = fitting_result.get("fit_npz", str(pathlib.Path(output_dir) / "fit.npz"))
         
         # Validate fitted_mesh exists
         if fitted_mesh and pathlib.Path(fitted_mesh).exists():
             results["fitted_mesh"] = fitted_mesh
         else:
-            # Fallback to ref_mesh if fitted_mesh doesn't exist
-            fitted_mesh = ref_mesh_path
-            results["fitted_mesh"] = fitted_mesh
-            results["fitting_warning"] = "fitted_mesh not found, using ref_mesh as fallback"
+            results["status"] = "failed"
+            results["failed_stages"] = ["template_fitting"]
+            results["failed_reason"] = "template_fitting reported complete but fitted_mesh is missing"
+            return results
         
         # Stage 6: Deformation transfer - use fitted_mesh
         stage_key = self._get_stage_key("deformation_transfer", fit_npz)
         if not self.manifest.is_complete(stage_key):
-            template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
+            template_path = get_template_path()
             results["stages"]["deformation_transfer"] = deformation_transfer.transfer_deformation(
-                str(template_path) if template_path.exists() else fitted_mesh, fitted_mesh, fit_npz, output_dir
+                str(template_path), fitted_mesh, fit_npz, output_dir
             )
             self.manifest.record_stage(stage_key, results["stages"]["deformation_transfer"])
         
@@ -239,16 +246,18 @@ class AvatarPipeline:
             )
             self.manifest.record_stage(stage_key, results["stages"]["texture_transfer"])
         
-        # Stage 8: Hair extraction - use fitted_mesh
-        stage_key = self._get_stage_key("hair", fitted_mesh)
+        # Stage 8: Hair extraction comes from the reconstructed reference,
+        # not the canonical body mesh.
+        stage_key = self._get_stage_key("hair", ref_mesh_path)
         if not self.manifest.is_complete(stage_key):
-            results["stages"]["hair"] = hair.extract_hair(fitted_mesh, output_dir)
+            results["stages"]["hair"] = hair.extract_hair(ref_mesh_path, output_dir)
             self.manifest.record_stage(stage_key, results["stages"]["hair"])
         
-        # Stage 9: Clothing extraction - use fitted_mesh
-        stage_key = self._get_stage_key("clothing", fitted_mesh)
+        # Stage 9: Compare reconstructed appearance geometry against the fitted
+        # canonical body so clothing is not trivially distance-zero.
+        stage_key = self._get_stage_key("clothing", ref_mesh_path, fitted_mesh)
         if not self.manifest.is_complete(stage_key):
-            results["stages"]["clothing"] = clothing.extract_clothing(fitted_mesh, fitted_mesh, output_dir)
+            results["stages"]["clothing"] = clothing.extract_clothing(ref_mesh_path, fitted_mesh, output_dir)
             self.manifest.record_stage(stage_key, results["stages"]["clothing"])
         
         # Stage 10: Rigging - call real rig_avatar() with fitted_mesh
@@ -303,10 +312,12 @@ class AvatarPipeline:
             results["stages"]["gaze"] = gaze.configure_gaze(fitted_mesh, output_dir)
             self.manifest.record_stage(stage_key, results["stages"]["gaze"])
         
-        # Stage 13: SpringBone - use fitted_mesh
-        stage_key = self._get_stage_key("springbone", fitted_mesh)
+        # Stage 13: SpringBone must inspect the rigged GLB because spring joints
+        # are glTF nodes, not raw fitted vertices.
+        rigged_mesh = results["stages"]["rig"].get("rigged_mesh", fitted_mesh)
+        stage_key = self._get_stage_key("springbone", rigged_mesh)
         if not self.manifest.is_complete(stage_key):
-            results["stages"]["springbone"] = springbone.generate_springbone_config(fitted_mesh, output_dir)
+            results["stages"]["springbone"] = springbone.generate_springbone_config(rigged_mesh, output_dir)
             self.manifest.record_stage(stage_key, results["stages"]["springbone"])
         
         # Stage 14: Materials - use fitted_mesh
@@ -316,7 +327,7 @@ class AvatarPipeline:
             self.manifest.record_stage(stage_key, results["stages"]["materials"])
         
         # Stage 15: VRM export - call real export_vrm()
-        stage_key = self._get_stage_key("vrm_export", ref_mesh)
+        stage_key = self._get_stage_key("vrm_export", rigged_mesh)
         if not self.manifest.is_complete(stage_key):
             rigged_mesh = results["stages"]["rig"].get("rigged_mesh", ref_mesh) if results["stages"]["rig"].get("status") == "complete" else ref_mesh
             expr_data = results["stages"]["expressions"].get("expressions", {}) if results["stages"]["expressions"].get("status") in ["complete", "partial"] else None
