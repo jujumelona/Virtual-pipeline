@@ -90,61 +90,47 @@ class PipelineManifest:
         return hashlib.sha256(hash_input.encode('utf-8')).hexdigest()
     
     def is_complete(self, stage_key: str) -> bool:
-        """Check if a stage has completed successfully and outputs exist.
-        
-        Args:
-            stage_key: Unique key for the stage execution.
-            
-        Returns:
-            True if the stage is complete and all outputs exist.
-        """
-        if stage_key not in self._manifest.get("stages", {}):
+        """Return True only for a restorable successful stage."""
+        stage_data = self._manifest.get("stages", {}).get(stage_key)
+        if not stage_data:
             return False
-        
-        stage_data = self._manifest["stages"][stage_key]
-        
-        # Check status
-        if stage_data.get("status") != "complete":
+        contract = stage_data.get("contract")
+        if not isinstance(contract, dict):
+            # Old manifests stored only status/output_path and cannot restore
+            # semantic outputs such as landmarks or expression bindings.
             return False
-        
-        # Check output files exist
-        output_path = stage_data.get("output_path")
-        if output_path:
-            if not pathlib.Path(output_path).exists():
-                return False
-        
+        if contract.get("status") != "complete":
+            return False
+        output_path = contract.get("output_path") or contract.get("mesh_path") or contract.get("vrm_path")
+        if output_path and not pathlib.Path(output_path).exists():
+            return False
         return True
-    
     def record_stage(
         self,
         stage_key: str,
         contract: Dict[str, Any],
         input_hashes: Optional[Dict[str, str]] = None,
-        config: Optional[Dict[str, Any]] = None
+        config: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Record a stage execution in the manifest.
-        
-        Args:
-            stage_key: Unique key for the stage execution.
-            contract: Contract dict with stage results.
-            input_hashes: Optional input hashes for the stage.
-            config: Optional configuration for the stage.
-        """
-        stage_data = {
+        """Persist the complete JSON-serializable stage contract for resume."""
+        stage_data: Dict[str, Any] = {
             "status": contract.get("status", "pending"),
             "stage_name": contract.get("stage_name", "unknown"),
-            "output_path": contract.get("output_path", ""),
-            "timestamp": self._get_timestamp()
+            "output_path": (
+                contract.get("output_path")
+                or contract.get("mesh_path")
+                or contract.get("vrm_path")
+                or ""
+            ),
+            "timestamp": self._get_timestamp(),
+            "contract": contract,
         }
-        
         if input_hashes:
             stage_data["input_hashes"] = input_hashes
         if config:
             stage_data["config"] = config
-        
-        self._manifest["stages"][stage_key] = stage_data
+        self._manifest.setdefault("stages", {})[stage_key] = stage_data
         self.save()
-    
     def _get_timestamp(self) -> str:
         """Get current ISO-format timestamp."""
         from datetime import datetime, timezone
@@ -159,7 +145,11 @@ class PipelineManifest:
         Returns:
             Stage data dict or None if not found.
         """
-        return self._manifest.get("stages", {}).get(stage_key)
+        stage_data = self._manifest.get("stages", {}).get(stage_key)
+        if not stage_data:
+            return None
+        contract = stage_data.get("contract")
+        return contract if isinstance(contract, dict) else stage_data
     
     def clear_stage(self, stage_key: str) -> None:
         """Remove a stage from the manifest.
