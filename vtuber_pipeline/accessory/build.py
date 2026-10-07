@@ -112,11 +112,29 @@ class AccessoryPipeline:
         # Fold one push-out step into the bone-relative attachment translation.
         local_transform = dict(fit_result.get("transform", {}))
         if collision_result.get("resolved"):
-            push = collision_result.get("pushout_vector", [0.0, 0.0, 0.0])
-            base_translation = local_transform.get("translation", [0.0, 0.0, 0.0])
-            local_transform["translation"] = [
-                float(a + b) for a, b in zip(base_translation, push)
-            ]
+            import numpy as np
+
+            world_push = np.asarray(
+                collision_result.get("pushout_vector", [0.0, 0.0, 0.0]),
+                dtype=float,
+            )
+            world_to_local = fit_result.get("world_to_local_linear")
+            if world_to_local is None:
+                results["status"] = "failed"
+                results["failed_stages"] = ["collision"]
+                results["failed_reason"] = (
+                    "collision push-out exists but anchor world-to-local transform is missing"
+                )
+                return results
+
+            local_push = np.asarray(world_to_local, dtype=float) @ world_push
+            base_translation = np.asarray(
+                local_transform.get("translation", [0.0, 0.0, 0.0]),
+                dtype=float,
+            )
+            local_transform["translation"] = (
+                base_translation + local_push
+            ).astype(float).tolist()
         
         # Stage 5: Physics
         results["stages"]["physics"] = physics.add_physics_chain(
