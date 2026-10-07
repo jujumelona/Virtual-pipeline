@@ -616,6 +616,7 @@ def build_accessories_ui(
                 config={
                     "anchor_name": anchor,
                     "custom_anchor": slot.get("custom_anchor"),
+                    "bake": True,
                     "physics": {"enabled": False},
                 },
             )
