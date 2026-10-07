@@ -42,7 +42,6 @@ def update_artifact_hashes(lock_path: Optional[pathlib.Path] = None) -> dict:
     - TripoSR model weights (.ckpt/.safetensors)
     - anime-face-detector models
     - MakeHuman CC0 assets
-    - VRM Add-on zip
     
     Args:
         lock_path: Path to the lock file. Defaults to third_party.lock.json
@@ -138,26 +137,6 @@ def update_artifact_hashes(lock_path: Optional[pathlib.Path] = None) -> dict:
                                 continue
                         except Exception:
                             pass
-        
-        elif name == "vrm_addon":
-            # Check for VRM addon zip
-            vrm_path = project_root / info.get("path", "blender_addons/vrm/")
-            zip_files = list(vrm_path.glob("*.zip")) if vrm_path.exists() else []
-            if zip_files:
-                artifact_path = zip_files[0]
-            else:
-                # Check git commit
-                git_head = vrm_path / ".git" / "HEAD"
-                if git_head.exists():
-                    try:
-                        cmd = ["git", "-C", str(vrm_path), "rev-parse", "HEAD"]
-                        proc = subprocess.run(cmd, capture_output=True, text=True)
-                        if proc.returncode == 0:
-                            commit_hash = proc.stdout.strip()
-                            updated_hashes[name] = f"sha256:git:{commit_hash}"
-                            continue
-                    except Exception:
-                        pass
         
         # Compute hash for artifact if found
         if artifact_path and artifact_path.exists():
@@ -325,7 +304,7 @@ def audit_tools():
                 info.get("commit", "main")
             )
         else:
-            tool_result["check_result"] = {"status": "stub", "warning": "Tool path not configured"}
+            tool_result["check_result"] = {"match": False, "error": "Tool path/package is not configured"}
         
         results[name] = tool_result
     
