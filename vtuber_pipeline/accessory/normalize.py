@@ -13,12 +13,12 @@ def normalize_glb(input_path: str, output_path: str) -> Dict[str, Any]:
         import numpy as np
         import trimesh
 
-        mesh = trimesh.load(input_path)
+        mesh = trimesh.load(input_path, process=False)
         if isinstance(mesh, trimesh.Scene):
-            geometries = list(mesh.geometry.values())
-            if not geometries:
-                raise ValueError("Accessory scene contains no geometry")
-            mesh = trimesh.util.concatenate(geometries)
+            mesh = mesh.to_mesh()
+        if not isinstance(mesh, trimesh.Trimesh):
+            raise ValueError("Accessory input contains no triangle mesh")
+        source_visual_kind = getattr(mesh.visual, "kind", None)
         vertices = np.asarray(mesh.vertices)
         if len(vertices) == 0:
             raise ValueError("Accessory mesh has no vertices")
@@ -46,7 +46,21 @@ def normalize_glb(input_path: str, output_path: str) -> Dict[str, Any]:
         if not out.is_file() or out.stat().st_size == 0:
             raise RuntimeError("Normalized accessory export produced no file")
 
+        reloaded = trimesh.load(str(out), process=False)
+        if isinstance(reloaded, trimesh.Scene):
+            reloaded = reloaded.to_mesh()
+        if not isinstance(reloaded, trimesh.Trimesh) or len(reloaded.vertices) == 0:
+            raise RuntimeError("Normalized accessory cannot be re-imported")
+        output_visual_kind = getattr(reloaded.visual, "kind", None)
+        if source_visual_kind in {"vertex", "texture"} and output_visual_kind is None:
+            raise RuntimeError(
+                f"Accessory visual data was lost during normalization: "
+                f"{source_visual_kind} -> {output_visual_kind}"
+            )
+
         result.update({
+            "source_visual_kind": source_visual_kind,
+            "output_visual_kind": output_visual_kind,
             "status": "complete",
             "source_center": center.tolist(),
             "source_extents": extents.tolist(),
