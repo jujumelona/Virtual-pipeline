@@ -624,3 +624,83 @@ def test_product_validator_rejects_dead_look_at_range_maps(monkeypatch):
     result = validator.validate_look_at()
     assert result["valid"] is False
     assert result["range_maps"]["rangeMapVerticalUp"]["outputScale"] == 0.0
+
+
+def test_triposr_model_resolver_uses_exact_hf_revision_and_hash(
+    tmp_path,
+    monkeypatch,
+):
+    import hashlib
+    import vtuber_pipeline.avatar.reconstruction as reconstruction
+
+    model_dir = tmp_path / "snapshot"
+    model_dir.mkdir()
+    (model_dir / "config.yaml").write_text("model: test\n", encoding="utf-8")
+    weight_bytes = b"pinned-trip-osr-weights"
+    (model_dir / "model.ckpt").write_bytes(weight_bytes)
+
+    expected_hash = hashlib.sha256(weight_bytes).hexdigest()
+    monkeypatch.setattr(
+        reconstruction,
+        "TRIPOSR_MODEL_WEIGHT_SHA256",
+        expected_hash,
+    )
+    monkeypatch.delenv("TRIPOSR_MODEL_DIR", raising=False)
+
+    calls = []
+
+    def fake_download(*, repo_id, filename, revision):
+        calls.append((repo_id, filename, revision))
+        return str(model_dir / filename)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "huggingface_hub",
+        types.SimpleNamespace(hf_hub_download=fake_download),
+    )
+    reconstruction.resolve_triposr_model.cache_clear()
+    try:
+        resolved = reconstruction.resolve_triposr_model()
+    finally:
+        reconstruction.resolve_triposr_model.cache_clear()
+
+    assert resolved == str(model_dir.resolve())
+    assert calls == [
+        (
+            reconstruction.TRIPOSR_MODEL_ID,
+            "config.yaml",
+            reconstruction.TRIPOSR_MODEL_REVISION,
+        ),
+        (
+            reconstruction.TRIPOSR_MODEL_ID,
+            "model.ckpt",
+            reconstruction.TRIPOSR_MODEL_REVISION,
+        ),
+    ]
+
+
+def test_triposr_model_resolver_rejects_weight_hash_mismatch(
+    tmp_path,
+    monkeypatch,
+):
+    import pytest
+    import vtuber_pipeline.avatar.reconstruction as reconstruction
+
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "config.yaml").write_text("model: test\n", encoding="utf-8")
+    (model_dir / "model.ckpt").write_bytes(b"wrong-weights")
+
+    monkeypatch.setenv("TRIPOSR_MODEL_DIR", str(model_dir))
+    monkeypatch.setattr(
+        reconstruction,
+        "TRIPOSR_MODEL_WEIGHT_SHA256",
+        "0" * 64,
+    )
+
+    reconstruction.resolve_triposr_model.cache_clear()
+    try:
+        with pytest.raises(RuntimeError, match="SHA256 mismatch"):
+            reconstruction.resolve_triposr_model()
+    finally:
+        reconstruction.resolve_triposr_model.cache_clear()
