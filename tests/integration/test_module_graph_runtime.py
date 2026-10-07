@@ -338,6 +338,11 @@ def test_accessory_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
 
     calls = []
     seen = {}
+    custom_anchor = {
+        "parent_bone": "upperChest",
+        "offset": [0.1, 0.2, 0.3],
+        "target_size": 0.42,
+    }
 
     def fake_normalize(input_path, output_path):
         calls.append("normalize")
@@ -349,34 +354,67 @@ def test_accessory_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
     def fake_anchors(vrm_path, output_dir, custom_anchor=None):
         calls.append("anchors")
         assert vrm_path == str(base_vrm)
-        assert custom_anchor is None
-        return {"status": "complete", "HEAD_TOP": {"node": "head"}}
+        assert custom_anchor == {
+            "parent_bone": "upperChest",
+            "offset": [0.1, 0.2, 0.3],
+            "target_size": 0.42,
+        }
+        return {
+            "status": "complete",
+            "anchors": [
+                {
+                    "name": "CUSTOM",
+                    "bone": "upperChest",
+                    "offset": [0.1, 0.2, 0.3],
+                    "target_size": 0.42,
+                }
+            ],
+        }
 
     def fake_fit(mesh_path, anchor_name, anchor_manifest, output_dir):
         calls.append("fit")
         assert mesh_path == seen["normalized"]
-        assert anchor_name == "HEAD_TOP"
+        assert anchor_name == "CUSTOM"
         assert anchor_manifest["status"] == "complete"
+        assert anchor_manifest["anchors"][0]["target_size"] == 0.42
         fitted = pathlib.Path(output_dir) / "fitted.glb"
         fitted.write_bytes(b"fitted")
         seen["fitted"] = str(fitted)
         return {
             "status": "complete",
             "output_path": str(fitted),
-            "parent_bone": "head",
+            "parent_bone": "upperChest",
             "transform": {
-                "translation": [0.0, 0.1, 0.0],
+                "translation": [0.1, 0.2, 0.3],
                 "rotation": [0.0, 0.0, 0.0, 1.0],
                 "scale": [1.0, 1.0, 1.0],
             },
-            "world_transform": {},
+            "world_transform": {
+                "translation": [1.0, 2.0, 3.0],
+                "rotation": [0.0, 0.0, 0.0, 1.0],
+                "scale": [1.0, 1.0, 1.0],
+            },
+            "world_to_local_linear": [
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0],
+            ],
         }
 
     def fake_collision(mesh_path, vrm_path, world_transform=None):
         calls.append("collision")
         assert mesh_path == seen["fitted"]
         assert vrm_path == str(base_vrm)
-        return {"status": "complete", "resolved": False}
+        assert world_transform == {
+            "translation": [1.0, 2.0, 3.0],
+            "rotation": [0.0, 0.0, 0.0, 1.0],
+            "scale": [1.0, 1.0, 1.0],
+        }
+        return {
+            "status": "complete",
+            "resolved": True,
+            "pushout_vector": [0.01, 0.0, 0.0],
+        }
 
     def fake_attachment(
         mesh_path,
@@ -387,7 +425,13 @@ def test_accessory_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
     ):
         calls.append("attachment")
         assert mesh_path == seen["fitted"]
-        assert anchor_name == "HEAD_TOP"
+        assert anchor_name == "CUSTOM"
+        assert fit_result["parent_bone"] == "upperChest"
+        assert fit_result["transform"]["translation"] == [
+            0.11,
+            0.2,
+            0.3,
+        ]
         output = pathlib.Path(output_dir) / "attachment.json"
         output.write_text("{}", encoding="utf-8")
         return {"status": "complete", "output_path": str(output)}
@@ -409,7 +453,14 @@ def test_accessory_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
         calls.append("bake")
         assert vrm_path == str(base_vrm)
         assert accessory_paths == [seen["fitted"]]
-        assert attachment_config
+        assert attachment_config == {
+            pathlib.Path(seen["fitted"]).stem: {
+                "translation": [0.11, 0.2, 0.3],
+                "rotation": [0.0, 0.0, 0.0, 1.0],
+                "scale": [1.0, 1.0, 1.0],
+                "parent_bone": "upperChest",
+            }
+        }
         pathlib.Path(output_vrm).write_bytes(b"combined")
         seen["combined"] = output_vrm
         return {"status": "complete", "output_path": output_vrm}
@@ -448,7 +499,11 @@ def test_accessory_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
     result = AccessoryPipeline(str(tmp_path / "acc-out")).build(
         base_vrm=str(base_vrm),
         accessory_glb=str(accessory),
-        config={"anchor_name": "HEAD_TOP", "bake": True},
+        config={
+            "anchor_name": "CUSTOM",
+            "custom_anchor": custom_anchor,
+            "bake": True,
+        },
     )
 
     assert result["status"] == "complete", result
