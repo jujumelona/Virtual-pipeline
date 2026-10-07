@@ -520,3 +520,76 @@ def test_invalid_reconstruction_option_type_fails_before_model_call(tmp_path):
     assert result["status"] == "failed"
     assert result["failed_stages"] == ["orchestrator"]
     assert "remove_background" in result["failed_reason"]
+
+
+def test_gaze_limits_are_serialized_into_vrm_range_maps():
+    from vtuber_pipeline.avatar.vrm_builder import create_vrm_extension
+
+    gltf = types.SimpleNamespace(meshes=[], nodes=[])
+    extension = create_vrm_extension(
+        gltf,
+        bone_mapping={},
+        look_at_config={
+            "type": "bone",
+            "offsetFromHeadBone": [0.01, 0.07, -0.02],
+            "yaw_limit_deg": 33.0,
+            "pitch_limit_deg": 17.0,
+        },
+        commercial_usage="corporation",
+    )
+
+    look_at = extension["lookAt"]
+    assert look_at["offsetFromHeadBone"] == [0.01, 0.07, -0.02]
+    assert look_at["type"] == "bone"
+    assert look_at["rangeMapHorizontalInner"] == {
+        "inputMaxValue": 90.0,
+        "outputScale": 33.0,
+    }
+    assert look_at["rangeMapHorizontalOuter"] == {
+        "inputMaxValue": 90.0,
+        "outputScale": 33.0,
+    }
+    assert look_at["rangeMapVerticalDown"] == {
+        "inputMaxValue": 90.0,
+        "outputScale": 17.0,
+    }
+    assert look_at["rangeMapVerticalUp"] == {
+        "inputMaxValue": 90.0,
+        "outputScale": 17.0,
+    }
+
+
+def test_product_validator_rejects_dead_look_at_range_maps(monkeypatch):
+    from vtuber_pipeline.avatar.validator import VRMValidator
+
+    validator = VRMValidator("unused.vrm", product_contract=True)
+    monkeypatch.setattr(
+        validator,
+        "parse_vrm",
+        lambda: {
+            "lookAt": {
+                "type": "bone",
+                "offsetFromHeadBone": [0.0, 0.06, 0.0],
+                "rangeMapHorizontalInner": {
+                    "inputMaxValue": 90.0,
+                    "outputScale": 30.0,
+                },
+                "rangeMapHorizontalOuter": {
+                    "inputMaxValue": 90.0,
+                    "outputScale": 30.0,
+                },
+                "rangeMapVerticalDown": {
+                    "inputMaxValue": 90.0,
+                    "outputScale": 20.0,
+                },
+                "rangeMapVerticalUp": {
+                    "inputMaxValue": 90.0,
+                    "outputScale": 0.0,
+                },
+            }
+        },
+    )
+
+    result = validator.validate_look_at()
+    assert result["valid"] is False
+    assert result["range_maps"]["rangeMapVerticalUp"]["outputScale"] == 0.0
