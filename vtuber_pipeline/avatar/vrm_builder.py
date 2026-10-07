@@ -15,7 +15,10 @@ import numpy as np
 
 # pygltflib for glTF manipulation
 try:
-    from pygltflib import GLTF2, Buffer, BufferView, Accessor, Node, Mesh, Primitive, Skin
+    from pygltflib import (
+        GLTF2, Buffer, BufferView, Accessor, Node, Mesh, Primitive, Skin,
+        Attributes, Sparse, SparseIndices, SparseValues,
+    )
     from pygltflib import ARRAY_BUFFER, ELEMENT_ARRAY_BUFFER, FLOAT, UNSIGNED_INT, UNSIGNED_BYTE
     PYGLTFLIB_AVAILABLE = True
 except ImportError:
@@ -163,9 +166,7 @@ def _add_morph_targets(
         # Add targets to primitive
         primitive.targets = []
         for accessor_idx in morph_accessors:
-            primitive.targets.append({
-                "POSITION": accessor_idx
-            })
+            primitive.targets.append(Attributes(POSITION=accessor_idx))
         
         # Set morph target names on mesh extras
         if mesh.extras is None:
@@ -228,101 +229,70 @@ def _create_sparse_morph_accessor(
     morph_data: List[Tuple[int, List[float]]],
     vertex_count: int
 ) -> int:
-    """Create a sparse accessor for morph target with only affected vertices.
-    
-    Args:
-        gltf: The GLTF2 object.
-        buffer_data: Binary buffer data.
-        morph_data: List of (vertex_index, [dx, dy, dz]) tuples.
-        vertex_count: Total number of vertices.
-    
-    Returns:
-        Index of the created accessor.
-    """
-    # Sort by vertex index
-    sorted_data = sorted(morph_data, key=lambda x: x[0])
-    
-    # Extract indices and values
-    indices = np.array([d[0] for d in sorted_data], dtype=np.uint32)
-    values = np.array([d[1] for d in sorted_data], dtype=np.float32)
-    
-    count = len(indices)
-    
-    # Add indices to buffer
-    indices_bytes = indices.tobytes()
+    """Create a glTF sparse POSITION accessor for one morph target."""
+    sorted_data = sorted(morph_data, key=lambda x: int(x[0]))
+
+    indices = np.asarray([int(d[0]) for d in sorted_data], dtype=np.uint32)
+    values = np.asarray([d[1] for d in sorted_data], dtype=np.float32)
+
+    if len(indices) == 0:
+        return _create_zero_morph_accessor(gltf, buffer_data, vertex_count)
+
+    if np.any(indices < 0) or np.any(indices >= vertex_count):
+        raise ValueError("Morph target contains an out-of-range vertex index")
+    if values.shape != (len(indices), 3):
+        raise ValueError(
+            f"Morph target values must have shape (N, 3), got {values.shape}"
+        )
+
+    # glTF bufferView offsets must be 4-byte aligned for these component types.
+    while len(buffer_data) % 4:
+        buffer_data.append(0)
     indices_offset = len(buffer_data)
+    indices_bytes = indices.tobytes()
     buffer_data.extend(indices_bytes)
-    
-    # Add values to buffer
-    values_bytes = values.tobytes()
+
+    while len(buffer_data) % 4:
+        buffer_data.append(0)
     values_offset = len(buffer_data)
+    values_bytes = values.tobytes()
     buffer_data.extend(values_bytes)
-    
-    # Create BufferView for indices
-    bv_indices = BufferView(
+
+    # Sparse index/value bufferViews are not regular vertex/index bindings, so
+    # leave target unset.
+    gltf.bufferViews.append(BufferView(
         buffer=0,
         byteOffset=indices_offset,
         byteLength=len(indices_bytes),
-        target=ARRAY_BUFFER
-    )
-    gltf.bufferViews.append(bv_indices)
+    ))
     bv_indices_idx = len(gltf.bufferViews) - 1
-    
-    # Create BufferView for values
-    bv_values = BufferView(
+
+    gltf.bufferViews.append(BufferView(
         buffer=0,
         byteOffset=values_offset,
         byteLength=len(values_bytes),
-        target=ARRAY_BUFFER
-    )
-    gltf.bufferViews.append(bv_values)
+    ))
     bv_values_idx = len(gltf.bufferViews) - 1
-    
-    # Create Accessor for indices
-    acc_indices = Accessor(
-        bufferView=bv_indices_idx,
-        componentType=UNSIGNED_INT,
-        count=count,
-        type="SCALAR"
-    )
-    gltf.accessors.append(acc_indices)
-    acc_indices_idx = len(gltf.accessors) - 1
-    
-    # Create Accessor for values
-    max_vals = values.max(axis=0).tolist() if count > 0 else [0.0, 0.0, 0.0]
-    min_vals = values.min(axis=0).tolist() if count > 0 else [0.0, 0.0, 0.0]
-    
-    acc_values = Accessor(
-        bufferView=bv_values_idx,
-        componentType=FLOAT,
-        count=count,
-        type="VEC3",
-        max=max_vals,
-        min=min_vals
-    )
-    gltf.accessors.append(acc_values)
-    acc_values_idx = len(gltf.accessors) - 1
-    
-    # Create sparse accessor
+
     sparse_accessor = Accessor(
         count=vertex_count,
         type="VEC3",
         componentType=FLOAT,
-        sparse={
-            "count": count,
-            "indices": {
-                "bufferView": bv_indices_idx,
-                "componentType": UNSIGNED_INT
-            },
-            "values": {
-                "bufferView": bv_values_idx
-            }
-        }
+        min=[0.0, 0.0, 0.0],
+        max=[0.0, 0.0, 0.0],
+        sparse=Sparse(
+            count=len(indices),
+            indices=SparseIndices(
+                bufferView=bv_indices_idx,
+                componentType=UNSIGNED_INT,
+            ),
+            values=SparseValues(
+                bufferView=bv_values_idx,
+            ),
+        ),
     )
     gltf.accessors.append(sparse_accessor)
-    
     return len(gltf.accessors) - 1
-
 
 def create_vrm_extension(
     gltf: "GLTF2",
@@ -599,10 +569,10 @@ def create_springbone_extension(
     collider_groups: Optional[List[Dict[str, Any]]] = None,
     bone_mapping: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
-    """Build VRMC_springBone 1.0 JSON from normalized spring config.
+    """Build schema-valid VRMC_springBone 1.0 JSON.
 
-    Joint ``node`` values may be glTF node indices or node names. Names are
-    resolved against the exported glTF and unresolved joints are rejected.
+    Optional arrays are omitted when empty because the official schema requires
+    minItems=1 whenever those properties are present.
     """
     springs = springs or []
     colliders = colliders or []
@@ -614,7 +584,9 @@ def create_springbone_extension(
         for i, node in enumerate(gltf.nodes or [])
         if getattr(node, "name", None)
     }
-    name_to_index.update({k: v for k, v in bone_mapping.items() if isinstance(v, int)})
+    name_to_index.update({
+        k: v for k, v in bone_mapping.items() if isinstance(v, int)
+    })
 
     normalized_springs: List[Dict[str, Any]] = []
     for spring in springs:
@@ -627,31 +599,55 @@ def create_springbone_extension(
                 node_idx = node_ref
             else:
                 node_idx = None
+
             if node_idx is None or not (0 <= node_idx < len(gltf.nodes or [])):
-                raise ValueError(f"Unresolved SpringBone joint node: {node_ref!r}")
+                raise ValueError(
+                    f"Unresolved SpringBone joint node: {node_ref!r}"
+                )
+
+            gravity_dir = list(joint.get("gravityDir", [0.0, -1.0, 0.0]))
+            if len(gravity_dir) != 3:
+                raise ValueError("SpringBone gravityDir must contain 3 numbers")
 
             normalized_joints.append({
                 "node": node_idx,
-                "hitRadius": float(joint.get("hitRadius", 0.02)),
-                "stiffness": float(joint.get("stiffness", 0.5)),
-                "gravityPower": float(joint.get("gravityPower", 0.1)),
-                "gravityDir": list(joint.get("gravityDir", [0.0, -1.0, 0.0])),
-                "dragForce": float(joint.get("dragForce", 0.2)),
+                "hitRadius": max(0.0, float(joint.get("hitRadius", 0.02))),
+                "stiffness": max(0.0, float(joint.get("stiffness", 0.5))),
+                "gravityPower": max(
+                    0.0, float(joint.get("gravityPower", 0.1))
+                ),
+                "gravityDir": [float(v) for v in gravity_dir],
+                "dragForce": min(
+                    1.0, max(0.0, float(joint.get("dragForce", 0.2)))
+                ),
             })
 
-        if normalized_joints:
-            normalized_springs.append({
-                "name": spring.get("name", f"spring_{len(normalized_springs)}"),
-                "joints": normalized_joints,
-                "colliderGroups": list(spring.get("colliderGroups", [])),
-            })
+        if not normalized_joints:
+            continue
 
-    return {
+        item: Dict[str, Any] = {
+            "name": spring.get(
+                "name", f"spring_{len(normalized_springs)}"
+            ),
+            "joints": normalized_joints,
+        }
+        spring_collider_groups = list(spring.get("colliderGroups", []))
+        if spring_collider_groups:
+            item["colliderGroups"] = spring_collider_groups
+        if spring.get("center") is not None:
+            item["center"] = int(spring["center"])
+        normalized_springs.append(item)
+
+    extension: Dict[str, Any] = {
         "specVersion": "1.0",
-        "colliders": colliders,
-        "colliderGroups": collider_groups,
-        "springs": normalized_springs,
     }
+    if colliders:
+        extension["colliders"] = colliders
+    if collider_groups:
+        extension["colliderGroups"] = collider_groups
+    if normalized_springs:
+        extension["springs"] = normalized_springs
+    return extension
 
 def validate_vrm(vrm_path: str) -> Dict[str, Any]:
     """Validate a VRM file.
