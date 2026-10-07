@@ -6,7 +6,7 @@ masking.
 """
 
 import pathlib
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
 from enum import Enum
 
 
@@ -23,7 +23,8 @@ class TexturePriority(Enum):
 def transfer_texture(
     image_path: str,
     mesh_path: str,
-    output_dir: str
+    output_dir: str,
+    face_bbox: Optional[List[float]] = None,
 ) -> Dict[str, Any]:
     """Transfer texture from source image to fitted mesh.
     
@@ -78,12 +79,17 @@ def transfer_texture(
         try:
             import trimesh
             
-            mesh = trimesh.load(mesh_path)
+            mesh = trimesh.load(mesh_path, process=False)
             if isinstance(mesh, trimesh.Scene):
-                mesh = trimesh.util.concatenate(list(mesh.geometry.values()))
+                geometries = list(mesh.geometry.values())
+                if len(geometries) != 1:
+                    raise ValueError(
+                        "Texture transfer requires exactly one mesh geometry"
+                    )
+                mesh = geometries[0]
             
-            vertices = np.array(mesh.vertices)
-            faces = np.array(mesh.faces)
+            vertices = np.asarray(mesh.vertices, dtype=float)
+            faces = np.asarray(mesh.faces, dtype=np.int64)
             n_vertices = len(vertices)
             
             result["vertex_count"] = n_vertices
@@ -98,6 +104,64 @@ def transfer_texture(
                 # Generate spherical UV mapping as fallback
                 uv_coords = _generate_spherical_uv(vertices)
                 result["uv_source"] = "spherical_fallback"
+
+            if uv_coords.shape != (n_vertices, 2):
+                raise ValueError(
+                    f"UV array shape does not match mesh: {uv_coords.shape}"
+                )
+            if not np.all(np.isfinite(uv_coords)):
+                raise ValueError("UV array contains non-finite values")
+            uv_coords = np.asarray(uv_coords, dtype=np.float32)
+
+            uv_path = pathlib.Path(output_dir) / "texture_uv.npy"
+            np.save(uv_path, uv_coords)
+            result["uv_path"] = str(uv_path)
+
+            # Calibrate a front-view orthographic projection from the detected
+            # 2D face box to the canonical mesh head. This prevents T-pose arm
+            # span from shrinking the face texture into the center of the atlas.
+            pmin = vertices.min(axis=0)
+            pmax = vertices.max(axis=0)
+            mesh_height = max(float(pmax[1] - pmin[1]), 1e-8)
+            head_mask = vertices[:, 1] >= pmin[1] + 0.72 * mesh_height
+            head = vertices[head_mask]
+            if len(head) < 32:
+                raise ValueError("Unable to isolate mesh head for texture projection")
+            hmin = head.min(axis=0)
+            hmax = head.max(axis=0)
+            hcenter = (hmin + hmax) * 0.5
+            head_width = max(float(hmax[0] - hmin[0]), 1e-8)
+            head_height = max(float(hmax[1] - hmin[1]), 1e-8)
+
+            valid_bbox = (
+                isinstance(face_bbox, (list, tuple))
+                and len(face_bbox) >= 4
+                and float(face_bbox[2]) > float(face_bbox[0])
+                and float(face_bbox[3]) > float(face_bbox[1])
+            )
+            if valid_bbox:
+                x1, y1, x2, y2 = [float(v) for v in face_bbox[:4]]
+                bbox_cx = (x1 + x2) * 0.5
+                bbox_cy = (y1 + y2) * 0.5
+                scale_x = (x2 - x1) / head_width
+                scale_y = (y2 - y1) / head_height
+                result["projection_mode"] = "detected_face_bbox"
+            else:
+                bbox_cx = src_width * 0.5
+                bbox_cy = src_height * 0.34
+                scale_x = (src_width * 0.45) / head_width
+                scale_y = (src_height * 0.45) / head_height
+                result["projection_mode"] = "centered_fallback"
+
+            projected_image_xy = np.column_stack([
+                bbox_cx + (vertices[:, 0] - hcenter[0]) * scale_x,
+                bbox_cy - (vertices[:, 1] - hcenter[1]) * scale_y,
+            ])
+            fallback_color = tuple(
+                np.median(src_pixels.reshape(-1, 4), axis=0)
+                .astype(np.uint8)
+                .tolist()
+            )
             
             # Create texture atlas (1024x1024)
             texture_size = 1024
@@ -109,32 +173,22 @@ def transfer_texture(
                 # Get UV triangle coordinates
                 uv_tri = uv_coords[face]
                 
-                # Get 3D vertex positions for depth sorting (optional)
-                v_tri = vertices[face]
-                
                 # Scale UV coordinates to texture size
-                uv_scaled = uv_tri * texture_size
-                
-                # Compute bounding box of 3D face in normalized image space
-                # Project 3D vertices to 2D (front view: X, Y)
-                x_proj = (v_tri[:, 0] - vertices[:, 0].min()) / (vertices[:, 0].max() - vertices[:, 0].min() + 1e-8)
-                y_proj = (v_tri[:, 1] - vertices[:, 1].min()) / (vertices[:, 1].max() - vertices[:, 1].min() + 1e-8)
-                
-                # Map to image coordinates
-                img_coords = np.stack([
-                    x_proj * src_width,
-                    (1 - y_proj) * src_height  # Flip Y
-                ], axis=1)
-                
-                # Sample color from center of triangle in image space
-                center_u = int(np.clip(img_coords[:, 0].mean(), 0, src_width - 1))
-                center_v = int(np.clip(img_coords[:, 1].mean(), 0, src_height - 1))
-                
-                try:
-                    color = src_pixels[center_v, center_u]
-                    color_tuple = tuple(color)
-                except IndexError:
-                    color_tuple = (255, 255, 255, 255)
+                uv_scaled = uv_tri * (texture_size - 1)
+
+                img_coords = projected_image_xy[face]
+                center = img_coords.mean(axis=0)
+                if (
+                    0.0 <= center[0] < src_width
+                    and 0.0 <= center[1] < src_height
+                ):
+                    center_u = int(round(center[0]))
+                    center_v = int(round(center[1]))
+                    center_u = min(max(center_u, 0), src_width - 1)
+                    center_v = min(max(center_v, 0), src_height - 1)
+                    color_tuple = tuple(src_pixels[center_v, center_u].tolist())
+                else:
+                    color_tuple = fallback_color
                 
                 # Draw filled triangle in texture atlas
                 points = [(float(u), float(v)) for u, v in uv_scaled]
