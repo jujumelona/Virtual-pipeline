@@ -82,6 +82,7 @@ def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
 
     result["pass"] = bool(result["checks"]) and all(result["checks"].values())
     result["valid"] = result["pass"]
+    result["status"] = "complete" if result["pass"] else "error"
     result["input_hash"] = _compute_file_hash(image_path) if pathlib.Path(image_path).is_file() else None
     _write_quality_json(output_dir, result)
     return result
