@@ -9,7 +9,9 @@
       "license_url": "https://github.com/VAST-AI-Research/TripoSR/blob/main/LICENSE",
       "path": "TripoSR/",
       "description": "TripoSR - Fast 3D Object Reconstruction from a Single Image",
-      "commercial_safe": true
+      "commercial_safe": true,
+      "model_revision": "c1cf7716aed5aa6c1c5e174657791ef0e1327bde",
+      "model_weight_sha256": "429e2c6b22a0923967459de24d67f05962b235f79cde6b032aa7ed2ffcd970ee"
     },
     "anime_face_detector": {
       "package": "anime-face-detector",
@@ -102,6 +104,16 @@
       "license": "MIT",
       "description": "Background removal used by TripoSR",
       "commercial_safe": true
+    },
+    "gradio": {
+      "package": "gradio",
+      "package_version": "6.3.0",
+      "artifact_sha256": null,
+      "published_wheel_sha256": "f33d8a2b6ca240a85c502ac83f82d30a6a8c5fe6e59bfe6a2ad740ce2c677a3d",
+      "license": "Apache-2.0",
+      "license_url": "https://github.com/gradio-app/gradio/blob/main/LICENSE",
+      "description": "Pinned Colab web UI runtime",
+      "commercial_safe": true
     }
   },
   "notes": {
@@ -111,6 +123,8 @@
     "vrm_export": "VRM 1.0 is emitted by the pure-Python pygltflib path; Blender/VRM Add-on is not a runtime dependency.",
     "torchmcubes_usage": "Install after PyTorch and build dependencies with --no-build-isolation; native build parallelism is capped for Colab.",
     "runtime_contract": "Colab runtime v4 pins the direct compatibility packages recorded here. artifact_sha256 stays null unless exact installed wheel bytes are captured and trusted.",
-    "transitive_scope": "commercial_safe flags cover the direct locked components; installed transitive distributions must still be audited from the resolved environment."
+    "transitive_scope": "commercial_safe flags cover the direct locked components; installed transitive distributions must still be audited from the resolved environment.",
+    "triposr_model_integrity": "The Hugging Face model revision is pinned separately from the TripoSR source revision; model.ckpt bytes are verified against model_weight_sha256 before inference.",
+    "gradio_usage": "Colab notebook pins Gradio exactly; the published wheel SHA256 is recorded separately from observed artifact_sha256."
   }
 }
