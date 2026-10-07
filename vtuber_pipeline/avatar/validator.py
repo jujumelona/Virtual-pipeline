@@ -3,6 +3,7 @@
 import pathlib
 from typing import Dict, Any, Optional
 
+import numpy as np
 from pygltflib import GLTF2
 
 
@@ -158,6 +159,163 @@ class VRMValidator:
                 None
                 if valid
                 else "Missing/invalid/duplicate humanoid bones"
+            ),
+        }
+
+    def validate_humanoid_rest_pose(self) -> Dict[str, Any]:
+        """Validate product hierarchy and T-pose geometry."""
+        if not self.product_contract:
+            return {"valid": True, "skipped": True, "error": None}
+        vrm = self.parse_vrm()
+        bones = (vrm.get("humanoid") or {}).get("humanBones") or {}
+        if not isinstance(bones, dict):
+            return {"valid": False, "error": "humanBones must be an object"}
+
+        node_for = {
+            name: binding.get("node")
+            for name, binding in bones.items()
+            if isinstance(binding, dict)
+            and isinstance(binding.get("node"), int)
+        }
+        nodes = self._gltf.nodes or [] if self._gltf else []
+        parent_of: Dict[int, int] = {}
+        for parent_idx, node in enumerate(nodes):
+            for child in node.children or []:
+                if child in parent_of:
+                    return {
+                        "valid": False,
+                        "error": f"node {child} has multiple parents",
+                    }
+                parent_of[int(child)] = parent_idx
+
+        expected_parent = {
+            "spine": "hips",
+            "chest": "spine",
+            "upperChest": "chest",
+            "neck": "upperChest",
+            "head": "neck",
+            "leftEye": "head",
+            "rightEye": "head",
+            "leftShoulder": "upperChest",
+            "leftUpperArm": "leftShoulder",
+            "leftLowerArm": "leftUpperArm",
+            "leftHand": "leftLowerArm",
+            "rightShoulder": "upperChest",
+            "rightUpperArm": "rightShoulder",
+            "rightLowerArm": "rightUpperArm",
+            "rightHand": "rightLowerArm",
+            "leftUpperLeg": "hips",
+            "leftLowerLeg": "leftUpperLeg",
+            "leftFoot": "leftLowerLeg",
+            "rightUpperLeg": "hips",
+            "rightLowerLeg": "rightUpperLeg",
+            "rightFoot": "rightLowerLeg",
+        }
+        bad_hierarchy = []
+        for child_name, parent_name in expected_parent.items():
+            child_idx = node_for.get(child_name)
+            parent_idx = node_for.get(parent_name)
+            if child_idx is None or parent_idx is None:
+                bad_hierarchy.append(f"{child_name}->{parent_name}:missing")
+                continue
+            if parent_of.get(child_idx) != parent_idx:
+                bad_hierarchy.append(f"{child_name}->{parent_name}")
+
+        def local_matrix(node):
+            matrix = np.eye(4, dtype=float)
+            if getattr(node, "matrix", None):
+                raw = np.asarray(node.matrix, dtype=float).reshape(4, 4).T
+                return raw
+            translation = np.asarray(
+                node.translation or [0.0, 0.0, 0.0],
+                dtype=float,
+            )
+            scale = np.asarray(
+                node.scale or [1.0, 1.0, 1.0],
+                dtype=float,
+            )
+            x, y, z, w = [
+                float(v)
+                for v in (node.rotation or [0.0, 0.0, 0.0, 1.0])
+            ]
+            rotation = np.array([
+                [1 - 2*y*y - 2*z*z, 2*x*y - 2*z*w, 2*x*z + 2*y*w],
+                [2*x*y + 2*z*w, 1 - 2*x*x - 2*z*z, 2*y*z - 2*x*w],
+                [2*x*z - 2*y*w, 2*y*z + 2*x*w, 1 - 2*x*x - 2*y*y],
+            ])
+            matrix[:3, :3] = rotation @ np.diag(scale)
+            matrix[:3, 3] = translation
+            return matrix
+
+        children = {i: list(node.children or []) for i, node in enumerate(nodes)}
+        roots = [i for i in range(len(nodes)) if i not in parent_of]
+        worlds = [np.eye(4, dtype=float) for _ in nodes]
+
+        def visit(index: int, parent_world: np.ndarray) -> None:
+            worlds[index] = parent_world @ local_matrix(nodes[index])
+            for child in children[index]:
+                visit(int(child), worlds[index])
+
+        for root in roots:
+            visit(root, np.eye(4, dtype=float))
+
+        positions = {
+            name: worlds[index][:3, 3]
+            for name, index in node_for.items()
+            if 0 <= index < len(worlds)
+        }
+        required_position_names = [
+            "hips", "head",
+            "leftShoulder", "leftUpperArm", "leftLowerArm", "leftHand",
+            "rightShoulder", "rightUpperArm", "rightLowerArm", "rightHand",
+        ]
+        missing_positions = [
+            name for name in required_position_names
+            if name not in positions
+        ]
+
+        pose_errors = []
+        if not missing_positions:
+            body_height = max(
+                float(abs(positions["head"][1] - positions["hips"][1])),
+                1e-6,
+            )
+            left_chain = [
+                positions["leftShoulder"],
+                positions["leftUpperArm"],
+                positions["leftLowerArm"],
+                positions["leftHand"],
+            ]
+            right_chain = [
+                positions["rightShoulder"],
+                positions["rightUpperArm"],
+                positions["rightLowerArm"],
+                positions["rightHand"],
+            ]
+            max_y_spread = 0.06 * body_height
+            if np.ptp([p[1] for p in left_chain]) > max_y_spread:
+                pose_errors.append("left arm is not in T-pose")
+            if np.ptp([p[1] for p in right_chain]) > max_y_spread:
+                pose_errors.append("right arm is not in T-pose")
+            if not (
+                positions["leftHand"][0] > positions["leftShoulder"][0]
+            ):
+                pose_errors.append("left arm does not extend toward +X")
+            if not (
+                positions["rightHand"][0] < positions["rightShoulder"][0]
+            ):
+                pose_errors.append("right arm does not extend toward -X")
+
+        valid = not bad_hierarchy and not missing_positions and not pose_errors
+        return {
+            "valid": valid,
+            "bad_hierarchy": bad_hierarchy,
+            "missing_positions": missing_positions,
+            "pose_errors": pose_errors,
+            "error": (
+                None
+                if valid
+                else "Invalid humanoid hierarchy/rest pose"
             ),
         }
 
@@ -502,6 +660,7 @@ class VRMValidator:
             "gltf_structure": self.validate_gltf_structure(),
             "vrm_schema": self.validate_vrm_schema(),
             "humanoid_bones": self.validate_humanoid_bones(),
+            "humanoid_rest_pose": self.validate_humanoid_rest_pose(),
             "expressions": self.validate_expressions(),
             "look_at": self.validate_look_at(),
             "springbone": self.validate_springbone(),
