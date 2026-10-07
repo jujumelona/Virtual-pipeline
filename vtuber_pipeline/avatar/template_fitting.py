@@ -83,16 +83,66 @@ def fit_template(
         "reference_mesh_path": reference_mesh_path
     }
     
-    # Get fitting objective weights
+    # Get fitting objective weights. Configuration is fail-closed: typos or
+    # wrong types must never silently fall back to defaults.
     objective = FittingObjective()
-    if config and "fitting_objective" in config:
-        obj_config = config["fitting_objective"]
-        objective = FittingObjective(
-            lambda_landmark=obj_config.get("lambda_landmark", 1.0),
-            lambda_surface=obj_config.get("lambda_surface", 0.5),
-            lambda_laplacian=obj_config.get("lambda_laplacian", 0.1),
-            lambda_symmetry=obj_config.get("lambda_symmetry", 0.2)
-        )
+    try:
+        if config is not None and not isinstance(config, dict):
+            raise ValueError("fitting config must be an object")
+        fitting_config = config or {}
+        unknown = sorted(set(fitting_config) - {"fitting_objective"})
+        if unknown:
+            raise ValueError(f"Unknown fitting config keys: {unknown}")
+
+        if "fitting_objective" in fitting_config:
+            obj_config = fitting_config["fitting_objective"]
+            if not isinstance(obj_config, dict):
+                raise ValueError("fitting_objective must be an object")
+            allowed_weights = {
+                "lambda_landmark",
+                "lambda_surface",
+                "lambda_laplacian",
+                "lambda_symmetry",
+            }
+            unknown_weights = sorted(set(obj_config) - allowed_weights)
+            if unknown_weights:
+                raise ValueError(
+                    f"Unknown fitting_objective keys: {unknown_weights}"
+                )
+
+            defaults = {
+                "lambda_landmark": 1.0,
+                "lambda_surface": 0.5,
+                "lambda_laplacian": 0.1,
+                "lambda_symmetry": 0.2,
+            }
+            parsed = {}
+            for name, default in defaults.items():
+                value = obj_config.get(name, default)
+                if (
+                    not isinstance(value, (int, float))
+                    or isinstance(value, bool)
+                    or not np.isfinite(float(value))
+                    or float(value) < 0.0
+                ):
+                    raise ValueError(
+                        f"fitting_objective.{name} must be a finite non-negative number"
+                    )
+                parsed[name] = float(value)
+
+            objective = FittingObjective(**parsed)
+    except Exception as exc:
+        result["status"] = "error"
+        result["error"] = str(exc)
+        result["objective_weights"] = {
+            "lambda_landmark": objective.lambda_landmark,
+            "lambda_surface": objective.lambda_surface,
+            "lambda_laplacian": objective.lambda_laplacian,
+            "lambda_symmetry": objective.lambda_symmetry,
+        }
+        _write_fit_report(output_dir, result)
+        return result
+
     result["objective_weights"] = {
         "lambda_landmark": objective.lambda_landmark,
         "lambda_surface": objective.lambda_surface,
