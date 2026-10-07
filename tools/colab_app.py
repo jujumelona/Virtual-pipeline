@@ -42,6 +42,7 @@ ANCHORS = [
     "LEFT_FOOT",
     "RIGHT_FOOT",
     "HIPS",
+    "CUSTOM",
 ]
 
 _RUNTIME_READY_HEAD: Optional[str] = None
@@ -518,16 +519,47 @@ def build_accessories_ui(
                 None,
             )
 
-        if len(slot_values) % 2 != 0:
+        slot_width = 7
+        if len(slot_values) % slot_width != 0:
             raise RuntimeError("Accessory slot contract mismatch")
 
-        slots: List[Tuple[str, str]] = []
-        for i in range(0, len(slot_values), 2):
+        slots: List[Dict[str, Any]] = []
+        for i in range(0, len(slot_values), slot_width):
             image_value = slot_values[i]
-            anchor = slot_values[i + 1]
+            anchor = str(slot_values[i + 1] or "HEAD_TOP")
             image_path = _normalize_file_value(image_value)
-            if image_path:
-                slots.append((image_path, str(anchor or "HEAD_TOP")))
+            if not image_path:
+                continue
+
+            slot: Dict[str, Any] = {
+                "image": image_path,
+                "anchor": anchor,
+            }
+            if anchor == "CUSTOM":
+                parent_bone = str(slot_values[i + 2] or "").strip()
+                if not parent_bone:
+                    raise RuntimeError(
+                        "CUSTOM 부착 위치는 parent bone/node 이름이 필요합니다."
+                    )
+                try:
+                    offset = [
+                        float(slot_values[i + 3]),
+                        float(slot_values[i + 4]),
+                        float(slot_values[i + 5]),
+                    ]
+                    target_size = float(slot_values[i + 6])
+                except (TypeError, ValueError) as exc:
+                    raise RuntimeError(
+                        "CUSTOM offset/size는 숫자여야 합니다."
+                    ) from exc
+                if target_size <= 0.0:
+                    raise RuntimeError("CUSTOM target size는 0보다 커야 합니다.")
+                slot["custom_anchor"] = {
+                    "parent_bone": parent_bone,
+                    "offset": offset,
+                    "target_size": target_size,
+                }
+            slots.append(slot)
 
         if not slots:
             return (
@@ -537,7 +569,7 @@ def build_accessories_ui(
             )
 
         progress(0.30, desc="악세사리 3D 재구성")
-        source_paths = [path for path, _ in slots]
+        source_paths = [slot["image"] for slot in slots]
         recon_dir = OUTPUT_ROOT / f"accessory-recon-{uuid.uuid4().hex[:10]}"
         reconstructed = reconstruct_accessories(
             source_paths,
@@ -552,10 +584,12 @@ def build_accessories_ui(
         current_vrm = base_path
         total = len(slots)
 
-        for index, ((source_path, anchor), item) in enumerate(
+        for index, (slot, item) in enumerate(
             zip(slots, reconstructed),
             start=1,
         ):
+            source_path = slot["image"]
+            anchor = slot["anchor"]
             if item.get("status") != "complete" or not item.get("mesh"):
                 raise RuntimeError(
                     f"{pathlib.Path(source_path).name} 3D 재구성 실패: "
@@ -576,6 +610,7 @@ def build_accessories_ui(
                 accessory_glb=item["mesh"],
                 config={
                     "anchor_name": anchor,
+                    "custom_anchor": slot.get("custom_anchor"),
                     "physics": {"enabled": False},
                 },
             )
@@ -759,7 +794,39 @@ def build_app() -> gr.Blocks:
                                 choices=ANCHORS,
                                 value="HEAD_TOP",
                             )
-                        accessory_inputs.extend([image, anchor])
+                        gr.Markdown(
+                            "CUSTOM 선택 시 아래 값만 사용합니다. "
+                            "offset 단위는 meter이며 parent bone/node의 로컬 좌표입니다."
+                        )
+                        custom_parent = gr.Dropdown(
+                            label="CUSTOM parent bone/node",
+                            choices=[
+                                "head", "neck", "chest", "upperChest", "hips",
+                                "leftShoulder", "rightShoulder",
+                                "leftHand", "rightHand",
+                                "leftFoot", "rightFoot",
+                            ],
+                            value="head",
+                            allow_custom_value=True,
+                        )
+                        with gr.Row():
+                            custom_x = gr.Number(label="CUSTOM X", value=0.0)
+                            custom_y = gr.Number(label="CUSTOM Y", value=0.0)
+                            custom_z = gr.Number(label="CUSTOM Z", value=0.0)
+                            custom_size = gr.Number(
+                                label="CUSTOM target size",
+                                value=0.12,
+                                minimum=0.001,
+                            )
+                        accessory_inputs.extend([
+                            image,
+                            anchor,
+                            custom_parent,
+                            custom_x,
+                            custom_y,
+                            custom_z,
+                            custom_size,
+                        ])
 
                 accessory_run = gr.Button(
                     "악세사리 적용",
