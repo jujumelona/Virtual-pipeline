@@ -131,16 +131,23 @@ def fit_template(
         # Load reference mesh for surface ICP if provided
         reference_vertices = None
         reference_tree = None
-        if reference_mesh_path and pathlib.Path(reference_mesh_path).exists():
-            try:
-                ref_mesh = trimesh.load(reference_mesh_path)
-                if isinstance(ref_mesh, trimesh.Scene):
-                    ref_mesh = trimesh.util.concatenate(list(ref_mesh.geometry.values()))
-                reference_vertices = np.array(ref_mesh.vertices)
-                reference_tree = KDTree(reference_vertices)
-                result["reference_vertex_count"] = len(reference_vertices)
-            except Exception as e:
-                result["reference_load_warning"] = str(e)
+        if reference_mesh_path:
+            reference_path = pathlib.Path(reference_mesh_path)
+            if not reference_path.is_file():
+                raise FileNotFoundError(
+                    f"Reference mesh is required for production fitting: {reference_mesh_path}"
+                )
+            ref_mesh = trimesh.load(reference_mesh_path)
+            if isinstance(ref_mesh, trimesh.Scene):
+                geometries = list(ref_mesh.geometry.values())
+                if not geometries:
+                    raise ValueError("Reference mesh scene contains no geometry")
+                ref_mesh = trimesh.util.concatenate(geometries)
+            reference_vertices = np.asarray(ref_mesh.vertices, dtype=float)
+            if len(reference_vertices) == 0:
+                raise ValueError("Reference mesh has no vertices")
+            reference_tree = KDTree(reference_vertices)
+            result["reference_vertex_count"] = len(reference_vertices)
         
         # Build Laplacian matrix for smoothness regularization
         laplacian_matrix = _build_laplacian_matrix(mesh)
@@ -274,6 +281,10 @@ def fit_template(
         )
         if not np.all(np.isfinite(opt_result.x)):
             raise RuntimeError("rigid fitting produced non-finite parameters")
+        if not bool(opt_result.success):
+            raise RuntimeError(
+                f"rigid fitting did not converge: {opt_result.message}"
+            )
 
         params = opt_result.x
         scale = params[0]
@@ -402,11 +413,46 @@ def fit_template(
             "translation": [float(tx), float(ty), float(tz)]
         }
         
-        # Compute individual energy values
-        result["energy_landmark"] = float(objective.lambda_landmark)
-        result["energy_surface"] = float(objective.lambda_surface)
-        result["energy_laplacian"] = float(objective.lambda_laplacian)
-        result["energy_symmetry"] = float(objective.lambda_symmetry)
+        # Compute actual final energy terms rather than reporting the lambdas.
+        final_face_idx = face_candidate_indices(fitted_vertices)
+        final_projected = fitted_vertices[final_face_idx][:, [0, 1]]
+        final_landmarks = normalize_landmarks_to_projection(
+            final_projected, landmarks_2d
+        )
+        if len(final_landmarks):
+            result["energy_landmark"] = float(np.mean([
+                np.linalg.norm(final_projected - lm, axis=1).min()
+                for lm in final_landmarks
+            ]))
+        else:
+            result["energy_landmark"] = 0.0
+
+        if reference_tree is not None:
+            final_surface_dist, _ = reference_tree.query(fitted_vertices)
+            result["energy_surface"] = float(np.mean(final_surface_dist))
+        else:
+            result["energy_surface"] = 0.0
+
+        if laplacian_matrix is not None:
+            final_lap = laplacian_matrix @ fitted_vertices
+            result["energy_laplacian"] = float(
+                np.mean(np.linalg.norm(final_lap, axis=1))
+            )
+        else:
+            result["energy_laplacian"] = 0.0
+
+        x_center = float(np.median(fitted_vertices[:, 0]))
+        left_mask = fitted_vertices[:, 0] > x_center
+        right_mask = fitted_vertices[:, 0] < x_center
+        if np.any(left_mask) and np.any(right_mask):
+            left_center = fitted_vertices[left_mask].mean(axis=0)
+            right_center = fitted_vertices[right_mask].mean(axis=0)
+            result["energy_symmetry"] = float(
+                abs(left_center[1] - right_center[1])
+                + abs(left_center[2] - right_center[2])
+            )
+        else:
+            result["energy_symmetry"] = 0.0
         
         # Save fit.npz with deformation field (includes non-rigid displacements)
         deltas = fitted_vertices - original_vertices
@@ -435,6 +481,15 @@ def fit_template(
         fitted_mesh = trimesh.Trimesh(vertices=fitted_vertices, faces=mesh.faces)
         fitted_path = pathlib.Path(output_dir) / "fitted.glb"
         fitted_mesh.export(str(fitted_path))
+        if not fitted_path.is_file() or fitted_path.stat().st_size == 0:
+            raise RuntimeError("Fitted mesh export produced no artifact")
+        reloaded = trimesh.load(str(fitted_path))
+        if isinstance(reloaded, trimesh.Scene):
+            reload_geometries = list(reloaded.geometry.values())
+            if not reload_geometries:
+                raise RuntimeError("Fitted GLB re-import contains no geometry")
+        elif len(reloaded.vertices) == 0:
+            raise RuntimeError("Fitted GLB re-import contains no vertices")
         result["fitted_mesh"] = str(fitted_path)
         
         result["status"] = "complete"
