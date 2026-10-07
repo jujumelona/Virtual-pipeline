@@ -39,9 +39,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
       - run: python -m pip install --disable-pip-version-check -U pip
-      - run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - name: Install CPU CI dependencies
+        run: >-
+          python -m pip install --disable-pip-version-check
+          pytest numpy scipy pyyaml pillow trimesh click pygltflib==1.16.5
+      - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - run: python -m pytest -q tests/unit
 
   integration:
@@ -55,9 +58,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
       - run: python -m pip install --disable-pip-version-check -U pip
-      - run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - name: Install CPU CI dependencies
+        run: >-
+          python -m pip install --disable-pip-version-check
+          pytest numpy scipy pyyaml pillow trimesh click pygltflib==1.16.5
+      - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - run: >-
           python -m pytest -q
           tests/integration/test_e2e_pipeline.py
@@ -73,9 +79,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
       - run: python -m pip install --disable-pip-version-check -U pip
-      - run: python -m pip install --disable-pip-version-check -e ".[dev]"
+      - name: Install CPU CI dependencies
+        run: >-
+          python -m pip install --disable-pip-version-check
+          pytest numpy scipy pyyaml pillow trimesh click pygltflib==1.16.5
+      - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - name: Import public API
         run: >-
           python -c "import vtuber_pipeline;
