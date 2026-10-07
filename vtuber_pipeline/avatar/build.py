@@ -14,7 +14,7 @@ class AvatarPipeline:
     expressions → gaze → SpringBone → VRM export → strict validation.
     """
 
-    CACHE_SCHEMA = "avatar-pipeline-v5"
+    CACHE_SCHEMA = "avatar-pipeline-v6"
 
     def __init__(self, output_dir: str, config: Optional[Dict[str, Any]] = None):
         self.output_dir = pathlib.Path(output_dir)
@@ -143,34 +143,101 @@ class AvatarPipeline:
                     ),
                 }
         output_dir = str(self.output_dir)
-        cfg = {**self.config, **(config or {})}
-        profile = cfg.get("profile", "commercial")
-        from vtuber_pipeline.avatar.reconstruction import TRIPOSR_MODEL_REVISION
-        reconstruction_cfg = cfg.get("reconstruction") or {}
-        if not isinstance(reconstruction_cfg, dict):
+
+        def config_failure(reason: str) -> Dict[str, Any]:
             return {
                 "status": "failed",
                 "image_path": image_path,
                 "output_dir": output_dir,
                 "stages": {},
                 "failed_stages": ["orchestrator"],
-                "failed_reason": "reconstruction config must be an object",
+                "failed_reason": reason,
             }
-        model_save_format = str(
-            reconstruction_cfg.get("model_save_format", "obj")
+
+        if not isinstance(self.config, dict):
+            return config_failure("AvatarPipeline config must be an object")
+        if config is not None and not isinstance(config, dict):
+            return config_failure("build config override must be an object")
+
+        cfg = {**self.config, **(config or {})}
+        allowed_top = {
+            "profile",
+            "commercial_usage",
+            "reconstruction",
+            "fitting",
+        }
+        unknown_top = sorted(set(cfg) - allowed_top)
+        if unknown_top:
+            return config_failure(
+                f"Unknown avatar config keys: {unknown_top}"
+            )
+
+        profile = cfg.get("profile", "commercial")
+        if profile not in {"commercial", "production", "development"}:
+            return config_failure(
+                f"Unsupported profile: {profile!r}"
+            )
+
+        commercial_usage = cfg.get("commercial_usage", "corporation")
+        if commercial_usage not in {
+            "personalNonProfit",
+            "personalProfit",
+            "corporation",
+        }:
+            return config_failure(
+                f"Unsupported commercial_usage: {commercial_usage!r}"
+            )
+
+        from vtuber_pipeline.avatar.reconstruction import TRIPOSR_MODEL_REVISION
+
+        reconstruction_raw = cfg.get("reconstruction", {})
+        if reconstruction_raw is None:
+            reconstruction_cfg = {}
+        elif isinstance(reconstruction_raw, dict):
+            reconstruction_cfg = reconstruction_raw
+        else:
+            return config_failure("reconstruction config must be an object")
+
+        unknown_reconstruction = sorted(
+            set(reconstruction_cfg)
+            - {"model_save_format", "remove_background"}
         )
+        if unknown_reconstruction:
+            return config_failure(
+                "Unknown reconstruction config keys: "
+                f"{unknown_reconstruction}"
+            )
+
+        model_save_format = reconstruction_cfg.get(
+            "model_save_format",
+            "obj",
+        )
+        if not isinstance(model_save_format, str):
+            return config_failure(
+                "reconstruction.model_save_format must be a string"
+            )
+        if model_save_format not in {"obj", "glb"}:
+            return config_failure(
+                "reconstruction.model_save_format must be 'obj' or 'glb'"
+            )
+
         remove_background = reconstruction_cfg.get(
-            "remove_background", True
+            "remove_background",
+            True,
         )
         if not isinstance(remove_background, bool):
-            return {
-                "status": "failed",
-                "image_path": image_path,
-                "output_dir": output_dir,
-                "stages": {},
-                "failed_stages": ["orchestrator"],
-                "failed_reason": "reconstruction.remove_background must be boolean",
-            }
+            return config_failure(
+                "reconstruction.remove_background must be boolean"
+            )
+
+        fitting_raw = cfg.get("fitting", {})
+        if fitting_raw is None:
+            fitting_cfg = {}
+        elif isinstance(fitting_raw, dict):
+            fitting_cfg = fitting_raw
+        else:
+            return config_failure("fitting config must be an object")
+
         reconstruction_options = {
             "profile": profile,
             "model_save_format": model_save_format,
@@ -247,7 +314,6 @@ class AvatarPipeline:
         except Exception as exc:
             return self._fail(results, "template_fitting", f"canonical template unavailable: {exc}")
 
-        fitting_cfg = cfg.get("fitting") or {}
         fitting = self._run_stage(
             "template_fitting",
             (template_path, reference_mesh, landmarks, fitting_cfg),
@@ -359,7 +425,6 @@ class AvatarPipeline:
             return self._fail(results, "springbone", spring.get("error") or spring.get("warning") or "SpringBone chain missing")
 
         # 9. Export VRM using only normalized contracts from prior stages.
-        commercial_usage = cfg.get("commercial_usage", "corporation")
         export = self._run_stage(
             "vrm_export",
             (rigged_mesh, expressions["expressions"], gaze.get("config"), spring, commercial_usage),
