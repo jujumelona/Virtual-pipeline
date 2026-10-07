@@ -23,8 +23,11 @@ REPO_URL = "https://github.com/jujumelona/Virtual-pipeline.git"
 REPO_DIR = pathlib.Path("/content/Virtual-pipeline")
 TRIPOSR_DIR = pathlib.Path("/content/third_party/TripoSR")
 TRIPOSR_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
+TRIPOSR_MODEL_REVISION = "c1cf7716aed5aa6c1c5e174657791ef0e1327bde"
+TRIPOSR_MODEL_WEIGHT_SHA256 = "429e2c6b22a0923967459de24d67f05962b235f79cde6b032aa7ed2ffcd970ee"
 TORCHMCUBES_COMMIT = "879926d0ef58e6ce0ac2630fdecb5e53af7ed3ff"
-RUNTIME_CONTRACT = "colab-runtime-v5"
+GRADIO_VERSION = "6.3.0"
+RUNTIME_CONTRACT = "colab-runtime-v6"
 WORK_ROOT = pathlib.Path("/content/vtuber_builder")
 OUTPUT_ROOT = WORK_ROOT / "output"
 
@@ -314,6 +317,21 @@ def _install_runtime(head: str) -> None:
         timeout=600,
     )
 
+    # Resolve the exact Hugging Face snapshot and verify model.ckpt before the
+    # UI can start. reconstruct_avatar() reuses the same cached snapshot.
+    _run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from vtuber_pipeline.avatar.reconstruction "
+                "import resolve_triposr_model; "
+                "print('triposr-model', resolve_triposr_model())"
+            ),
+        ],
+        timeout=2400,
+    )
+
     # End-to-end import smoke test for every external runtime edge used before
     # the first model inference.
     _run(
@@ -323,13 +341,14 @@ def _install_runtime(head: str) -> None:
             (
                 "import PIL, xatlas, moderngl, onnxruntime, cv2, safetensors; "
                 "import omegaconf, einops, trimesh, rembg, imageio, scipy; "
-                "import huggingface_hub, pygltflib, torch, torchvision, torchmcubes; "
+                "import huggingface_hub, pygltflib, torch, torchvision, torchmcubes, gradio; "
                 "from transformers.models.vit.modeling_vit import ViTModel; "
                 "from anime_face_detector import create_detector; "
                 "print('runtime-smoke-ok'); "
                 "print('Pillow', PIL.__version__); "
                 "print('trimesh', trimesh.__version__); "
-                "print('onnxruntime', onnxruntime.__version__)"
+                "print('onnxruntime', onnxruntime.__version__); "
+                "print('gradio', gradio.__version__)"
             ),
         ],
         timeout=120,
@@ -355,7 +374,10 @@ def _install_runtime(head: str) -> None:
                 f"installed_from_main={head}",
                 f"python={sys.version.split()[0]}",
                 f"triposr={TRIPOSR_COMMIT}",
+                f"triposr_model_revision={TRIPOSR_MODEL_REVISION}",
+                f"triposr_model_sha256={TRIPOSR_MODEL_WEIGHT_SHA256}",
                 f"torchmcubes={TORCHMCUBES_COMMIT}",
+                f"gradio={GRADIO_VERSION}",
                 "pillow=12.3.0",
                 "xatlas=0.0.11",
                 "moderngl=5.12.0",
