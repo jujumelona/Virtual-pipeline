@@ -382,6 +382,13 @@ class AvatarPipeline:
         else:
             results["status"] = "complete"
         
+        # Add top-level convenience keys for easy access
+        if results["status"] == "complete":
+            if "vrm_export" in results["stages"] and results["stages"]["vrm_export"].get("status") == "complete":
+                results["vrm_path"] = results["stages"]["vrm_export"]["vrm_path"]
+            if "validator" in results["stages"]:
+                results["validation"] = results["stages"]["validator"]
+        
         return results
     
     def _get_stage_key(self, stage_name: str, *inputs) -> str:
