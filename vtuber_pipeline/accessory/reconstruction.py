@@ -1,18 +1,32 @@
-"""Accessory reconstruction module for VTuber Pipeline."""
+"""Batch accessory reconstruction through the same pinned TripoSR backend."""
 
 import pathlib
 from vtuber_pipeline.avatar.reconstruction import reconstruct_avatar
 
 
-def reconstruct_accessories(image_paths: list, output_dir: str) -> list:
-    """여러 액세서리 이미지를 배치로 3D 재구성합니다."""
+def reconstruct_accessories(
+    image_paths: list[str],
+    output_dir: str,
+    profile: str = "commercial",
+) -> list[dict]:
+    """Reconstruct each accessory independently and return normalized contracts."""
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
-    results = []
-    for i, img_path in enumerate(image_paths):
-        acc_out = str(pathlib.Path(output_dir) / f'accessory_{i:03d}')
+    results: list[dict] = []
+    for i, image_path in enumerate(image_paths):
+        acc_out = str(pathlib.Path(output_dir) / f"accessory_{i:03d}")
         try:
-            mesh = reconstruct_avatar(img_path, acc_out, profile='commercial')
-            results.append({'image': img_path, 'mesh': mesh, 'status': 'ok'})
-        except Exception as e:
-            results.append({'image': img_path, 'mesh': None, 'status': str(e)})
+            mesh = reconstruct_avatar(image_path, acc_out, profile=profile)
+            results.append({
+                "status": "complete",
+                "image": image_path,
+                "mesh": mesh,
+                "output_path": mesh,
+            })
+        except Exception as exc:
+            results.append({
+                "status": "error",
+                "image": image_path,
+                "mesh": None,
+                "error": str(exc),
+            })
     return results
