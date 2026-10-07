@@ -19,5 +19,5 @@ __all__ = [
     "transfer_texture", "rig_avatar", "generate_expressions",
     "validate_expressions", "REQUIRED_EXPRESSIONS", "configure_gaze", "GazeConfig",
     "generate_springbone_config", "SPRING_BONE_PRESETS", "export_vrm",
-    "validate_for_vrm", "validate_vrm", "VRMValidator", "AvatarPipeline", "build_avatar",
+    "validate_vrm", "VRMValidator", "AvatarPipeline", "build_avatar",
 ]
