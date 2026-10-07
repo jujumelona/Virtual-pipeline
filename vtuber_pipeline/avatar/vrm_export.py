@@ -18,15 +18,14 @@ from vtuber_pipeline.avatar.vrm_builder import (
 def export_vrm(
     rig_path: str,
     output_dir: str,
-    blender_runner=None,
     expressions: Optional[Dict[str, Any]] = None,
-    bone_mapping: Optional[Dict[str, int]] = None
+    bone_mapping: Optional[Dict[str, int]] = None,
+    commercial_usage: str = "corporation",
+    springbone_config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Export rigged mesh to VRM 1.0 format.
     
     Uses pure Python implementation with pygltflib.
-    Blender runner is ignored (kept for backward compatibility).
-    
     Pre-export validation checks:
     1. Humanoid bones present
     2. Shape keys (expressions) defined
@@ -36,9 +35,10 @@ def export_vrm(
     Args:
         rig_path: Path to the rigged mesh (.glb or .gltf).
         output_dir: Directory to write output files.
-        blender_runner: Ignored (kept for backward compatibility).
         expressions: Optional dict of expression morph data.
         bone_mapping: Optional dict mapping VRM bone names to node indices.
+        commercial_usage: VRM 1.0 commercial usage policy.
+        springbone_config: Optional normalized VRMC_springBone config.
         
     Returns:
         Dictionary with export results and output paths.
@@ -53,7 +53,7 @@ def export_vrm(
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
     
     # Pre-export validation
-    pre_validate = _validate_for_vrm(rig_path)
+    pre_validate = _validate_for_vrm(rig_path, expressions=expressions)
     result["pre_validate"] = pre_validate
     
     if not pre_validate.get("valid", False):
@@ -68,7 +68,9 @@ def export_vrm(
             rigged_glb_path=rig_path,
             output_dir=output_dir,
             expressions=expressions,
-            bone_mapping=bone_mapping
+            bone_mapping=bone_mapping,
+            commercial_usage=commercial_usage,
+            springbone_config=springbone_config,
         )
         
         # Copy result fields
@@ -110,70 +112,74 @@ def validate_for_vrm(
 def _validate_for_vrm(
     mesh_path: str,
     rig_data: Optional[Dict[str, Any]] = None,
-    expressions: Optional[Dict[str, Any]] = None
+    expressions: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Internal validation function."""
-    result = {
-        "valid": True,
-        "errors": [],
-        "warnings": [],
-        "checks": {}
-    }
-    
-    # Check if input file exists
-    input_path = pathlib.Path(mesh_path)
-    if not input_path.exists():
+    """Validate the actual rigged GLB before VRM extension injection."""
+    result = {"valid": True, "errors": [], "warnings": [], "checks": {}}
+    path = pathlib.Path(mesh_path)
+    if not path.is_file() or path.stat().st_size == 0:
         result["valid"] = False
-        result["errors"].append(f"입력 파일이 존재하지 않습니다: {mesh_path}")
+        result["errors"].append(f"Rigged GLB missing or empty: {mesh_path}")
         return result
-    
-    # Check humanoid bones (stub)
-    required_bones = [
-        "hips", "spine", "chest", "neck", "head",
-        "leftShoulder", "leftUpperArm", "leftLowerArm", "leftHand",
-        "rightShoulder", "rightUpperArm", "rightLowerArm", "rightHand",
-        "leftUpperLeg", "leftLowerLeg", "leftFoot",
-        "rightUpperLeg", "rightLowerLeg", "rightFoot"
-    ]
-    
-    if rig_data:
-        present_bones = rig_data.get("bones", [])
-        missing_bones = [b for b in required_bones if b not in present_bones]
-        result["checks"]["humanoid_bones"] = len(missing_bones) == 0
-        if missing_bones:
-            result["errors"].append(f"Missing bones: {missing_bones}")
-    else:
-        result["checks"]["humanoid_bones"] = True  # Stub: assume present
-        result["warnings"].append("Rig data not provided, assuming bones present")
-    
-    # Check shape keys (stub)
-    required_expressions = [
-        "blink", "blinkLeft", "blinkRight",
-        "aa", "ih", "ou", "ee", "oh",
-        "happy", "angry", "sad", "relaxed", "surprised"
-    ]
-    
-    if expressions:
-        present_exprs = list(expressions.keys())
-        missing_exprs = [e for e in required_expressions if e not in present_exprs]
-        result["checks"]["shape_keys"] = len(missing_exprs) == 0
-        if missing_exprs:
-            result["warnings"].append(f"Missing expressions: {missing_exprs}")
-    else:
-        result["checks"]["shape_keys"] = True  # Stub
-        result["warnings"].append("Expression data not provided")
-    
-    # Check textures (stub)
-    result["checks"]["textures"] = True
-    
-    # Check weights (stub)
-    result["checks"]["weights"] = True
-    
-    # Overall validity
-    result["valid"] = all(result["checks"].values()) and len(result["errors"]) == 0
-    
-    return result
 
+    try:
+        from pygltflib import GLTF2
+        gltf = GLTF2().load(str(path))
+        node_names = {node.name for node in (gltf.nodes or []) if node.name}
+        required_bones = {
+            "hips", "spine", "chest", "neck", "head",
+            "leftShoulder", "leftUpperArm", "leftLowerArm", "leftHand",
+            "rightShoulder", "rightUpperArm", "rightLowerArm", "rightHand",
+            "leftUpperLeg", "leftLowerLeg", "leftFoot",
+            "rightUpperLeg", "rightLowerLeg", "rightFoot",
+        }
+        missing = sorted(required_bones - node_names)
+        result["checks"]["humanoid_bones"] = not missing
+        if missing:
+            result["errors"].append(f"Missing bones: {missing}")
+
+        has_skin = bool(gltf.skins)
+        result["checks"]["skin"] = has_skin
+        if not has_skin:
+            result["errors"].append("Rigged GLB has no skin")
+
+        primitives = [
+            primitive
+            for mesh in (gltf.meshes or [])
+            for primitive in (mesh.primitives or [])
+        ]
+        has_joint_weights = any(
+            getattr(p.attributes, "JOINTS_0", None) is not None and
+            getattr(p.attributes, "WEIGHTS_0", None) is not None
+            for p in primitives
+        )
+        result["checks"]["weights"] = has_joint_weights
+        if not has_joint_weights:
+            result["errors"].append("Rigged GLB has no JOINTS_0/WEIGHTS_0 attributes")
+
+        has_texture = bool(gltf.images and gltf.textures and gltf.materials)
+        result["checks"]["textures"] = has_texture
+        if not has_texture:
+            result["errors"].append("Rigged GLB has no embedded avatar texture/material")
+
+        required_expr = {
+            "blink", "blinkLeft", "blinkRight",
+            "aa", "ih", "ou", "ee", "oh",
+            "happy", "angry", "sad", "relaxed", "surprised",
+        }
+        present_expr = set((expressions or {}).keys())
+        missing_expr = sorted(required_expr - present_expr)
+        result["checks"]["expressions"] = not missing_expr
+        if missing_expr:
+            result["errors"].append(f"Missing expressions: {missing_expr}")
+
+    except Exception as exc:
+        result["valid"] = False
+        result["errors"].append(f"Failed to inspect rigged GLB: {exc}")
+        return result
+
+    result["valid"] = all(result["checks"].values()) and not result["errors"]
+    return result
 
 def _write_vrm_export_report(output_dir: str, result: Dict[str, Any]) -> None:
     """Write vrm_export_report.json to output directory."""
