@@ -29,3 +29,9 @@ dev = ["pytest", "ruff"]
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[tool.setuptools.package-data]
+vtuber_pipeline = ["../assets/**/*"]
+
+[tool.setuptools]
+include-package-data = true

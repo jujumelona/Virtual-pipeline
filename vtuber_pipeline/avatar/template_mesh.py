@@ -611,3 +611,35 @@ if __name__ == "__main__":
         print(f"Vertices: {result['vertex_count']}")
         print(f"Faces: {result['face_count']}")
         print(f"Bones: {result['bones']}")
+
+
+def ensure_template_exists() -> pathlib.Path:
+    """Ensure the canonical template.glb exists, generating it if necessary.
+    
+    This function is called on module import to guarantee that the template
+    mesh is available for the fitting pipeline.
+    
+    Returns:
+        Path to the template.glb file.
+    """
+    template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
+    
+    if not template_path.exists():
+        # Generate the template if it doesn't exist
+        template_path.parent.mkdir(parents=True, exist_ok=True)
+        result = create_canonical_template(str(template_path))
+        if result.get("status") != "complete":
+            raise RuntimeError(f"Failed to generate template: {result.get('error', 'Unknown error')}")
+    
+    return template_path
+
+
+# Auto-ensure template exists on import
+_template_path = None
+
+def get_template_path() -> pathlib.Path:
+    """Get the path to the canonical template, ensuring it exists."""
+    global _template_path
+    if _template_path is None:
+        _template_path = ensure_template_exists()
+    return _template_path
