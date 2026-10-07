@@ -95,6 +95,7 @@ def test_public_all_exports_exist():
 
 def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
     from vtuber_pipeline.avatar.build import AvatarPipeline
+    from vtuber_pipeline.avatar.reconstruction import TRIPOSR_MODEL_REVISION
     import vtuber_pipeline.avatar.expressions as expressions_module
     import vtuber_pipeline.avatar.gaze as gaze_module
     import vtuber_pipeline.avatar.input_gate as input_gate_module
@@ -306,6 +307,7 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
         "profile": "production",
         "model_save_format": "glb",
         "remove_background": False,
+        "model_revision": TRIPOSR_MODEL_REVISION,
     }
     assert calls == [
         "input_gate",
@@ -401,7 +403,12 @@ def test_accessory_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
             ],
         }
 
-    def fake_collision(mesh_path, vrm_path, world_transform=None):
+    def fake_collision(
+        mesh_path,
+        vrm_path,
+        world_transform=None,
+        clearance=0.003,
+    ):
         calls.append("collision")
         assert mesh_path == seen["fitted"]
         assert vrm_path == str(base_vrm)
@@ -410,6 +417,7 @@ def test_accessory_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
             "rotation": [0.0, 0.0, 0.0, 1.0],
             "scale": [1.0, 1.0, 1.0],
         }
+        assert clearance == 0.007
         return {
             "status": "complete",
             "resolved": True,
@@ -502,6 +510,7 @@ def test_accessory_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
         config={
             "anchor_name": "CUSTOM",
             "custom_anchor": custom_anchor,
+            "collision": {"clearance": 0.007},
             "bake": True,
         },
     )
