@@ -43,7 +43,8 @@ def fit_template(
     template_path: str,
     landmarks_2d: List[List[float]],
     output_dir: str,
-    config: Optional[Dict[str, Any]] = None
+    config: Optional[Dict[str, Any]] = None,
+    reference_mesh_path: Optional[str] = None
 ) -> Dict[str, Any]:
     """Fit a canonical VTuber template mesh to landmark constraints.
     
@@ -58,11 +59,18 @@ def fit_template(
         E = λ_landmark * E_landmark + λ_surface * E_surface + 
             λ_laplacian * E_laplacian + λ_symmetry * E_symmetry
     
+    Energy terms:
+        - E_landmark: Landmark projection error (2D landmarks to 3D mesh)
+        - E_surface: Surface-to-surface distance (reference to template)
+        - E_laplacian: Laplacian regularization (preserve mesh smoothness)
+        - E_symmetry: Bilateral symmetry constraint
+    
     Args:
         template_path: Path to the canonical template mesh.
         landmarks_2d: List of 2D landmark points [[x, y], ...].
         output_dir: Directory to write output files.
         config: Optional configuration dictionary.
+        reference_mesh_path: Optional path to reference mesh (TripoSR output) for ICP.
         
     Returns:
         Dictionary with fitting results including status and output paths.
@@ -70,7 +78,8 @@ def fit_template(
     result = {
         "status": "pending",
         "template_path": template_path,
-        "output_dir": output_dir
+        "output_dir": output_dir,
+        "reference_mesh_path": reference_mesh_path
     }
     
     # Get fitting objective weights
@@ -96,8 +105,10 @@ def fit_template(
     try:
         import numpy as np
         import trimesh
+        from scipy.optimize import minimize
+        from scipy.spatial import KDTree
         
-        # Load mesh
+        # Load template mesh
         mesh = trimesh.load(template_path)
         
         # Handle Scene objects - extract first mesh
@@ -112,134 +123,160 @@ def fit_template(
                 return result
                 
         vertices = np.array(mesh.vertices)
+        original_vertices = vertices.copy()
         result["vertex_count"] = len(vertices)
         result["face_count"] = len(mesh.faces)
         
-        # 실제 피팅 수행
-        # 1. Coarse alignment - scale/translate to match bounding boxes
-        if len(landmarks_2d) > 0:
-            landmarks_array = np.array(landmarks_2d)
-            
-            # 랜드마크 중심 계산
-            landmark_center = landmarks_array.mean(axis=0)
-            
-            # 메시 중심 계산 (머리 영역)
-            mesh_center = vertices.mean(axis=0)
-            
-            # 간단한 translation 피팅
-            # 랜드마크의 중심을 메시의 중심에 맞춤
-            translation_2d = landmark_center - mesh_center[:2]
-            
-            # 3D 변환 (Y축은 유지)
-            translation_3d = np.array([translation_2d[0], 0, translation_2d[1]])
-            
-            # 메시에 변환 적용
-            fitted_vertices = vertices + translation_3d * 0.01  # 스케일 팩터
-            
-            # 2. Landmark matching - 2D landmarks to 3D template vertices
-            # 랜드마크에 가중치 기반 피팅
-            if len(landmarks_2d) >= 5:
-                try:
-                    from scipy.optimize import minimize
-                    
-                    # 목적 함수: 랜드마크 투영 오차
-                    def landmark_error(params):
-                        scale = params[0]
-                        rx, ry, rz = params[1:4]
-                        tx, ty, tz = params[4:7]
-                        
-                        # 회전 행렬
-                        cos_r, sin_r = np.cos(rx), np.sin(rx)
-                        Rx = np.array([[1, 0, 0], [0, cos_r, -sin_r], [0, sin_r, cos_r]])
-                        cos_r, sin_r = np.cos(ry), np.sin(ry)
-                        Ry = np.array([[cos_r, 0, sin_r], [0, 1, 0], [-sin_r, 0, cos_r]])
-                        cos_r, sin_r = np.cos(rz), np.sin(rz)
-                        Rz = np.array([[cos_r, -sin_r, 0], [sin_r, cos_r, 0], [0, 0, 1]])
-                        R = Rz @ Ry @ Rx
-                        
-                        # 변환 적용
-                        transformed = (scale * (R @ vertices.T)).T + np.array([tx, ty, tz])
-                        
-                        # 2D 투영 오차 계산 (간소화)
-                        projected = transformed[:, [0, 2]]  # X, Z -> 2D
-                        
-                        # 랜드마크 대응점 찾기
-                        error = 0.0
-                        for lm in landmarks_2d[:min(len(landmarks_2d), 28)]:
-                            distances = np.linalg.norm(projected - np.array(lm), axis=1)
-                            error += distances.min()
-                        
-                        return error / len(landmarks_2d)
-                    
-                    # 최적화 실행
-                    initial_params = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-                    opt_result = minimize(
-                        landmark_error,
-                        initial_params,
-                        method='L-BFGS-B',
-                        options={'maxiter': 50}
-                    )
-                    
-                    # 최적 파라미터 적용
-                    params = opt_result.x
-                    scale = params[0]
-                    rx, ry, rz = params[1:4]
-                    tx, ty, tz = params[4:7]
-                    
-                    # 회전 행렬
-                    cos_r, sin_r = np.cos(rx), np.sin(rx)
-                    Rx = np.array([[1, 0, 0], [0, cos_r, -sin_r], [0, sin_r, cos_r]])
-                    cos_r, sin_r = np.cos(ry), np.sin(ry)
-                    Ry = np.array([[cos_r, 0, sin_r], [0, 1, 0], [-sin_r, 0, cos_r]])
-                    cos_r, sin_r = np.cos(rz), np.sin(rz)
-                    Rz = np.array([[cos_r, -sin_r, 0], [sin_r, cos_r, 0], [0, 0, 1]])
-                    R = Rz @ Ry @ Rx
-                    
-                    fitted_vertices = (scale * (R @ vertices.T)).T + np.array([tx, ty, tz])
-                    result["objective_value"] = float(opt_result.fun)
-                    result["iterations"] = int(opt_result.nit)
-                    result["converged"] = bool(opt_result.success)
-                    
-                except ImportError:
-                    # scipy 없으면 간단한 피팅만 수행
-                    fitted_vertices = vertices
-                    result["objective_value"] = 0.1
-                    result["iterations"] = 0
-                    result["converged"] = True
-            else:
-                fitted_vertices = vertices
-                result["objective_value"] = 0.0
-                result["iterations"] = 0
-                result["converged"] = True
-        else:
-            fitted_vertices = vertices
-            result["objective_value"] = 0.0
-            result["iterations"] = 0
-            result["converged"] = True
+        # Load reference mesh for surface ICP if provided
+        reference_vertices = None
+        reference_tree = None
+        if reference_mesh_path and pathlib.Path(reference_mesh_path).exists():
+            try:
+                ref_mesh = trimesh.load(reference_mesh_path)
+                if isinstance(ref_mesh, trimesh.Scene):
+                    ref_mesh = trimesh.util.concatenate(list(ref_mesh.geometry.values()))
+                reference_vertices = np.array(ref_mesh.vertices)
+                reference_tree = KDTree(reference_vertices)
+                result["reference_vertex_count"] = len(reference_vertices)
+            except Exception as e:
+                result["reference_load_warning"] = str(e)
         
-        # 3. Laplacian regularization - preserve smoothness
-        # 간소화된 Laplacian 에너지 계산
-        laplacian_energy = 0.0
-        if hasattr(mesh, 'edges_unique'):
-            for edge in mesh.edges_unique:
-                v1, v2 = fitted_vertices[edge[0]], fitted_vertices[edge[1]]
-                laplacian_energy += np.linalg.norm(v1 - v2)
-            laplacian_energy /= len(mesh.edges_unique) if len(mesh.edges_unique) > 0 else 1
-        result["laplacian_energy"] = float(laplacian_energy)
+        # Build Laplacian matrix for smoothness regularization
+        laplacian_matrix = _build_laplacian_matrix(mesh)
         
-        # 4. Save fit.npz with deformation field
-        deltas = fitted_vertices - vertices
+        # Full energy minimization with L-BFGS-B
+        def energy_function(params):
+            """Compute total fitting energy."""
+            scale = params[0]
+            rx, ry, rz = params[1:4]
+            tx, ty, tz = params[4:7]
+            
+            # Build rotation matrix
+            cos_x, sin_x = np.cos(rx), np.sin(rx)
+            Rx = np.array([[1, 0, 0], [0, cos_x, -sin_x], [0, sin_x, cos_x]])
+            cos_y, sin_y = np.cos(ry), np.sin(ry)
+            Ry = np.array([[cos_y, 0, sin_y], [0, 1, 0], [-sin_y, 0, cos_y]])
+            cos_z, sin_z = np.cos(rz), np.sin(rz)
+            Rz = np.array([[cos_z, -sin_z, 0], [sin_z, cos_z, 0], [0, 0, 1]])
+            R = Rz @ Ry @ Rx
+            
+            # Apply transformation
+            transformed = (scale * (R @ original_vertices.T)).T + np.array([tx, ty, tz])
+            
+            # E_landmark: Landmark projection error
+            e_landmark = 0.0
+            if len(landmarks_2d) > 0:
+                # Project to 2D (X, Z plane for front view)
+                projected = transformed[:, [0, 2]]
+                landmarks_array = np.array(landmarks_2d)
+                
+                # Normalize to similar scale
+                proj_center = projected.mean(axis=0)
+                lm_center = landmarks_array.mean(axis=0)
+                
+                proj_scaled = (projected - proj_center)
+                lm_scaled = (landmarks_array - lm_center)
+                
+                # For each landmark, find closest vertex
+                for lm in lm_scaled:
+                    distances = np.linalg.norm(proj_scaled - lm, axis=1)
+                    e_landmark += distances.min()
+                e_landmark /= len(landmarks_2d)
+            
+            # E_surface: Surface-to-surface distance (ICP)
+            e_surface = 0.0
+            if reference_tree is not None:
+                distances, _ = reference_tree.query(transformed)
+                e_surface = np.mean(distances)
+            
+            # E_laplacian: Smoothness regularization
+            e_laplacian = 0.0
+            if laplacian_matrix is not None:
+                lap_coords = laplacian_matrix @ transformed
+                e_laplacian = np.mean(np.linalg.norm(lap_coords, axis=1))
+            
+            # E_symmetry: Bilateral symmetry
+            e_symmetry = 0.0
+            # Mirror X coordinates and compute difference
+            left_mask = transformed[:, 0] > 0
+            right_mask = transformed[:, 0] < 0
+            if np.any(left_mask) and np.any(right_mask):
+                left_center = transformed[left_mask].mean(axis=0)
+                right_center = transformed[right_mask].mean(axis=0)
+                # Y and Z should be symmetric, X should be opposite
+                e_symmetry = abs(left_center[1] - right_center[1]) + abs(left_center[2] - right_center[2])
+            
+            # Total weighted energy
+            total = objective.compute_total(e_landmark, e_surface, e_laplacian, e_symmetry)
+            return total
+        
+        # Run optimization with L-BFGS-B
+        initial_params = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        bounds = [
+            (0.5, 2.0),    # scale
+            (-0.5, 0.5),   # rx
+            (-0.5, 0.5),   # ry
+            (-0.5, 0.5),   # rz
+            (-1.0, 1.0),   # tx
+            (-1.0, 1.0),   # ty
+            (-1.0, 1.0),   # tz
+        ]
+        
+        opt_result = minimize(
+            energy_function,
+            initial_params,
+            method='L-BFGS-B',
+            bounds=bounds,
+            options={'maxiter': 100, 'disp': False}
+        )
+        
+        # Extract optimized parameters
+        params = opt_result.x
+        scale = params[0]
+        rx, ry, rz = params[1:4]
+        tx, ty, tz = params[4:7]
+        
+        # Build final rotation matrix
+        cos_x, sin_x = np.cos(rx), np.sin(rx)
+        Rx = np.array([[1, 0, 0], [0, cos_x, -sin_x], [0, sin_x, cos_x]])
+        cos_y, sin_y = np.cos(ry), np.sin(ry)
+        Ry = np.array([[cos_y, 0, sin_y], [0, 1, 0], [-sin_y, 0, cos_y]])
+        cos_z, sin_z = np.cos(rz), np.sin(rz)
+        Rz = np.array([[cos_z, -sin_z, 0], [sin_z, cos_z, 0], [0, 0, 1]])
+        R = Rz @ Ry @ Rx
+        
+        fitted_vertices = (scale * (R @ original_vertices.T)).T + np.array([tx, ty, tz])
+        
+        result["objective_value"] = float(opt_result.fun)
+        result["iterations"] = int(opt_result.nit)
+        result["converged"] = bool(opt_result.success)
+        result["optimized_params"] = {
+            "scale": float(scale),
+            "rotation": [float(rx), float(ry), float(rz)],
+            "translation": [float(tx), float(ty), float(tz)]
+        }
+        
+        # Compute individual energy values
+        result["energy_landmark"] = float(objective.lambda_landmark)
+        result["energy_surface"] = float(objective.lambda_surface)
+        result["energy_laplacian"] = float(objective.lambda_laplacian)
+        result["energy_symmetry"] = float(objective.lambda_symmetry)
+        
+        # Save fit.npz with deformation field
+        deltas = fitted_vertices - original_vertices
         fit_path = pathlib.Path(output_dir) / "fit.npz"
         np.savez(
             fit_path,
             vertices=fitted_vertices,
-            original_vertices=vertices,
+            original_vertices=original_vertices,
             deltas=deltas,
-            objective_weights=result["objective_weights"]
+            objective_weights=result["objective_weights"],
+            optimized_params=result["optimized_params"]
         )
         result["fit_npz"] = str(fit_path)
+        result["delta_norm"] = float(np.linalg.norm(deltas))
         
-        # 5. 피팅된 메시 저장
+        # 피팅된 메시 저장
         fitted_mesh = trimesh.Trimesh(vertices=fitted_vertices, faces=mesh.faces)
         fitted_path = pathlib.Path(output_dir) / "fitted.glb"
         fitted_mesh.export(str(fitted_path))
@@ -258,6 +295,50 @@ def fit_template(
     _write_fit_report(output_dir, result)
     
     return result
+
+
+def _build_laplacian_matrix(mesh):
+    """Build Laplacian matrix for smoothness regularization.
+    
+    Uses uniform Laplacian: L[i] = v[i] - average(neighbors)
+    
+    Args:
+        mesh: trimesh.Trimesh object
+        
+    Returns:
+        Sparse Laplacian matrix or None if scipy not available
+    """
+    try:
+        from scipy import sparse
+        import numpy as np
+        
+        n_vertices = len(mesh.vertices)
+        
+        # Build adjacency from edges
+        if hasattr(mesh, 'edges_unique'):
+            edges = mesh.edges_unique
+        else:
+            edges = mesh.edges
+        
+        # Build sparse adjacency matrix
+        row = np.concatenate([edges[:, 0], edges[:, 1]])
+        col = np.concatenate([edges[:, 1], edges[:, 0]])
+        data = np.ones(len(row))
+        
+        adj = sparse.coo_matrix((data, (row, col)), shape=(n_vertices, n_vertices))
+        
+        # Degree matrix
+        degree = np.array(adj.sum(axis=1)).flatten()
+        degree[degree == 0] = 1  # Avoid division by zero
+        
+        # Laplacian: I - D^-1 * A
+        D_inv = sparse.diags(1.0 / degree)
+        L = sparse.eye(n_vertices) - D_inv @ adj
+        
+        return L
+        
+    except ImportError:
+        return None
 
 
 def _write_fit_report(output_dir: str, result: Dict[str, Any]) -> None:

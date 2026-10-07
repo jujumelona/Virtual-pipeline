@@ -152,15 +152,17 @@ class AvatarPipeline:
             results["stages"]["reference_analysis"] = reference_analysis.analyze_reference(ref_mesh, output_dir)
             self.manifest.record_stage(stage_key, results["stages"]["reference_analysis"])
         
-        # Stage 5: Template fitting - use real fit_template()
+        # Stage 5: Template fitting - use real fit_template() with reference mesh
         landmarks = results["stages"]["face_landmarks"].get("landmarks", [])
-        stage_key = self._get_stage_key("template_fitting", ref_mesh)
+        ref_mesh_path = results["stages"]["reference_reconstruction"].get("mesh_path", "")
+        stage_key = self._get_stage_key("template_fitting", ref_mesh_path)
         if not self.manifest.is_complete(stage_key):
-            # Call real fit_template with the canonical template
+            # Call real fit_template with the canonical template and reference mesh
             template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
             if template_path.exists():
                 results["stages"]["template_fitting"] = template_fitting.fit_template(
-                    str(template_path), landmarks, output_dir, config.get("fitting")
+                    str(template_path), landmarks, output_dir, config.get("fitting"),
+                    reference_mesh_path=ref_mesh_path
                 )
             else:
                 results["stages"]["template_fitting"] = {

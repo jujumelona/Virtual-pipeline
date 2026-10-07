@@ -240,6 +240,10 @@ def create_canonical_template(
     - hips -> spine -> chest -> neck -> head
     - leftEye, rightEye (head의 자식)
     
+    Expression vertex groups:
+    - upper_eyelid_L/R, lower_eyelid_L/R
+    - upper_lip, lower_lip, mouth_corners
+    
     Args:
         output_path: 출력 GLB 파일 경로 (선택)
         head_radius: 머리 구 반지름
@@ -310,13 +314,21 @@ def create_canonical_template(
         adjusted_bones = _adjust_bone_positions(CANONICAL_BONE_HIERARCHY, head_center_y, neck_center_y, body_center_y)
         vertex_groups = compute_vertex_groups(merged_mesh.vertices, adjusted_bones)
         
-        # 6. 결과 저장
+        # 6. Expression vertex groups 계산 (메시 영역 기반 휴리스틱)
+        expression_groups = compute_expression_vertex_groups(
+            merged_mesh.vertices, 
+            head_center_y, 
+            head_radius
+        )
+        
+        # 7. 결과 저장
         result["vertex_count"] = len(merged_mesh.vertices)
         result["face_count"] = len(merged_mesh.faces)
         result["bones"] = list(adjusted_bones.keys())
         result["vertex_groups"] = {k: v.tolist() for k, v in vertex_groups.items()}
+        result["expression_groups"] = {k: v.tolist() for k, v in expression_groups.items()}
         
-        # 7. GLB로 내보내기
+        # 8. GLB로 내보내기
         if output_path:
             output_dir = pathlib.Path(output_path).parent
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -340,6 +352,101 @@ def create_canonical_template(
         result["error"] = str(e)
     
     return result
+
+
+def compute_expression_vertex_groups(
+    vertices: np.ndarray,
+    head_center_y: float,
+    head_radius: float
+) -> Dict[str, np.ndarray]:
+    """Compute expression vertex groups based on mesh region heuristics.
+    
+    Identifies vertices for facial expression regions:
+    - upper_eyelid_L/R, lower_eyelid_L/R
+    - upper_lip, lower_lip, mouth_corners
+    
+    Uses spatial heuristics based on head position and radius.
+    
+    Args:
+        vertices: (N, 3) vertex position array
+        head_center_y: Y coordinate of head center
+        head_radius: Radius of head sphere
+        
+    Returns:
+        Dictionary mapping expression group names to vertex index arrays
+    """
+    n_vertices = len(vertices)
+    expression_groups = {
+        "upper_eyelid_L": [],
+        "lower_eyelid_L": [],
+        "upper_eyelid_R": [],
+        "lower_eyelid_R": [],
+        "upper_lip": [],
+        "lower_lip": [],
+        "mouth_corners": []
+    }
+    
+    # Define facial region boundaries relative to head center
+    # Eye region: Y at ~0.6 * head_radius above center, Z at front
+    eye_y = head_center_y + 0.02  # Slightly above head center
+    eye_z = head_radius * 0.7  # Front of head
+    eye_y_range = head_radius * 0.15
+    
+    # Left eye (positive X)
+    left_eye_x = head_radius * 0.35
+    # Right eye (negative X)  
+    right_eye_x = -head_radius * 0.35
+    
+    # Mouth region: Y at ~0.1 * head_radius below center, Z at front
+    mouth_y = head_center_y - 0.03
+    mouth_z = head_radius * 0.75
+    mouth_y_range = head_radius * 0.1
+    
+    for i, v in enumerate(vertices):
+        x, y, z = v
+        
+        # Skip vertices not in head region
+        if y < head_center_y - head_radius * 0.3:
+            continue
+        if z < head_radius * 0.3:  # Must be on front of face
+            continue
+            
+        # Check eye regions
+        # Left eye
+        if (abs(x - left_eye_x) < head_radius * 0.15 and
+            abs(y - eye_y) < eye_y_range and
+            abs(z - eye_z) < head_radius * 0.2):
+            if y >= eye_y:
+                expression_groups["upper_eyelid_L"].append(i)
+            else:
+                expression_groups["lower_eyelid_L"].append(i)
+                
+        # Right eye
+        if (abs(x - right_eye_x) < head_radius * 0.15 and
+            abs(y - eye_y) < eye_y_range and
+            abs(z - eye_z) < head_radius * 0.2):
+            if y >= eye_y:
+                expression_groups["upper_eyelid_R"].append(i)
+            else:
+                expression_groups["lower_eyelid_R"].append(i)
+                
+        # Check mouth region
+        if (abs(x) < head_radius * 0.25 and
+            abs(y - mouth_y) < mouth_y_range and
+            abs(z - mouth_z) < head_radius * 0.15):
+            if y >= mouth_y:
+                expression_groups["upper_lip"].append(i)
+            else:
+                expression_groups["lower_lip"].append(i)
+                
+        # Mouth corners (wider X range)
+        if (abs(y - mouth_y) < mouth_y_range and
+            abs(z - mouth_z) < head_radius * 0.15):
+            if abs(x) > head_radius * 0.15 and abs(x) < head_radius * 0.3:
+                expression_groups["mouth_corners"].append(i)
+    
+    # Convert to numpy arrays
+    return {k: np.array(v, dtype=np.int32) for k, v in expression_groups.items()}
 
 
 def _adjust_bone_positions(
