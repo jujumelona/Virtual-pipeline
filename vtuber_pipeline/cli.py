@@ -165,7 +165,6 @@ def accessory(base_vrm, images, anchors, custom_anchors, output, profile):
                 "anchor_name": anchor_name,
                 "custom_anchor": custom_anchor,
                 "bake": True,
-                "physics": {"enabled": False},
             },
         ).build(
             base_vrm=current_vrm,
