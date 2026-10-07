@@ -231,7 +231,7 @@ class AccessoryPipeline:
         results["stages"]["validator"] = validate_vrm(
             output_vrm,
             output_dir,
-            product_contract=False,
+            product_contract=True,
         )
         if (
             results["stages"]["validator"].get("status") != "complete"
