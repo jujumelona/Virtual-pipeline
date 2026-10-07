@@ -183,11 +183,9 @@ def derive_expression_vertex_groups(
     hwidth = max(float(hmax[0] - hmin[0]), 1e-8)
     hheight = max(float(hmax[1] - hmin[1]), 1e-8)
 
+    # Canonical VRM coordinates use +Z as the model's front.
     z_center = float(np.median(head[:, 2]))
-    pos_extent = float(hmax[2] - z_center)
-    neg_extent = float(z_center - hmin[2])
-    front_sign = 1.0 if pos_extent >= neg_extent else -1.0
-    front_depth = front_sign * (head[:, 2] - z_center)
+    front_depth = head[:, 2] - z_center
     depth_cut = float(np.quantile(front_depth, 0.55))
     front_local = np.flatnonzero(front_depth >= depth_cut)
     if len(front_local) < 24:
