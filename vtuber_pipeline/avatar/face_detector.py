@@ -41,14 +41,22 @@ class AnimeFaceDetector:
         if not PIL_AVAILABLE:
             raise ImportError("Pillow가 설치되지 않았습니다. pip install Pillow")
         
-        img = np.array(PILImage.open(image_path).convert('RGB'))
-        preds = self._detector(img)
+        # Upstream anime-face-detector consumes OpenCV-style BGR arrays.
+        rgb = np.array(PILImage.open(image_path).convert("RGB"))
+        bgr = np.ascontiguousarray(rgb[..., ::-1])
+        preds = self._detector(bgr)
         if len(preds) == 0:
             raise ValueError(f"얼굴을 감지하지 못했습니다: {image_path}")
-        pred = preds[0]  # 첫 번째 얼굴
-        bbox = pred['bbox'][:4].tolist()
-        landmarks = pred['keypoints'][:28].tolist() if 'keypoints' in pred else []
-        return {"bbox": bbox, "landmarks": landmarks, "score": float(pred['bbox'][4])}
+
+        # Use the highest-confidence face instead of relying on detector order.
+        pred = max(preds, key=lambda item: float(item["bbox"][4]))
+        bbox = pred["bbox"][:4].tolist()
+        landmarks = pred["keypoints"][:28].tolist() if "keypoints" in pred else []
+        return {
+            "bbox": bbox,
+            "landmarks": landmarks,
+            "score": float(pred["bbox"][4]),
+        }
 
     def detect_and_save(self, image_path: str, output_json: str) -> dict:
         """감지 결과를 JSON 파일로 저장합니다."""
