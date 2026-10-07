@@ -17,7 +17,7 @@ import numpy as np
 try:
     from pygltflib import (
         GLTF2, Buffer, BufferView, Accessor, Node, Mesh, Primitive, Skin,
-        Attributes, Sparse, SparseIndices, SparseValues,
+        Attributes, Sparse, AccessorSparseIndices, AccessorSparseValues,
     )
     from pygltflib import ARRAY_BUFFER, ELEMENT_ARRAY_BUFFER, FLOAT, UNSIGNED_INT, UNSIGNED_BYTE
     PYGLTFLIB_AVAILABLE = True
@@ -274,19 +274,21 @@ def _create_sparse_morph_accessor(
     ))
     bv_values_idx = len(gltf.bufferViews) - 1
 
+    value_min = np.minimum(values.min(axis=0), 0.0).tolist()
+    value_max = np.maximum(values.max(axis=0), 0.0).tolist()
     sparse_accessor = Accessor(
         count=vertex_count,
         type="VEC3",
         componentType=FLOAT,
-        min=[0.0, 0.0, 0.0],
-        max=[0.0, 0.0, 0.0],
+        min=value_min,
+        max=value_max,
         sparse=Sparse(
             count=len(indices),
-            indices=SparseIndices(
+            indices=AccessorSparseIndices(
                 bufferView=bv_indices_idx,
                 componentType=UNSIGNED_INT,
             ),
-            values=SparseValues(
+            values=AccessorSparseValues(
                 bufferView=bv_values_idx,
             ),
         ),
