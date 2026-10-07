@@ -1,6 +1,6 @@
 # VTuber Commercial Pipeline
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
+[![Notebook](https://img.shields.io/badge/notebook-open%20latest-blue.svg)](https://github.com/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
@@ -73,6 +73,33 @@ export TRIPOSR_DIR="$PWD/TripoSR"
 ```
 
 Python 3.12 이상이 필요합니다.
+
+## Google Colab
+
+이 저장소는 **private**이므로 `colab.research.google.com/github/...` 링크를 README에 직접 걸면 Colab 백엔드가 private GitHub Contents API를 익명 호출하면서 404가 발생합니다.
+
+위의 **Notebook** 배지는 GitHub의 최신 `main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb` 파일을 엽니다. GitHub에서 해당 파일을 내려받아 Colab에 업로드한 뒤 실행하세요.
+
+Colab에서 한 번만 다음 Secret을 등록하면 이후 Setup 셀이 자동으로 처리합니다.
+
+- Secret name: `GITHUB_TOKEN`
+- 권한: 이 private repository에 대한 **Contents: Read-only**
+
+Setup 셀은 매 실행마다 다음 순서로 동작합니다.
+
+```text
+GitHub 인증
+→ /content/Virtual-pipeline clone 또는 fetch
+→ origin/main으로 checkout + hard reset
+→ local HEAD == origin/main 검증
+→ pinned TripoSR checkout
+→ 최신 checkout을 pip install -e
+→ Avatar / Accessory 단계 실행
+```
+
+즉 노트북 자체가 예전에 내려받은 사본이어도 실제 파이프라인 코드는 항상 실행 시점의 최신 `main`을 사용합니다.
+
+> private repository를 그대로 유지하면서 README 클릭 한 번만으로 Colab이 노트북 파일 자체까지 불러오게 하는 것은 불가능합니다. 그 방식이 필요하면 notebook launcher만 별도 public 저장소/Gist/Drive에 두거나 이 repository를 public으로 바꿔야 합니다.
 
 ## CLI
 
