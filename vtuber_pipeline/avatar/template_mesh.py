@@ -645,7 +645,13 @@ def _download_pinned_makehuman_base() -> pathlib.Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(".obj.tmp")
     try:
-        urllib.request.urlretrieve(MAKEHUMAN_BASE_URL, tmp)
+        with urllib.request.urlopen(MAKEHUMAN_BASE_URL, timeout=60) as response:
+            with tmp.open("wb") as handle:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    handle.write(chunk)
         if not tmp.is_file() or tmp.stat().st_size == 0:
             raise RuntimeError("Downloaded MakeHuman base.obj is empty")
         tmp.replace(target)
