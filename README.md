@@ -76,8 +76,6 @@ Python 3.12 이상이 필요합니다.
 
 ## Google Colab
 
-저장소는 **Public 기준**으로 사용합니다. GitHub 토큰이나 private repository 인증 경로는 사용하지 않습니다.
-
 위 **Open In Colab** 버튼으로 노트북을 열고 코드 셀 하나만 실행하면 UI가 바로 표시됩니다.
 
 UI에서 할 수 있는 작업:
@@ -104,7 +102,6 @@ UI 즉시 표시
 → VRM 다운로드
 ```
 
-GitHub token 입력, Colab Secret, private repository fallback은 없습니다.
 
 ## CLI
 
