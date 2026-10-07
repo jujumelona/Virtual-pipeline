@@ -82,11 +82,33 @@ class AccessoryPipeline:
             normalized_path, anchor_name, anchor_manifest, output_dir
         )
         
-        # Stage 4: Collision
+        # Stage 4: Collision against the avatar in world space.
         fitted_path = results["stages"]["fit"].get("output_path", normalized_path)
-        results["stages"]["collision"] = collision.check_collision(
-            fitted_path, base_vrm
+        fit_result = results["stages"]["fit"]
+        if fit_result.get("status") != "complete":
+            results["status"] = "failed"
+            results["failed_stages"] = ["fit"]
+            return results
+
+        results["stages"]["collision"] = collision.resolve_collision(
+            fitted_path,
+            base_vrm,
+            world_transform=fit_result.get("world_transform"),
         )
+        collision_result = results["stages"]["collision"]
+        if collision_result.get("status") != "complete":
+            results["status"] = "failed"
+            results["failed_stages"] = ["collision"]
+            return results
+
+        # Fold one push-out step into the bone-relative attachment translation.
+        local_transform = dict(fit_result.get("transform", {}))
+        if collision_result.get("resolved"):
+            push = collision_result.get("pushout_vector", [0.0, 0.0, 0.0])
+            base_translation = local_transform.get("translation", [0.0, 0.0, 0.0])
+            local_transform["translation"] = [
+                float(a + b) for a, b in zip(base_translation, push)
+            ]
         
         # Stage 5: Physics
         results["stages"]["physics"] = physics.add_physics_chain(
@@ -95,8 +117,17 @@ class AccessoryPipeline:
         
         # Stage 6: Bake
         output_vrm = str(pathlib.Path(output_dir) / "combined.vrm")
+        attachment_cfg = {
+            pathlib.Path(fitted_path).stem: {
+                **local_transform,
+                "parent_bone": fit_result.get("parent_bone", "head"),
+            }
+        }
         results["stages"]["bake"] = bake.bake_accessories(
-            base_vrm, [fitted_path], output_vrm
+            base_vrm,
+            [fitted_path],
+            output_vrm,
+            attachment_config=attachment_cfg,
         )
         
         # Overall status
@@ -104,11 +135,19 @@ class AccessoryPipeline:
             name for name, result in results["stages"].items()
             if isinstance(result, dict) and result.get("status") == "error"
         ]
+        incomplete_stages = [
+            name for name, result in results["stages"].items()
+            if isinstance(result, dict) and result.get("status") in {"stub", "partial"}
+        ]
         
         if failed_stages:
             results["status"] = "failed"
             results["failed_stages"] = failed_stages
+        elif incomplete_stages:
+            results["status"] = "partial"
+            results["incomplete_stages"] = incomplete_stages
         else:
             results["status"] = "complete"
+            results["output_vrm"] = output_vrm
         
         return results
