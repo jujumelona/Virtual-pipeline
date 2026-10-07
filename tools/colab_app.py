@@ -23,6 +23,7 @@ REPO_URL = "https://github.com/jujumelona/Virtual-pipeline.git"
 REPO_DIR = pathlib.Path("/content/Virtual-pipeline")
 TRIPOSR_DIR = pathlib.Path("/content/third_party/TripoSR")
 TRIPOSR_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
+TORCHMCUBES_COMMIT = "879926d0ef58e6ce0ac2630fdecb5e53af7ed3ff"
 WORK_ROOT = pathlib.Path("/content/vtuber_builder")
 OUTPUT_ROOT = WORK_ROOT / "output"
 
@@ -159,10 +160,47 @@ def _install_runtime(head: str) -> None:
             sys.path.insert(0, str(REPO_DIR))
         return
 
+    # Keep the Gradio version used by the already-running Colab UI stable and
+    # avoid TripoSR's unpinned torchmcubes VCS dependency. torchmcubes' current
+    # upstream build metadata explicitly requires installation against the
+    # already-installed PyTorch with --no-build-isolation.
+    source_requirements = TRIPOSR_DIR / "requirements.txt"
+    filtered_requirements = WORK_ROOT / "triposr-runtime-requirements.txt"
+    WORK_ROOT.mkdir(parents=True, exist_ok=True)
+
+    kept_lines: List[str] = []
+    for raw_line in source_requirements.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        lowered = line.lower()
+        if "torchmcubes" in lowered:
+            continue
+        if lowered == "gradio" or lowered.startswith("gradio=="):
+            continue
+        kept_lines.append(line)
+
+    filtered_requirements.write_text(
+        "\n".join(kept_lines) + "\n",
+        encoding="utf-8",
+    )
+
     _run(
         [sys.executable, "-m", "pip", "install", "-U", "pip", "setuptools", "wheel"],
         timeout=600,
     )
+
+    # Verify that PyTorch exists before building torchmcubes. Colab ships
+    # PyTorch, and torchmcubes must compile against this exact installation.
+    _run(
+        [
+            sys.executable,
+            "-c",
+            "import torch; print(torch.__version__); print(torch.version.cuda)",
+        ],
+        timeout=60,
+    )
+
     _run(
         [
             sys.executable,
@@ -170,10 +208,51 @@ def _install_runtime(head: str) -> None:
             "pip",
             "install",
             "-r",
-            str(TRIPOSR_DIR / "requirements.txt"),
+            str(filtered_requirements),
         ],
         timeout=1200,
     )
+
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "-U",
+            "scikit-build-core>=1.0",
+            "pybind11>=2.10",
+            "cmake>=3.18",
+            "ninja",
+        ],
+        timeout=600,
+    )
+
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-build-isolation",
+            f"git+https://github.com/tatsy/torchmcubes.git@{TORCHMCUBES_COMMIT}",
+        ],
+        timeout=1800,
+    )
+
+    _run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import torch, torchmcubes; "
+                "print('torch', torch.__version__); "
+                "print('torchmcubes', torchmcubes.__file__)"
+            ),
+        ],
+        timeout=60,
+    )
+
     _run(
         [sys.executable, "-m", "pip", "install", "-e", str(REPO_DIR)],
         timeout=1200,
@@ -183,8 +262,17 @@ def _install_runtime(head: str) -> None:
     if str(REPO_DIR) not in sys.path:
         sys.path.insert(0, str(REPO_DIR))
 
-    WORK_ROOT.mkdir(parents=True, exist_ok=True)
-    marker.write_text(head + "\n", encoding="utf-8")
+    marker.write_text(
+        "\n".join(
+            [
+                f"main={head}",
+                f"triposr={TRIPOSR_COMMIT}",
+                f"torchmcubes={TORCHMCUBES_COMMIT}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def _reload_pipeline_modules() -> None:
