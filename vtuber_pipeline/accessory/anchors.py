@@ -86,6 +86,10 @@ def generate_anchor_manifest(vrm_path: str, output_dir: str) -> Dict[str, Any]:
             world = worlds[idx]
             offset_h = np.array([*anchor["offset"], 1.0], dtype=float)
             position = (world @ offset_h)[:3].tolist()
+            linear = world[:3, :3]
+            if abs(float(np.linalg.det(linear))) < 1e-10:
+                raise ValueError(f"Anchor bone has singular world transform: {anchor['bone']}")
+            world_to_local_linear = np.linalg.inv(linear)
             result["anchors"].append({
                 "name": anchor["name"],
                 "bone": anchor["bone"],
@@ -93,6 +97,8 @@ def generate_anchor_manifest(vrm_path: str, output_dir: str) -> Dict[str, Any]:
                 "offset": anchor["offset"],
                 "position": position,
                 "rotation": list(nodes[idx].rotation or [0.0, 0.0, 0.0, 1.0]),
+                "world_linear": linear.tolist(),
+                "world_to_local_linear": world_to_local_linear.tolist(),
                 "target_size": anchor["target_size"],
             })
 
