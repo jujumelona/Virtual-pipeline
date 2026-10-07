@@ -1,84 +1,60 @@
 #!/usr/bin/env python3
-"""
-MakeHuman CC0 에셋을 다운로드합니다.
+"""Fetch only the pinned MakeHuman CC0 topology asset."""
 
-MakeHuman 소스코드는 AGPL이지만, 번들된 에셋(메시, 타겟, 텍스처)은 CC0입니다.
-이 스크립트는 CC0 에셋만 다운로드합니다.
-"""
+from __future__ import annotations
 
-import requests
 import pathlib
 import sys
-
-MAKEHUMAN_REPO = "https://raw.githubusercontent.com/makehumancommunity/makehuman/master"
-
-CC0_ASSETS = [
-    "makehuman/data/3dobjs/base.obj",
-]
+import urllib.request
 
 
-def fetch_cc0_assets(output_dir="assets/makehuman_cc0"):
-    """MakeHuman CC0 에셋을 다운로드합니다."""
-    output_path = pathlib.Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-    
-    downloaded = []
-    failed = []
-    
-    for asset_path in CC0_ASSETS:
-        url = f"{MAKEHUMAN_REPO}/{asset_path}"
-        try:
-            response = requests.get(url, timeout=30)
-            if response.status_code == 200:
-                local_path = output_path / pathlib.Path(asset_path).name
-                local_path.write_bytes(response.content)
-                print(f"Downloaded: {local_path}")
-                downloaded.append(str(local_path))
-            else:
-                print(f"Failed ({response.status_code}): {url}")
-                failed.append(url)
-        except Exception as e:
-            print(f"Error: {url}: {e}")
-            failed.append(url)
-    
-    # LICENSE 파일 생성
-    license_text = """# CC0 Assets from MakeHuman
-
-These assets are from the MakeHuman project (https://github.com/makehumancommunity/makehuman).
-
-According to the MakeHuman LICENSE:
-- Source code: AGPL-3.0
-- Bundled assets (meshes, targets, textures, clothes, poses): CC0 1.0
-
-We only use the CC0 bundled assets, not the AGPL source code.
-"""
-    (output_path / "LICENSE").write_text(license_text)
-    
-    return {"downloaded": downloaded, "failed": failed}
+MAKEHUMAN_COMMIT = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
+MAKEHUMAN_BASE_URL = (
+    "https://raw.githubusercontent.com/makehumancommunity/makehuman/"
+    f"{MAKEHUMAN_COMMIT}/makehuman/data/3dobjs/base.obj"
+)
 
 
-def print_download_instructions():
-    """수동 다운로드 안내를 출력합니다 (네트워크 없을 때 사용)."""
-    print("""
-=====================================
-MakeHuman CC0 Asset Download Guide
-=====================================
+def fetch_cc0_assets(output_dir: str = "assets/makehuman_cc0"):
+    """Download the exact CC0 base.obj used by the production resolver."""
+    output = pathlib.Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    target = output / "base.obj"
+    tmp = target.with_suffix(".obj.tmp")
 
-URL: https://github.com/makehumancommunity/makehuman
-Asset: makehuman/data/3dobjs/base.obj (CC0 licensed)
+    try:
+        with urllib.request.urlopen(MAKEHUMAN_BASE_URL, timeout=60) as response:
+            with tmp.open("wb") as handle:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    handle.write(chunk)
+        if not tmp.is_file() or tmp.stat().st_size == 0:
+            raise RuntimeError("Downloaded MakeHuman base.obj is empty")
+        tmp.replace(target)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
 
-Or run: python tools/fetch_cc0_assets.py --download
-=====================================
-""")
+    (output / "LICENSE").write_text(
+        "# MakeHuman CC0 base mesh\n\n"
+        f"Pinned source commit: {MAKEHUMAN_COMMIT}\n"
+        "Asset: makehuman/data/3dobjs/base.obj\n"
+        "License: CC0 1.0 / Public Domain Dedication\n",
+        encoding="utf-8",
+    )
+    return {
+        "downloaded": [str(target)],
+        "failed": [],
+        "source_commit": MAKEHUMAN_COMMIT,
+    }
 
 
 if __name__ == "__main__":
-    if "--download" in sys.argv or len(sys.argv) == 1:
+    try:
         result = fetch_cc0_assets()
-        if result["downloaded"]:
-            print(f"\nSuccessfully downloaded {len(result['downloaded'])} asset(s)")
-        if result["failed"]:
-            print(f"Failed: {len(result['failed'])} asset(s)")
-            print("Run manually: python tools/fetch_cc0_assets.py")
-    else:
-        print_download_instructions()
+        print(f"Downloaded: {result['downloaded'][0]}")
+    except Exception as exc:
+        print(f"Failed: {exc}", file=sys.stderr)
+        raise
