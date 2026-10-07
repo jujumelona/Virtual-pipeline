@@ -13,7 +13,12 @@ def cli():
 @cli.command()
 @click.option("--image", required=True, type=click.Path(exists=True), help="Input character image")
 @click.option("--output", required=True, type=click.Path(), help="Output directory")
-@click.option("--profile", default="commercial", show_default=True)
+@click.option(
+    "--profile",
+    type=click.Choice(["commercial", "production", "development"]),
+    default="commercial",
+    show_default=True,
+)
 @click.option(
     "--commercial-usage",
     type=click.Choice(["personalNonProfit", "personalProfit", "corporation"]),
