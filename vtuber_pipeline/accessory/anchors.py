@@ -174,6 +174,42 @@ def _build_anchor(
     }
 
 
+def _humanoid_node_map(gltf) -> Dict[str, int]:
+    """Resolve semantic VRM humanoid names independently of raw node names."""
+    extensions = gltf.extensions or {}
+    if not isinstance(extensions, dict):
+        return {}
+    vrm = extensions.get("VRMC_vrm") or {}
+    humanoid = vrm.get("humanoid") if isinstance(vrm, dict) else None
+    human_bones = (
+        humanoid.get("humanBones")
+        if isinstance(humanoid, dict)
+        else None
+    )
+    if not isinstance(human_bones, dict):
+        return {}
+
+    node_count = len(gltf.nodes or [])
+    mapping: Dict[str, int] = {}
+    for semantic, binding in human_bones.items():
+        node = binding.get("node") if isinstance(binding, dict) else None
+        if isinstance(node, int) and 0 <= node < node_count:
+            mapping[str(semantic)] = node
+    return mapping
+
+
+def _resolve_anchor_node(
+    identifier: str,
+    *,
+    humanoid_nodes: Dict[str, int],
+    name_to_idx: Dict[str, int],
+) -> Optional[int]:
+    """Resolve a VRM semantic bone first, then an exact raw node name."""
+    if identifier in humanoid_nodes:
+        return humanoid_nodes[identifier]
+    return name_to_idx.get(identifier)
+
+
 def generate_anchor_manifest(
     vrm_path: str,
     output_dir: str,
@@ -193,12 +229,21 @@ def generate_anchor_manifest(
             raise FileNotFoundError(f"Base VRM not found: {vrm_path}")
         gltf = GLTF2().load(str(path))
         nodes = gltf.nodes or []
-        name_to_idx = {node.name: i for i, node in enumerate(nodes) if node.name}
+        name_to_idx = {
+            node.name: i
+            for i, node in enumerate(nodes)
+            if node.name
+        }
+        humanoid_nodes = _humanoid_node_map(gltf)
         worlds = _world_matrices(gltf)
 
         missing = []
         for anchor in ANCHOR_POINTS:
-            idx = name_to_idx.get(anchor["bone"])
+            idx = _resolve_anchor_node(
+                anchor["bone"],
+                humanoid_nodes=humanoid_nodes,
+                name_to_idx=name_to_idx,
+            )
             if idx is None:
                 missing.append(anchor["bone"])
                 continue
@@ -217,7 +262,11 @@ def generate_anchor_manifest(
             parent_bone = str(custom_anchor.get("parent_bone") or "").strip()
             if not parent_bone:
                 raise ValueError("CUSTOM anchor requires parent_bone")
-            idx = name_to_idx.get(parent_bone)
+            idx = _resolve_anchor_node(
+                parent_bone,
+                humanoid_nodes=humanoid_nodes,
+                name_to_idx=name_to_idx,
+            )
             if idx is None:
                 raise ValueError(
                     f"CUSTOM anchor parent bone/node not found: {parent_bone!r}"
