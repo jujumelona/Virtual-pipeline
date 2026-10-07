@@ -103,7 +103,14 @@ def verify_triposr_revision(run_script: str, profile: str) -> None:
         )
 
 
-def reconstruct_avatar(image_path: str, output_dir: str, profile: str = 'commercial') -> str:
+def reconstruct_avatar(
+    image_path: str,
+    output_dir: str,
+    profile: str = "commercial",
+    *,
+    model_save_format: str = "obj",
+    remove_background: bool = True,
+) -> str:
     """
     TripoSR로 이미지에서 3D 메시를 생성합니다.
     
@@ -132,14 +139,24 @@ def reconstruct_avatar(image_path: str, output_dir: str, profile: str = 'commerc
     verify_triposr_revision(run_script, profile)
     logger.info(f"Using TripoSR at: {run_script}")
     
-    # TripoSR CLI 호출 with absolute path
+    if model_save_format not in {"obj", "glb"}:
+        raise ValueError(f"Unsupported TripoSR model_save_format: {model_save_format}")
+
+    # User uploads are ordinary images, so use TripoSR's normal background
+    # removal/foreground resize path by default. --no-remove-bg is only valid
+    # for preprocessed gray-background images.
     cmd = [
-        sys.executable,  # Use current Python interpreter
-        str(run_script),  # Absolute path to run.py
+        sys.executable,
+        str(run_script),
         image_path,
-        '--output-dir', output_dir,
-        '--no-remove-bg',
+        "--output-dir", output_dir,
+        "--model-save-format", model_save_format,
     ]
+    if not remove_background:
+        # Upstream does not create output_dir/0 in this branch, so make it
+        # explicitly before invoking run.py.
+        pathlib.Path(output_dir, "0").mkdir(parents=True, exist_ok=True)
+        cmd.append("--no-remove-bg")
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
@@ -155,8 +172,7 @@ def reconstruct_avatar(image_path: str, output_dir: str, profile: str = 'commerc
             raise RuntimeError(f"TripoSR failed due to GPU unavailability: {result.stderr}")
         raise RuntimeError(f"TripoSR failed:\n{result.stderr}")
     
-    # TripoSR은 output_dir/0/mesh.obj를 생성합니다
-    mesh_path = str(pathlib.Path(output_dir) / '0' / 'mesh.obj')
+    mesh_path = str(pathlib.Path(output_dir) / "0" / f"mesh.{model_save_format}")
     
     if not pathlib.Path(mesh_path).exists():
         raise RuntimeError(f"TripoSR output mesh not found at expected path: {mesh_path}")
