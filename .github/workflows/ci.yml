@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - run: python -m pip install --disable-pip-version-check -U pip
@@ -44,8 +44,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - run: python -m pip install --disable-pip-version-check -U pip
@@ -70,8 +70,8 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install --disable-pip-version-check -U pip
@@ -89,8 +89,8 @@ jobs:
     env:
       VTUBER_E2E: "0"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - run: python -m pip install --disable-pip-version-check -U pip
@@ -105,13 +105,33 @@ jobs:
           tests/integration/test_reconstruction.py
           --maxfail=1
 
+  full-suite:
+    name: Full CPU test discovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VTUBER_E2E: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check -U pip
+      - name: Install complete CPU test dependencies
+        run: >-
+          python -m pip install --disable-pip-version-check
+          pytest packaging numpy scipy pyyaml pillow trimesh click pygltflib==1.16.5
+      - run: python -m pip install --disable-pip-version-check -e . --no-deps
+      - name: Discover and run every CPU-safe test
+        run: python -m pytest -q tests
+
   package-smoke:
     name: Package and public API smoke
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - run: python -m pip install --disable-pip-version-check -U pip
@@ -133,8 +153,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - run: python -m pip install --disable-pip-version-check -U pip build
@@ -182,8 +202,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: Validate lock and commercial flags
@@ -216,6 +236,7 @@ jobs:
       - model-contract
       - unit
       - integration
+      - full-suite
       - package-smoke
       - package-build
       - commercial-lock
@@ -226,15 +247,17 @@ jobs:
           MODEL_CONTRACT: ${{ needs.model-contract.result }}
           UNIT: ${{ needs.unit.result }}
           INTEGRATION: ${{ needs.integration.result }}
+          FULL_SUITE: ${{ needs.full-suite.result }}
           PACKAGE_SMOKE: ${{ needs.package-smoke.result }}
           PACKAGE_BUILD: ${{ needs.package-build.result }}
           COMMERCIAL_LOCK: ${{ needs.commercial-lock.result }}
         run: |
-          printf '%s\n'             "wiring=$WIRING"             "model-contract=$MODEL_CONTRACT"             "unit=$UNIT"             "integration=$INTEGRATION"             "package-smoke=$PACKAGE_SMOKE"             "package-build=$PACKAGE_BUILD"             "commercial-lock=$COMMERCIAL_LOCK"
+          printf '%s\n'             "wiring=$WIRING"             "model-contract=$MODEL_CONTRACT"             "unit=$UNIT"             "integration=$INTEGRATION"             "full-suite=$FULL_SUITE"             "package-smoke=$PACKAGE_SMOKE"             "package-build=$PACKAGE_BUILD"             "commercial-lock=$COMMERCIAL_LOCK"
           test "$WIRING" = success
           test "$MODEL_CONTRACT" = success
           test "$UNIT" = success
           test "$INTEGRATION" = success
+          test "$FULL_SUITE" = success
           test "$PACKAGE_SMOKE" = success
           test "$PACKAGE_BUILD" = success
           test "$COMMERCIAL_LOCK" = success
