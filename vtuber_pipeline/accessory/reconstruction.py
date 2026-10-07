@@ -15,7 +15,13 @@ def reconstruct_accessories(
     for i, image_path in enumerate(image_paths):
         acc_out = str(pathlib.Path(output_dir) / f"accessory_{i:03d}")
         try:
-            mesh = reconstruct_avatar(image_path, acc_out, profile=profile)
+            mesh = reconstruct_avatar(
+                image_path,
+                acc_out,
+                profile=profile,
+                model_save_format="glb",
+                remove_background=True,
+            )
             results.append({
                 "status": "complete",
                 "image": image_path,
