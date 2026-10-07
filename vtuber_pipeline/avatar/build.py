@@ -266,7 +266,8 @@ class AvatarPipeline:
             from vtuber_pipeline.avatar.rigging import rig_avatar
             try:
                 rigged_path = str(pathlib.Path(output_dir) / "rigged.glb")
-                rig_result = rig_avatar(fitted_mesh, rigged_path)
+                texture_path = results["stages"].get("texture_transfer", {}).get("texture_png")
+                rig_result = rig_avatar(fitted_mesh, rigged_path, texture_path=texture_path)
                 results["stages"]["rig"] = {
                     "status": "complete",
                     "rigged_mesh": rig_result,
