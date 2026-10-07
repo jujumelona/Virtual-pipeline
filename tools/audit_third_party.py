@@ -141,7 +141,16 @@ def audit_tools(lock_path: pathlib.Path = LOCK_PATH) -> Dict[str, Any]:
 
         artifact = discover_artifact(name, info)
         observed = compute_artifact_hash(artifact) if artifact else None
-        expected = info.get("artifact_sha256")
+        if name == "triposr":
+            expected = info.get("model_weight_sha256")
+            item["model"] = {
+                "repo_id": info.get("model_id"),
+                "revision": info.get("model_revision"),
+                "weight_sha256": expected,
+            }
+        else:
+            expected = info.get("artifact_sha256")
+
         item["artifact"] = {
             "path": str(artifact) if artifact else None,
             "expected_sha256": expected,
