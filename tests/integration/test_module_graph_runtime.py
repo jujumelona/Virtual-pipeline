@@ -130,7 +130,7 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
     expression_map = {
         "happy": {"morph_targets": [{"index": 0, "weight": 1.0}]}
     }
-    gaze_config = {"type": "bone", "offsetFromHeadBone": [0.0, 0.0, 0.0]}
+    expected_gaze_config = {"type": "bone", "offsetFromHeadBone": [0.0, 0.0, 0.0]}
     spring_config = {"status": "complete", "springs": [{"name": "hair"}]}
 
     def fake_gate(image_path, output_dir):
@@ -200,7 +200,7 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
     def fake_gaze(rigged_mesh, output_dir):
         calls.append("gaze")
         assert rigged_mesh == str(artifacts["rigged.glb"])
-        return {"status": "complete", "config": gaze_config}
+        return {"status": "complete", "config": expected_gaze_config}
 
     def fake_springbone(rigged_mesh, output_dir):
         calls.append("springbone")
@@ -214,14 +214,14 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
         expressions,
         commercial_usage,
         springbone_config,
-        gaze_config: received_gaze,
+        gaze_config,
     ):
         calls.append("vrm_export")
         assert rigged_mesh == str(artifacts["rigged.glb"])
         assert expressions is expression_map
         assert commercial_usage == "corporation"
         assert springbone_config is spring_config
-        assert received_gaze is gaze_config
+        assert gaze_config is expected_gaze_config
         return {
             "status": "complete",
             "vrm_path": str(artifacts["avatar.vrm"]),
