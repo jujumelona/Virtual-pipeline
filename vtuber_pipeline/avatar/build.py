@@ -187,26 +187,43 @@ class AvatarPipeline:
         # 4. Project source appearance onto the fitted canonical topology.
         texture = self._run_stage(
             "texture_transfer",
-            (image_path, fitted_mesh),
-            lambda: transfer_texture(image_path, fitted_mesh, output_dir),
+            (image_path, fitted_mesh, gate.get("bbox")),
+            lambda: transfer_texture(
+                image_path,
+                fitted_mesh,
+                output_dir,
+                face_bbox=gate.get("bbox"),
+            ),
         )
         results["stages"]["texture_transfer"] = texture
         if texture.get("status") != "complete":
             return self._fail(results, "texture_transfer", texture.get("error", "texture transfer failed"))
         texture_path = texture.get("texture_png")
+        uv_path = texture.get("uv_path")
         if not texture_path or not pathlib.Path(texture_path).is_file():
             return self._fail(results, "texture_transfer", "texture artifact is missing")
+        if not uv_path or not pathlib.Path(uv_path).is_file():
+            return self._fail(results, "texture_transfer", "texture UV artifact is missing")
 
         # 5. Build the humanoid skin plus a localized secondary hair chain.
         rigged_path = str(pathlib.Path(output_dir) / "rigged.glb")
         def rig_stage() -> Dict[str, Any]:
             try:
-                path = rig_avatar(fitted_mesh, rigged_path, texture_path=texture_path)
+                path = rig_avatar(
+                    fitted_mesh,
+                    rigged_path,
+                    texture_path=texture_path,
+                    uv_path=uv_path,
+                )
                 return {"status": "complete", "rigged_mesh": path, "output_path": path}
             except Exception as exc:
                 return {"status": "error", "error": str(exc)}
 
-        rig = self._run_stage("rig", (fitted_mesh, texture_path), rig_stage)
+        rig = self._run_stage(
+            "rig",
+            (fitted_mesh, texture_path, uv_path),
+            rig_stage,
+        )
         results["stages"]["rig"] = rig
         if rig.get("status") != "complete":
             return self._fail(results, "rig", rig.get("error", "rigging failed"))
