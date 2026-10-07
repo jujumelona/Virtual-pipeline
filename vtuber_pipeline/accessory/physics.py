@@ -1,85 +1,83 @@
-"""Physics configuration for dynamic accessories.
-
-This module provides functions for adding physics chains to accessories
-for dynamic movement in VRM.
-"""
+"""Optional physics planning for accessories."""
 
 import pathlib
 from typing import Dict, Any, Optional
 
 
-def add_physics_chain(
-    accessory_path: str,
-    output_dir: str,
-    config: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
-    """Add physics chain configuration to an accessory.
-    
-    Configures SpringBone settings for dynamic movement of accessories
-    like hair, ribbons, tails, etc.
-    
-    Args:
-        accessory_path: Path to the accessory mesh.
-        output_dir: Directory to write physics configuration.
-        config: Optional physics configuration.
-        
-    Returns:
-        Dictionary with physics configuration.
-    """
-    result = {
-        "status": "pending",
-        "accessory_path": accessory_path
-    }
-    
-    # Default physics configuration
-    default_config = {
-        "stiffness": 0.5,
-        "gravity": 0.1,
-        "drag": 0.2,
-        "hit_radius": 0.02,
-        "collider_groups": []
-    }
-    
-    physics_config = {**default_config, **(config or {})}
-    result["config"] = physics_config
-    
-    # Write physics configuration
-    pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
-    output_path = pathlib.Path(output_dir) / "physics.json"
-    
-    from vtuber_pipeline.core.utils import save_json
-    save_json(result, str(output_path))
-    
-    result["output_path"] = str(output_path)
-    result["status"] = "complete"
-    
+def compute_bone_chain(accessory_path: str, joint_count: int = 3) -> Dict[str, Any]:
+    """Estimate a simple chain along the accessory principal axis."""
+    result: Dict[str, Any] = {"status": "pending", "bone_chains": []}
+    try:
+        import numpy as np
+        import trimesh
+
+        mesh = trimesh.load(accessory_path)
+        if isinstance(mesh, trimesh.Scene):
+            geometries = list(mesh.geometry.values())
+            if not geometries:
+                raise ValueError("Accessory scene contains no geometry")
+            mesh = trimesh.util.concatenate(geometries)
+        vertices = np.asarray(mesh.vertices)
+        if len(vertices) < 4:
+            raise ValueError("Not enough vertices for physics-chain estimation")
+
+        center = vertices.mean(axis=0)
+        covariance = np.cov((vertices - center).T)
+        values, vectors = np.linalg.eigh(covariance)
+        axis = vectors[:, int(np.argmax(values))]
+        projection = (vertices - center) @ axis
+        lo, hi = float(projection.min()), float(projection.max())
+        samples = np.linspace(lo, hi, max(joint_count, 2))
+        joints = [(center + axis * value).tolist() for value in samples]
+        result.update({
+            "status": "complete",
+            "bone_chains": [{"name": "accessory", "positions": joints}],
+            "principal_axis": axis.tolist(),
+        })
+    except Exception as exc:
+        result["status"] = "error"
+        result["error"] = str(exc)
     return result
 
 
-def compute_bone_chain(accessory_path: str) -> Dict[str, Any]:
-    """Compute bone chain for physics simulation.
-    
-    Analyzes accessory geometry to determine optimal bone chain
-    for SpringBone physics.
-    
-    Args:
-        accessory_path: Path to the accessory mesh.
-        
-    Returns:
-        Dictionary with bone chain data.
+def add_physics_chain(
+    accessory_path: str,
+    output_dir: str,
+    config: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Plan optional accessory physics without claiming unsupported baking.
+
+    Static accessories are the default and return ``skipped``. When physics is
+    explicitly requested a geometric chain is estimated, but the result is
+    marked ``partial`` until the static accessory baker gains skinned-mesh
+    merging support.
     """
-    result = {
-        "status": "stub",
-        "bone_chains": []
-    }
-    
-    # Stub implementation
-    # In actual implementation:
-    # 1. Load accessory mesh
-    # 2. Analyze geometry for chain-like structures
-    # 3. Generate bone positions along chains
-    # 4. Compute bone lengths and orientations
-    
-    result["warning"] = "Bone chain computation not implemented"
-    
+    cfg = dict(config or {})
+    enabled = bool(cfg.get("enabled", False))
+    result: Dict[str, Any] = {"accessory_path": accessory_path}
+
+    if not enabled:
+        result.update({"status": "skipped", "reason": "physics disabled"})
+    else:
+        chain = compute_bone_chain(accessory_path, int(cfg.get("joint_count", 3)))
+        if chain.get("status") == "complete":
+            result.update({
+                "status": "partial",
+                "config": {
+                    "stiffness": float(cfg.get("stiffness", 0.5)),
+                    "gravity": float(cfg.get("gravity", 0.1)),
+                    "drag": float(cfg.get("drag", 0.2)),
+                    "hit_radius": float(cfg.get("hit_radius", 0.02)),
+                },
+                "bone_chains": chain["bone_chains"],
+                "warning": "Dynamic accessory skin/bone merge is not supported by static bake.",
+            })
+        else:
+            result.update({"status": "error", "error": chain.get("error", "chain estimation failed")})
+
+    pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
+    from vtuber_pipeline.core.utils import save_json
+    output_path = pathlib.Path(output_dir) / "physics.json"
+    save_json(result, str(output_path))
+    result["output_path"] = str(output_path)
     return result
