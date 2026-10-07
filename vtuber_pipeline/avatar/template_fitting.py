@@ -500,59 +500,52 @@ def _write_fit_report(output_dir: str, result: Dict[str, Any]) -> None:
 
 def coarse_similarity_transform(
     source_mesh: str,
-    target_mesh: str
+    target_mesh: str,
 ) -> Dict[str, Any]:
-    """Compute coarse similarity transform between two meshes.
-    
-    Computes scale, rotation, and translation to align source to target
-    using centroid and bounding box analysis.
-    
-    Args:
-        source_mesh: Path to the source mesh (template).
-        target_mesh: Path to the target mesh (reference).
-        
-    Returns:
-        Dictionary with scale, rotation matrix, and translation vector.
-    """
-    result = {
-        "scale": 1.0,
-        "rotation": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-        "translation": [0.0, 0.0, 0.0],
-        "status": "stub"
-    }
-    
+    """Compute a scale/translation similarity transform or fail explicitly."""
+    result: Dict[str, Any] = {"status": "pending"}
     try:
         import numpy as np
-        
-        try:
-            import trimesh
-            
-            source = trimesh.load(source_mesh)
-            target = trimesh.load(target_mesh)
-            
-            # Compute centroids
-            source_centroid = np.mean(source.vertices, axis=0)
-            target_centroid = np.mean(target.vertices, axis=0)
-            
-            # Compute scale from bounding box
-            source_extent = np.max(source.vertices, axis=0) - np.min(source.vertices, axis=0)
-            target_extent = np.max(target.vertices, axis=0) - np.min(target.vertices, axis=0)
-            
-            # Use average scale
-            scale = np.mean(target_extent / source_extent)
-            
-            result["scale"] = float(scale) if np.isfinite(scale) else 1.0
-            result["translation"] = (target_centroid - source_centroid * result["scale"]).tolist()
-            result["status"] = "complete"
-            
-        except ImportError:
-            result["warning"] = "trimesh not installed, using identity transform"
-            
-    except ImportError:
-        result["error"] = "numpy not installed"
-    
-    return result
+        import trimesh
 
+        def as_mesh(path: str):
+            loaded = trimesh.load(path)
+            if isinstance(loaded, trimesh.Scene):
+                geometries = list(loaded.geometry.values())
+                if not geometries:
+                    raise ValueError(f"mesh scene has no geometry: {path}")
+                loaded = trimesh.util.concatenate(geometries)
+            if len(loaded.vertices) == 0:
+                raise ValueError(f"mesh has no vertices: {path}")
+            return loaded
+
+        source = as_mesh(source_mesh)
+        target = as_mesh(target_mesh)
+        source_vertices = np.asarray(source.vertices, dtype=float)
+        target_vertices = np.asarray(target.vertices, dtype=float)
+        source_centroid = source_vertices.mean(axis=0)
+        target_centroid = target_vertices.mean(axis=0)
+        source_extent = np.ptp(source_vertices, axis=0)
+        target_extent = np.ptp(target_vertices, axis=0)
+        valid_axes = source_extent > 1e-8
+        if not np.any(valid_axes):
+            raise ValueError("source mesh has zero spatial extent")
+        ratios = target_extent[valid_axes] / source_extent[valid_axes]
+        scale = float(np.median(ratios))
+        if not np.isfinite(scale) or scale <= 0.0:
+            raise ValueError(f"invalid similarity scale: {scale}")
+
+        translation = target_centroid - source_centroid * scale
+        result.update({
+            "status": "complete",
+            "scale": scale,
+            "rotation": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            "translation": translation.tolist(),
+        })
+    except Exception as exc:
+        result["status"] = "error"
+        result["error"] = str(exc)
+    return result
 
 # Landmark names for semantic correspondence
 LANDMARK_NAMES = [
