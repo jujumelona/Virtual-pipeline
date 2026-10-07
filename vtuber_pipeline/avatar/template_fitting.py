@@ -161,10 +161,8 @@ def fit_template(
             height = max(float(pmax[1] - pmin[1]), 1e-8)
             head_mask = pts[:, 1] >= pmin[1] + 0.68 * height
             z_center = float((pmin[2] + pmax[2]) * 0.5)
-            pos_extent = float(pmax[2] - z_center)
-            neg_extent = float(z_center - pmin[2])
-            front_sign = 1.0 if pos_extent >= neg_extent else -1.0
-            front_mask = front_sign * (pts[:, 2] - z_center) >= 0.0
+            # Canonical VRM coordinates use +Z as the model's front.
+            front_mask = (pts[:, 2] - z_center) >= 0.0
             indices = np.flatnonzero(head_mask & front_mask)
             if len(indices) < 16:
                 indices = np.flatnonzero(head_mask)
