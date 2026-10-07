@@ -478,7 +478,8 @@ def export_vrm(
     output_dir: str,
     expressions: Optional[Dict[str, Any]] = None,
     bone_mapping: Optional[Dict[str, int]] = None,
-    commercial_usage: str = "corporation"
+    commercial_usage: str = "corporation",
+    springbone_config: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """Export rigged mesh to VRM 1.0 format.
     
@@ -486,8 +487,9 @@ def export_vrm(
     1. Loads the rigged GLB
     2. Adds morph targets for expressions (if provided)
     3. Builds the VRMC_vrm extension
-    4. Merges the extension into the glTF JSON
-    5. Writes the result as a .vrm binary file
+    4. Builds the VRMC_springBone extension (if config provided)
+    5. Merges the extensions into the glTF JSON
+    6. Writes the result as a .vrm binary file
     
     Args:
         rigged_glb_path: Path to the rigged GLB file.
@@ -499,12 +501,15 @@ def export_vrm(
         bone_mapping: Optional dict mapping VRM bone names to node indices.
         commercial_usage: 상업용 사용 권한 (personalNonProfit, personalProfit, corporation).
             기본값은 "corporation"입니다.
+        springbone_config: Optional springbone configuration dict with:
+            - "springbone_groups": List of springbone group configs
     
     Returns:
         Dictionary with export results including:
         - "status": "complete", "error", or "validation_failed"
         - "vrm_path": Path to the output VRM file
         - "vrm_extension": The VRMC_vrm extension data
+        - "springbone_extension": The VRMC_springBone extension data (if any)
     """
     result = {
         "status": "pending",
@@ -546,6 +551,20 @@ def export_vrm(
             gltf.extensions = {}
         gltf.extensions["VRMC_vrm"] = vrm_extension
         
+        # Step 3.5: Build and add VRMC_springBone extension if config provided
+        springbone_extension = None
+        if springbone_config:
+            springbone_groups = springbone_config.get("springbone_groups", [])
+            springbone_extension = create_springbone_extension(
+                gltf,
+                springbone_groups=springbone_groups,
+                bone_mapping=bone_mapping
+            )
+            
+            if "VRMC_springBone" not in gltf.extensionsUsed:
+                gltf.extensionsUsed.append("VRMC_springBone")
+            gltf.extensions["VRMC_springBone"] = springbone_extension
+        
         # Step 4: Update buffer size
         if gltf.buffers:
             gltf.buffers[0].byteLength = len(buffer_data)
@@ -568,6 +587,8 @@ def export_vrm(
             result["status"] = "complete"
             result["vrm_path"] = str(output_path)
             result["vrm_extension"] = vrm_extension
+            if springbone_extension:
+                result["springbone_extension"] = springbone_extension
             result["file_size_bytes"] = output_path.stat().st_size
         else:
             result["status"] = "error"
@@ -592,6 +613,79 @@ def _write_vrm_builder_report(output_dir: str, result: Dict[str, Any]) -> None:
     
     output_path = pathlib.Path(output_dir) / "vrm_builder_report.json"
     save_json(result, str(output_path))
+
+
+def create_springbone_extension(
+    gltf: "GLTF2",
+    springbone_groups: Optional[List[Dict[str, Any]]] = None,
+    bone_mapping: Optional[Dict[str, int]] = None
+) -> Dict[str, Any]:
+    """Build VRMC_springBone extension JSON for VRM 1.0.
+    
+    VRMC_springBone provides physics simulation for hair, ears, ribbons, 
+    tails, and clothing. Each spring bone chain has stiffness, gravity,
+    and drag parameters.
+    
+    Args:
+        gltf: The GLTF2 object with nodes containing bones.
+        springbone_groups: Optional list of springbone group configs.
+            Each group should have:
+            - "name": Group name (e.g., "hair", "ears")
+            - "stiffiness": Stiffness value (0.0-1.0)
+            - "gravityPower": Gravity power
+            - "dragForce": Drag force
+            - "hitRadius": Collision hit radius
+            - "bones": List of bone node indices in the chain
+        bone_mapping: Optional dict mapping bone names to node indices.
+    
+    Returns:
+        VRMC_springBone extension dictionary.
+    """
+    if springbone_groups is None:
+        # Default: create empty springbone extension
+        springbone_groups = []
+    
+    # Build collider groups (empty for now - can be extended)
+    collider_groups = []
+    
+    # Build spring bone groups
+    springs = []
+    for i, group in enumerate(springbone_groups):
+        spring = {
+            "name": group.get("name", f"spring_{i}"),
+            "jointEdges": []
+        }
+        
+        # Get bone indices
+        bone_indices = group.get("bones", [])
+        
+        # Build joint edges for each bone in the chain
+        for j, bone_idx in enumerate(bone_indices):
+            joint_edge = {
+                "startNode": bone_idx,
+                "stiffiness": group.get("stiffiness", 0.5),
+                "gravityPower": group.get("gravityPower", 0.1),
+                "dragForce": group.get("dragForce", 0.2),
+                "hitRadius": group.get("hitRadius", 0.02)
+            }
+            
+            # End node is the next bone in chain, or -1 if last
+            if j < len(bone_indices) - 1:
+                joint_edge["endNode"] = bone_indices[j + 1]
+            
+            spring["jointEdges"].append(joint_edge)
+        
+        springs.append(spring)
+    
+    # Build VRMC_springBone extension
+    springbone_extension = {
+        "specVersion": "1.0",
+        "colliders": [],
+        "colliderGroups": collider_groups,
+        "springs": springs
+    }
+    
+    return springbone_extension
 
 
 def validate_vrm(vrm_path: str) -> Dict[str, Any]:

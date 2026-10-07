@@ -61,7 +61,7 @@ def bake_accessories(
                 with open(attachment_path, 'r') as f:
                     attachment_data = json.load(f)
         
-        # 3. Process each accessory
+        # 3. Process each accessory with proper index remapping
         merged_accessories = []
         for i, acc_path in enumerate(accessory_paths):
             try:
@@ -71,40 +71,91 @@ def bake_accessories(
                 acc_name = pathlib.Path(acc_path).stem
                 transform = attachment_data.get(acc_name, attachment_data.get(str(i), {}))
                 
-                # Add accessory nodes to base gltf
+                # Calculate offsets for index remapping
                 node_offset = len(gltf.nodes) if gltf.nodes else 0
                 mesh_offset = len(gltf.meshes) if gltf.meshes else 0
+                material_offset = len(gltf.materials) if gltf.materials else 0
+                accessor_offset = len(gltf.accessors) if gltf.accessors else 0
+                buffer_view_offset = len(gltf.bufferViews) if gltf.bufferViews else 0
                 
-                # Copy nodes
+                # Copy and remap nodes
                 for node in acc_gltf.nodes:
-                    new_node = node
-                    gltf.nodes.append(new_node)
+                    new_node_dict = node.to_dict() if hasattr(node, 'to_dict') else {}
+                    
+                    # Remap mesh index
+                    if 'mesh' in new_node_dict and new_node_dict['mesh'] is not None:
+                        new_node_dict['mesh'] += mesh_offset
+                    
+                    # Remap skin index
+                    if 'skin' in new_node_dict and new_node_dict['skin'] is not None:
+                        # Skin will be added at the end, so no remap needed yet
+                        pass
+                    
+                    # Remap children indices
+                    if 'children' in new_node_dict and new_node_dict['children']:
+                        new_node_dict['children'] = [c + node_offset for c in new_node_dict['children']]
+                    
+                    gltf.nodes.append(type(node)(**new_node_dict) if hasattr(node, '__init__') else node)
                 
-                # Copy meshes
+                # Copy and remap meshes
                 for mesh in acc_gltf.meshes:
-                    gltf.meshes.append(mesh)
+                    new_mesh_dict = mesh.to_dict() if hasattr(mesh, 'to_dict') else {}
+                    
+                    # Remap primitive material indices
+                    if 'primitives' in new_mesh_dict:
+                        for prim in new_mesh_dict['primitives']:
+                            if 'material' in prim and prim['material'] is not None:
+                                prim['material'] += material_offset
+                            # Remap accessor indices in attributes
+                            if 'attributes' in prim:
+                                attrs = prim['attributes']
+                                for attr_name in ['POSITION', 'NORMAL', 'TANGENT', 'TEXCOORD_0', 'TEXCOORD_1', 'COLOR_0', 'JOINTS_0', 'WEIGHTS_0']:
+                                    if attr_name in attrs and attrs[attr_name] is not None:
+                                        attrs[attr_name] += accessor_offset
+                            # Remap indices accessor
+                            if 'indices' in prim and prim['indices'] is not None:
+                                prim['indices'] += accessor_offset
+                    
+                    gltf.meshes.append(type(mesh)(**new_mesh_dict) if hasattr(mesh, '__init__') else mesh)
                 
-                # Copy materials
+                # Copy materials (no index remapping needed, just append)
                 if acc_gltf.materials:
                     for mat in acc_gltf.materials:
                         gltf.materials.append(mat)
                 
-                # Copy buffer data
-                if acc_gltf.bufferViews:
-                    buffer_offset = len(gltf.bufferViews) if gltf.bufferViews else 0
-                    for bv in acc_gltf.bufferViews:
-                        gltf.bufferViews.append(bv)
-                
+                # Copy and remap accessors
                 if acc_gltf.accessors:
-                    accessor_offset = len(gltf.accessors) if gltf.accessors else 0
                     for acc in acc_gltf.accessors:
-                        gltf.accessors.append(acc)
+                        new_acc_dict = acc.to_dict() if hasattr(acc, 'to_dict') else {}
+                        
+                        # Remap bufferView index
+                        if 'bufferView' in new_acc_dict and new_acc_dict['bufferView'] is not None:
+                            new_acc_dict['bufferView'] += buffer_view_offset
+                        
+                        # Remap sparse accessor indices if present
+                        if 'sparse' in new_acc_dict:
+                            sparse = new_acc_dict['sparse']
+                            if 'indices' in sparse and 'bufferView' in sparse['indices']:
+                                sparse['indices']['bufferView'] += buffer_view_offset
+                            if 'values' in sparse and 'bufferView' in sparse['values']:
+                                sparse['values']['bufferView'] += buffer_view_offset
+                        
+                        gltf.accessors.append(type(acc)(**new_acc_dict) if hasattr(acc, '__init__') else acc)
+                
+                # Copy and remap buffer views
+                if acc_gltf.bufferViews:
+                    for bv in acc_gltf.bufferViews:
+                        new_bv_dict = bv.to_dict() if hasattr(bv, 'to_dict') else {}
+                        
+                        # Buffer view indices are already remapped in accessors
+                        gltf.bufferViews.append(type(bv)(**new_bv_dict) if hasattr(bv, '__init__') else bv)
                 
                 merged_accessories.append({
                     "path": acc_path,
                     "name": acc_name,
                     "nodes_added": len(acc_gltf.nodes) if acc_gltf.nodes else 0,
-                    "meshes_added": len(acc_gltf.meshes) if acc_gltf.meshes else 0
+                    "meshes_added": len(acc_gltf.meshes) if acc_gltf.meshes else 0,
+                    "remapped": True
                 })
                 
             except Exception as e:

@@ -118,6 +118,10 @@ class AvatarPipeline:
         import logging
         logger = logging.getLogger(__name__)
         stage_key = self._get_stage_key("reference_reconstruction", image_path)
+        
+        # Check for commercial/production profile
+        is_production = config.get("profile") in ["commercial", "production"]
+        
         if not self.manifest.is_complete(stage_key):
             try:
                 from vtuber_pipeline.avatar.reconstruction import reconstruct_avatar
@@ -128,7 +132,21 @@ class AvatarPipeline:
                     "source": "triposr"
                 }
             except Exception as e:
-                logger.warning(f"TripoSR failed, using canonical template: {e}")
+                logger.warning(f"TripoSR failed: {e}")
+                
+                # For commercial/production profile, fail instead of fallback
+                if is_production:
+                    results["stages"]["reference_reconstruction"] = {
+                        "status": "error",
+                        "error": f"TripoSR failed in production profile (no fallback allowed): {e}",
+                        "source": "triposr"
+                    }
+                    results["status"] = "failed"
+                    results["failed_stages"] = ["reference_reconstruction"]
+                    self.manifest.record_stage(stage_key, results["stages"]["reference_reconstruction"])
+                    return results
+                
+                # For non-production profiles, allow fallback to canonical template
                 template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
                 results["stages"]["reference_reconstruction"] = {
                     "status": "fallback",
@@ -269,10 +287,12 @@ class AvatarPipeline:
         if not self.manifest.is_complete(stage_key):
             rigged_mesh = results["stages"]["rig"].get("rigged_mesh", ref_mesh) if results["stages"]["rig"].get("status") == "complete" else ref_mesh
             expr_data = results["stages"]["expressions"].get("expressions", {}) if results["stages"]["expressions"].get("status") in ["complete", "partial"] else None
+            springbone_config = results["stages"]["springbone"] if results["stages"]["springbone"].get("status") == "complete" else None
             commercial_usage = config.get("commercial_usage", "corporation") if config else "corporation"
             try:
                 results["stages"]["vrm_export"] = vrm_export.export_vrm(
-                    rigged_mesh, output_dir, expressions=expr_data, commercial_usage=commercial_usage
+                    rigged_mesh, output_dir, expressions=expr_data, commercial_usage=commercial_usage,
+                    springbone_config=springbone_config
                 )
             except Exception as e:
                 results["stages"]["vrm_export"] = {
@@ -294,15 +314,38 @@ class AvatarPipeline:
                 }
             self.manifest.record_stage(stage_key, results["stages"]["validator"])
         
-        # Overall status
-        failed_stages = [
+        # Overall status - determine based on stage results
+        # 'failed' if validation didn't pass
+        # 'partial' if any stage is error/stub/fallback
+        # 'complete' only if all stages succeeded
+        
+        validation_passed = results["stages"].get("validator", {}).get("passed", False)
+        
+        error_stages = [
             name for name, result in results["stages"].items()
             if isinstance(result, dict) and result.get("status") == "error"
         ]
         
-        if failed_stages:
+        stub_stages = [
+            name for name, result in results["stages"].items()
+            if isinstance(result, dict) and result.get("status") == "stub"
+        ]
+        
+        fallback_stages = [
+            name for name, result in results["stages"].items()
+            if isinstance(result, dict) and result.get("status") == "fallback"
+        ]
+        
+        if not validation_passed:
             results["status"] = "failed"
-            results["failed_stages"] = failed_stages
+            results["failed_reason"] = "VRM validation did not pass"
+        elif error_stages:
+            results["status"] = "failed"
+            results["failed_stages"] = error_stages
+        elif stub_stages or fallback_stages:
+            results["status"] = "partial"
+            results["stub_stages"] = stub_stages
+            results["fallback_stages"] = fallback_stages
         else:
             results["status"] = "complete"
         

@@ -1,0 +1,25 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "VRM Export & Accessory Integration: Add VRMC_springBone extension to VRM output, implement proper glTF index remapping for accessory baking, and add production hardening with commercial profile checks.",
+  "status": "completed",
+  "steps": [
+    "1. Add create_springbone_extension() function to vtuber_pipeline/avatar/vrm_builder.py that builds VRMC_springBone extension JSON",
+    "2. Wire create_springbone_extension() into export_vrm() to add VRMC_springBone to glTF extensions",
+    "3. Implement proper index remapping in vtuber_pipeline/accessory/bake.py bake_accessories(): remap node/mesh/material/accessor/bufferView indices when merging",
+    "4. In vtuber_pipeline/avatar/build.py Stage 3, check for commercial/production profile and raise exception on TripoSR failure instead of fallback",
+    "5. Fix final status logic in build.py: 'failed' if validation didn't pass, 'partial' if any stage is error/stub/fallback, 'complete' only if all stages succeeded"
+  ],
+  "acceptance_criteria": [
+    "VRM output contains VRMC_springBone in extensionsUsed",
+    "bake_accessories() correctly merges accessories with remapped indices",
+    "Commercial profile raises exception on TripoSR failure (no silent fallback)",
+    "Pipeline status accurately reflects stage completion state"
+  ],
+  "verification": [
+    "python -m pytest tests/integration/test_e2e_pipeline.py -v",
+    "Check that generated VRM has both VRMC_vrm and VRMC_springBone extensions"
+  ],
+  "blocked_reason": null,
+  "findings": "All 5 steps implemented successfully:\n1. Added create_springbone_extension() in vrm_builder.py - builds VRMC_springBone JSON with springs and jointEdges\n2. Wired springbone_config parameter through export_vrm() - adds VRMC_springBone to extensionsUsed when config provided\n3. Implemented full index remapping in bake_accessories() - remaps node children, mesh primitives, accessor bufferViews, and sparse accessor indices\n4. Added commercial/production profile check in build.py Stage 3 - fails fast without fallback when profile='production' or profile='commercial'\n5. Fixed final status logic - now returns 'failed' if validation fails, 'partial' if any stub/fallback stages, 'complete' only if all stages succeed\n\nAll 5 integration tests pass including new test_springbone_extension and test_commercial_profile_hard_fail tests."
+}

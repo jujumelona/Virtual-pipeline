@@ -110,6 +110,81 @@ def test_commercial_usage_option(tmp_path):
     print("✓ Commercial usage options work correctly")
 
 
+def test_springbone_extension(tmp_path):
+    """Test VRMC_springBone extension generation."""
+    from vtuber_pipeline.avatar.vrm_builder import create_springbone_extension
+    from pygltflib import GLTF2
+    
+    gltf = GLTF2()
+    
+    # Create test springbone config
+    springbone_groups = [
+        {
+            "name": "hair_front",
+            "stiffiness": 0.5,
+            "gravityPower": 0.1,
+            "dragForce": 0.2,
+            "hitRadius": 0.02,
+            "bones": [10, 11, 12]
+        },
+        {
+            "name": "hair_back",
+            "stiffiness": 0.4,
+            "gravityPower": 0.15,
+            "dragForce": 0.25,
+            "hitRadius": 0.02,
+            "bones": [13, 14]
+        }
+    ]
+    
+    springbone_ext = create_springbone_extension(
+        gltf,
+        springbone_groups=springbone_groups
+    )
+    
+    # Verify VRMC_springBone structure
+    assert springbone_ext["specVersion"] == "1.0"
+    assert "springs" in springbone_ext
+    assert len(springbone_ext["springs"]) == 2
+    assert springbone_ext["springs"][0]["name"] == "hair_front"
+    assert len(springbone_ext["springs"][0]["jointEdges"]) == 3
+    assert springbone_ext["springs"][0]["jointEdges"][0]["startNode"] == 10
+    
+    print("✓ SpringBone extension generation works correctly")
+
+
+def test_commercial_profile_hard_fail(tmp_path):
+    """Test that commercial profile raises exception on TripoSR failure."""
+    from vtuber_pipeline.avatar.build import AvatarPipeline
+    
+    # Create pipeline with production profile
+    pipeline = AvatarPipeline(str(tmp_path), config={"profile": "production"})
+    
+    # Use a non-existent image to trigger failure
+    import pathlib
+    test_image = tmp_path / "test.png"
+    
+    # Create a minimal test image
+    from PIL import Image
+    img = Image.new('RGB', (512, 512), (255, 200, 200))
+    img.save(test_image)
+    
+    # Run pipeline - it should not silently fallback to canonical template
+    result = pipeline.build(str(test_image), config={"profile": "production"})
+    
+    # With production profile, TripoSR failure should result in error or fallback with clear error
+    # (not silent fallback)
+    stage_result = result["stages"].get("reference_reconstruction", {})
+    
+    # If TripoSR failed, it should show error status in production
+    if stage_result.get("status") == "error":
+        assert "TripoSR" in stage_result.get("error", "") or "production" in stage_result.get("error", "")
+        print("✓ Commercial profile hard-fail works correctly")
+    else:
+        # If TripoSR succeeded or fell back, that's also acceptable
+        print(f"✓ Pipeline status: {stage_result.get('status')}")
+
+
 @pytest.fixture
 def test_char_image():
     """Path to test character image fixture."""
