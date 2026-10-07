@@ -17,7 +17,7 @@
       "license": "MIT",
       "license_url": "https://github.com/hysts/anime-face-detector/blob/main/LICENSE",
       "pypi": "anime-face-detector",
-      "hash": "sha256:git:98a9fb480fa04bdd96acbe4d98da191a898267f3",
+      "hash": "sha256:pypi:0.1.0",
       "description": "Anime Face Detector with YOLOv3",
       "commercial_safe": true
     },

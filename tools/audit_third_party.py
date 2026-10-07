@@ -366,4 +366,17 @@ Third-Party Tools Audit Report
 
 
 if __name__ == "__main__":
+    # First update artifact hashes with real SHA256 values
+    print("Computing artifact hashes...")
+    updated_hashes = update_artifact_hashes()
+    if updated_hashes:
+        print(f"Updated {len(updated_hashes)} hash values:")
+        for name, hash_value in updated_hashes.items():
+            print(f"  {name}: {hash_value}")
+    else:
+        print("No artifact hashes computed (artifacts may not be present)")
+    
+    print()
+    
+    # Then print the audit report
     print_audit_report()
