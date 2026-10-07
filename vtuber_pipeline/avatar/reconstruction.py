@@ -8,6 +8,8 @@ import sys
 
 logger = logging.getLogger(__name__)
 
+TRIPOSR_PINNED_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
+
 
 def find_triposr_installation() -> str:
     """Find TripoSR installation directory.
@@ -73,6 +75,34 @@ def find_triposr_installation() -> str:
     )
 
 
+def verify_triposr_revision(run_script: str, profile: str) -> None:
+    """Require the pinned TripoSR source revision for commercial/production use."""
+    if profile not in {"commercial", "production"}:
+        return
+    repo_dir = pathlib.Path(run_script).resolve().parent
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(repo_dir), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(
+            "Commercial profile requires a git checkout of the pinned TripoSR source"
+        ) from exc
+    if proc.returncode != 0:
+        raise RuntimeError(
+            "Commercial profile could not verify TripoSR source revision: "
+            + proc.stderr.strip()
+        )
+    actual = proc.stdout.strip()
+    if actual != TRIPOSR_PINNED_COMMIT:
+        raise RuntimeError(
+            f"TripoSR revision mismatch: expected {TRIPOSR_PINNED_COMMIT}, got {actual}"
+        )
+
+
 def reconstruct_avatar(image_path: str, output_dir: str, profile: str = 'commercial') -> str:
     """
     TripoSR로 이미지에서 3D 메시를 생성합니다.
@@ -99,6 +129,7 @@ def reconstruct_avatar(image_path: str, output_dir: str, profile: str = 'commerc
     
     # Find TripoSR installation
     run_script = find_triposr_installation()
+    verify_triposr_revision(run_script, profile)
     logger.info(f"Using TripoSR at: {run_script}")
     
     # TripoSR CLI 호출 with absolute path
