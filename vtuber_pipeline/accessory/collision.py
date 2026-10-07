@@ -1,5 +1,7 @@
 """Approximate accessory/avatar collision detection and push-out."""
 
+import pathlib
+
 from typing import Dict, Any, Optional
 
 
@@ -42,8 +44,14 @@ def check_collision(
         import trimesh
         from scipy.spatial import cKDTree
 
-        accessory = trimesh.load(accessory_path)
-        body = trimesh.load(body_path)
+        accessory = trimesh.load(
+            accessory_path,
+            file_type="glb" if pathlib.Path(accessory_path).suffix.lower() == ".vrm" else None,
+        )
+        body = trimesh.load(
+            body_path,
+            file_type="glb" if pathlib.Path(body_path).suffix.lower() == ".vrm" else None,
+        )
         if isinstance(accessory, trimesh.Scene):
             accessory = trimesh.util.concatenate(list(accessory.geometry.values()))
         if isinstance(body, trimesh.Scene):
