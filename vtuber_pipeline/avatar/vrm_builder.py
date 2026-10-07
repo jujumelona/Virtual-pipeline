@@ -553,17 +553,18 @@ def export_vrm(
         
         # Step 3.5: Build and add VRMC_springBone extension if config provided
         springbone_extension = None
-        if springbone_config:
-            springbone_groups = springbone_config.get("springbone_groups", [])
+        if springbone_config and springbone_config.get("springs"):
             springbone_extension = create_springbone_extension(
                 gltf,
-                springbone_groups=springbone_groups,
-                bone_mapping=bone_mapping
+                springs=springbone_config.get("springs", []),
+                colliders=springbone_config.get("colliders", []),
+                collider_groups=springbone_config.get("colliderGroups", []),
+                bone_mapping=bone_mapping,
             )
-            
-            if "VRMC_springBone" not in gltf.extensionsUsed:
-                gltf.extensionsUsed.append("VRMC_springBone")
-            gltf.extensions["VRMC_springBone"] = springbone_extension
+            if springbone_extension["springs"]:
+                if "VRMC_springBone" not in gltf.extensionsUsed:
+                    gltf.extensionsUsed.append("VRMC_springBone")
+                gltf.extensions["VRMC_springBone"] = springbone_extension
         
         # Step 4: Update buffer size
         if gltf.buffers:
@@ -617,73 +618,64 @@ def _write_vrm_builder_report(output_dir: str, result: Dict[str, Any]) -> None:
 
 def create_springbone_extension(
     gltf: "GLTF2",
-    springbone_groups: Optional[List[Dict[str, Any]]] = None,
-    bone_mapping: Optional[Dict[str, int]] = None
+    springs: Optional[List[Dict[str, Any]]] = None,
+    colliders: Optional[List[Dict[str, Any]]] = None,
+    collider_groups: Optional[List[Dict[str, Any]]] = None,
+    bone_mapping: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
-    """Build VRMC_springBone extension JSON for VRM 1.0.
-    
-    VRMC_springBone provides physics simulation for hair, ears, ribbons, 
-    tails, and clothing. Each spring bone chain has stiffness, gravity,
-    and drag parameters.
-    
-    Args:
-        gltf: The GLTF2 object with nodes containing bones.
-        springbone_groups: Optional list of springbone group configs.
-            Each group should have:
-            - "name": Group name (e.g., "hair", "ears")
-            - "stiffness": Stiffness value (0.0-1.0)
-            - "gravityPower": Gravity power
-            - "dragForce": Drag force
-            - "hitRadius": Collision hit radius
-            - "bones": List of bone node indices in the chain
-        bone_mapping: Optional dict mapping bone names to node indices.
-    
-    Returns:
-        VRMC_springBone extension dictionary.
-    """
-    if springbone_groups is None:
-        # Default: create empty springbone extension
-        springbone_groups = []
-    
-    # Build collider groups (empty for now - can be extended)
-    collider_groups = []
-    
-    # Build spring bone groups - VRM 1.0 uses "joints" array, not "jointEdges"
-    springs = []
-    for i, group in enumerate(springbone_groups):
-        spring = {
-            "name": group.get("name", f"spring_{i}"),
-            "joints": [],  # VRM 1.0 spec uses "joints", not "jointEdges"
-            "colliderGroups": []  # VRM 1.0 requires colliderGroups on each spring
-        }
-        
-        # Get bone indices
-        bone_indices = group.get("bones", [])
-        
-        # Build joints for each bone in the chain (VRM 1.0 schema)
-        for j, bone_idx in enumerate(bone_indices):
-            joint = {
-                "node": bone_idx,
-                "hitRadius": group.get("hitRadius", 0.02),
-                "stiffness": group.get("stiffness", 0.5),  # Fixed typo: "stiffness" not "stiffiness"
-                "gravityPower": group.get("gravityPower", 0.1),
-                "gravityDir": [0.0, -1.0, 0.0],  # VRM 1.0 requires gravityDir
-                "dragForce": group.get("dragForce", 0.2)
-            }
-            spring["joints"].append(joint)
-        
-        springs.append(spring)
-    
-    # Build VRMC_springBone extension
-    springbone_extension = {
-        "specVersion": "1.0",
-        "colliders": [],
-        "colliderGroups": collider_groups,
-        "springs": springs
-    }
-    
-    return springbone_extension
+    """Build VRMC_springBone 1.0 JSON from normalized spring config.
 
+    Joint ``node`` values may be glTF node indices or node names. Names are
+    resolved against the exported glTF and unresolved joints are rejected.
+    """
+    springs = springs or []
+    colliders = colliders or []
+    collider_groups = collider_groups or []
+    bone_mapping = bone_mapping or {}
+
+    name_to_index = {
+        node.name: i
+        for i, node in enumerate(gltf.nodes or [])
+        if getattr(node, "name", None)
+    }
+    name_to_index.update({k: v for k, v in bone_mapping.items() if isinstance(v, int)})
+
+    normalized_springs: List[Dict[str, Any]] = []
+    for spring in springs:
+        normalized_joints: List[Dict[str, Any]] = []
+        for joint in spring.get("joints", []):
+            node_ref = joint.get("node")
+            if isinstance(node_ref, str):
+                node_idx = name_to_index.get(node_ref)
+            elif isinstance(node_ref, int):
+                node_idx = node_ref
+            else:
+                node_idx = None
+            if node_idx is None or not (0 <= node_idx < len(gltf.nodes or [])):
+                raise ValueError(f"Unresolved SpringBone joint node: {node_ref!r}")
+
+            normalized_joints.append({
+                "node": node_idx,
+                "hitRadius": float(joint.get("hitRadius", 0.02)),
+                "stiffness": float(joint.get("stiffness", 0.5)),
+                "gravityPower": float(joint.get("gravityPower", 0.1)),
+                "gravityDir": list(joint.get("gravityDir", [0.0, -1.0, 0.0])),
+                "dragForce": float(joint.get("dragForce", 0.2)),
+            })
+
+        if normalized_joints:
+            normalized_springs.append({
+                "name": spring.get("name", f"spring_{len(normalized_springs)}"),
+                "joints": normalized_joints,
+                "colliderGroups": list(spring.get("colliderGroups", [])),
+            })
+
+    return {
+        "specVersion": "1.0",
+        "colliders": colliders,
+        "colliderGroups": collider_groups,
+        "springs": normalized_springs,
+    }
 
 def validate_vrm(vrm_path: str) -> Dict[str, Any]:
     """Validate a VRM file.
