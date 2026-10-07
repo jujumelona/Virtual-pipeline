@@ -160,46 +160,13 @@ def _install_runtime(head: str) -> None:
             sys.path.insert(0, str(REPO_DIR))
         return
 
-    # Keep the Gradio version used by the already-running Colab UI stable and
-    # avoid TripoSR's unpinned torchmcubes VCS dependency. torchmcubes' current
-    # upstream build metadata explicitly requires installation against the
-    # already-installed PyTorch with --no-build-isolation.
-    source_requirements = TRIPOSR_DIR / "requirements.txt"
-    filtered_requirements = WORK_ROOT / "triposr-runtime-requirements.txt"
+    if not ((3, 12) <= sys.version_info[:2] <= (3, 13)):
+        raise RuntimeError(
+            "Supported Colab Python versions are 3.12 and 3.13; "
+            f"current={sys.version.split()[0]}"
+        )
+
     WORK_ROOT.mkdir(parents=True, exist_ok=True)
-
-    kept_lines: List[str] = []
-    for raw_line in source_requirements.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        lowered = line.lower()
-        if "torchmcubes" in lowered:
-            continue
-        if lowered == "gradio" or lowered.startswith("gradio=="):
-            continue
-        kept_lines.append(line)
-
-    filtered_requirements.write_text(
-        "\n".join(kept_lines) + "\n",
-        encoding="utf-8",
-    )
-
-    _run(
-        [sys.executable, "-m", "pip", "install", "-U", "pip", "setuptools", "wheel"],
-        timeout=600,
-    )
-
-    # Verify that PyTorch exists before building torchmcubes. Colab ships
-    # PyTorch, and torchmcubes must compile against this exact installation.
-    _run(
-        [
-            sys.executable,
-            "-c",
-            "import torch; print(torch.__version__); print(torch.version.cuda)",
-        ],
-        timeout=60,
-    )
 
     _run(
         [
@@ -207,12 +174,94 @@ def _install_runtime(head: str) -> None:
             "-m",
             "pip",
             "install",
-            "-r",
-            str(filtered_requirements),
+            "-U",
+            "pip",
+            "setuptools",
+            "wheel",
+        ],
+        timeout=600,
+    )
+
+    # Colab already provides CUDA-enabled torch/torchvision. Never let the
+    # resolver replace them with a different build.
+    _run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import torch, torchvision; "
+                "print('python', __import__('sys').version); "
+                "print('torch', torch.__version__); "
+                "print('torchvision', torchvision.__version__); "
+                "print('cuda', torch.version.cuda, torch.cuda.is_available())"
+            ),
+        ],
+        timeout=60,
+    )
+
+    # Native packages: wheel-only. This deliberately prevents silent source
+    # builds such as Pillow==10.1.0 on newer Colab Python runtimes.
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--only-binary=:all:",
+            "Pillow==12.3.0",
+            "xatlas==0.0.11",
+            "moderngl==5.12.0",
+            "onnxruntime==1.30.0",
+            "opencv-python-headless>=4.10.0.84",
+            "safetensors>=0.5.3",
         ],
         timeout=1200,
     )
 
+    # TripoSR + local pipeline runtime. These versions retain TripoSR's used
+    # APIs while supporting the current 3.12/3.13 Colab runtime.
+    runtime_packages = [
+        "omegaconf==2.3.0",
+        "einops==0.7.0",
+        "transformers==4.57.6",
+        "trimesh==4.12.2",
+        "rembg==2.0.85",
+        "huggingface-hub>=0.34.0,<1.0",
+        "imageio[ffmpeg]>=2.34.0",
+        "pydantic>=2.0",
+        "PyYAML>=6.0",
+        "scipy>=1.13",
+        "click>=8.0",
+        "pygltflib==1.16.5",
+    ]
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--prefer-binary",
+            *runtime_packages,
+        ],
+        timeout=1800,
+    )
+
+    # anime-face-detector depends on the existing torch/torchvision pair.
+    # Install its package without dependency resolution so pip cannot replace
+    # Colab's CUDA-enabled PyTorch.
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "anime-face-detector==0.1.0",
+        ],
+        timeout=600,
+    )
+
+    # torchmcubes must compile against the already-installed PyTorch.
     _run(
         [
             sys.executable,
@@ -228,7 +277,6 @@ def _install_runtime(head: str) -> None:
         timeout=600,
     )
 
-    # Keep native-extension compilation within Colab T4 RAM limits.
     os.environ.setdefault("MAX_JOBS", "2")
     os.environ.setdefault("CMAKE_BUILD_PARALLEL_LEVEL", "2")
     if pathlib.Path("/usr/local/cuda").is_dir():
@@ -246,22 +294,40 @@ def _install_runtime(head: str) -> None:
         timeout=1800,
     )
 
+    # Install the freshly synchronized repository without re-running the
+    # dependency resolver and undoing the compatibility set above.
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "-e",
+            str(REPO_DIR),
+        ],
+        timeout=600,
+    )
+
+    # End-to-end import smoke test for every external runtime edge used before
+    # the first model inference.
     _run(
         [
             sys.executable,
             "-c",
             (
-                "import torch, torchmcubes; "
-                "print('torch', torch.__version__); "
-                "print('torchmcubes', torchmcubes.__file__)"
+                "import PIL, xatlas, moderngl, onnxruntime, cv2, safetensors; "
+                "import omegaconf, einops, trimesh, rembg, imageio, scipy; "
+                "import huggingface_hub, pygltflib, torch, torchvision, torchmcubes; "
+                "from transformers.models.vit.modeling_vit import ViTModel; "
+                "from anime_face_detector import create_detector; "
+                "print('runtime-smoke-ok'); "
+                "print('Pillow', PIL.__version__); "
+                "print('trimesh', trimesh.__version__); "
+                "print('onnxruntime', onnxruntime.__version__)"
             ),
         ],
-        timeout=60,
-    )
-
-    _run(
-        [sys.executable, "-m", "pip", "install", "-e", str(REPO_DIR)],
-        timeout=1200,
+        timeout=120,
     )
 
     os.environ["TRIPOSR_DIR"] = str(TRIPOSR_DIR)
@@ -272,8 +338,16 @@ def _install_runtime(head: str) -> None:
         "\n".join(
             [
                 f"main={head}",
+                f"python={sys.version.split()[0]}",
                 f"triposr={TRIPOSR_COMMIT}",
                 f"torchmcubes={TORCHMCUBES_COMMIT}",
+                "pillow=12.3.0",
+                "xatlas=0.0.11",
+                "moderngl=5.12.0",
+                "onnxruntime=1.30.0",
+                "transformers=4.57.6",
+                "trimesh=4.12.2",
+                "rembg=2.0.85",
             ]
         )
         + "\n",
