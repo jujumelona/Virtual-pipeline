@@ -9,6 +9,7 @@ import sys
 logger = logging.getLogger(__name__)
 
 TRIPOSR_PINNED_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
+TRIPOSR_DEFAULT_TIMEOUT_SECONDS = 1200
 
 
 def find_triposr_installation() -> str:
@@ -163,12 +164,32 @@ def reconstruct_avatar(
         pathlib.Path(output_dir, "0").mkdir(parents=True, exist_ok=True)
         cmd.append("--no-remove-bg")
     
+    raw_timeout = os.environ.get(
+        "TRIPOSR_TIMEOUT_SECONDS",
+        str(TRIPOSR_DEFAULT_TIMEOUT_SECONDS),
+    )
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        timeout_seconds = int(raw_timeout)
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid TRIPOSR_TIMEOUT_SECONDS: {raw_timeout!r}"
+        ) from exc
+    timeout_seconds = min(max(timeout_seconds, 60), 3600)
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            cwd=str(pathlib.Path(run_script).resolve().parent),
+        )
     except FileNotFoundError as e:
         raise RuntimeError(f"TripoSR CLI not found at {run_script}. Please clone TripoSR repository: git clone https://github.com/VAST-AI-Research/TripoSR.git") from e
     except subprocess.TimeoutExpired as e:
-        raise RuntimeError(f"TripoSR execution timed out after 300 seconds") from e
+        raise RuntimeError(
+            f"TripoSR execution timed out after {timeout_seconds} seconds"
+        ) from e
     
     if result.returncode != 0:
         stderr = result.stderr.lower()
@@ -179,7 +200,33 @@ def reconstruct_avatar(
     
     mesh_path = str(pathlib.Path(output_dir) / "0" / f"mesh.{model_save_format}")
     
-    if not pathlib.Path(mesh_path).exists():
-        raise RuntimeError(f"TripoSR output mesh not found at expected path: {mesh_path}")
-    
-    return mesh_path
+    mesh_file = pathlib.Path(mesh_path)
+    if not mesh_file.is_file() or mesh_file.stat().st_size == 0:
+        raise RuntimeError(
+            f"TripoSR output mesh not found or empty at expected path: {mesh_path}"
+        )
+
+    # Fail before fitting if TripoSR produced a structurally unreadable mesh.
+    try:
+        import trimesh
+
+        loaded = trimesh.load(mesh_path, process=False)
+        if isinstance(loaded, trimesh.Scene):
+            geometries = list(loaded.geometry.values())
+            if not geometries:
+                raise ValueError("mesh scene contains no geometry")
+            vertex_count = sum(len(g.vertices) for g in geometries)
+            face_count = sum(len(g.faces) for g in geometries)
+        else:
+            vertex_count = len(loaded.vertices)
+            face_count = len(loaded.faces)
+        if vertex_count < 16 or face_count < 8:
+            raise ValueError(
+                f"mesh is too small: vertices={vertex_count}, faces={face_count}"
+            )
+    except Exception as exc:
+        raise RuntimeError(
+            f"TripoSR output mesh failed re-import validation: {exc}"
+        ) from exc
+
+    return str(mesh_file)
