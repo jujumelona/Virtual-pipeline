@@ -60,15 +60,54 @@ def bake_accessories(
         )
 
         base = GLTF2().load(base_vrm)
+        if len(base.buffers or []) != 1 or base.binary_blob() is None:
+            raise ValueError("Base VRM must contain exactly one embedded GLB buffer")
         binary = bytearray(base.binary_blob() or b"")
         attachment_data = attachment_config or {}
         merged: List[Dict[str, Any]] = []
 
         for i, acc_path in enumerate(accessory_paths):
             acc = GLTF2().load(acc_path)
-            if acc.skins or any(getattr(node, "skin", None) is not None for node in (acc.nodes or [])):
+            if len(acc.buffers or []) != 1 or acc.binary_blob() is None:
+                raise ValueError(
+                    f"Accessory must be a single-buffer binary GLB: {acc_path}"
+                )
+            if acc.animations:
+                raise ValueError(
+                    f"Animated accessory is not supported by static bake: {acc_path}"
+                )
+            if acc.cameras:
+                raise ValueError(
+                    f"Accessory cameras are not supported by static bake: {acc_path}"
+                )
+            if acc.skins or any(
+                getattr(node, "skin", None) is not None for node in (acc.nodes or [])
+            ):
                 raise ValueError(
                     f"Skinned accessory is not supported by static bake: {acc_path}"
+                )
+            if acc.extensionsRequired:
+                raise ValueError(
+                    f"Accessory requires unsupported glTF extensions: {acc.extensionsRequired}"
+                )
+            if any(getattr(image, "uri", None) for image in (acc.images or [])):
+                raise ValueError(
+                    f"Accessory contains external image URIs; embedded GLB required: {acc_path}"
+                )
+            if any(
+                getattr(primitive, "extensions", None)
+                for mesh in (acc.meshes or [])
+                for primitive in (mesh.primitives or [])
+            ):
+                raise ValueError(
+                    f"Accessory primitive extensions are not remapped by static bake: {acc_path}"
+                )
+            if any(
+                getattr(material, "extensions", None)
+                for material in (acc.materials or [])
+            ):
+                raise ValueError(
+                    f"Accessory material extensions are not remapped by static bake: {acc_path}"
                 )
 
             acc_binary = acc.binary_blob() or b""
@@ -83,6 +122,8 @@ def bake_accessories(
             image_offset = len(base.images or [])
             texture_offset = len(base.textures or [])
             sampler_offset = len(base.samplers or [])
+            while len(binary) % 4:
+                binary.append(0)
             binary_offset = len(binary)
 
             # Buffer views and accessors.
