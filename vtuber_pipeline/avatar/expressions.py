@@ -668,54 +668,62 @@ def generate_emotion_morphs(
 
 def validate_expressions(
     shape_keys: Dict[str, Any],
-    output_dir: str
+    output_dir: str,
 ) -> Dict[str, Any]:
-    """Validate that all required expressions are present.
-    
-    Checks:
-    1. Each required expression is present
-    2. No mesh inversion when expression is applied (stub)
-    3. No self-intersection when expression is applied (stub)
-    
-    Args:
-        shape_keys: Dictionary mapping expression names to morph data.
-        output_dir: Directory to write expression_report.json.
-        
-    Returns:
-        Dictionary with validation results.
-    """
+    """Validate required morph contracts without fabricating geometry checks."""
     result = {
         "status": "pending",
         "required_expressions": REQUIRED_EXPRESSIONS,
         "present_expressions": [],
         "missing_expressions": [],
-        "validation": {}
+        "invalid_expressions": [],
+        "validation": {},
     }
-    
-    # Check each required expression
-    for expr in REQUIRED_EXPRESSIONS:
-        if expr in shape_keys:
-            result["present_expressions"].append(expr)
-            result["validation"][expr] = {"present": True}
-        else:
-            result["missing_expressions"].append(expr)
-            result["validation"][expr] = {"present": False}
-    
-    # Stub inversion/intersection checks
-    for expr in result["present_expressions"]:
-        result["validation"][expr]["inversion"] = False  # No inversion
-        result["validation"][expr]["intersection"] = False  # No intersection
-    
-    # Overall pass/fail
-    result["all_present"] = len(result["missing_expressions"]) == 0
-    result["pass"] = result["all_present"]
-    result["status"] = "complete"
-    
-    # Write report
-    _write_expression_report(output_dir, result)
-    
-    return result
 
+    for expr in REQUIRED_EXPRESSIONS:
+        item = shape_keys.get(expr)
+        if item is None:
+            result["missing_expressions"].append(expr)
+            result["validation"][expr] = {"present": False, "valid_morph": False}
+            continue
+
+        result["present_expressions"].append(expr)
+        morphs = item.get("morph_targets", []) if isinstance(item, dict) else item
+        valid = isinstance(morphs, list) and len(morphs) > 0
+        if valid:
+            for morph in morphs:
+                if not isinstance(morph, (list, tuple)) or len(morph) != 2:
+                    valid = False
+                    break
+                vertex_index, delta = morph
+                if not isinstance(vertex_index, (int, np.integer)) or int(vertex_index) < 0:
+                    valid = False
+                    break
+                if not isinstance(delta, (list, tuple, np.ndarray)) or len(delta) != 3:
+                    valid = False
+                    break
+                try:
+                    delta_arr = np.asarray(delta, dtype=float)
+                    if not np.all(np.isfinite(delta_arr)) or np.linalg.norm(delta_arr) <= 0.0:
+                        valid = False
+                        break
+                except Exception:
+                    valid = False
+                    break
+
+        if not valid:
+            result["invalid_expressions"].append(expr)
+        result["validation"][expr] = {
+            "present": True,
+            "valid_morph": bool(valid),
+            "morph_count": len(morphs) if isinstance(morphs, list) else 0,
+        }
+
+    result["all_present"] = not result["missing_expressions"]
+    result["pass"] = result["all_present"] and not result["invalid_expressions"]
+    result["status"] = "complete" if result["pass"] else "error"
+    _write_expression_report(output_dir, result)
+    return result
 
 def generate_expressions(
     mesh_path: str,
