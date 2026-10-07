@@ -15,16 +15,27 @@ concurrency:
 
 jobs:
   wiring:
-    name: Pipeline wiring
+    name: Module graph and pipeline wiring
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install --disable-pip-version-check pytest
-      - run: python -m pytest -q tests/integration/test_pipeline_wiring_static.py
+      - run: python -m pip install --disable-pip-version-check -U pip
+      - name: Install CPU wiring dependencies
+        run: >-
+          python -m pip install --disable-pip-version-check
+          pytest numpy scipy pyyaml pillow trimesh click pygltflib==1.16.5
+      - run: python -m pip install --disable-pip-version-check -e . --no-deps
+      - name: Compile every Python module
+        run: python -m compileall -q vtuber_pipeline tools
+      - name: Verify imports, exports, DAGs, and runtime handoffs
+        run: >-
+          python -m pytest -q
+          tests/integration/test_pipeline_wiring_static.py
+          tests/integration/test_module_graph_runtime.py
 
   unit:
     name: Unit / Python ${{ matrix.python-version }}
