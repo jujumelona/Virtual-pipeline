@@ -76,32 +76,33 @@ Python 3.12 이상이 필요합니다.
 
 ## Google Colab
 
-위 **Open In Colab** 버튼으로 노트북을 열고 코드 셀 하나만 실행하면 UI가 바로 표시됩니다.
+위 **Open In Colab** 버튼으로 열고 코드 셀 하나만 실행하면 **VTuber Builder 웹 UI가 계속 열린 상태로 유지**됩니다.
 
-UI에서 할 수 있는 작업:
+노트북은 자체 UI를 들고 있지 않습니다. 실행할 때마다 최신 `origin/main`을 받은 뒤 현재 main의 `tools/colab_app.py`를 실행합니다. 따라서 예전 Colab 사본을 열어도 실제 UI와 pipeline 코드는 최신 main 기준으로 올라옵니다.
 
-- **Avatar 만들기 / Accessory 붙이기** 모드 선택
-- 캐릭터 이미지 업로드
-- 상업 이용 범위 선택
-- Base VRM 업로드 또는 방금 만든 Avatar VRM 재사용
-- 악세사리 이미지 여러 장 업로드
-- 악세사리별 부착 위치 선택
-- 실행
-- 진행 로그 확인
+UI는 처음부터 두 작업으로 명확하게 분리됩니다.
+
+### ① 캐릭터 / 얼굴 만들기
+
+- 캐릭터 이미지 1장 업로드
+- 출력 사용 범위 선택
+- 얼굴/머리/상체 fitting
+- blink / viseme / emotion morph
+- eye-bone look-at
+- hair SpringBone
+- **캐릭터 VRM 생성**
 - 결과 VRM 다운로드
 
-설치와 최신 코드 동기화는 UI의 **실행 버튼을 처음 누를 때 자동으로 수행**합니다.
+### ② 악세사리 만들기
 
-```text
-UI 즉시 표시
-→ 실행 클릭
-→ public Virtual-pipeline 최신 origin/main clone/fetch
-→ pinned TripoSR checkout
-→ 최신 main editable install
-→ Avatar 또는 Accessory pipeline 실행
-→ VRM 다운로드
-```
+- 방금 만든 캐릭터 VRM 재사용 또는 기존 VRM 업로드
+- 악세사리 슬롯 최대 8개
+- 슬롯마다 이미지와 부착 위치를 **독립적으로 선택**
+- 각 악세사리 3D 재구성 / fitting / collision / bone parenting
+- **악세사리 적용**
+- 결과 VRM 다운로드
 
+Colab UI는 `ipywidgets`가 아니라 Gradio 웹 UI를 사용합니다. 노트북 bootstrap은 Colab에서 동작이 확인된 `gradio==6.3.0`을 고정하고, UI server를 blocking mode로 실행하므로 셀이 끝나면서 UI가 사라지는 구조가 아닙니다.
 
 ## CLI
 
