@@ -112,3 +112,17 @@ def test_colab_accessory_chain_feeds_each_output_into_next_input():
 def test_colab_gpu_queue_is_serialized():
     source = _source("tools/colab_app.py")
     assert "demo.queue(default_concurrency_limit=1)" in source
+
+
+def test_colab_avatar_ui_options_reach_avatar_config():
+    source = _source("tools/colab_app.py")
+    assert '"profile": "commercial"' in source
+    assert '"commercial_usage": commercial_usage' in source
+
+
+def test_colab_accessory_ui_options_reach_reconstruction_and_build():
+    source = _source("tools/colab_app.py")
+    assert 'profile="commercial"' in source
+    assert '"anchor_name": anchor' in source
+    assert '"custom_anchor": slot.get("custom_anchor")' in source
+    assert '"bake": True' in source
