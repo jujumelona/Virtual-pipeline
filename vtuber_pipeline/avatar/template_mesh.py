@@ -549,63 +549,290 @@ def get_bone_hierarchy() -> Dict[str, Any]:
     return hierarchy
 
 
+
+def _parse_makehuman_obj(base_obj_path: str):
+    """Parse MakeHuman base.obj and return body-only geometry plus joint centroids."""
+    path = pathlib.Path(base_obj_path)
+    raw_vertices: List[List[float]] = []
+    body_faces: List[List[int]] = []
+    joint_refs: Dict[str, set] = {}
+    current_group: Optional[str] = None
+
+    with path.open("r", encoding="utf-8", errors="strict") as handle:
+        for line in handle:
+            if line.startswith("v "):
+                parts = line.strip().split()
+                if len(parts) < 4:
+                    raise ValueError("Malformed vertex line in MakeHuman base.obj")
+                raw_vertices.append([float(parts[1]), float(parts[2]), float(parts[3])])
+                continue
+
+            if line.startswith("g "):
+                current_group = line[2:].strip()
+                continue
+
+            if not line.startswith("f "):
+                continue
+
+            face: List[int] = []
+            for token in line.strip().split()[1:]:
+                raw = token.split("/", 1)[0]
+                if not raw:
+                    raise ValueError("Malformed face index in MakeHuman base.obj")
+                parsed = int(raw)
+                index = parsed - 1 if parsed > 0 else len(raw_vertices) + parsed
+                if index < 0 or index >= len(raw_vertices):
+                    raise ValueError("OBJ face index is out of range")
+                face.append(index)
+
+            if current_group == "body":
+                if len(face) < 3:
+                    continue
+                for i in range(1, len(face) - 1):
+                    body_faces.append([face[0], face[i], face[i + 1]])
+            elif current_group and current_group.startswith("joint-"):
+                joint_refs.setdefault(current_group, set()).update(face)
+
+    if not raw_vertices or not body_faces:
+        raise ValueError("MakeHuman base.obj does not contain usable body geometry")
+
+    raw = np.asarray(raw_vertices, dtype=np.float64)
+    used = sorted({index for face in body_faces for index in face})
+    remap = {old: new for new, old in enumerate(used)}
+    body_vertices = raw[np.asarray(used, dtype=int)]
+    compact_faces = np.asarray(
+        [[remap[index] for index in face] for face in body_faces],
+        dtype=np.int64,
+    )
+
+    joint_centroids: Dict[str, np.ndarray] = {}
+    for name, refs in joint_refs.items():
+        indices = sorted(refs)
+        if indices:
+            joint_centroids[name] = raw[np.asarray(indices, dtype=int)].mean(axis=0)
+
+    return body_vertices, compact_faces, joint_centroids
+
+
+def _rotation_from_to(source: np.ndarray, target: np.ndarray) -> np.ndarray:
+    """Return a stable 3x3 rotation matrix mapping source direction to target."""
+    source = np.asarray(source, dtype=float)
+    target = np.asarray(target, dtype=float)
+    source_norm = np.linalg.norm(source)
+    target_norm = np.linalg.norm(target)
+    if source_norm <= 1e-10 or target_norm <= 1e-10:
+        raise ValueError("Cannot align a zero-length limb segment")
+
+    a = source / source_norm
+    b = target / target_norm
+    cross = np.cross(a, b)
+    dot = float(np.clip(np.dot(a, b), -1.0, 1.0))
+    cross_norm = float(np.linalg.norm(cross))
+
+    if cross_norm <= 1e-10:
+        if dot > 0.0:
+            return np.eye(3)
+        axis = np.array([1.0, 0.0, 0.0])
+        if abs(a[0]) > 0.9:
+            axis = np.array([0.0, 1.0, 0.0])
+        axis = axis - a * np.dot(axis, a)
+        axis /= np.linalg.norm(axis)
+        return 2.0 * np.outer(axis, axis) - np.eye(3)
+
+    k = cross / cross_norm
+    K = np.array([
+        [0.0, -k[2], k[1]],
+        [k[2], 0.0, -k[0]],
+        [-k[1], k[0], 0.0],
+    ])
+    angle = np.arctan2(cross_norm, dot)
+    return np.eye(3) + np.sin(angle) * K + (1.0 - np.cos(angle)) * (K @ K)
+
+
+def _point_segment_projection(points: np.ndarray, start: np.ndarray, end: np.ndarray):
+    """Return clipped segment parameter and distance for each point."""
+    points = np.asarray(points, dtype=float)
+    start = np.asarray(start, dtype=float)
+    end = np.asarray(end, dtype=float)
+    vec = end - start
+    length_sq = float(np.dot(vec, vec))
+    if length_sq <= 1e-12:
+        t = np.zeros(len(points), dtype=float)
+        return t, np.linalg.norm(points - start, axis=1)
+    t = ((points - start) @ vec) / length_sq
+    clipped = np.clip(t, 0.0, 1.0)
+    nearest = start + clipped[:, None] * vec
+    return clipped, np.linalg.norm(points - nearest, axis=1)
+
+
+def _smoothstep01(values: np.ndarray) -> np.ndarray:
+    values = np.clip(values, 0.0, 1.0)
+    return values * values * (3.0 - 2.0 * values)
+
+
+def _normalize_makehuman_arms_to_t_pose(
+    vertices: np.ndarray,
+    joint_centroids: Dict[str, np.ndarray],
+) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """Straighten MakeHuman lowered arms into a VRM-compatible T-pose."""
+    out = np.asarray(vertices, dtype=float).copy()
+    report: Dict[str, Any] = {"sides": {}}
+
+    for side, sign in (("l", 1.0), ("r", -1.0)):
+        shoulder = joint_centroids.get(f"joint-{side}-shoulder")
+        elbow = joint_centroids.get(f"joint-{side}-elbow")
+        hand = joint_centroids.get(f"joint-{side}-hand")
+        if shoulder is None or elbow is None or hand is None:
+            raise ValueError(f"Missing MakeHuman arm joint helpers for side {side}")
+
+        upper = elbow - shoulder
+        lower = hand - elbow
+        upper_len = float(np.linalg.norm(upper))
+        lower_len = float(np.linalg.norm(lower))
+        target_elbow = shoulder + np.array([sign * upper_len, 0.0, 0.0])
+        target_hand = target_elbow + np.array([sign * lower_len, 0.0, 0.0])
+
+        r_upper = _rotation_from_to(upper, target_elbow - shoulder)
+        r_lower = _rotation_from_to(lower, target_hand - target_elbow)
+
+        current = out.copy()
+        t_upper, d_upper = _point_segment_projection(current, shoulder, elbow)
+        t_lower, d_lower = _point_segment_projection(current, elbow, hand)
+
+        side_coord = sign * current[:, 0]
+        shoulder_coord = sign * float(shoulder[0])
+        elbow_coord = sign * float(elbow[0])
+
+        upper_radius = max(0.34 * upper_len, 0.35)
+        lower_radius = max(0.40 * lower_len, 0.40)
+
+        upper_mask = (
+            (side_coord >= shoulder_coord * 0.78)
+            & (d_upper <= upper_radius)
+            & (side_coord <= elbow_coord + upper_radius)
+        )
+        lower_mask = (
+            (side_coord >= elbow_coord - lower_radius * 0.55)
+            & (
+                (d_lower <= lower_radius)
+                | (side_coord >= elbow_coord + lower_radius * 0.25)
+            )
+        )
+
+        upper_transformed = shoulder + ((current - shoulder) @ r_upper.T)
+        lower_transformed = target_elbow + ((current - elbow) @ r_lower.T)
+
+        shoulder_blend = _smoothstep01(t_upper / 0.28)
+        out[upper_mask] = (
+            current[upper_mask] * (1.0 - shoulder_blend[upper_mask, None])
+            + upper_transformed[upper_mask] * shoulder_blend[upper_mask, None]
+        )
+
+        elbow_blend = _smoothstep01(t_lower / 0.24)
+        if np.any(lower_mask):
+            upper_for_lower = upper_transformed[lower_mask]
+            lower_for_lower = lower_transformed[lower_mask]
+            blend = elbow_blend[lower_mask, None]
+            out[lower_mask] = upper_for_lower * (1.0 - blend) + lower_for_lower * blend
+
+        report["sides"][side] = {
+            "shoulder": shoulder.tolist(),
+            "elbow_before": elbow.tolist(),
+            "hand_before": hand.tolist(),
+            "elbow_after": target_elbow.tolist(),
+            "hand_after": target_hand.tolist(),
+            "upper_vertices": int(np.count_nonzero(upper_mask)),
+            "lower_vertices": int(np.count_nonzero(lower_mask)),
+        }
+
+    return out, report
+
+
+
 def create_canonical_template_from_makehuman(base_obj_path: str, output_path: str) -> Dict[str, Any]:
-    """
-    MakeHuman CC0 base mesh에서 VTuber canonical template을 생성합니다.
-    
-    Steps:
-    1. trimesh으로 base.obj 로드
-    2. 애니메이션 비율 스케일링 (머리 1.2x 확대)
-    3. template.glb로 저장
-    
-    Args:
-        base_obj_path: MakeHuman base.obj 파일 경로
-        output_path: 출력 GLB 파일 경로
-        
-    Returns:
-        생성 결과 딕셔너리
+    """Create the production canonical VTuber mesh from pinned MakeHuman CC0 body.
+
+    Only the upstream body group is exported. Joint/helper groups are used
+    solely as anatomical landmarks. Arms are normalized into a VRM-compatible
+    T-pose while topology and vertex ordering remain fixed.
     """
     if not TRIMESH_AVAILABLE:
         return {"status": "error", "error": "trimesh not available"}
-    
+
     try:
-        mesh = trimesh.load(base_obj_path)
-        if isinstance(mesh, trimesh.Scene):
-            mesh = trimesh.util.concatenate(list(mesh.geometry.values()))
-        
-        # 애니메 비율: 머리 부분 1.2배 확대
-        vertices = np.array(mesh.vertices)
-        bounds_min = vertices.min(axis=0)
-        bounds_max = vertices.max(axis=0)
-        height = bounds_max[1] - bounds_min[1]
-        
-        # 머리는 상위 25% 영역으로 정의
-        head_y_threshold = bounds_max[1] - 0.25 * height
-        head_mask = vertices[:, 1] > head_y_threshold
-        head_center = np.array([0.0, bounds_max[1], 0.0])
-        
-        # 머리 버텍스를 머리 중심 기준으로 1.2배 스케일
-        for i in range(len(vertices)):
-            if head_mask[i]:
-                offset = vertices[i] - head_center
-                vertices[i] = head_center + offset * 1.2
-        
-        mesh.vertices = vertices
-        
-        output_path_obj = pathlib.Path(output_path)
-        output_path_obj.parent.mkdir(parents=True, exist_ok=True)
-        mesh.export(str(output_path_obj))
-        
+        body_vertices, body_faces, joints = _parse_makehuman_obj(base_obj_path)
+        tpose_vertices, tpose_report = _normalize_makehuman_arms_to_t_pose(
+            body_vertices,
+            joints,
+        )
+
+        bounds_min = tpose_vertices.min(axis=0)
+        bounds_max = tpose_vertices.max(axis=0)
+        height = float(bounds_max[1] - bounds_min[1])
+        if height <= 1e-8:
+            raise ValueError("MakeHuman body has zero height")
+
+        # Enlarge only the cranial region; preserve neck/shoulder rest pose.
+        head_threshold = bounds_min[1] + 0.84 * height
+        head_mask = tpose_vertices[:, 1] >= head_threshold
+        if np.count_nonzero(head_mask) < 32:
+            raise ValueError("Unable to isolate MakeHuman cranial region")
+
+        head_center = tpose_vertices[head_mask].mean(axis=0)
+        adjusted = tpose_vertices.copy()
+        head_scale = np.array([1.12, 1.08, 1.10], dtype=float)
+        adjusted[head_mask] = (
+            head_center
+            + (adjusted[head_mask] - head_center) * head_scale
+        )
+
+        pmin = adjusted.min(axis=0)
+        pmax = adjusted.max(axis=0)
+        source_height = float(pmax[1] - pmin[1])
+        target_height_m = 1.65
+        scale_to_m = target_height_m / source_height
+        adjusted *= scale_to_m
+
+        pmin = adjusted.min(axis=0)
+        pmax = adjusted.max(axis=0)
+        adjusted[:, 0] -= float((pmin[0] + pmax[0]) * 0.5)
+        adjusted[:, 1] -= float(pmin[1])
+        adjusted[:, 2] -= float((pmin[2] + pmax[2]) * 0.5)
+
+        mesh = trimesh.Trimesh(
+            vertices=adjusted,
+            faces=body_faces,
+            process=False,
+            validate=False,
+        )
+        if len(mesh.vertices) == 0 or len(mesh.faces) == 0:
+            raise ValueError("Canonical body mesh is empty")
+
+        output = pathlib.Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        mesh.export(str(output))
+        if not output.is_file() or output.stat().st_size == 0:
+            raise RuntimeError("Canonical template export produced no file")
+
+        check = trimesh.load(str(output), process=False)
+        if isinstance(check, trimesh.Scene):
+            geometries = list(check.geometry.values())
+            if not geometries:
+                raise RuntimeError("Canonical template GLB contains no geometry")
+        elif len(check.vertices) == 0:
+            raise RuntimeError("Canonical template GLB contains no vertices")
+
         return {
             "status": "complete",
-            "output_path": str(output_path_obj),
-            "source": "makehuman_cc0",
-            "vertex_count": len(mesh.vertices),
-            "face_count": len(mesh.faces)
+            "output_path": str(output),
+            "source": "makehuman_cc0_body_only",
+            "vertex_count": int(len(mesh.vertices)),
+            "face_count": int(len(mesh.faces)),
+            "target_height_m": target_height_m,
+            "t_pose": tpose_report,
         }
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
-
+    except Exception as exc:
+        return {"status": "error", "error": str(exc)}
 
 
 MAKEHUMAN_CC0_COMMIT = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
