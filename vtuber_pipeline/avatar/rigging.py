@@ -55,32 +55,32 @@ def create_humanoid_skeleton(mesh_bounds: np.ndarray) -> Dict[str, Any]:
         ("head", 4, np.array([center_x, base_y + height * 0.85, center_z])),
         
         # 눈 (머리 앞쪽)
-        ("leftEye", 5, np.array([center_x - height * 0.03, base_y + height * 0.88, center_z + height * 0.05])),
-        ("rightEye", 5, np.array([center_x + height * 0.03, base_y + height * 0.88, center_z + height * 0.05])),
+        ("leftEye", 5, np.array([center_x + height * 0.03, base_y + height * 0.88, center_z + height * 0.05])),
+        ("rightEye", 5, np.array([center_x - height * 0.03, base_y + height * 0.88, center_z + height * 0.05])),
         
         # 왼쪽 팔
-        ("leftShoulder", 3, np.array([center_x - height * 0.08, base_y + height * 0.72, center_z])),
-        ("leftUpperArm", 8, np.array([center_x - height * 0.12, base_y + height * 0.70, center_z])),
-        ("leftLowerArm", 9, np.array([center_x - height * 0.16, base_y + height * 0.60, center_z])),
-        ("leftHand", 10, np.array([center_x - height * 0.18, base_y + height * 0.50, center_z])),
+        ("leftShoulder", 3, np.array([center_x + height * 0.08, base_y + height * 0.72, center_z])),
+        ("leftUpperArm", 8, np.array([center_x + height * 0.12, base_y + height * 0.70, center_z])),
+        ("leftLowerArm", 9, np.array([center_x + height * 0.16, base_y + height * 0.60, center_z])),
+        ("leftHand", 10, np.array([center_x + height * 0.18, base_y + height * 0.50, center_z])),
         
         # 오른쪽 팔
-        ("rightShoulder", 3, np.array([center_x + height * 0.08, base_y + height * 0.72, center_z])),
-        ("rightUpperArm", 12, np.array([center_x + height * 0.12, base_y + height * 0.70, center_z])),
-        ("rightLowerArm", 13, np.array([center_x + height * 0.16, base_y + height * 0.60, center_z])),
-        ("rightHand", 14, np.array([center_x + height * 0.18, base_y + height * 0.50, center_z])),
+        ("rightShoulder", 3, np.array([center_x - height * 0.08, base_y + height * 0.72, center_z])),
+        ("rightUpperArm", 12, np.array([center_x - height * 0.12, base_y + height * 0.70, center_z])),
+        ("rightLowerArm", 13, np.array([center_x - height * 0.16, base_y + height * 0.60, center_z])),
+        ("rightHand", 14, np.array([center_x - height * 0.18, base_y + height * 0.50, center_z])),
         
         # 왼쪽 다리
-        ("leftUpperLeg", 0, np.array([center_x - height * 0.08, base_y + height * 0.48, center_z])),
-        ("leftLowerLeg", 16, np.array([center_x - height * 0.08, base_y + height * 0.28, center_z])),
-        ("leftFoot", 17, np.array([center_x - height * 0.08, base_y + height * 0.08, center_z])),
-        ("leftToes", 18, np.array([center_x - height * 0.08, base_y + height * 0.02, center_z + height * 0.03])),
+        ("leftUpperLeg", 0, np.array([center_x + height * 0.08, base_y + height * 0.48, center_z])),
+        ("leftLowerLeg", 16, np.array([center_x + height * 0.08, base_y + height * 0.28, center_z])),
+        ("leftFoot", 17, np.array([center_x + height * 0.08, base_y + height * 0.08, center_z])),
+        ("leftToes", 18, np.array([center_x + height * 0.08, base_y + height * 0.02, center_z + height * 0.03])),
         
         # 오른쪽 다리
-        ("rightUpperLeg", 0, np.array([center_x + height * 0.08, base_y + height * 0.48, center_z])),
-        ("rightLowerLeg", 20, np.array([center_x + height * 0.08, base_y + height * 0.28, center_z])),
-        ("rightFoot", 21, np.array([center_x + height * 0.08, base_y + height * 0.08, center_z])),
-        ("rightToes", 22, np.array([center_x + height * 0.08, base_y + height * 0.02, center_z + height * 0.03])),
+        ("rightUpperLeg", 0, np.array([center_x - height * 0.08, base_y + height * 0.48, center_z])),
+        ("rightLowerLeg", 20, np.array([center_x - height * 0.08, base_y + height * 0.28, center_z])),
+        ("rightFoot", 21, np.array([center_x - height * 0.08, base_y + height * 0.08, center_z])),
+        ("rightToes", 22, np.array([center_x - height * 0.08, base_y + height * 0.02, center_z + height * 0.03])),
         
         # Secondary chain used by VRMC_springBone.  The chain sits behind the
         # upper head so only back/top vertices can be weighted to it.
