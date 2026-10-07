@@ -6,7 +6,7 @@ masking.
 """
 
 import pathlib
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any
 from enum import Enum
 
 
@@ -400,79 +400,6 @@ def project_image_to_mesh(
         result["status"] = "error"
     
     return result
-
-
-def generate_face_texture(
-    image_path: str,
-    landmarks: List[List[float]],
-    output_path: str
-) -> str:
-    """Extract and process face region from image.
-    
-    Applies priority masking for eyes, eyebrows, mouth, and skin.
-    
-    Args:
-        image_path: Path to the source image.
-        landmarks: 2D landmark points for face region.
-        output_path: Path to save the face texture.
-        
-    Returns:
-        Path to the generated face texture.
-    """
-    try:
-        from PIL import Image
-        
-        # Load and process image
-        img = Image.open(image_path)
-        
-        # Stub: just save a placeholder
-        # In actual implementation:
-        # 1. Compute face bounding box from landmarks
-        # 2. Extract face region
-        # 3. Apply priority masks for each region
-        # 4. Blend and save
-        
-        placeholder = Image.new('RGBA', (512, 512), (255, 255, 255, 255))
-        placeholder.save(output_path)
-        
-        return output_path
-        
-    except ImportError:
-        raise ImportError("PIL is required for texture generation")
-
-
-def generate_body_texture(
-    triposr_texture: Optional[str],
-    canonical_fallback: Optional[str],
-    output_path: str
-) -> str:
-    """Generate body texture from TripoSR output with canonical fill.
-    
-    Args:
-        triposr_texture: Path to TripoSR texture (may have gaps).
-        canonical_fallback: Path to canonical fallback texture.
-        output_path: Path to save the body texture.
-        
-    Returns:
-        Path to the generated body texture.
-    """
-    try:
-        from PIL import Image
-        
-        # Stub: create placeholder
-        # In actual implementation:
-        # 1. Load TripoSR texture
-        # 2. Load canonical fallback
-        # 3. Combine with priority for TripoSR
-        # 4. Apply symmetry for missing regions
-        
-        placeholder = Image.new('RGBA', (1024, 1024), (255, 255, 255, 255))
-        placeholder.save(output_path)
-        
-        return output_path
-        
-    except ImportError:
-        raise ImportError("PIL is required for texture generation")
 
 
 def _write_texture_report(output_dir: str, result: Dict[str, Any]) -> None:
