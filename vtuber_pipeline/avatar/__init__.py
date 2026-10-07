@@ -9,7 +9,7 @@ from vtuber_pipeline.avatar.rigging import rig_avatar
 from vtuber_pipeline.avatar.expressions import generate_expressions, validate_expressions, REQUIRED_EXPRESSIONS
 from vtuber_pipeline.avatar.gaze import configure_gaze, GazeConfig
 from vtuber_pipeline.avatar.springbone import generate_springbone_config, SPRING_BONE_PRESETS
-from vtuber_pipeline.avatar.vrm_export import export_vrm, validate_for_vrm
+from vtuber_pipeline.avatar.vrm_export import export_vrm
 from vtuber_pipeline.avatar.validator import validate_vrm, VRMValidator
 from vtuber_pipeline.avatar.build import AvatarPipeline, build_avatar
 
