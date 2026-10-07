@@ -14,7 +14,7 @@ class AvatarPipeline:
     expressions → gaze → SpringBone → VRM export → strict validation.
     """
 
-    CACHE_SCHEMA = "avatar-pipeline-v3"
+    CACHE_SCHEMA = "avatar-pipeline-v4"
 
     def __init__(self, output_dir: str, config: Optional[Dict[str, Any]] = None):
         self.output_dir = pathlib.Path(output_dir)
@@ -76,13 +76,29 @@ class AvatarPipeline:
         result.setdefault("stage_name", name)
         result["stage_key"] = key
 
-        # Normalize one artifact field for cache integrity checks.
-        if not result.get("output_path"):
-            for artifact_key in ("vrm_path", "rigged_mesh", "fitted_mesh", "texture_png", "mesh_path"):
-                artifact = result.get(artifact_key)
-                if artifact:
-                    result["output_path"] = artifact
-                    break
+        # Normalize artifact paths for strict resume integrity checks.
+        artifact_keys = (
+            "output_path",
+            "vrm_path",
+            "rigged_mesh",
+            "fitted_mesh",
+            "texture_png",
+            "uv_path",
+            "mesh_path",
+            "fit_npz",
+            "face_png",
+            "body_png",
+        )
+        artifacts = []
+        for artifact_key in artifact_keys:
+            artifact = result.get(artifact_key)
+            if isinstance(artifact, str) and artifact:
+                if artifact not in artifacts:
+                    artifacts.append(artifact)
+
+        if not result.get("output_path") and artifacts:
+            result["output_path"] = artifacts[0]
+        result["artifact_paths"] = artifacts
         self.manifest.record_stage(key, result)
         return result
 
