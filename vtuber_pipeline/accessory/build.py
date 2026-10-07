@@ -4,6 +4,7 @@ This module provides the AccessoryPipeline class for orchestrating the
 complete accessory processing pipeline.
 """
 
+import math
 import pathlib
 from typing import Dict, Any, Optional, List
 
@@ -48,9 +49,103 @@ class AccessoryPipeline:
         Returns:
             Summary dictionary with all stage results.
         """
-        output_dir = output_dir or str(self.output_dir)
+        if output_dir is not None:
+            requested = pathlib.Path(output_dir).expanduser().resolve()
+            bound = self.output_dir.expanduser().resolve()
+            if requested != bound:
+                return {
+                    "status": "failed",
+                    "base_vrm": base_vrm,
+                    "accessory_glb": accessory_glb,
+                    "output_dir": str(bound),
+                    "stages": {},
+                    "failed_stages": ["orchestrator"],
+                    "failed_reason": (
+                        "AccessoryPipeline is bound to one output directory; "
+                        f"requested={requested}, bound={bound}"
+                    ),
+                }
+
+        output_dir = str(self.output_dir)
+
+        def config_failure(reason: str) -> Dict[str, Any]:
+            return {
+                "status": "failed",
+                "base_vrm": base_vrm,
+                "accessory_glb": accessory_glb,
+                "output_dir": output_dir,
+                "stages": {},
+                "failed_stages": ["orchestrator"],
+                "failed_reason": reason,
+            }
+
+        if not isinstance(self.config, dict):
+            return config_failure("AccessoryPipeline config must be an object")
+        if config is not None and not isinstance(config, dict):
+            return config_failure("build config override must be an object")
+
         config = {**self.config, **(config or {})}
-        
+        allowed_config = {
+            "anchor_name",
+            "custom_anchor",
+            "bake",
+            "physics",
+            "collision",
+        }
+        unknown_config = sorted(set(config) - allowed_config)
+        if unknown_config:
+            return config_failure(
+                f"Unknown accessory config keys: {unknown_config}"
+            )
+
+        anchor_name = config.get("anchor_name", "HEAD_TOP")
+        if not isinstance(anchor_name, str):
+            return config_failure("anchor_name must be a string")
+
+        bake_enabled = config.get("bake", False)
+        if not isinstance(bake_enabled, bool):
+            return config_failure("bake must be boolean")
+
+        physics_raw = config.get("physics", {})
+        if physics_raw is None:
+            physics_cfg = {}
+        elif isinstance(physics_raw, dict):
+            physics_cfg = physics_raw
+        else:
+            return config_failure("physics config must be an object")
+        unknown_physics = sorted(set(physics_cfg) - {"enabled"})
+        if unknown_physics:
+            return config_failure(
+                f"Unknown physics config keys: {unknown_physics}"
+            )
+        physics_enabled = physics_cfg.get("enabled", False)
+        if not isinstance(physics_enabled, bool):
+            return config_failure("physics.enabled must be boolean")
+
+        collision_raw = config.get("collision", {})
+        if collision_raw is None:
+            collision_cfg = {}
+        elif isinstance(collision_raw, dict):
+            collision_cfg = collision_raw
+        else:
+            return config_failure("collision config must be an object")
+        unknown_collision = sorted(set(collision_cfg) - {"clearance"})
+        if unknown_collision:
+            return config_failure(
+                f"Unknown collision config keys: {unknown_collision}"
+            )
+        clearance = collision_cfg.get("clearance", 0.003)
+        if (
+            not isinstance(clearance, (int, float))
+            or isinstance(clearance, bool)
+            or not math.isfinite(float(clearance))
+            or float(clearance) <= 0.0
+        ):
+            return config_failure(
+                "collision.clearance must be a finite positive number"
+            )
+        clearance = float(clearance)
+
         results = {
             "status": "running",
             "base_vrm": base_vrm,
@@ -64,6 +159,24 @@ class AccessoryPipeline:
         from vtuber_pipeline.accessory import collision, bake
         from vtuber_pipeline.accessory import artifacts
         from vtuber_pipeline.avatar.validator import validate_vrm
+
+        allowed_anchors = {
+            item["name"] for item in anchors.ANCHOR_POINTS
+        } | {"CUSTOM"}
+        if anchor_name not in allowed_anchors:
+            return config_failure(
+                f"Unsupported accessory anchor_name: {anchor_name!r}"
+            )
+
+        custom_anchor = config.get("custom_anchor")
+        if anchor_name == "CUSTOM" and not isinstance(custom_anchor, dict):
+            return config_failure(
+                "CUSTOM anchor requires a custom_anchor configuration"
+            )
+        if anchor_name != "CUSTOM" and custom_anchor is not None:
+            return config_failure(
+                "custom_anchor is only valid when anchor_name is 'CUSTOM'"
+            )
         
         # Stage 1: Normalize
         normalized_path = str(pathlib.Path(output_dir) / "normalized.glb")
@@ -76,16 +189,6 @@ class AccessoryPipeline:
             return results
         
         # Stage 2: Anchors
-        anchor_name = str(config.get("anchor_name", "HEAD_TOP"))
-        custom_anchor = config.get("custom_anchor")
-        if anchor_name == "CUSTOM" and not isinstance(custom_anchor, dict):
-            results["status"] = "failed"
-            results["failed_stages"] = ["anchors"]
-            results["failed_reason"] = (
-                "CUSTOM anchor requires a custom_anchor configuration"
-            )
-            return results
-
         results["stages"]["anchors"] = anchors.generate_anchor_manifest(
             base_vrm,
             output_dir,
@@ -114,6 +217,7 @@ class AccessoryPipeline:
             fitted_path,
             base_vrm,
             world_transform=fit_result.get("world_transform"),
+            clearance=clearance,
         )
         collision_result = results["stages"]["collision"]
         if collision_result.get("status") != "complete":
@@ -148,8 +252,7 @@ class AccessoryPipeline:
                 base_translation + local_push
             ).astype(float).tolist()
         
-        physics_cfg = config.get("physics") or {}
-        if bool(physics_cfg.get("enabled")):
+        if physics_enabled:
             results["status"] = "failed"
             results["failed_stages"] = ["physics"]
             results["failed_reason"] = (
@@ -197,7 +300,7 @@ class AccessoryPipeline:
         results["attachment_json"] = results["stages"]["attachment"]["output_path"]
         results["preview_png"] = results["stages"]["preview"]["output_path"]
 
-        if not bool(config.get("bake", False)):
+        if not bake_enabled:
             results["status"] = "complete"
             results["mode"] = "prepared"
             return results
