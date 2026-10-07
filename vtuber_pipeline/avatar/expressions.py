@@ -12,24 +12,22 @@ import trimesh
 
 
 def load_vertex_groups(landmarks_path: Optional[str] = None) -> Dict[str, List[int]]:
-    """landmarks.json에서 vertex_groups를 로드합니다.
-    
-    Args:
-        landmarks_path: landmarks.json 파일 경로 (기본값: assets/canonical_vtuber/landmarks.json)
-        
-    Returns:
-        뼈 이름 -> 버텍스 인덱스 리스트 딕셔너리
+    """Load an explicitly supplied topology-specific vertex-group map.
+
+    Production does not silently load the repository legacy index map because
+    the canonical MakeHuman-derived topology can differ from that historical
+    procedural template. When no explicit map is supplied, groups are derived
+    directly from the current mesh geometry.
     """
     if landmarks_path is None:
-        landmarks_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "landmarks.json"
-    else:
-        landmarks_path = pathlib.Path(landmarks_path)
-    
+        return {}
+    path = pathlib.Path(landmarks_path)
     try:
-        with open(landmarks_path) as f:
-            data = json.load(f)
-        return data.get("vertex_groups", {})
-    except (FileNotFoundError, json.JSONDecodeError) as e:
+        with path.open(encoding="utf-8") as handle:
+            data = json.load(handle)
+        groups = data.get("vertex_groups", {})
+        return groups if isinstance(groups, dict) else {}
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
         return {}
 
 
@@ -109,6 +107,96 @@ def _load_mesh_vertices(mesh_path: str) -> Tuple[np.ndarray, Dict[str, Any]]:
     
     return vertices, bounds
 
+
+def derive_expression_vertex_groups(
+    vertices: np.ndarray,
+    bounds: Dict[str, Any],
+) -> Dict[str, List[int]]:
+    """Derive facial semantic groups from the current fitted/rigged mesh.
+
+    The selector is topology-agnostic: it first isolates the upper-body head
+    region, infers the forward Z direction from head depth asymmetry, then
+    selects front-surface vertices nearest normalized eye, brow and mouth
+    targets. This avoids carrying vertex indices across unrelated topologies.
+    """
+    vertices = np.asarray(vertices, dtype=float)
+    if len(vertices) < 32:
+        raise ValueError("mesh has too few vertices for facial regions")
+
+    pmin = np.asarray(bounds["min"], dtype=float)
+    pmax = np.asarray(bounds["max"], dtype=float)
+    height = max(float(pmax[1] - pmin[1]), 1e-8)
+    head_mask = vertices[:, 1] >= pmin[1] + 0.68 * height
+    head_idx = np.flatnonzero(head_mask)
+    if len(head_idx) < 24:
+        raise ValueError("unable to isolate a usable head region")
+    head = vertices[head_idx]
+    hmin = head.min(axis=0)
+    hmax = head.max(axis=0)
+    hcenter = (hmin + hmax) * 0.5
+    hwidth = max(float(hmax[0] - hmin[0]), 1e-8)
+    hheight = max(float(hmax[1] - hmin[1]), 1e-8)
+
+    z_center = float(np.median(head[:, 2]))
+    pos_extent = float(hmax[2] - z_center)
+    neg_extent = float(z_center - hmin[2])
+    front_sign = 1.0 if pos_extent >= neg_extent else -1.0
+    front_depth = front_sign * (head[:, 2] - z_center)
+    depth_cut = float(np.quantile(front_depth, 0.55))
+    front_local = np.flatnonzero(front_depth >= depth_cut)
+    if len(front_local) < 24:
+        front_local = np.arange(len(head))
+    front_idx = head_idx[front_local]
+    front = vertices[front_idx]
+
+    x_norm = (front[:, 0] - hcenter[0]) / (0.5 * hwidth)
+    y_norm = (front[:, 1] - hmin[1]) / hheight
+
+    def nearest(target_x: float, target_y: float, count: int) -> List[int]:
+        dist = (x_norm - target_x) ** 2 + 1.6 * (y_norm - target_y) ** 2
+        order = np.argsort(dist)[:max(1, min(count, len(front_idx)))]
+        return [int(front_idx[i]) for i in order]
+
+    def split_vertical(indices: List[int]) -> tuple[List[int], List[int]]:
+        if not indices:
+            return [], []
+        ys = vertices[indices, 1]
+        mid = float(np.median(ys))
+        upper = [int(i) for i in indices if vertices[i, 1] >= mid]
+        lower = [int(i) for i in indices if vertices[i, 1] < mid]
+        return upper or indices[:1], lower or indices[-1:]
+
+    left_eye_all = nearest(+0.32, 0.56, 18)
+    right_eye_all = nearest(-0.32, 0.56, 18)
+    upper_l, lower_l = split_vertical(left_eye_all)
+    upper_r, lower_r = split_vertical(right_eye_all)
+
+    mouth_all = nearest(0.0, 0.28, 28)
+    upper_lip, lower_lip = split_vertical(mouth_all)
+    mouth_sorted = sorted(
+        mouth_all,
+        key=lambda i: abs((vertices[i, 0] - hcenter[0]) / (0.5 * hwidth)),
+        reverse=True,
+    )
+    mouth_corners = mouth_sorted[:max(2, min(8, len(mouth_sorted)))]
+
+    left_brow = nearest(+0.32, 0.70, 14)
+    right_brow = nearest(-0.32, 0.70, 14)
+
+    groups = {
+        "upper_eyelid_L": upper_l,
+        "lower_eyelid_L": lower_l,
+        "upper_eyelid_R": upper_r,
+        "lower_eyelid_R": lower_r,
+        "upper_lip": upper_lip,
+        "lower_lip": lower_lip,
+        "mouth_corners": mouth_corners,
+        "left_eyebrow": left_brow,
+        "right_eyebrow": right_brow,
+    }
+    if any(len(values) == 0 for values in groups.values()):
+        raise ValueError("derived facial vertex group is empty")
+    return groups
 
 def _identify_eye_region_vertices(
     vertices: np.ndarray,
@@ -543,9 +631,19 @@ def generate_emotion_morphs(
     center = bounds["center"]
     n_vertices = len(vertices)
     
-    # Get region indices for eyebrows (no vertex_groups for eyebrows, use bounding-box)
-    left_brow = _identify_eyebrow_region_vertices(vertices, bounds, "left")
-    right_brow = _identify_eyebrow_region_vertices(vertices, bounds, "right")
+    # Prefer topology-specific/dynamically-derived brow groups.
+    left_brow = [
+        i for i in (vertex_groups or {}).get("left_eyebrow", [])
+        if 0 <= i < n_vertices
+    ]
+    right_brow = [
+        i for i in (vertex_groups or {}).get("right_eyebrow", [])
+        if 0 <= i < n_vertices
+    ]
+    if not left_brow:
+        left_brow = _identify_eyebrow_region_vertices(vertices, bounds, "left")
+    if not right_brow:
+        right_brow = _identify_eyebrow_region_vertices(vertices, bounds, "right")
     
     # Try to use vertex_groups for mouth
     mouth_indices = []
@@ -753,12 +851,8 @@ def generate_expressions(
         "mesh_path": mesh_path
     }
     
-    # Load vertex_groups from landmarks.json
-    vertex_groups = load_vertex_groups(landmarks_path)
-    if vertex_groups:
-        result["vertex_groups_loaded"] = list(vertex_groups.keys())
-    
-    # Load mesh and get vertices
+    # Load mesh first; production vertex groups are derived from this exact
+    # topology unless an explicit topology-specific map is supplied.
     try:
         vertices, bounds = _load_mesh_vertices(mesh_path)
         result["vertex_count"] = len(vertices)
@@ -766,6 +860,21 @@ def generate_expressions(
             "min": bounds["min"].tolist(),
             "max": bounds["max"].tolist()
         }
+        vertex_groups = load_vertex_groups(landmarks_path)
+        if vertex_groups:
+            invalid = [
+                idx
+                for values in vertex_groups.values()
+                for idx in values
+                if not isinstance(idx, int) or idx < 0 or idx >= len(vertices)
+            ]
+            if invalid:
+                raise ValueError("explicit expression vertex map does not match current topology")
+            result["vertex_group_source"] = "explicit"
+        else:
+            vertex_groups = derive_expression_vertex_groups(vertices, bounds)
+            result["vertex_group_source"] = "derived_current_mesh"
+        result["vertex_groups_loaded"] = list(vertex_groups.keys())
     except Exception as e:
         result["status"] = "error"
         result["error"] = str(e)
