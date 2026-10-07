@@ -1,7 +1,6 @@
 # VTuber Commercial Pipeline
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
-[![Notebook Source](https://img.shields.io/badge/notebook-source-blue.svg)](https://github.com/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
+[![Notebook Source](https://img.shields.io/badge/notebook-open%20source-blue.svg)](https://github.com/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
@@ -77,36 +76,41 @@ Python 3.12 이상이 필요합니다.
 
 ## Google Colab
 
-이 저장소는 **private**입니다. 위 **Open In Colab** 버튼을 처음 누를 때 Colab이 GitHub API 권한을 아직 갖고 있지 않으면 GitHub Contents API가 404를 반환할 수 있습니다.
+현재 저장소가 **private**이면 Colab의 `/github/...` URL이 GitHub Contents API에서 404를 받을 수 있으므로 README에는 깨지는 direct Colab 버튼을 두지 않습니다.
 
-처음 한 번만 다음 순서로 처리하면 됩니다.
+위 **Notebook Source** 버튼으로 최신 `main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb`를 엽니다.
 
-1. **Open In Colab** 클릭
-2. Colab 화면에서 **Authorize with GitHub / GitHub 승인 요청** 선택
-3. GitHub에서 Colab에 이 private repository 읽기 권한 허용
-4. 노트북이 열리면 Colab Secret에 `GITHUB_TOKEN` 등록
-   - Fine-grained PAT 권장
-   - 이 repository에 **Contents: Read-only**
-5. Setup 셀 실행
+### 저장소가 public인 경우
 
-노트북 Setup 셀은 매번 다음을 강제로 수행합니다.
+토큰이 전혀 필요 없습니다.
+
+노트북 Setup은 먼저 **익명 clone/fetch**를 시도하고 그대로 최신 `origin/main`을 설치합니다. 저장소를 public으로 전환하면 다음 direct Colab URL도 정상적으로 사용할 수 있습니다.
 
 ```text
-private GitHub 인증
-→ /content/Virtual-pipeline clone 또는 fetch
-→ origin/main fetch
-→ checkout -B main origin/main
-→ reset --hard origin/main
-→ local HEAD == origin/main 검증
-→ pinned TripoSR checkout
-→ 방금 받은 최신 repo를 pip install -e
-→ stale vtuber_pipeline module 제거
-→ Avatar / Accessory 실행
+https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb
 ```
 
-따라서 Colab에 저장된 노트북 사본이 조금 오래돼도 **실제로 실행되는 파이프라인 코드는 실행 시점의 최신 `main`**입니다.
+### 저장소가 private인 경우
 
-Colab의 GitHub 승인이 풀려 direct 버튼에서 다시 404가 나면 위 **Notebook Source** 버튼으로 GitHub 파일을 열어 내려받은 뒤 Colab에 업로드할 수도 있습니다. 이 경우에도 Setup 셀이 최신 main을 다시 받으므로 실행 코드는 동일합니다.
+노트북 자체를 Colab에 업로드한 뒤 실행하면 됩니다. Setup은 익명 clone을 먼저 시도하고, 그게 실패할 때만 `GITHUB_TOKEN`을 찾습니다.
+
+즉 **토큰은 private 저장소 접근 때문에만 필요하고, public이면 요청하지 않습니다.**
+
+### 사용자 UI
+
+설치가 끝난 뒤에는 코드 셀을 직접 편집할 필요 없이 하나의 UI에서 실행합니다.
+
+- **Avatar 만들기 / Accessory 붙이기** 모드 선택
+- 캐릭터 이미지 업로드
+- commercial usage 선택
+- base VRM 업로드 또는 방금 생성한 Avatar VRM 재사용
+- 악세사리 이미지 여러 장 업로드
+- 악세사리 파일별 anchor 드롭다운
+- 실행 버튼
+- 진행 로그
+- 성공 후 VRM 다운로드 버튼
+
+Setup은 매 실행마다 최신 `origin/main`으로 reset한 뒤 그 checkout을 editable install하므로, 노트북 사본이 조금 오래돼도 실제 실행 코드는 최신 main입니다.
 
 ## CLI
 
