@@ -150,9 +150,11 @@ def test_commercial_profile_reconstruction_failure_is_fail_closed(
 ):
     """Production never substitutes a canonical mesh when TripoSR fails."""
     import vtuber_pipeline.avatar.build as build_module
+    import vtuber_pipeline.avatar.input_gate as input_gate_module
+    import vtuber_pipeline.avatar.reconstruction as reconstruction_module
 
     monkeypatch.setattr(
-        build_module,
+        input_gate_module,
         "validate_input",
         lambda image_path, output_dir: {
             "status": "complete",
@@ -162,7 +164,7 @@ def test_commercial_profile_reconstruction_failure_is_fail_closed(
         },
     )
     monkeypatch.setattr(
-        build_module,
+        reconstruction_module,
         "reconstruct_avatar",
         lambda *args, **kwargs: (_ for _ in ()).throw(
             RuntimeError("synthetic TripoSR failure")
