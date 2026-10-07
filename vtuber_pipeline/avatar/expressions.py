@@ -50,63 +50,109 @@ REQUIRED_EXPRESSIONS = [
 
 
 def _load_mesh_vertices(mesh_path: str) -> Tuple[np.ndarray, Dict[str, Any]]:
-    """Load mesh and extract vertex positions.
-    
-    Args:
-        mesh_path: Path to the mesh file (GLB/GLTF/OBJ).
-        
-    Returns:
-        Tuple of (vertices array, mesh bounds info).
-    """
-    # Try pygltflib first for GLB files (handles skinned meshes better)
-    if mesh_path.lower().endswith(('.glb', '.gltf', '.vrm')):
-        try:
-            from pygltflib import GLTF2
-            gltf = GLTF2().load(mesh_path)
-            
-            # Find the first mesh with POSITION attribute
-            for mesh in gltf.meshes:
-                for primitive in mesh.primitives:
-                    if primitive.attributes.POSITION is not None:
-                        acc = gltf.accessors[primitive.attributes.POSITION]
-                        bv = gltf.bufferViews[acc.bufferView]
-                        blob = gltf.binary_blob()
-                        
-                        offset = bv.byteOffset if bv.byteOffset else 0
-                        data = blob[offset:offset + bv.byteLength]
-                        vertices = np.frombuffer(data, dtype=np.float32).reshape(-1, 3)
-                        
-                        bounds = {
-                            "min": np.array(acc.min) if acc.min else vertices.min(axis=0),
-                            "max": np.array(acc.max) if acc.max else vertices.max(axis=0),
-                            "center": vertices.mean(axis=0),
-                            "vertex_count": len(vertices)
-                        }
-                        
-                        return vertices, bounds
-        except Exception:
-            pass  # Fall through to trimesh
-    
-    # Fallback to trimesh for OBJ and other formats
-    mesh = trimesh.load(mesh_path)
-    
-    # Get vertices - handle Scene vs Mesh
+    """Load vertices without changing the source glTF vertex index order."""
+    path = pathlib.Path(mesh_path)
+    suffix = path.suffix.lower()
+
+    if suffix in {".glb", ".gltf", ".vrm"}:
+        from pygltflib import GLTF2, FLOAT
+
+        gltf = GLTF2().load(str(path))
+        blob = gltf.binary_blob()
+        if blob is None:
+            raise ValueError(
+                "Expression generation requires an embedded binary GLB/VRM"
+            )
+
+        position_accessors = []
+        for mesh in gltf.meshes or []:
+            for primitive in mesh.primitives or []:
+                accessor_index = getattr(
+                    primitive.attributes, "POSITION", None
+                )
+                if accessor_index is not None:
+                    position_accessors.append(accessor_index)
+
+        if len(position_accessors) != 1:
+            raise ValueError(
+                "Expression generation requires exactly one POSITION accessor; "
+                f"found {len(position_accessors)}"
+            )
+
+        accessor = gltf.accessors[position_accessors[0]]
+        if accessor.componentType != FLOAT or accessor.type != "VEC3":
+            raise ValueError(
+                "POSITION accessor must be FLOAT VEC3 for expression generation"
+            )
+        if accessor.sparse is not None:
+            raise ValueError(
+                "Sparse base POSITION accessors are not supported for expression generation"
+            )
+        if accessor.bufferView is None:
+            raise ValueError("POSITION accessor has no bufferView")
+
+        view = gltf.bufferViews[accessor.bufferView]
+        if view.buffer not in (0, None):
+            raise ValueError("POSITION accessor must use embedded buffer 0")
+        if view.byteStride not in (None, 12):
+            raise ValueError(
+                f"Unsupported interleaved POSITION byteStride: {view.byteStride}"
+            )
+
+        view_offset = int(view.byteOffset or 0)
+        accessor_offset = int(accessor.byteOffset or 0)
+        start_byte = view_offset + accessor_offset
+        byte_count = int(accessor.count) * 3 * 4
+        end_byte = start_byte + byte_count
+        if start_byte < 0 or end_byte > len(blob):
+            raise ValueError("POSITION accessor exceeds GLB binary buffer")
+
+        vertices = np.frombuffer(
+            blob[start_byte:end_byte],
+            dtype="<f4",
+            count=int(accessor.count) * 3,
+        ).reshape(int(accessor.count), 3).copy()
+
+        if not np.all(np.isfinite(vertices)):
+            raise ValueError("POSITION accessor contains non-finite coordinates")
+
+        bounds = {
+            "min": (
+                np.asarray(accessor.min, dtype=float)
+                if accessor.min
+                else vertices.min(axis=0)
+            ),
+            "max": (
+                np.asarray(accessor.max, dtype=float)
+                if accessor.max
+                else vertices.max(axis=0)
+            ),
+            "center": vertices.mean(axis=0),
+            "vertex_count": len(vertices),
+        }
+        return vertices, bounds
+
+    # Non-glTF fallback is only for explicit development inputs. process=False
+    # preserves the input vertex order as far as trimesh supports it.
+    mesh = trimesh.load(mesh_path, process=False)
     if isinstance(mesh, trimesh.Scene):
-        # Get the first mesh from the scene
-        mesh = list(mesh.geometry.values())[0]
-    
-    vertices = np.array(mesh.vertices)
-    
-    # Calculate bounding box info
-    bounds = {
+        geometries = list(mesh.geometry.values())
+        if len(geometries) != 1:
+            raise ValueError(
+                "Expression generation requires exactly one mesh geometry"
+            )
+        mesh = geometries[0]
+
+    vertices = np.asarray(mesh.vertices, dtype=float)
+    if len(vertices) == 0 or not np.all(np.isfinite(vertices)):
+        raise ValueError("Expression source mesh has no finite vertices")
+
+    return vertices, {
         "min": vertices.min(axis=0),
         "max": vertices.max(axis=0),
         "center": vertices.mean(axis=0),
-        "vertex_count": len(vertices)
+        "vertex_count": len(vertices),
     }
-    
-    return vertices, bounds
-
 
 def derive_expression_vertex_groups(
     vertices: np.ndarray,
