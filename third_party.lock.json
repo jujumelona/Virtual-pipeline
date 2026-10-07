@@ -46,6 +46,62 @@
       "license": "MIT",
       "description": "glTF/GLB reader-writer used for VRM assembly",
       "commercial_safe": true
+    },
+    "pillow": {
+      "package": "Pillow",
+      "package_version": "12.3.0",
+      "artifact_sha256": null,
+      "license": "MIT-CMU",
+      "description": "Image decoding and texture output",
+      "commercial_safe": true
+    },
+    "xatlas": {
+      "package": "xatlas",
+      "package_version": "0.0.11",
+      "artifact_sha256": null,
+      "license": "MIT",
+      "description": "UV atlas dependency used by TripoSR",
+      "commercial_safe": true
+    },
+    "moderngl": {
+      "package": "moderngl",
+      "package_version": "5.12.0",
+      "artifact_sha256": null,
+      "license": "MIT",
+      "description": "OpenGL runtime used by TripoSR utilities",
+      "commercial_safe": true
+    },
+    "onnxruntime": {
+      "package": "onnxruntime",
+      "package_version": "1.30.0",
+      "artifact_sha256": null,
+      "license": "MIT",
+      "description": "Inference runtime used by rembg",
+      "commercial_safe": true
+    },
+    "transformers": {
+      "package": "transformers",
+      "package_version": "4.57.6",
+      "artifact_sha256": null,
+      "license": "Apache-2.0",
+      "description": "ViT implementation used by TripoSR",
+      "commercial_safe": true
+    },
+    "trimesh": {
+      "package": "trimesh",
+      "package_version": "4.12.2",
+      "artifact_sha256": null,
+      "license": "MIT",
+      "description": "Mesh processing used throughout the pipeline",
+      "commercial_safe": true
+    },
+    "rembg": {
+      "package": "rembg",
+      "package_version": "2.0.85",
+      "artifact_sha256": null,
+      "license": "MIT",
+      "description": "Background removal used by TripoSR",
+      "commercial_safe": true
     }
   },
   "notes": {
@@ -53,6 +109,8 @@
     "triposr_usage": "Commercial profile requires the pinned TripoSR source commit.",
     "anime_face_detector_usage": "Package version is pinned exactly in pyproject.toml.",
     "vrm_export": "VRM 1.0 is emitted by the pure-Python pygltflib path; Blender/VRM Add-on is not a runtime dependency.",
-    "torchmcubes_usage": "Install after PyTorch and build dependencies with --no-build-isolation; native build parallelism is capped for Colab."
+    "torchmcubes_usage": "Install after PyTorch and build dependencies with --no-build-isolation; native build parallelism is capped for Colab.",
+    "runtime_contract": "Colab runtime v4 pins the direct compatibility packages recorded here. artifact_sha256 stays null unless exact installed wheel bytes are captured and trusted.",
+    "transitive_scope": "commercial_safe flags cover the direct locked components; installed transitive distributions must still be audited from the resolved environment."
   }
 }
