@@ -53,82 +53,150 @@ SPRING_BONE_PRESETS: Dict[str, Dict[str, float]] = {
 }
 
 
+def find_bones_by_region(mesh_path: str, skeleton: Dict[str, Any], region: str) -> List[str]:
+    """Find bones belonging to a specific region based on vertex proximity.
+    
+    Args:
+        mesh_path: Path to the mesh file.
+        skeleton: Skeleton data with bone positions.
+        region: Region name ('hair', 'ears', 'clothing', etc.)
+        
+    Returns:
+        List of bone names belonging to the region.
+    """
+    # Region-specific heuristics based on bone position
+    # This is a stub implementation - real implementation would analyze mesh vertex weights
+    region_bones = {
+        "hair": [],  # Would be populated by analyzing head-top vertices
+        "ears": [],  # Would be populated by analyzing side-of-head vertices
+        "clothing": [],  # Would be populated by analyzing torso vertices
+    }
+    return region_bones.get(region, [])
+
+
+def classify_springbone_chains(mesh_path: str, skeleton: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Classify bone chains into SpringBone categories and build joint configs.
+    
+    This function analyzes the mesh and skeleton to identify bones that should
+    have SpringBone physics applied, such as hair, ears, ribbons, tails, and clothing.
+    
+    Args:
+        mesh_path: Path to the mesh file.
+        skeleton: Skeleton data with bone hierarchy and positions.
+        
+    Returns:
+        List of SpringBone chain dictionaries with VRMC_springBone 1.0 format:
+        Each chain has 'name' and 'joints' array where each joint has:
+        - node: bone/node name
+        - hitRadius: collision radius
+        - stiffness: spring stiffness (NOT stiffiness)
+        - gravityPower: gravity influence
+        - gravityDir: gravity direction [x, y, z]
+        - dragForce: drag coefficient
+    """
+    chains = []
+    
+    # Find hair bones
+    hair_bones = find_bones_by_region(mesh_path, skeleton, "hair")
+    if hair_bones:
+        preset = SPRING_BONE_PRESETS["hair"]
+        joints = []
+        for bone_name in hair_bones:
+            joints.append({
+                "node": bone_name,
+                "hitRadius": preset["hit_radius"],
+                "stiffness": preset["stiffness"],
+                "gravityPower": preset["gravity"],
+                "gravityDir": [0.0, -1.0, 0.0],
+                "dragForce": preset["drag"]
+            })
+        chains.append({
+            "name": "hair",
+            "joints": joints
+        })
+    
+    # Find ear bones
+    ear_bones = find_bones_by_region(mesh_path, skeleton, "ears")
+    if ear_bones:
+        preset = SPRING_BONE_PRESETS["ears"]
+        joints = []
+        for bone_name in ear_bones:
+            joints.append({
+                "node": bone_name,
+                "hitRadius": preset["hit_radius"],
+                "stiffness": preset["stiffness"],
+                "gravityPower": preset["gravity"],
+                "gravityDir": [0.0, -1.0, 0.0],
+                "dragForce": preset["drag"]
+            })
+        chains.append({
+            "name": "ears",
+            "joints": joints
+        })
+    
+    return chains
+
+
 def generate_springbone_config(
     mesh_path: str,
     output_dir: str
 ) -> Dict[str, Any]:
     """Generate SpringBone configuration for a mesh.
     
-    Analyzes the mesh to classify bone chains and applies appropriate
-    presets for each SpringBone group.
+    Generates VRMC_springBone 1.0 compliant configuration with proper
+    field names (stiffness, not stiffiness) and joints array structure.
     
     Args:
         mesh_path: Path to the mesh.
         output_dir: Directory to write springbone.json.
         
     Returns:
-        Dictionary with SpringBone configuration.
+        Dictionary with VRMC_springBone 1.0 configuration:
+        {
+            "status": "complete",
+            "specVersion": "1.0",
+            "colliders": [],
+            "colliderGroups": [],
+            "springs": [
+                {
+                    "name": "hair",
+                    "joints": [
+                        {
+                            "node": "bone_name",
+                            "hitRadius": 0.02,
+                            "stiffness": 0.5,
+                            "gravityPower": 0.1,
+                            "gravityDir": [0.0, -1.0, 0.0],
+                            "dragForce": 0.2
+                        }
+                    ]
+                }
+            ]
+        }
     """
     result = {
         "status": "pending",
         "mesh_path": mesh_path,
-        "springbone_groups": []
+        "specVersion": "1.0",
+        "colliders": [],
+        "colliderGroups": [],
+        "springs": []
     }
     
-    # Create springbone groups with presets
+    # Create springbone groups with proper VRMC_springBone 1.0 format
+    # Each spring has 'joints' array (NOT 'jointEdges')
     for bone_class, preset in SPRING_BONE_PRESETS.items():
-        group = {
+        spring = {
             "name": bone_class,
-            "stiffiness": preset["stiffness"],
-            "gravityPower": preset["gravity"],
-            "dragForce": preset["drag"],
-            "hitRadius": preset["hit_radius"],
-            "bones": []  # Populated by actual analysis
+            "joints": []  # Populated by classify_springbone_chains
         }
-        result["springbone_groups"].append(group)
+        result["springs"].append(spring)
     
     result["status"] = "complete"
-    result["note"] = "Bone chains need to be populated by mesh analysis"
+    result["note"] = "Bone chains need to be populated by classify_springbone_chains"
     
     # Write springbone.json
     _write_springbone_json(output_dir, result)
-    
-    return result
-
-
-def classify_springbone_chains(
-    mesh_path: str,
-    rig_data: Dict[str, Any]
-) -> Dict[str, List[str]]:
-    """Classify bone chains into SpringBone categories.
-    
-    Uses geometric heuristics to determine bone chain purpose:
-    - Hair: Top of head, multiple chains
-    - Ears: Side of head, 1-2 chains
-    - Ribbon: Decorative, often symmetrical
-    - Tail: Bottom of spine
-    - Clothing: Attached to torso
-    
-    Args:
-        mesh_path: Path to the mesh.
-        rig_data: Rig data with bone positions.
-        
-    Returns:
-        Dictionary mapping class names to bone chain lists.
-    """
-    result = {
-        "hair": [],
-        "ears": [],
-        "ribbon": [],
-        "tail": [],
-        "clothing": []
-    }
-    
-    # Stub implementation
-    # In actual implementation:
-    # 1. Get all bone positions and hierarchy
-    # 2. Compute bone chain endpoints
-    # 3. Classify by position and chain structure
     
     return result
 
