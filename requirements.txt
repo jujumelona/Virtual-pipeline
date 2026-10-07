@@ -1,8 +1,10 @@
-anime-face-detector
+anime-face-detector==0.1.0
 trimesh[easy]
 pydantic>=2.0
 pyyaml
 pillow
 numpy
+scipy
 click>=8.0
-# TripoSR: git clone https://github.com/VAST-AI-Research/TripoSR && pip install -e TripoSR
+pygltflib
+# TripoSR source is cloned separately and pinned to 107cefdc244c39106fa830359024f6a2f1c78871
