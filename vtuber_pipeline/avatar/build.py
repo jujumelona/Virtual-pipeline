@@ -19,7 +19,7 @@ class AvatarPipeline:
     def __init__(self, output_dir: str, config: Optional[Dict[str, Any]] = None):
         self.output_dir = pathlib.Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.config = config or {}
+        self.config = {} if config is None else config
         from vtuber_pipeline.core.manifest import PipelineManifest
         self.manifest = PipelineManifest(output_dir)
         self.code_fingerprint = self._compute_code_fingerprint()
