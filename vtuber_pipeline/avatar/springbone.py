@@ -85,7 +85,7 @@ def generate_springbone_config(mesh_path: str, output_dir: str) -> Dict[str, Any
     """Generate a VRMC_springBone 1.0 config from a rigged GLB.
 
     Empty/fabricated chains are not emitted. A rig with no secondary bones is
-    reported as partial instead of complete.
+    an explicit error because Avatar Mode requires a real secondary chain.
     """
     result: Dict[str, Any] = {
         "status": "pending",
@@ -102,11 +102,10 @@ def generate_springbone_config(mesh_path: str, output_dir: str) -> Dict[str, Any
             result["status"] = "complete"
             result["joint_count"] = sum(len(s["joints"]) for s in springs)
         else:
-            result["status"] = "partial"
+            result["status"] = "error"
             result["joint_count"] = 0
-            result["warning"] = (
-                "No secondary-bone nodes were found in the rigged GLB; "
-                "SpringBone physics was not fabricated."
+            result["error"] = (
+                "No secondary-bone nodes were found in the rigged GLB"
             )
     except Exception as exc:
         result["status"] = "error"
