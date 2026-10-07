@@ -38,6 +38,14 @@
       "license_url": "https://github.com/tatsy/torchmcubes/blob/master/LICENSE",
       "description": "Marching Cubes extension compiled against the active Colab PyTorch with --no-build-isolation",
       "commercial_safe": true
+    },
+    "pygltflib": {
+      "package": "pygltflib",
+      "package_version": "1.16.5",
+      "artifact_sha256": "41d3349c59dcf1586faeaee29c967be07ac2bf7cecdb8ae2b527da1f25afdaac",
+      "license": "MIT",
+      "description": "glTF/GLB reader-writer used for VRM assembly",
+      "commercial_safe": true
     }
   },
   "notes": {
