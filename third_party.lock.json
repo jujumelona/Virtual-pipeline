@@ -1,41 +1,41 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "tools": {
     "triposr": {
-      "commit": "107cefdc244c39106fa830359024f6a2f1c78871",
-      "model_revision": "model.ckpt",
+      "source_commit": "107cefdc244c39106fa830359024f6a2f1c78871",
+      "model_id": "stabilityai/TripoSR",
+      "artifact_sha256": null,
       "license": "MIT",
       "license_url": "https://github.com/VAST-AI-Research/TripoSR/blob/main/LICENSE",
       "path": "TripoSR/",
-      "hash": "sha256:git:107cefdc244c39106fa830359024f6a2f1c78871",
       "description": "TripoSR - Fast 3D Object Reconstruction from a Single Image",
       "commercial_safe": true
     },
     "anime_face_detector": {
-      "commit": "98a9fb480fa04bdd96acbe4d98da191a898267f3",
-      "model_revision": null,
+      "package": "anime-face-detector",
+      "package_version": "0.1.0",
+      "source_commit": "98a9fb480fa04bdd96acbe4d98da191a898267f3",
+      "artifact_sha256": null,
       "license": "MIT",
       "license_url": "https://github.com/hysts/anime-face-detector/blob/main/LICENSE",
-      "pypi": "anime-face-detector",
-      "hash": "sha256:pypi:0.1.0",
       "description": "Anime Face Detector with YOLOv3",
       "commercial_safe": true
     },
     "makehuman_cc0": {
-      "commit": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
-      "model_revision": null,
+      "source_commit": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+      "asset_path": "makehuman/data/3dobjs/base.obj",
+      "artifact_sha256": null,
       "license": "CC0",
       "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
       "path": "assets/makehuman_cc0/",
-      "hash": "sha256:git:a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
-      "description": "MakeHuman CC0 assets for base meshes",
+      "description": "MakeHuman CC0 base mesh used as canonical topology seed",
       "commercial_safe": true
     }
   },
   "notes": {
-    "triposr_usage": "TripoSR is MIT licensed and does not use nvdiffrast, making it safe for commercial use in all profiles.",
-    "anime_face_detector_usage": "MIT licensed, safe for commercial use.",
-    "verification": "Run 'python tools/audit_third_party.py' to verify actual commit SHAs after installation.",
+    "integrity": "source_revision and artifact_sha256 are separate fields. artifact_sha256 is populated only from actual downloaded bytes and is never substituted with a git SHA or package version.",
+    "triposr_usage": "Commercial profile requires the pinned TripoSR source commit.",
+    "anime_face_detector_usage": "Package version is pinned exactly in pyproject.toml.",
     "vrm_export": "VRM 1.0 is emitted by the pure-Python pygltflib path; Blender/VRM Add-on is not a runtime dependency."
   }
 }
