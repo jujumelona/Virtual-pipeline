@@ -444,31 +444,198 @@ class VRMValidator:
             ),
         }
 
+    def _read_dense_accessor(self, accessor_index: int) -> np.ndarray:
+        """Read a dense embedded-buffer accessor without changing its ordering."""
+        if self._gltf is None:
+            self.parse_vrm()
+        gltf = self._gltf
+        accessor = gltf.accessors[accessor_index]
+        if accessor.sparse is not None:
+            raise ValueError("Sparse JOINTS_0/WEIGHTS_0 accessors are unsupported")
+        if accessor.bufferView is None:
+            raise ValueError("Accessor has no bufferView")
+        view = gltf.bufferViews[accessor.bufferView]
+        if view.buffer not in (0, None):
+            raise ValueError("Skin accessor must use embedded buffer 0")
+        blob = gltf.binary_blob()
+        if blob is None:
+            raise ValueError("VRM has no embedded binary buffer")
+
+        component_map = {
+            5121: (np.uint8, 1),
+            5123: (np.dtype("<u2"), 2),
+            5125: (np.dtype("<u4"), 4),
+            5126: (np.dtype("<f4"), 4),
+        }
+        if accessor.componentType not in component_map:
+            raise ValueError(
+                f"Unsupported accessor componentType: {accessor.componentType}"
+            )
+        dtype, component_size = component_map[accessor.componentType]
+        component_count = {
+            "SCALAR": 1,
+            "VEC2": 2,
+            "VEC3": 3,
+            "VEC4": 4,
+            "MAT4": 16,
+        }.get(accessor.type)
+        if component_count is None:
+            raise ValueError(f"Unsupported accessor type: {accessor.type}")
+
+        element_size = component_size * component_count
+        stride = int(view.byteStride or element_size)
+        if stride < element_size:
+            raise ValueError("Accessor byteStride is smaller than element size")
+
+        base = int(view.byteOffset or 0) + int(accessor.byteOffset or 0)
+        end = base + stride * max(int(accessor.count) - 1, 0) + element_size
+        if base < 0 or end > len(blob):
+            raise ValueError("Accessor exceeds embedded binary buffer")
+
+        rows = np.empty(
+            (int(accessor.count), component_count),
+            dtype=dtype,
+        )
+        for row in range(int(accessor.count)):
+            offset = base + row * stride
+            rows[row] = np.frombuffer(
+                blob,
+                dtype=dtype,
+                count=component_count,
+                offset=offset,
+            )
+        return rows
+
     def validate_skinning(self) -> Dict[str, Any]:
         if self._gltf is None:
             self.parse_vrm()
         gltf = self._gltf
-        has_skin = bool(gltf and gltf.skins)
-        has_weights = False
-        if gltf:
-            for mesh in gltf.meshes or []:
-                for primitive in mesh.primitives or []:
-                    attrs = primitive.attributes
-                    if (
-                        getattr(attrs, "JOINTS_0", None) is not None
-                        and getattr(attrs, "WEIGHTS_0", None) is not None
-                    ):
-                        has_weights = True
-                        break
-        valid = has_skin and has_weights
+        if not gltf or not gltf.skins:
+            return {
+                "valid": False,
+                "skin": False,
+                "joint_weights": False,
+                "hair_shell": False,
+                "error": "VRM has no skin",
+            }
+
+        if len(gltf.skins) != 1:
+            return {
+                "valid": False,
+                "skin": True,
+                "joint_weights": False,
+                "hair_shell": False,
+                "error": f"Expected one avatar skin, found {len(gltf.skins)}",
+            }
+
+        target = None
+        for mesh in gltf.meshes or []:
+            for primitive in mesh.primitives or []:
+                attrs = primitive.attributes
+                joints_idx = getattr(attrs, "JOINTS_0", None)
+                weights_idx = getattr(attrs, "WEIGHTS_0", None)
+                if joints_idx is not None and weights_idx is not None:
+                    if target is not None:
+                        return {
+                            "valid": False,
+                            "skin": True,
+                            "joint_weights": False,
+                            "hair_shell": False,
+                            "error": "Product avatar must use one skinned primitive",
+                        }
+                    target = (mesh, primitive, joints_idx, weights_idx)
+
+        if target is None:
+            return {
+                "valid": False,
+                "skin": True,
+                "joint_weights": False,
+                "hair_shell": False,
+                "error": "Skin has no JOINTS_0/WEIGHTS_0 primitive",
+            }
+
+        mesh, _primitive, joints_idx, weights_idx = target
+        joints = self._read_dense_accessor(joints_idx)
+        weights = self._read_dense_accessor(weights_idx).astype(np.float64)
+        if joints.shape != weights.shape or joints.shape[1] != 4:
+            return {
+                "valid": False,
+                "skin": True,
+                "joint_weights": False,
+                "hair_shell": False,
+                "error": "JOINTS_0/WEIGHTS_0 shape mismatch",
+            }
+        if not np.all(np.isfinite(weights)):
+            return {
+                "valid": False,
+                "skin": True,
+                "joint_weights": False,
+                "hair_shell": False,
+                "error": "WEIGHTS_0 contains non-finite values",
+            }
+
+        sums = weights.sum(axis=1)
+        normalized = bool(np.allclose(sums, 1.0, atol=1e-4))
+        nonnegative = bool(np.all(weights >= -1e-7))
+
+        skin = gltf.skins[0]
+        skin_joints = list(skin.joints or [])
+        node_names = [
+            (gltf.nodes[node_idx].name or "")
+            for node_idx in skin_joints
+        ]
+        hair_joint_slots = {
+            slot
+            for slot, name in enumerate(node_names)
+            if name.lower().startswith("hair")
+        }
+
+        extras = mesh.extras or {}
+        hair_start = (
+            extras.get("hairVertexStart")
+            if isinstance(extras, dict)
+            else None
+        )
+        hair_count = (
+            extras.get("hairVertexCount")
+            if isinstance(extras, dict)
+            else None
+        )
+        shell_valid = False
+        shell_reason = None
+
+        if not isinstance(hair_start, int) or not (0 < hair_start < len(joints)):
+            shell_reason = "hairVertexStart metadata is missing or invalid"
+        elif hair_count != len(joints) - hair_start:
+            shell_reason = "hairVertexCount metadata does not match vertex count"
+        elif not hair_joint_slots:
+            shell_reason = "Skin contains no secondary hair joints"
+        else:
+            hair_slot_array = np.asarray(sorted(hair_joint_slots), dtype=joints.dtype)
+            body_hair = np.isin(joints[:hair_start], hair_slot_array) & (
+                weights[:hair_start] > 1e-6
+            )
+            shell_hair = np.isin(joints[hair_start:], hair_slot_array) & (
+                weights[hair_start:] > 1e-4
+            )
+            if np.any(body_hair):
+                shell_reason = "Canonical body/skull contains SpringBone hair weights"
+            elif not np.any(shell_hair):
+                shell_reason = "Hair shell has no effective secondary-bone weights"
+            else:
+                shell_valid = True
+
+        valid = normalized and nonnegative and shell_valid
         return {
             "valid": valid,
-            "skin": has_skin,
-            "joint_weights": has_weights,
-            "error": (
-                None
-                if valid
-                else "Skin or JOINTS_0/WEIGHTS_0 is missing"
+            "skin": True,
+            "joint_weights": normalized and nonnegative,
+            "hair_shell": shell_valid,
+            "hair_vertex_start": hair_start,
+            "hair_vertex_count": hair_count,
+            "error": None if valid else (
+                shell_reason
+                or "Skin weights are not finite, non-negative and normalized"
             ),
         }
 
