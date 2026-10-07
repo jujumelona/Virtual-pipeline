@@ -626,7 +626,7 @@ def build_accessories_ui(
             if result.get("status") != "complete":
                 raise RuntimeError(
                     f"{pathlib.Path(source_path).name} 적용 실패: "
-                    f"{result.get('failed_stages') or result.get('incomplete_stages') or result.get('status')}"
+                    f"{result.get('failed_stages') or result.get('failed_reason') or result.get('status')}"
                 )
             current_vrm = result["output_vrm"]
 
