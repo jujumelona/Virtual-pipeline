@@ -40,6 +40,27 @@ def test_fit_template_missing_template_is_error(tmp_path):
     assert result["objective_weights"]["lambda_surface"] == 0.5
 
 
+
+
+def test_fit_template_custom_objective_options_are_applied(tmp_path):
+    custom = {
+        "lambda_landmark": 1.7,
+        "lambda_surface": 0.6,
+        "lambda_laplacian": 0.12,
+        "lambda_symmetry": 0.25,
+    }
+    result = fit_template(
+        template_path=str(tmp_path / "missing-template.glb"),
+        landmarks_2d=[[50.0, 50.0] for _ in range(28)],
+        output_dir=str(tmp_path / "out"),
+        config={"fitting_objective": custom},
+        reference_mesh_path=str(tmp_path / "missing-reference.obj"),
+    )
+
+    assert result["status"] == "error"
+    assert result["objective_weights"] == custom
+
+
 def test_fit_template_existing_template_requires_reference(tmp_path):
     import trimesh
 
