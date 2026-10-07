@@ -18,7 +18,7 @@ dependencies = [
     "numpy",
     "scipy",
     "click>=8.0",
-    "pygltflib",
+    "pygltflib==1.16.5",
 ]
 
 [project.scripts]
