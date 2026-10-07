@@ -43,7 +43,7 @@ completed avatar.vrm
 → combined.vrm
 ```
 
-동적 accessory physics는 선택 기능입니다. 현재 static bake가 기본이며, physics를 명시적으로 활성화한 경우 skin/bone merge가 완성되지 않았으면 `partial`로 표시합니다.
+Accessory Mode는 검증된 **static bone-parented bake** 경로만 제공합니다.
 
 ## Commercial source policy
 
@@ -60,19 +60,22 @@ Commercial/production avatar reconstruction verifies the TripoSR git revision be
 
 ## Installation
 
+Google Colab에서는 위 **Open In Colab** 경로를 사용하세요. 노트북 launcher가 최신 main과 pinned TripoSR를 동기화하고, 현재 Python 3.12/3.13용 wheel-safe runtime을 설치합니다.
+
+로컬에서 설치할 경우 TripoSR의 오래된 `requirements.txt`를 그대로 설치하지 마세요. Colab launcher와 동일한 호환성 세트를 사용하는 것이 기준입니다.
+
 ```bash
 git clone https://github.com/jujumelona/Virtual-pipeline.git
 cd Virtual-pipeline
 
 git clone https://github.com/VAST-AI-Research/TripoSR.git
 git -C TripoSR checkout 107cefdc244c39106fa830359024f6a2f1c78871
-python -m pip install -r TripoSR/requirements.txt
 
-python -m pip install -e .
+python -m pip install -e . --no-deps
 export TRIPOSR_DIR="$PWD/TripoSR"
 ```
 
-Python 3.12 이상이 필요합니다.
+지원 Python은 **3.12 또는 3.13**입니다.
 
 ## Google Colab
 
@@ -124,6 +127,7 @@ vtuber-pipeline accessory \
   --images crown.png \
   --images ribbon.png \
   --anchor HEAD_TOP \
+  --anchor LEFT_EAR \
   --output output/accessories
 ```
 
@@ -155,7 +159,6 @@ variant = AccessoryPipeline("output/crown").build(
     accessory_glb=mesh,
     config={
         "anchor_name": "HEAD_TOP",
-        "physics": {"enabled": False},
     },
 )
 ```
@@ -211,7 +214,6 @@ vtuber_pipeline/
     anchors.py
     fitting.py
     collision.py
-    physics.py
     bake.py
     build.py
 tests/
