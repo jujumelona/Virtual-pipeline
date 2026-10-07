@@ -115,7 +115,22 @@ class AvatarPipeline:
         output_dir: Optional[str] = None,
         config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        output_dir = output_dir or str(self.output_dir)
+        if output_dir is not None:
+            requested = pathlib.Path(output_dir).expanduser().resolve()
+            bound = self.output_dir.expanduser().resolve()
+            if requested != bound:
+                return {
+                    "status": "failed",
+                    "image_path": image_path,
+                    "output_dir": str(bound),
+                    "stages": {},
+                    "failed_stages": ["orchestrator"],
+                    "failed_reason": (
+                        "AvatarPipeline is bound to one output directory; "
+                        f"requested={requested}, bound={bound}"
+                    ),
+                }
+        output_dir = str(self.output_dir)
         cfg = {**self.config, **(config or {})}
         profile = cfg.get("profile", "commercial")
         results: Dict[str, Any] = {
