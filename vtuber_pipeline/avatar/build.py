@@ -306,10 +306,11 @@ class AvatarPipeline:
                 }
             self.manifest.record_stage(stage_key, results["stages"]["expressions"])
         
-        # Stage 12: Gaze - use fitted_mesh
-        stage_key = self._get_stage_key("gaze", fitted_mesh)
+        # Stage 12: Gaze must use the rigged GLB so real leftEye/rightEye nodes exist.
+        rigged_mesh = results["stages"]["rig"].get("rigged_mesh", fitted_mesh)
+        stage_key = self._get_stage_key("gaze", rigged_mesh)
         if not self.manifest.is_complete(stage_key):
-            results["stages"]["gaze"] = gaze.configure_gaze(fitted_mesh, output_dir)
+            results["stages"]["gaze"] = gaze.configure_gaze(rigged_mesh, output_dir)
             self.manifest.record_stage(stage_key, results["stages"]["gaze"])
         
         # Stage 13: SpringBone must inspect the rigged GLB because spring joints
@@ -374,7 +375,10 @@ class AvatarPipeline:
             name for name, result in results["stages"].items()
             if isinstance(result, dict) and result.get("status") == "stub"
         ]
-        
+        partial_stages = [
+            name for name, result in results["stages"].items()
+            if isinstance(result, dict) and result.get("status") in {"partial", "skipped"}
+        ]
         fallback_stages = [
             name for name, result in results["stages"].items()
             if isinstance(result, dict) and result.get("status") == "fallback"
@@ -386,9 +390,10 @@ class AvatarPipeline:
         elif error_stages:
             results["status"] = "failed"
             results["failed_stages"] = error_stages
-        elif stub_stages or fallback_stages:
+        elif stub_stages or partial_stages or fallback_stages:
             results["status"] = "partial"
             results["stub_stages"] = stub_stages
+            results["partial_stages"] = partial_stages
             results["fallback_stages"] = fallback_stages
         else:
             results["status"] = "complete"
