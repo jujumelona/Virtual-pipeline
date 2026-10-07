@@ -35,6 +35,7 @@ ROOT_PACKAGES = [
     "onnxruntime",
     "opencv-python-headless",
     "safetensors",
+    "gradio",
 ]
 
 BLOCKED_NAMES = {
