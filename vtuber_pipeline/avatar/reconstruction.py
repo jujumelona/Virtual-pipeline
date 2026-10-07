@@ -198,9 +198,24 @@ def reconstruct_avatar(
     # TripoSR은 MIT 라이선스 - 모든 프로파일에서 안전하게 사용 가능
     # nvdiffrast 의존성 없음
     
+    input_path = pathlib.Path(image_path)
+    if not input_path.is_file() or input_path.stat().st_size <= 0:
+        raise FileNotFoundError(
+            f"TripoSR input image is missing or empty: {image_path}"
+        )
+    if profile not in {"commercial", "production", "development"}:
+        raise ValueError(f"Unsupported reconstruction profile: {profile!r}")
+    if model_save_format not in {"obj", "glb"}:
+        raise ValueError(
+            f"Unsupported TripoSR model_save_format: {model_save_format}"
+        )
+    if not isinstance(remove_background, bool):
+        raise ValueError("remove_background must be boolean")
+
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
-    
-    # Find TripoSR installation
+
+    # Resolve code/model only after cheap caller validation so malformed API
+    # requests cannot trigger heavyweight downloads or GPU setup.
     run_script = find_triposr_installation()
     verify_triposr_revision(run_script, profile)
     logger.info(f"Using TripoSR at: {run_script}")
@@ -211,9 +226,6 @@ def reconstruct_avatar(
         TRIPOSR_MODEL_REVISION,
         model_dir,
     )
-    
-    if model_save_format not in {"obj", "glb"}:
-        raise ValueError(f"Unsupported TripoSR model_save_format: {model_save_format}")
 
     # User uploads are ordinary images, so use TripoSR's normal background
     # removal/foreground resize path by default. --no-remove-bg is only valid
