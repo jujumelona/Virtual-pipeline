@@ -137,10 +137,66 @@ def create_humanoid_skeleton(mesh_bounds: np.ndarray) -> Dict[str, Any]:
     }
 
 
+
+def _build_secondary_hair_shell(
+    mesh: Any,
+    uv: np.ndarray,
+) -> Tuple[Any, np.ndarray, int]:
+    """Duplicate only the upper/back head surface into a thin secondary shell."""
+    vertices = np.asarray(mesh.vertices, dtype=float)
+    faces = np.asarray(mesh.faces, dtype=np.int64)
+    normals = np.asarray(mesh.vertex_normals, dtype=float)
+    if uv.shape != (len(vertices), 2):
+        raise ValueError("UV array must match source mesh before hair shell creation")
+
+    pmin = vertices.min(axis=0)
+    pmax = vertices.max(axis=0)
+    height = max(float(pmax[1] - pmin[1]), 1e-8)
+    center_z = float((pmin[2] + pmax[2]) * 0.5)
+
+    hair_region = (
+        (vertices[:, 1] >= pmin[1] + 0.72 * height)
+        & (vertices[:, 2] <= center_z + 0.02 * height)
+    )
+    face_mask = np.all(hair_region[faces], axis=1)
+    shell_faces_src = faces[face_mask]
+    if len(shell_faces_src) < 16:
+        raise ValueError("Unable to isolate enough back/top head faces for hair shell")
+
+    unique = np.unique(shell_faces_src.reshape(-1))
+    remap = {int(old): i for i, old in enumerate(unique.tolist())}
+    shell_faces = np.asarray(
+        [[remap[int(v)] for v in face] for face in shell_faces_src],
+        dtype=np.int64,
+    )
+
+    shell_vertices = vertices[unique].copy()
+    shell_normals = normals[unique]
+    offset = max(0.004, 0.006 * height)
+    shell_vertices += shell_normals * offset
+
+    combined_vertices = np.vstack([vertices, shell_vertices])
+    shell_start = len(vertices)
+    combined_faces = np.vstack([
+        faces,
+        shell_faces + shell_start,
+    ])
+    combined_uv = np.vstack([uv, uv[unique]])
+
+    combined = trimesh.Trimesh(
+        vertices=combined_vertices,
+        faces=combined_faces,
+        process=False,
+        validate=False,
+    )
+    return combined, combined_uv.astype(np.float32), shell_start
+
+
 def compute_skin_weights(
     vertices: np.ndarray,
     skeleton: Dict[str, Any],
-    max_influences: int = 4
+    max_influences: int = 4,
+    hair_vertex_start: int | None = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Compute normalized skin weights with a localized secondary hair chain.
 
@@ -157,14 +213,30 @@ def compute_skin_weights(
     distances = np.linalg.norm(diff, axis=2)
     weights = 1.0 / (distances + 1e-6)
 
-    hair_indices = np.array([i for i, name in enumerate(names) if name.lower().startswith("hair")], dtype=int)
+    hair_indices = np.array(
+        [i for i, name in enumerate(names) if name.lower().startswith("hair")],
+        dtype=int,
+    )
+    head_indices = np.array(
+        [i for i, name in enumerate(names) if name == "head"],
+        dtype=int,
+    )
     if len(hair_indices):
-        vmin = vertices.min(axis=0)
-        vmax = vertices.max(axis=0)
-        height = max(float(vmax[1] - vmin[1]), 1e-6)
-        center_z = float((vmin[2] + vmax[2]) / 2.0)
-        hair_region = (vertices[:, 1] >= vmin[1] + 0.72 * height) & (vertices[:, 2] <= center_z)
-        weights[~hair_region[:, None] & np.isin(np.arange(num_joints)[None, :], hair_indices)] = 0.0
+        # Never let secondary bones deform the canonical body/skull.
+        if hair_vertex_start is None:
+            weights[:, hair_indices] = 0.0
+        else:
+            hair_vertex_start = int(hair_vertex_start)
+            if not (0 < hair_vertex_start < num_vertices):
+                raise ValueError("Invalid hair_vertex_start")
+            weights[:hair_vertex_start, hair_indices] = 0.0
+
+            # Hair shell should be influenced only by head + secondary chain.
+            shell_rows = np.arange(hair_vertex_start, num_vertices)
+            allowed = np.zeros(num_joints, dtype=bool)
+            allowed[hair_indices] = True
+            allowed[head_indices] = True
+            weights[np.ix_(shell_rows, ~allowed)] = 0.0
 
     joint_indices = np.zeros((num_vertices, max_influences), dtype=np.uint16)
     joint_weights = np.zeros((num_vertices, max_influences), dtype=np.float32)
@@ -384,6 +456,22 @@ def rig_avatar(
         else:
             raise ValueError("Scene에 메시가 없습니다.")
     
+    if uv_path is None:
+        raise ValueError("Rigging requires the exact texture UV artifact")
+    source_uv = np.asarray(np.load(uv_path), dtype=np.float32)
+    if source_uv.shape != (len(mesh.vertices), 2):
+        raise ValueError(
+            f"Texture UV shape {source_uv.shape} does not match source mesh"
+        )
+
+    # Build a distinct secondary shell so SpringBone never deforms the skull.
+    mesh, rig_uv, hair_vertex_start = _build_secondary_hair_shell(
+        mesh,
+        source_uv,
+    )
+    rig_uv_path = str(pathlib.Path(output_path).with_suffix(".uv.npy"))
+    np.save(rig_uv_path, rig_uv)
+
     # 메시 바운드 계산
     bounds = mesh.bounds  # (2, 3) - [min, max]
     
@@ -392,14 +480,21 @@ def rig_avatar(
     
     # 스킨 가중치 계산
     joint_indices, joint_weights = compute_skin_weights(
-        mesh.vertices, skeleton, max_influences=4
+        mesh.vertices,
+        skeleton,
+        max_influences=4,
+        hair_vertex_start=hair_vertex_start,
     )
     
     # 스킨이 포함된 GLB 생성
     result = create_gltf_with_skin(
-        mesh, skeleton, joint_indices, joint_weights, output_path,
+        mesh,
+        skeleton,
+        joint_indices,
+        joint_weights,
+        output_path,
         texture_path=texture_path,
-        uv_path=uv_path,
+        uv_path=rig_uv_path,
     )
     
     return result
