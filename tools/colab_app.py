@@ -24,7 +24,7 @@ REPO_DIR = pathlib.Path("/content/Virtual-pipeline")
 TRIPOSR_DIR = pathlib.Path("/content/third_party/TripoSR")
 TRIPOSR_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
 TORCHMCUBES_COMMIT = "879926d0ef58e6ce0ac2630fdecb5e53af7ed3ff"
-RUNTIME_CONTRACT = "colab-runtime-v4"
+RUNTIME_CONTRACT = "colab-runtime-v5"
 WORK_ROOT = pathlib.Path("/content/vtuber_builder")
 OUTPUT_ROOT = WORK_ROOT / "output"
 
@@ -237,6 +237,7 @@ def _install_runtime(head: str) -> None:
         "scipy>=1.13",
         "click>=8.0",
         "pygltflib==1.16.5",
+        "packaging>=24.0",
     ]
     _run(
         [
@@ -332,6 +333,15 @@ def _install_runtime(head: str) -> None:
             ),
         ],
         timeout=120,
+    )
+
+    # Audit the actually resolved dependency graph before caching this runtime.
+    _run(
+        [
+            sys.executable,
+            str(REPO_DIR / "tools" / "audit_runtime_environment.py"),
+        ],
+        timeout=180,
     )
 
     os.environ["TRIPOSR_DIR"] = str(TRIPOSR_DIR)
