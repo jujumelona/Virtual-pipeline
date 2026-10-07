@@ -42,7 +42,17 @@ def create_humanoid_skeleton(mesh_bounds: np.ndarray) -> Dict[str, Any]:
     
     # 뼈대 위치 계산 (Y축 기준, 메시 바닥에서부터)
     base_y = min_bounds[1]
-    
+    half_span = max(
+        float(max_bounds[0] - center_x),
+        float(center_x - min_bounds[0]),
+        height * 0.2,
+    )
+    shoulder_offset = min(height * 0.13, half_span * 0.38)
+    hand_offset = max(shoulder_offset + height * 0.22, half_span * 0.92)
+    upper_arm_offset = shoulder_offset + (hand_offset - shoulder_offset) * 0.36
+    lower_arm_offset = shoulder_offset + (hand_offset - shoulder_offset) * 0.72
+    arm_y = base_y + height * 0.72
+
     # VRM 휴머노이드 뼈대 정의 (이름, 부모 인덱스, 위치)
     # 위치는 부모 기준 로컬 좌표가 아닌 월드 좌표로 정의
     bones = [
@@ -58,17 +68,17 @@ def create_humanoid_skeleton(mesh_bounds: np.ndarray) -> Dict[str, Any]:
         ("leftEye", 5, np.array([center_x + height * 0.03, base_y + height * 0.88, center_z + height * 0.05])),
         ("rightEye", 5, np.array([center_x - height * 0.03, base_y + height * 0.88, center_z + height * 0.05])),
         
-        # 왼쪽 팔
-        ("leftShoulder", 3, np.array([center_x + height * 0.08, base_y + height * 0.72, center_z])),
-        ("leftUpperArm", 8, np.array([center_x + height * 0.12, base_y + height * 0.70, center_z])),
-        ("leftLowerArm", 9, np.array([center_x + height * 0.16, base_y + height * 0.60, center_z])),
-        ("leftHand", 10, np.array([center_x + height * 0.18, base_y + height * 0.50, center_z])),
+        # 왼쪽 팔: VRM rest pose requires a T-pose, +X is model-left.
+        ("leftShoulder", 3, np.array([center_x + shoulder_offset, arm_y, center_z])),
+        ("leftUpperArm", 8, np.array([center_x + upper_arm_offset, arm_y, center_z])),
+        ("leftLowerArm", 9, np.array([center_x + lower_arm_offset, arm_y, center_z])),
+        ("leftHand", 10, np.array([center_x + hand_offset, arm_y, center_z])),
         
-        # 오른쪽 팔
-        ("rightShoulder", 3, np.array([center_x - height * 0.08, base_y + height * 0.72, center_z])),
-        ("rightUpperArm", 12, np.array([center_x - height * 0.12, base_y + height * 0.70, center_z])),
-        ("rightLowerArm", 13, np.array([center_x - height * 0.16, base_y + height * 0.60, center_z])),
-        ("rightHand", 14, np.array([center_x - height * 0.18, base_y + height * 0.50, center_z])),
+        # 오른쪽 팔: -X is model-right.
+        ("rightShoulder", 3, np.array([center_x - shoulder_offset, arm_y, center_z])),
+        ("rightUpperArm", 12, np.array([center_x - upper_arm_offset, arm_y, center_z])),
+        ("rightLowerArm", 13, np.array([center_x - lower_arm_offset, arm_y, center_z])),
+        ("rightHand", 14, np.array([center_x - hand_offset, arm_y, center_z])),
         
         # 왼쪽 다리
         ("leftUpperLeg", 0, np.array([center_x + height * 0.08, base_y + height * 0.48, center_z])),
@@ -204,7 +214,12 @@ def create_gltf_with_skin(
     faces = np.asarray(mesh.faces, dtype=np.uint32).reshape(-1)
     joints = np.asarray(joint_indices, dtype=np.uint16)
     weights = np.asarray(joint_weights, dtype=np.float32)
-    ibm = np.asarray(skeleton["inverse_bind_matrices"], dtype=np.float32)
+    # glTF MAT4 payloads are column-major. NumPy matrices are stored
+    # row-major by default, so transpose each matrix before serialization.
+    ibm = np.asarray(
+        skeleton["inverse_bind_matrices"],
+        dtype=np.float32,
+    ).transpose(0, 2, 1).copy()
 
     pos_off, pos_len = append_aligned(vertices.tobytes())
     norm_off, norm_len = append_aligned(normals.tobytes())
@@ -310,7 +325,27 @@ def create_gltf_with_skin(
     gltf.buffers.append(Buffer(byteLength=len(buffer_data)))
     gltf.set_binary_blob(bytes(buffer_data))
     gltf.save_binary(output_path)
-    return output_path
+
+    output = pathlib.Path(output_path)
+    if not output.is_file() or output.stat().st_size == 0:
+        raise RuntimeError("Rigged GLB export produced no artifact")
+
+    # Re-import the exact binary that later stages will consume.
+    check = GLTF2().load(str(output))
+    if len(check.skins or []) != 1:
+        raise RuntimeError("Rigged GLB re-import lost its skin")
+    if not check.meshes or not check.meshes[0].primitives:
+        raise RuntimeError("Rigged GLB re-import lost its mesh")
+    attrs = check.meshes[0].primitives[0].attributes
+    joints_accessor = getattr(attrs, "JOINTS_0", None)
+    weights_accessor = getattr(attrs, "WEIGHTS_0", None)
+    if joints_accessor is None or weights_accessor is None:
+        raise RuntimeError("Rigged GLB re-import lost JOINTS_0/WEIGHTS_0")
+    if check.accessors[joints_accessor].componentType != UNSIGNED_SHORT:
+        raise RuntimeError("JOINTS_0 must use UNSIGNED_SHORT")
+    if check.accessors[weights_accessor].componentType != FLOAT:
+        raise RuntimeError("WEIGHTS_0 must use FLOAT")
+    return str(output)
 
 def rig_avatar(mesh_path: str, output_path: str, texture_path: str | None = None) -> str:
     """
