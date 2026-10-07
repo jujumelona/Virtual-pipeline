@@ -5,7 +5,7 @@ a base VRM file.
 """
 
 import pathlib
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 
 def bake_accessories(
@@ -173,6 +173,36 @@ def bake_accessories(
                     new_node = Node(**new_node_dict)
                     base_gltf.nodes.append(new_node)
                 
+                # Apply transform to root accessory node and parent to bone
+                # The root node of the accessory is at node_offset (first node added for this accessory)
+                root_node_idx = node_offset
+                if root_node_idx < len(base_gltf.nodes):
+                    root_node = base_gltf.nodes[root_node_idx]
+                    
+                    # Apply transform from attachment config
+                    if 'translation' in transform:
+                        root_node.translation = transform['translation']
+                    if 'rotation' in transform:
+                        root_node.rotation = transform['rotation']
+                    if 'scale' in transform:
+                        root_node.scale = transform['scale']
+                    
+                    # Parent to the appropriate bone (default: head)
+                    parent_bone = attachment_data.get('parent_bone', 'head')
+                    parent_node_idx = find_bone_node_index(base_gltf, parent_bone)
+                    
+                    if parent_node_idx is not None:
+                        # Add root node as child of parent bone
+                        parent_node = base_gltf.nodes[parent_node_idx]
+                        if not parent_node.children:
+                            parent_node.children = []
+                        # Only add if not already a child
+                        if root_node_idx not in parent_node.children:
+                            parent_node.children.append(root_node_idx)
+                        
+                        merged_accessories[-1]["parented_to"] = parent_bone
+                        merged_accessories[-1]["parent_node_idx"] = parent_node_idx
+                
                 # Append accessory binary to base binary
                 base_binary.extend(acc_binary)
                 
@@ -257,3 +287,32 @@ def merge_meshes(mesh_paths: List[str], output_path: str) -> Dict[str, Any]:
         result["warning"] = "trimesh not installed"
     
     return result
+
+
+def find_bone_node_index(gltf, bone_name: str) -> Optional[int]:
+    """Find the node index for a bone by name.
+    
+    Searches through the gltf nodes to find a node matching the bone name.
+    Common bone names: 'head', 'neck', 'spine', 'hips', 'leftHand', 'rightHand'
+    
+    Args:
+        gltf: pygltflib GLTF2 object.
+        bone_name: Name of the bone to find (e.g., 'head', 'neck').
+        
+    Returns:
+        Node index if found, None otherwise.
+    """
+    if not gltf.nodes:
+        return None
+    
+    # Direct name match
+    for i, node in enumerate(gltf.nodes):
+        if node.name and node.name.lower() == bone_name.lower():
+            return i
+    
+    # Partial match (e.g., 'head' might be 'head_001' or 'J_Head')
+    for i, node in enumerate(gltf.nodes):
+        if node.name and bone_name.lower() in node.name.lower():
+            return i
+    
+    return None
