@@ -114,26 +114,30 @@ class AvatarPipeline:
                 }
             self.manifest.record_stage(stage_key, results["stages"]["face_landmarks"])
         
-        # Stage 3: Reference reconstruction - use real canonical template
+        # Stage 3: Reference reconstruction - try TripoSR first, fall back to canonical template
+        import logging
+        logger = logging.getLogger(__name__)
         stage_key = self._get_stage_key("reference_reconstruction", image_path)
         if not self.manifest.is_complete(stage_key):
-            # Use canonical template as the reference mesh
-            template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
-            if template_path.exists():
+            try:
+                from vtuber_pipeline.avatar.reconstruction import reconstruct_avatar
+                reference_mesh = reconstruct_avatar(image_path, str(pathlib.Path(output_dir) / "reconstruction"), profile="commercial")
                 results["stages"]["reference_reconstruction"] = {
                     "status": "complete",
-                    "mesh_path": str(template_path),
-                    "source": "canonical_template"
+                    "mesh_path": reference_mesh,
+                    "source": "triposr"
                 }
-            else:
+            except Exception as e:
+                logger.warning(f"TripoSR failed, using canonical template: {e}")
+                template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
                 results["stages"]["reference_reconstruction"] = {
-                    "status": "error",
-                    "error": f"Canonical template not found: {template_path}",
-                    "mesh_path": None
+                    "status": "fallback",
+                    "mesh_path": str(template_path),
+                    "source": "canonical_template",
+                    "error": str(e)
                 }
             self.manifest.record_stage(stage_key, results["stages"]["reference_reconstruction"])
         else:
-            # Load cached result
             template_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "template.glb"
             results["stages"]["reference_reconstruction"] = {
                 "status": "cached",

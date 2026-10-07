@@ -2,7 +2,7 @@
   "version": "1.0",
   "tools": {
     "triposr": {
-      "commit": "a3d8f9e1b2c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8",
+      "commit": "107cefdc244c39106fa830359024f6a2f1c78871",
       "model_revision": "model.ckpt",
       "license": "MIT",
       "license_url": "https://github.com/VAST-AI-Research/TripoSR/blob/main/LICENSE",
@@ -12,7 +12,7 @@
       "commercial_safe": true
     },
     "anime_face_detector": {
-      "commit": "b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3",
+      "commit": "98a9fb480fa04bdd96acbe4d98da191a898267f3",
       "model_revision": null,
       "license": "MIT",
       "license_url": "https://github.com/hysts/anime-face-detector/blob/main/LICENSE",
@@ -22,7 +22,7 @@
       "commercial_safe": true
     },
     "makehuman_cc0": {
-      "commit": "master",
+      "commit": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
       "model_revision": null,
       "license": "CC0",
       "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -32,7 +32,7 @@
       "commercial_safe": true
     },
     "vrm_addon": {
-      "commit": "master",
+      "commit": "322100608a16df95bfbc3678aa84471ccb5a88fe",
       "model_revision": null,
       "license": "MIT",
       "license_url": "https://github.com/saturday06/VRM-Addon-for-Blender/blob/master/LICENSE.txt",

@@ -4,10 +4,33 @@ This module provides functions for defining, generating, and validating
 VRM expression shape keys (blend shapes) for VTuber avatars.
 """
 
+import json
 import pathlib
 from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 import trimesh
+
+
+def load_vertex_groups(landmarks_path: Optional[str] = None) -> Dict[str, List[int]]:
+    """landmarks.json에서 vertex_groups를 로드합니다.
+    
+    Args:
+        landmarks_path: landmarks.json 파일 경로 (기본값: assets/canonical_vtuber/landmarks.json)
+        
+    Returns:
+        뼈 이름 -> 버텍스 인덱스 리스트 딕셔너리
+    """
+    if landmarks_path is None:
+        landmarks_path = pathlib.Path(__file__).parent.parent.parent / "assets" / "canonical_vtuber" / "landmarks.json"
+    else:
+        landmarks_path = pathlib.Path(landmarks_path)
+    
+    try:
+        with open(landmarks_path) as f:
+            data = json.load(f)
+        return data.get("vertex_groups", {})
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        return {}
 
 
 # Required VRM 1.0 expression presets
@@ -297,7 +320,8 @@ def _identify_lip_region_vertices(
 def generate_blink_morph(
     vertices: np.ndarray,
     bounds: Dict[str, Any],
-    side: str = "both"
+    side: str = "both",
+    vertex_groups: Optional[Dict[str, List[int]]] = None
 ) -> List[Tuple[int, List[float]]]:
     """Generate blink morph target - close eyelids by moving vertices down.
     
@@ -305,33 +329,73 @@ def generate_blink_morph(
         vertices: Nx3 array of vertex positions.
         bounds: Mesh bounds info.
         side: "left", "right", or "both" for which eye(s) to blink.
+        vertex_groups: Optional dict of vertex group name -> indices.
         
     Returns:
         List of (vertex_index, [dx, dy, dz]) offset tuples.
     """
-    eye_indices = _identify_eye_region_vertices(vertices, bounds, side)
-    
-    # Move eyelid vertices down by 0.01 units (Y direction)
     morph_data = []
-    for idx in eye_indices:
-        # Calculate distance from eye center for smooth falloff
-        v = vertices[idx]
-        eye_y_center = bounds["min"][1] + 0.55 * (bounds["max"][1] - bounds["min"][1])
+    used_vertex_groups = False
+    
+    # Try to use vertex_groups if available
+    if vertex_groups:
+        upper_eyelid_L = vertex_groups.get("upper_eyelid_L", [])
+        lower_eyelid_L = vertex_groups.get("lower_eyelid_L", [])
+        upper_eyelid_R = vertex_groups.get("upper_eyelid_R", [])
+        lower_eyelid_R = vertex_groups.get("lower_eyelid_R", [])
         
-        # Stronger effect for vertices above eye center (upper eyelid)
-        if v[1] > eye_y_center:
-            dy = -0.01  # Move down
-        else:
-            dy = -0.005  # Less movement for lower eyelid
+        # Filter out-of-range indices
+        n_vertices = len(vertices)
+        upper_eyelid_L = [i for i in upper_eyelid_L if i < n_vertices]
+        lower_eyelid_L = [i for i in lower_eyelid_L if i < n_vertices]
+        upper_eyelid_R = [i for i in upper_eyelid_R if i < n_vertices]
+        lower_eyelid_R = [i for i in lower_eyelid_R if i < n_vertices]
         
-        morph_data.append((idx, [0.0, dy, 0.0]))
+        # Check if we have valid vertex groups
+        if (side in ["left", "both"] and (upper_eyelid_L or lower_eyelid_L)) or \
+           (side in ["right", "both"] and (upper_eyelid_R or lower_eyelid_R)):
+            used_vertex_groups = True
+            
+            # Left eye
+            if side in ["left", "both"]:
+                # Upper eyelid moves down (close)
+                for idx in upper_eyelid_L:
+                    morph_data.append((idx, [0.0, -0.01, 0.0]))
+                # Lower eyelid moves up slightly
+                for idx in lower_eyelid_L:
+                    morph_data.append((idx, [0.0, 0.005, 0.0]))
+            
+            # Right eye
+            if side in ["right", "both"]:
+                # Upper eyelid moves down (close)
+                for idx in upper_eyelid_R:
+                    morph_data.append((idx, [0.0, -0.01, 0.0]))
+                # Lower eyelid moves up slightly
+                for idx in lower_eyelid_R:
+                    morph_data.append((idx, [0.0, 0.005, 0.0]))
+    
+    # Fall back to bounding-box heuristics if vertex_groups not available or empty
+    if not used_vertex_groups:
+        eye_indices = _identify_eye_region_vertices(vertices, bounds, side)
+        
+        for idx in eye_indices:
+            v = vertices[idx]
+            eye_y_center = bounds["min"][1] + 0.55 * (bounds["max"][1] - bounds["min"][1])
+            
+            if v[1] > eye_y_center:
+                dy = -0.01
+            else:
+                dy = -0.005
+            
+            morph_data.append((idx, [0.0, dy, 0.0]))
     
     return morph_data
 
 
 def generate_viseme_morphs(
     vertices: np.ndarray,
-    bounds: Dict[str, Any]
+    bounds: Dict[str, Any],
+    vertex_groups: Optional[Dict[str, List[int]]] = None
 ) -> Dict[str, List[Tuple[int, List[float]]]]:
     """Generate viseme (mouth shape) morph targets.
     
@@ -345,125 +409,192 @@ def generate_viseme_morphs(
     Args:
         vertices: Nx3 array of vertex positions.
         bounds: Mesh bounds info.
+        vertex_groups: Optional dict of vertex group name -> indices.
         
     Returns:
         Dictionary mapping viseme names to morph data.
     """
-    mouth_indices = _identify_mouth_region_vertices(vertices, bounds)
-    upper_lip_indices = _identify_lip_region_vertices(vertices, bounds, "upper")
-    lower_lip_indices = _identify_lip_region_vertices(vertices, bounds, "lower")
-    
     visemes = {}
     center = bounds["center"]
     x_range = bounds["max"][0] - bounds["min"][0]
+    n_vertices = len(vertices)
     
-    # aa: Open mouth - move upper lip up, lower lip down
-    aa_morph = []
-    for idx in upper_lip_indices:
-        aa_morph.append((idx, [0.0, 0.008, 0.0]))  # Upper lip up
-    for idx in lower_lip_indices:
-        aa_morph.append((idx, [0.0, -0.008, 0.0]))  # Lower lip down
-    visemes["aa"] = aa_morph
+    # Try to use vertex_groups if available
+    used_vertex_groups = False
+    upper_lip_indices = []
+    lower_lip_indices = []
+    mouth_corner_indices = []
     
-    # ih: Slight smile - pull mouth corners outward and slightly up
-    ih_morph = []
-    for idx in mouth_indices:
-        v = vertices[idx]
-        # Pull toward center horizontally
-        dx = 0.003 if v[0] > center[0] else -0.003
-        dy = 0.002 if abs(v[0] - center[0]) > 0.1 * x_range else 0.0
-        ih_morph.append((idx, [dx, dy, 0.0]))
-    visemes["ih"] = ih_morph
+    if vertex_groups:
+        upper_lip_indices = [i for i in vertex_groups.get("upper_lip", []) if i < n_vertices]
+        lower_lip_indices = [i for i in vertex_groups.get("lower_lip", []) if i < n_vertices]
+        mouth_corner_indices = [i for i in vertex_groups.get("mouth_corners", []) if i < n_vertices]
+        
+        if upper_lip_indices or lower_lip_indices or mouth_corner_indices:
+            used_vertex_groups = True
     
-    # ou: Rounded mouth - push lips forward, narrow horizontally
-    ou_morph = []
-    for idx in mouth_indices:
-        v = vertices[idx]
-        # Narrow horizontally
-        dx = -0.002 if v[0] > center[0] else 0.002
-        # Push forward
-        dz = 0.005
-        ou_morph.append((idx, [dx, 0.0, dz]))
-    visemes["ou"] = ou_morph
-    
-    # ee: Wide mouth - pull corners outward
-    ee_morph = []
-    for idx in mouth_indices:
-        v = vertices[idx]
-        # Pull outward based on which side
-        dx = 0.006 if v[0] > center[0] else -0.006
-        # Slight upward at corners
-        dy = 0.002 if abs(v[0] - center[0]) > 0.08 * x_range else 0.0
-        ee_morph.append((idx, [dx, dy, 0.0]))
-    visemes["ee"] = ee_morph
-    
-    # oh: O-shaped mouth - narrow and round
-    oh_morph = []
-    for idx in mouth_indices:
-        v = vertices[idx]
-        # Narrow horizontally
-        dx = -0.004 if v[0] > center[0] else 0.004
-        # Push forward
-        dz = 0.004
-        oh_morph.append((idx, [dx, 0.0, dz]))
-    visemes["oh"] = oh_morph
+    if used_vertex_groups:
+        # aa: Open mouth - move upper lip up, lower lip down
+        aa_morph = []
+        for idx in upper_lip_indices:
+            aa_morph.append((idx, [0.0, 0.008, 0.0]))  # Upper lip up
+        for idx in lower_lip_indices:
+            aa_morph.append((idx, [0.0, -0.008, 0.0]))  # Lower lip down
+        visemes["aa"] = aa_morph
+        
+        # ih: Slight smile - pull mouth corners outward and slightly up
+        ih_morph = []
+        for idx in mouth_corner_indices:
+            v = vertices[idx]
+            dx = 0.003 if v[0] > center[0] else -0.003
+            ih_morph.append((idx, [dx, 0.002, 0.0]))
+        visemes["ih"] = ih_morph
+        
+        # ou: Rounded mouth - push lips forward, narrow horizontally
+        ou_morph = []
+        for idx in upper_lip_indices + lower_lip_indices:
+            v = vertices[idx]
+            dx = -0.002 if v[0] > center[0] else 0.002
+            ou_morph.append((idx, [dx, 0.0, 0.005]))
+        visemes["ou"] = ou_morph
+        
+        # ee: Wide mouth - pull corners outward
+        ee_morph = []
+        for idx in mouth_corner_indices:
+            v = vertices[idx]
+            dx = 0.006 if v[0] > center[0] else -0.006
+            ee_morph.append((idx, [dx, 0.002, 0.0]))
+        visemes["ee"] = ee_morph
+        
+        # oh: O-shaped mouth - narrow and round
+        oh_morph = []
+        for idx in upper_lip_indices + lower_lip_indices:
+            v = vertices[idx]
+            dx = -0.004 if v[0] > center[0] else 0.004
+            oh_morph.append((idx, [dx, 0.0, 0.004]))
+        visemes["oh"] = oh_morph
+    else:
+        # Fall back to bounding-box heuristics
+        mouth_indices = _identify_mouth_region_vertices(vertices, bounds)
+        upper_lip_indices = _identify_lip_region_vertices(vertices, bounds, "upper")
+        lower_lip_indices = _identify_lip_region_vertices(vertices, bounds, "lower")
+        
+        # aa: Open mouth
+        aa_morph = []
+        for idx in upper_lip_indices:
+            aa_morph.append((idx, [0.0, 0.008, 0.0]))
+        for idx in lower_lip_indices:
+            aa_morph.append((idx, [0.0, -0.008, 0.0]))
+        visemes["aa"] = aa_morph
+        
+        # ih: Slight smile
+        ih_morph = []
+        for idx in mouth_indices:
+            v = vertices[idx]
+            dx = 0.003 if v[0] > center[0] else -0.003
+            dy = 0.002 if abs(v[0] - center[0]) > 0.1 * x_range else 0.0
+            ih_morph.append((idx, [dx, dy, 0.0]))
+        visemes["ih"] = ih_morph
+        
+        # ou: Rounded mouth
+        ou_morph = []
+        for idx in mouth_indices:
+            v = vertices[idx]
+            dx = -0.002 if v[0] > center[0] else 0.002
+            ou_morph.append((idx, [dx, 0.0, 0.005]))
+        visemes["ou"] = ou_morph
+        
+        # ee: Wide mouth
+        ee_morph = []
+        for idx in mouth_indices:
+            v = vertices[idx]
+            dx = 0.006 if v[0] > center[0] else -0.006
+            dy = 0.002 if abs(v[0] - center[0]) > 0.08 * x_range else 0.0
+            ee_morph.append((idx, [dx, dy, 0.0]))
+        visemes["ee"] = ee_morph
+        
+        # oh: O-shaped mouth
+        oh_morph = []
+        for idx in mouth_indices:
+            v = vertices[idx]
+            dx = -0.004 if v[0] > center[0] else 0.004
+            oh_morph.append((idx, [dx, 0.0, 0.004]))
+        visemes["oh"] = oh_morph
     
     return visemes
 
 
 def generate_emotion_morphs(
     vertices: np.ndarray,
-    bounds: Dict[str, Any]
+    bounds: Dict[str, Any],
+    vertex_groups: Optional[Dict[str, List[int]]] = None
 ) -> Dict[str, List[Tuple[int, List[float]]]]:
     """Generate emotion morph targets with eyebrow and mouth changes.
     
     Args:
         vertices: Nx3 array of vertex positions.
         bounds: Mesh bounds info.
+        vertex_groups: Optional dict of vertex group name -> indices.
         
     Returns:
         Dictionary mapping emotion names to morph data.
     """
     emotions = {}
     center = bounds["center"]
+    n_vertices = len(vertices)
     
-    # Get region indices
+    # Get region indices for eyebrows (no vertex_groups for eyebrows, use bounding-box)
     left_brow = _identify_eyebrow_region_vertices(vertices, bounds, "left")
     right_brow = _identify_eyebrow_region_vertices(vertices, bounds, "right")
-    mouth_indices = _identify_mouth_region_vertices(vertices, bounds)
+    
+    # Try to use vertex_groups for mouth
+    mouth_indices = []
+    mouth_corner_indices = []
+    upper_lip_indices = []
+    lower_lip_indices = []
+    
+    if vertex_groups:
+        mouth_corner_indices = [i for i in vertex_groups.get("mouth_corners", []) if i < n_vertices]
+        upper_lip_indices = [i for i in vertex_groups.get("upper_lip", []) if i < n_vertices]
+        lower_lip_indices = [i for i in vertex_groups.get("lower_lip", []) if i < n_vertices]
+        mouth_indices = mouth_corner_indices + upper_lip_indices + lower_lip_indices
+    
+    # Fall back to bounding-box if no valid vertex groups for mouth
+    if not mouth_indices:
+        mouth_indices = _identify_mouth_region_vertices(vertices, bounds)
     
     # happy: Eyebrows slightly raised, mouth corners up
     happy_morph = []
     for idx in left_brow + right_brow:
-        v = vertices[idx]
-        # Raise eyebrows slightly
         dy = 0.005
         happy_morph.append((idx, [0.0, dy, 0.0]))
-    for idx in mouth_indices:
-        v = vertices[idx]
-        # Smile - pull corners up and out
-        dx = 0.004 if v[0] > center[0] else -0.004
-        dy = 0.006 if abs(v[0] - center[0]) > 0.05 else 0.0
-        happy_morph.append((idx, [dx, dy, 0.0]))
+    
+    if mouth_corner_indices:
+        # Use mouth corners for smile
+        for idx in mouth_corner_indices:
+            v = vertices[idx]
+            dx = 0.004 if v[0] > center[0] else -0.004
+            happy_morph.append((idx, [dx, 0.006, 0.0]))
+    else:
+        for idx in mouth_indices:
+            v = vertices[idx]
+            dx = 0.004 if v[0] > center[0] else -0.004
+            dy = 0.006 if abs(v[0] - center[0]) > 0.05 else 0.0
+            happy_morph.append((idx, [dx, dy, 0.0]))
     emotions["happy"] = happy_morph
     
     # angry: Eyebrows drawn together and down, mouth tense
     angry_morph = []
     for idx in left_brow:
-        v = vertices[idx]
-        # Pull left brow down and toward center
-        dx = 0.004  # Toward center
-        dy = -0.008  # Down
+        dx = 0.004
+        dy = -0.008
         angry_morph.append((idx, [dx, dy, 0.0]))
     for idx in right_brow:
-        v = vertices[idx]
-        # Pull right brow down and toward center
-        dx = -0.004  # Toward center
-        dy = -0.008  # Down
+        dx = -0.004
+        dy = -0.008
         angry_morph.append((idx, [dx, dy, 0.0]))
     for idx in mouth_indices:
         v = vertices[idx]
-        # Tense mouth - slight inward pull
         dx = -0.002 if v[0] > center[0] else 0.002
         angry_morph.append((idx, [dx, 0.0, 0.0]))
     emotions["angry"] = angry_morph
@@ -472,11 +603,10 @@ def generate_emotion_morphs(
     sad_morph = []
     for idx in left_brow:
         v = vertices[idx]
-        # Outer brow down, inner up (based on distance from center)
         if abs(v[0] - center[0]) > 0.04:
-            dy = -0.006  # Outer down
+            dy = -0.006
         else:
-            dy = 0.004  # Inner up
+            dy = 0.004
         sad_morph.append((idx, [0.0, dy, 0.0]))
     for idx in right_brow:
         v = vertices[idx]
@@ -485,39 +615,52 @@ def generate_emotion_morphs(
         else:
             dy = 0.004
         sad_morph.append((idx, [0.0, dy, 0.0]))
-    for idx in mouth_indices:
-        v = vertices[idx]
-        # Mouth corners down
-        dx = -0.002 if v[0] > center[0] else 0.002
-        dy = -0.004 if abs(v[0] - center[0]) > 0.05 else 0.0
-        sad_morph.append((idx, [dx, dy, 0.0]))
+    
+    if mouth_corner_indices:
+        for idx in mouth_corner_indices:
+            sad_morph.append((idx, [0.0, -0.004, 0.0]))
+    else:
+        for idx in mouth_indices:
+            v = vertices[idx]
+            dx = -0.002 if v[0] > center[0] else 0.002
+            dy = -0.004 if abs(v[0] - center[0]) > 0.05 else 0.0
+            sad_morph.append((idx, [dx, dy, 0.0]))
     emotions["sad"] = sad_morph
     
     # relaxed: Slight smile, neutral brows
     relaxed_morph = []
-    for idx in mouth_indices:
-        v = vertices[idx]
-        # Gentle smile
-        dx = 0.002 if v[0] > center[0] else -0.002
-        dy = 0.003 if abs(v[0] - center[0]) > 0.06 else 0.0
-        relaxed_morph.append((idx, [dx, dy, 0.0]))
+    if mouth_corner_indices:
+        for idx in mouth_corner_indices:
+            v = vertices[idx]
+            dx = 0.002 if v[0] > center[0] else -0.002
+            relaxed_morph.append((idx, [dx, 0.003, 0.0]))
+    else:
+        for idx in mouth_indices:
+            v = vertices[idx]
+            dx = 0.002 if v[0] > center[0] else -0.002
+            dy = 0.003 if abs(v[0] - center[0]) > 0.06 else 0.0
+            relaxed_morph.append((idx, [dx, dy, 0.0]))
     emotions["relaxed"] = relaxed_morph
     
     # surprised: Eyebrows raised high, eyes wide, mouth open
     surprised_morph = []
     for idx in left_brow + right_brow:
-        v = vertices[idx]
-        # Raise eyebrows significantly
         dy = 0.012
         surprised_morph.append((idx, [0.0, dy, 0.0]))
-    for idx in mouth_indices:
-        v = vertices[idx]
-        # Open mouth slightly
-        if v[1] < center[1]:
-            dy = -0.006  # Lower jaw
-        else:
-            dy = 0.004  # Upper lip up
-        surprised_morph.append((idx, [0.0, dy, 0.0]))
+    
+    if upper_lip_indices and lower_lip_indices:
+        for idx in upper_lip_indices:
+            surprised_morph.append((idx, [0.0, 0.004, 0.0]))
+        for idx in lower_lip_indices:
+            surprised_morph.append((idx, [0.0, -0.006, 0.0]))
+    else:
+        for idx in mouth_indices:
+            v = vertices[idx]
+            if v[1] < center[1]:
+                dy = -0.006
+            else:
+                dy = 0.004
+            surprised_morph.append((idx, [0.0, dy, 0.0]))
     emotions["surprised"] = surprised_morph
     
     return emotions
@@ -576,7 +719,8 @@ def validate_expressions(
 
 def generate_expressions(
     mesh_path: str,
-    template_expressions: Optional[Dict[str, Any]] = None
+    template_expressions: Optional[Dict[str, Any]] = None,
+    landmarks_path: Optional[str] = None
 ) -> Dict[str, Any]:
     """Generate expression shape keys for a mesh.
     
@@ -586,6 +730,7 @@ def generate_expressions(
     Args:
         mesh_path: Path to the mesh.
         template_expressions: Optional expression data from template.
+        landmarks_path: Optional path to landmarks.json for vertex groups.
         
     Returns:
         Dictionary mapping expression names to morph target data.
@@ -599,6 +744,11 @@ def generate_expressions(
         "expressions": {},
         "mesh_path": mesh_path
     }
+    
+    # Load vertex_groups from landmarks.json
+    vertex_groups = load_vertex_groups(landmarks_path)
+    if vertex_groups:
+        result["vertex_groups_loaded"] = list(vertex_groups.keys())
     
     # Load mesh and get vertices
     try:
@@ -621,21 +771,21 @@ def generate_expressions(
         return result
     
     # Generate blink morphs
-    blink_data = generate_blink_morph(vertices, bounds, "both")
+    blink_data = generate_blink_morph(vertices, bounds, "both", vertex_groups)
     result["expressions"]["blink"] = {
         "morph_targets": blink_data,
         "vertex_count": len(blink_data),
         "status": "generated"
     }
     
-    blink_left_data = generate_blink_morph(vertices, bounds, "left")
+    blink_left_data = generate_blink_morph(vertices, bounds, "left", vertex_groups)
     result["expressions"]["blinkLeft"] = {
         "morph_targets": blink_left_data,
         "vertex_count": len(blink_left_data),
         "status": "generated"
     }
     
-    blink_right_data = generate_blink_morph(vertices, bounds, "right")
+    blink_right_data = generate_blink_morph(vertices, bounds, "right", vertex_groups)
     result["expressions"]["blinkRight"] = {
         "morph_targets": blink_right_data,
         "vertex_count": len(blink_right_data),
@@ -643,7 +793,7 @@ def generate_expressions(
     }
     
     # Generate viseme morphs
-    visemes = generate_viseme_morphs(vertices, bounds)
+    visemes = generate_viseme_morphs(vertices, bounds, vertex_groups)
     for viseme_name, morph_data in visemes.items():
         result["expressions"][viseme_name] = {
             "morph_targets": morph_data,
@@ -652,7 +802,7 @@ def generate_expressions(
         }
     
     # Generate emotion morphs
-    emotions = generate_emotion_morphs(vertices, bounds)
+    emotions = generate_emotion_morphs(vertices, bounds, vertex_groups)
     for emotion_name, morph_data in emotions.items():
         result["expressions"][emotion_name] = {
             "morph_targets": morph_data,

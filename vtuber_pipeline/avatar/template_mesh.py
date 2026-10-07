@@ -438,6 +438,64 @@ def get_bone_hierarchy() -> Dict[str, Any]:
     return hierarchy
 
 
+def create_canonical_template_from_makehuman(base_obj_path: str, output_path: str) -> Dict[str, Any]:
+    """
+    MakeHuman CC0 base mesh에서 VTuber canonical template을 생성합니다.
+    
+    Steps:
+    1. trimesh으로 base.obj 로드
+    2. 애니메이션 비율 스케일링 (머리 1.2x 확대)
+    3. template.glb로 저장
+    
+    Args:
+        base_obj_path: MakeHuman base.obj 파일 경로
+        output_path: 출력 GLB 파일 경로
+        
+    Returns:
+        생성 결과 딕셔너리
+    """
+    if not TRIMESH_AVAILABLE:
+        return {"status": "error", "error": "trimesh not available"}
+    
+    try:
+        mesh = trimesh.load(base_obj_path)
+        if isinstance(mesh, trimesh.Scene):
+            mesh = trimesh.util.concatenate(list(mesh.geometry.values()))
+        
+        # 애니메 비율: 머리 부분 1.2배 확대
+        vertices = np.array(mesh.vertices)
+        bounds_min = vertices.min(axis=0)
+        bounds_max = vertices.max(axis=0)
+        height = bounds_max[1] - bounds_min[1]
+        
+        # 머리는 상위 25% 영역으로 정의
+        head_y_threshold = bounds_max[1] - 0.25 * height
+        head_mask = vertices[:, 1] > head_y_threshold
+        head_center = np.array([0.0, bounds_max[1], 0.0])
+        
+        # 머리 버텍스를 머리 중심 기준으로 1.2배 스케일
+        for i in range(len(vertices)):
+            if head_mask[i]:
+                offset = vertices[i] - head_center
+                vertices[i] = head_center + offset * 1.2
+        
+        mesh.vertices = vertices
+        
+        output_path_obj = pathlib.Path(output_path)
+        output_path_obj.parent.mkdir(parents=True, exist_ok=True)
+        mesh.export(str(output_path_obj))
+        
+        return {
+            "status": "complete",
+            "output_path": str(output_path_obj),
+            "source": "makehuman_cc0",
+            "vertex_count": len(mesh.vertices),
+            "face_count": len(mesh.faces)
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
 if __name__ == "__main__":
     # 테스트 실행
     result = create_canonical_template("assets/canonical_vtuber/template.glb")
