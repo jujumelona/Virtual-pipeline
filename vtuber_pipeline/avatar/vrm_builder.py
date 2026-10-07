@@ -364,11 +364,55 @@ def create_vrm_extension(
                 }
 
     look_at_config = look_at_config or {}
+    if not isinstance(look_at_config, dict):
+        raise ValueError("look_at_config must be an object")
+
+    look_at_type = str(look_at_config.get("type", "bone"))
+    if look_at_type not in {"bone", "expression"}:
+        raise ValueError(f"Invalid VRM lookAt type: {look_at_type!r}")
+
+    offset = np.asarray(
+        look_at_config.get("offsetFromHeadBone", [0.0, 0.06, 0.0]),
+        dtype=float,
+    )
+    if offset.shape != (3,) or not np.all(np.isfinite(offset)):
+        raise ValueError("lookAt offsetFromHeadBone must contain 3 finite numbers")
+
+    yaw_limit = float(look_at_config.get("yaw_limit_deg", 30.0))
+    pitch_limit = float(look_at_config.get("pitch_limit_deg", 20.0))
+    if (
+        not np.isfinite(yaw_limit)
+        or not np.isfinite(pitch_limit)
+        or yaw_limit < 0.0
+        or pitch_limit < 0.0
+    ):
+        raise ValueError("lookAt yaw/pitch limits must be finite and non-negative")
+
+    # VRM 1.0 RangeMap maps a target yaw/pitch input angle to either eye-bone
+    # rotation (degrees) or expression weight. The pipeline generates bone
+    # look-at, so preserve the gaze stage's explicit eye-rotation limits as
+    # outputScale instead of silently dropping them.
+    horizontal_output = yaw_limit if look_at_type == "bone" else 1.0
+    vertical_output = pitch_limit if look_at_type == "bone" else 1.0
     look_at = {
-        "offsetFromHeadBone": list(
-            look_at_config.get("offsetFromHeadBone", [0.0, 0.06, 0.0])
-        ),
-        "type": look_at_config.get("type", "bone"),
+        "offsetFromHeadBone": offset.astype(float).tolist(),
+        "type": look_at_type,
+        "rangeMapHorizontalInner": {
+            "inputMaxValue": 90.0,
+            "outputScale": horizontal_output,
+        },
+        "rangeMapHorizontalOuter": {
+            "inputMaxValue": 90.0,
+            "outputScale": horizontal_output,
+        },
+        "rangeMapVerticalDown": {
+            "inputMaxValue": 90.0,
+            "outputScale": vertical_output,
+        },
+        "rangeMapVerticalUp": {
+            "inputMaxValue": 90.0,
+            "outputScale": vertical_output,
+        },
     }
 
     vrm_extension: Dict[str, Any] = {
