@@ -145,6 +145,7 @@ class AvatarPipeline:
         output_dir = str(self.output_dir)
         cfg = {**self.config, **(config or {})}
         profile = cfg.get("profile", "commercial")
+        from vtuber_pipeline.avatar.reconstruction import TRIPOSR_MODEL_REVISION
         reconstruction_cfg = cfg.get("reconstruction") or {}
         if not isinstance(reconstruction_cfg, dict):
             return {
@@ -174,6 +175,7 @@ class AvatarPipeline:
             "profile": profile,
             "model_save_format": model_save_format,
             "remove_background": remove_background,
+            "model_revision": TRIPOSR_MODEL_REVISION,
         }
 
         results: Dict[str, Any] = {
