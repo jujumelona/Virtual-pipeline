@@ -75,8 +75,20 @@ class AccessoryPipeline:
             return results
         
         # Stage 2: Anchors
+        anchor_name = str(config.get("anchor_name", "HEAD_TOP"))
+        custom_anchor = config.get("custom_anchor")
+        if anchor_name == "CUSTOM" and not isinstance(custom_anchor, dict):
+            results["status"] = "failed"
+            results["failed_stages"] = ["anchors"]
+            results["failed_reason"] = (
+                "CUSTOM anchor requires a custom_anchor configuration"
+            )
+            return results
+
         results["stages"]["anchors"] = anchors.generate_anchor_manifest(
-            base_vrm, output_dir
+            base_vrm,
+            output_dir,
+            custom_anchor=custom_anchor if anchor_name == "CUSTOM" else None,
         )
         if results["stages"]["anchors"].get("status") != "complete":
             results["status"] = "failed"
@@ -84,7 +96,6 @@ class AccessoryPipeline:
             return results
         
         # Stage 3: Fit
-        anchor_name = config.get("anchor_name", "HEAD_TOP")
         anchor_manifest = results["stages"]["anchors"]
         results["stages"]["fit"] = fitting.fit_accessory(
             normalized_path, anchor_name, anchor_manifest, output_dir
