@@ -1,127 +1,106 @@
-"""Hair mesh extraction module for VTuber Pipeline.
-
-This module provides functions for extracting and processing hair
-geometry from reconstructed meshes.
-"""
+"""Hair geometry extraction from the reconstructed reference mesh."""
 
 import pathlib
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 
 def extract_hair(mesh_path: str, output_dir: str) -> Dict[str, Any]:
-    """Extract hair components from a mesh.
-    
-    Detection algorithm:
-    1. Identify hair vertices via color/texture analysis (dark colors, top of head)
-    2. Find connected components among hair vertices
-    3. Separate each hair component for individual processing
-    4. Export each component as separate GLB
-    
-    The algorithm uses:
-    - Color clustering to identify hair regions
-    - Topological connectivity for component separation
-    - Geometric heuristics (top of mesh) for hair likelihood
-    
-    Args:
-        mesh_path: Path to the input mesh.
-        output_dir: Directory to write output files.
-        
-    Returns:
-        Dictionary with hair extraction results.
+    """Extract an actual top-head submesh instead of returning a placeholder.
+
+    The current implementation is geometry-first and deliberately conservative:
+    it keeps faces concentrated in the upper head region, splits connected
+    components, drops tiny islands, and writes a real GLB when enough geometry
+    exists. It does not claim semantic perfection; ambiguous cases return
+    ``partial`` instead of fabricating a successful hair asset.
     """
-    result = {
+    result: Dict[str, Any] = {
         "status": "pending",
         "mesh_path": mesh_path,
-        "hair_components": []
+        "hair_components": [],
     }
-    
-    # Create output directory
-    pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
-    
+    out_dir = pathlib.Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     try:
         import numpy as np
-        
-        try:
-            import trimesh
-            
-            # Load mesh
-            mesh = trimesh.load(mesh_path)
-            
-            if hasattr(mesh, 'vertices'):
-                vertices = np.array(mesh.vertices)
-                
-                # Stub hair detection: top 20% of mesh by Y coordinate
-                y_coords = vertices[:, 1]  # Assuming Y is up
-                y_threshold = np.percentile(y_coords, 80)
-                hair_vertex_mask = y_coords > y_threshold
-                hair_vertex_count = np.sum(hair_vertex_mask)
-                
-                result["hair_vertex_count"] = int(hair_vertex_count)
-                result["hair_ratio"] = float(hair_vertex_count / len(vertices))
-                
-                # Find connected components (stub - would need actual mesh analysis)
-                result["hair_components"] = [
-                    {"id": 0, "vertex_count": hair_vertex_count}
-                ]
-                
-                # Export hair.glb (stub - would extract actual mesh)
-                # In actual implementation:
-                # 1. Create submesh with hair vertices
-                # 2. Find connected components
-                # 3. Export each component
-                
-                result["hair_glb"] = str(pathlib.Path(output_dir) / "hair.glb")
-                result["status"] = "complete"
-                
-            else:
-                result["warning"] = "Mesh has no vertices attribute"
-                result["status"] = "stub"
-                
-        except ImportError:
-            result["warning"] = "trimesh not installed, using stub values"
-            result["status"] = "stub"
-            result["hair_components"] = []
-            
-    except ImportError:
-        result["error"] = "numpy not installed"
+        import trimesh
+
+        mesh = trimesh.load(mesh_path)
+        if isinstance(mesh, trimesh.Scene):
+            geometries = list(mesh.geometry.values())
+            if not geometries:
+                raise ValueError("Reference scene contains no geometry")
+            mesh = trimesh.util.concatenate(geometries)
+        if len(mesh.vertices) == 0 or len(mesh.faces) == 0:
+            raise ValueError("Reference mesh is empty")
+
+        vertices = np.asarray(mesh.vertices)
+        faces = np.asarray(mesh.faces)
+        bounds_min, bounds_max = mesh.bounds
+        height = float(bounds_max[1] - bounds_min[1])
+        if height <= 1e-8:
+            raise ValueError("Reference mesh has invalid height")
+
+        # Candidate region: upper 30% of the reconstructed character. Requiring
+        # at least two candidate vertices per face avoids isolated triangles.
+        y_cut = bounds_max[1] - 0.30 * height
+        candidate_vertices = vertices[:, 1] >= y_cut
+        face_mask = np.count_nonzero(candidate_vertices[faces], axis=1) >= 2
+        face_indices = np.flatnonzero(face_mask)
+        if len(face_indices) == 0:
+            result.update({
+                "status": "partial",
+                "warning": "No upper-head faces were available for hair extraction",
+                "hair_vertex_count": 0,
+            })
+            return result
+
+        extracted = mesh.submesh([face_indices], append=True, repair=True)
+        if extracted is None or len(extracted.faces) == 0:
+            result.update({
+                "status": "partial",
+                "warning": "Hair candidate submesh was empty after extraction",
+                "hair_vertex_count": 0,
+            })
+            return result
+
+        components = extracted.split(only_watertight=False)
+        kept = [
+            comp for comp in components
+            if len(comp.faces) >= 8 and len(comp.vertices) >= 8
+        ]
+        if not kept:
+            kept = [extracted]
+        kept = sorted(kept, key=lambda comp: len(comp.faces), reverse=True)[:8]
+        hair_mesh = trimesh.util.concatenate(kept) if len(kept) > 1 else kept[0]
+
+        hair_path = out_dir / "hair.glb"
+        hair_mesh.export(str(hair_path))
+        if not hair_path.is_file() or hair_path.stat().st_size == 0:
+            raise RuntimeError("Hair GLB export produced no file")
+
+        result.update({
+            "status": "complete",
+            "hair_glb": str(hair_path),
+            "hair_vertex_count": int(len(hair_mesh.vertices)),
+            "hair_face_count": int(len(hair_mesh.faces)),
+            "hair_ratio": float(len(hair_mesh.vertices) / max(len(mesh.vertices), 1)),
+            "hair_components": [
+                {"id": i, "vertex_count": int(len(comp.vertices)), "face_count": int(len(comp.faces))}
+                for i, comp in enumerate(kept)
+            ],
+            "method": "upper_head_geometry",
+        })
+    except Exception as exc:
         result["status"] = "error"
-    
+        result["error"] = str(exc)
+
     return result
 
 
 def generate_hair_glb(mesh_path: str, output_dir: str) -> str:
-    """Extract and export hair mesh as GLB.
-    
-    Args:
-        mesh_path: Path to the input mesh.
-        output_dir: Directory to write the output file.
-        
-    Returns:
-        Path to the generated hair.glb file.
-    """
-    output_path = pathlib.Path(output_dir) / "hair.glb"
-    
-    try:
-        import trimesh
-        
-        # Load and process mesh
-        mesh = trimesh.load(mesh_path)
-        
-        # Stub: export empty mesh
-        # In actual implementation:
-        # 1. Identify hair vertices
-        # 2. Create submesh
-        # 3. Export
-        
-        if hasattr(mesh, 'vertices'):
-            # Create empty mesh as placeholder
-            empty_mesh = trimesh.Trimesh()
-            empty_mesh.export(output_path)
-        
-        return str(output_path)
-        
-    except ImportError:
-        raise ImportError(
-            "trimesh is required for hair extraction. "
-            "Install with: pip install trimesh"
-        )
+    """Compatibility wrapper returning the real extracted hair GLB path."""
+    result = extract_hair(mesh_path, output_dir)
+    if result.get("status") != "complete":
+        raise RuntimeError(result.get("error") or result.get("warning") or "Hair extraction failed")
+    return str(result["hair_glb"])
