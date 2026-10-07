@@ -21,6 +21,22 @@ def _apply_transform(vertices, transform):
     return (vertices * scale) @ rotation.T + translation
 
 
+def _load_world_mesh(path: str):
+    """Load mesh geometry with every scene-node transform baked into vertices."""
+    import trimesh
+
+    loaded = trimesh.load(
+        path,
+        file_type="glb" if pathlib.Path(path).suffix.lower() == ".vrm" else None,
+        process=False,
+    )
+    if isinstance(loaded, trimesh.Scene):
+        loaded = loaded.to_mesh()
+    if not isinstance(loaded, trimesh.Trimesh) or len(loaded.vertices) == 0:
+        raise ValueError(f"Mesh contains no usable triangle geometry: {path}")
+    return loaded
+
+
 def check_collision(
     accessory_path: str,
     body_path: str,
@@ -44,20 +60,8 @@ def check_collision(
         import trimesh
         from scipy.spatial import cKDTree
 
-        accessory = trimesh.load(
-            accessory_path,
-            file_type="glb" if pathlib.Path(accessory_path).suffix.lower() == ".vrm" else None,
-        )
-        body = trimesh.load(
-            body_path,
-            file_type="glb" if pathlib.Path(body_path).suffix.lower() == ".vrm" else None,
-        )
-        if isinstance(accessory, trimesh.Scene):
-            accessory = trimesh.util.concatenate(list(accessory.geometry.values()))
-        if isinstance(body, trimesh.Scene):
-            body = trimesh.util.concatenate(list(body.geometry.values()))
-        if len(accessory.vertices) == 0 or len(body.vertices) == 0:
-            raise ValueError("Accessory or body mesh is empty")
+        accessory = _load_world_mesh(accessory_path)
+        body = _load_world_mesh(body_path)
 
         acc_vertices = _apply_transform(np.asarray(accessory.vertices), world_transform)
         body_vertices = np.asarray(body.vertices)
