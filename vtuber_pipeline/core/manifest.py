@@ -101,9 +101,24 @@ class PipelineManifest:
             return False
         if contract.get("status") != "complete":
             return False
-        output_path = contract.get("output_path") or contract.get("mesh_path") or contract.get("vrm_path")
-        if output_path and not pathlib.Path(output_path).exists():
-            return False
+        artifact_paths = contract.get("artifact_paths")
+        if isinstance(artifact_paths, list):
+            for artifact in artifact_paths:
+                if not isinstance(artifact, str) or not artifact:
+                    return False
+                path = pathlib.Path(artifact)
+                if not path.is_file() or path.stat().st_size <= 0:
+                    return False
+        else:
+            output_path = (
+                contract.get("output_path")
+                or contract.get("mesh_path")
+                or contract.get("vrm_path")
+            )
+            if output_path:
+                path = pathlib.Path(output_path)
+                if not path.is_file() or path.stat().st_size <= 0:
+                    return False
         return True
     def record_stage(
         self,
