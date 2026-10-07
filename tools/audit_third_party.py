@@ -66,17 +66,37 @@ def discover_artifact(name: str, info: Dict[str, Any]) -> Optional[pathlib.Path]
     """Find concrete downloaded bytes for hash observation; never fake a hash."""
     if name == "triposr":
         candidates = []
+        explicit_model = os.environ.get("TRIPOSR_MODEL_DIR")
+        if explicit_model:
+            candidates.append(
+                pathlib.Path(explicit_model).expanduser() / "model.ckpt"
+            )
+
         repo = ROOT / info.get("path", "TripoSR")
         candidates.extend([
             repo / "model.ckpt",
             repo / "model.safetensors",
             repo / "weights" / "model.ckpt",
         ])
-        hf = pathlib.Path.home() / ".cache" / "huggingface" / "hub" / "models--stabilityai--TripoSR"
-        if hf.exists():
-            candidates.extend(hf.glob("snapshots/*/model.ckpt"))
-            candidates.extend(hf.glob("snapshots/*/*.safetensors"))
-        return next((p for p in candidates if pathlib.Path(p).is_file()), None)
+
+        hf = (
+            pathlib.Path.home()
+            / ".cache"
+            / "huggingface"
+            / "hub"
+            / "models--stabilityai--TripoSR"
+        )
+        revision = info.get("model_revision")
+        if hf.exists() and revision:
+            candidates.extend([
+                hf / "snapshots" / revision / "model.ckpt",
+                hf / "snapshots" / revision / "model.safetensors",
+            ])
+
+        return next(
+            (path for path in candidates if pathlib.Path(path).is_file()),
+            None,
+        )
 
     if name == "anime_face_detector":
         candidates = []
