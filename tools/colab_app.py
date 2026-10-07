@@ -228,6 +228,12 @@ def _install_runtime(head: str) -> None:
         timeout=600,
     )
 
+    # Keep native-extension compilation within Colab T4 RAM limits.
+    os.environ.setdefault("MAX_JOBS", "2")
+    os.environ.setdefault("CMAKE_BUILD_PARALLEL_LEVEL", "2")
+    if pathlib.Path("/usr/local/cuda").is_dir():
+        os.environ.setdefault("CUDA_HOME", "/usr/local/cuda")
+
     _run(
         [
             sys.executable,
