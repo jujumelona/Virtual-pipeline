@@ -22,6 +22,7 @@ def export_vrm(
     bone_mapping: Optional[Dict[str, int]] = None,
     commercial_usage: str = "corporation",
     springbone_config: Optional[Dict[str, Any]] = None,
+    gaze_config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Export rigged mesh to VRM 1.0 format.
     
@@ -39,6 +40,7 @@ def export_vrm(
         bone_mapping: Optional dict mapping VRM bone names to node indices.
         commercial_usage: VRM 1.0 commercial usage policy.
         springbone_config: Optional normalized VRMC_springBone config.
+        gaze_config: Optional VRM look-at configuration.
         
     Returns:
         Dictionary with export results and output paths.
@@ -71,6 +73,7 @@ def export_vrm(
             bone_mapping=bone_mapping,
             commercial_usage=commercial_usage,
             springbone_config=springbone_config,
+            look_at_config=gaze_config,
         )
         
         # Copy result fields
