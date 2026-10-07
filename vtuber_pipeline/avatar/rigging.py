@@ -176,277 +176,142 @@ def create_gltf_with_skin(
     skeleton: Dict[str, Any],
     joint_indices: np.ndarray,
     joint_weights: np.ndarray,
-    output_path: str
+    output_path: str,
+    texture_path: str | None = None,
 ) -> str:
-    """
-    스킨이 포함된 glTF 파일을 생성합니다.
-    
-    Args:
-        mesh: trimesh.Trimesh 객체
-        skeleton: 뼈대 정보
-        joint_indices: 정점별 뼈 인덱스
-        joint_weights: 정점별 가중치
-        output_path: 출력 파일 경로
-    
-    Returns:
-        출력 파일 경로
-    """
+    """Create a binary glTF with skinning and an optional embedded PNG texture."""
     if not PYGLTFLIB_AVAILABLE:
         raise ImportError("pygltflib이 설치되지 않았습니다. pip install pygltflib")
-    
-    # glTF 객체 생성
+
+    from pygltflib import (
+        Mesh, Primitive, Scene, Image, Texture, Sampler, Material,
+        PbrMetallicRoughness, TextureInfo
+    )
+
     gltf = GLTF2()
-    
-    # 버퍼 생성
     buffer_data = bytearray()
-    
-    # 1. 정점 위치
-    vertices = mesh.vertices.astype(np.float32)
-    vertices_bytes = vertices.tobytes()
-    vertices_byte_offset = len(buffer_data)
-    vertices_byte_length = len(vertices_bytes)
-    buffer_data.extend(vertices_bytes)
-    
-    # 2. 법선
-    normals = mesh.vertex_normals.astype(np.float32)
-    normals_bytes = normals.tobytes()
-    normals_byte_offset = len(buffer_data)
-    normals_byte_length = len(normals_bytes)
-    buffer_data.extend(normals_bytes)
-    
-    # 3. 인덱스
-    faces = mesh.faces.astype(np.uint32)
-    indices_bytes = faces.flatten().tobytes()
-    indices_byte_offset = len(buffer_data)
-    indices_byte_length = len(indices_bytes)
-    buffer_data.extend(indices_bytes)
-    
-    # 4. 조인트 인덱스 (VEC4)
-    joints_bytes = joint_indices.tobytes()
-    joints_byte_offset = len(buffer_data)
-    joints_byte_length = len(joints_bytes)
-    buffer_data.extend(joints_bytes)
-    
-    # 5. 조인트 가중치 (VEC4)
-    weights_bytes = joint_weights.tobytes()
-    weights_byte_offset = len(buffer_data)
-    weights_byte_length = len(weights_bytes)
-    buffer_data.extend(weights_bytes)
-    
-    # 6. inverseBindMatrices
-    ibm = skeleton["inverse_bind_matrices"].astype(np.float32)
-    ibm_bytes = ibm.tobytes()
-    ibm_byte_offset = len(buffer_data)
-    ibm_byte_length = len(ibm_bytes)
-    buffer_data.extend(ibm_bytes)
-    
-    # BufferViews 생성
-    # 정점 위치
-    bv_vertices = BufferView(
-        buffer=0,
-        byteOffset=vertices_byte_offset,
-        byteLength=vertices_byte_length,
-        target=ARRAY_BUFFER
-    )
-    gltf.bufferViews.append(bv_vertices)
-    
-    # 법선
-    bv_normals = BufferView(
-        buffer=0,
-        byteOffset=normals_byte_offset,
-        byteLength=normals_byte_length,
-        target=ARRAY_BUFFER
-    )
-    gltf.bufferViews.append(bv_normals)
-    
-    # 인덱스
-    bv_indices = BufferView(
-        buffer=0,
-        byteOffset=indices_byte_offset,
-        byteLength=indices_byte_length,
-        target=ELEMENT_ARRAY_BUFFER
-    )
-    gltf.bufferViews.append(bv_indices)
-    
-    # 조인트 인덱스
-    bv_joints = BufferView(
-        buffer=0,
-        byteOffset=joints_byte_offset,
-        byteLength=joints_byte_length,
-        target=ARRAY_BUFFER
-    )
-    gltf.bufferViews.append(bv_joints)
-    
-    # 조인트 가중치
-    bv_weights = BufferView(
-        buffer=0,
-        byteOffset=weights_byte_offset,
-        byteLength=weights_byte_length,
-        target=ARRAY_BUFFER
-    )
-    gltf.bufferViews.append(bv_weights)
-    
-    # inverseBindMatrices
-    bv_ibm = BufferView(
-        buffer=0,
-        byteOffset=ibm_byte_offset,
-        byteLength=ibm_byte_length,
-        target=None  # 버퍼 뷰 타겟 없음
-    )
-    gltf.bufferViews.append(bv_ibm)
-    
-    # Accessors 생성
-    num_vertices = len(vertices)
-    num_indices = len(faces.flatten())
-    num_joints = skeleton["num_joints"]
-    
-    # 정점 위치 accessor
-    acc_positions = Accessor(
-        bufferView=0,
-        componentType=FLOAT,
-        count=num_vertices,
-        type="VEC3",
-        max=vertices.max(axis=0).tolist(),
-        min=vertices.min(axis=0).tolist()
-    )
-    gltf.accessors.append(acc_positions)
-    
-    # 법선 accessor
-    acc_normals = Accessor(
-        bufferView=1,
-        componentType=FLOAT,
-        count=num_vertices,
-        type="VEC3"
-    )
-    gltf.accessors.append(acc_normals)
-    
-    # 인덱스 accessor
-    acc_indices = Accessor(
-        bufferView=2,
-        componentType=UNSIGNED_INT,
-        count=num_indices,
-        type="SCALAR"
-    )
-    gltf.accessors.append(acc_indices)
-    
-    # 조인트 인덱스 accessor (VEC4)
-    acc_joints = Accessor(
-        bufferView=3,
-        componentType=UNSIGNED_SHORT,
-        count=num_vertices,
-        type="VEC4"
-    )
-    gltf.accessors.append(acc_joints)
-    
-    # 조인트 가중치 accessor (VEC4)
-    acc_weights = Accessor(
-        bufferView=4,
-        componentType=FLOAT,
-        count=num_vertices,
-        type="VEC4"
-    )
-    gltf.accessors.append(acc_weights)
-    
-    # inverseBindMatrices accessor
-    acc_ibm = Accessor(
-        bufferView=5,
-        componentType=FLOAT,
-        count=num_joints,
-        type="MAT4"
-    )
-    gltf.accessors.append(acc_ibm)
-    
-    # Skin 생성
-    skin = Skin(
+
+    def append_aligned(payload: bytes) -> tuple[int, int]:
+        while len(buffer_data) % 4:
+            buffer_data.append(0)
+        offset = len(buffer_data)
+        buffer_data.extend(payload)
+        return offset, len(payload)
+
+    vertices = np.asarray(mesh.vertices, dtype=np.float32)
+    normals = np.asarray(mesh.vertex_normals, dtype=np.float32)
+    faces = np.asarray(mesh.faces, dtype=np.uint32).reshape(-1)
+    joints = np.asarray(joint_indices, dtype=np.uint16)
+    weights = np.asarray(joint_weights, dtype=np.float32)
+    ibm = np.asarray(skeleton["inverse_bind_matrices"], dtype=np.float32)
+
+    pos_off, pos_len = append_aligned(vertices.tobytes())
+    norm_off, norm_len = append_aligned(normals.tobytes())
+    idx_off, idx_len = append_aligned(faces.tobytes())
+    joint_off, joint_len = append_aligned(joints.tobytes())
+    weight_off, weight_len = append_aligned(weights.tobytes())
+    ibm_off, ibm_len = append_aligned(ibm.tobytes())
+
+    uv = None
+    uv_off = uv_len = image_off = image_len = None
+    texture_file = pathlib.Path(texture_path) if texture_path else None
+    if texture_file and texture_file.is_file():
+        visual_uv = getattr(getattr(mesh, "visual", None), "uv", None)
+        if visual_uv is not None and len(visual_uv) == len(vertices):
+            uv = np.asarray(visual_uv, dtype=np.float32)
+        else:
+            center = vertices.mean(axis=0)
+            centered = vertices - center
+            x, y, z = centered[:, 0], centered[:, 1], centered[:, 2]
+            radius = np.linalg.norm(centered, axis=1)
+            radius = np.where(radius < 1e-8, 1e-8, radius)
+            u = 0.5 + np.arctan2(x, z) / (2.0 * np.pi)
+            v = 0.5 - np.arcsin(np.clip(y / radius, -1.0, 1.0)) / np.pi
+            uv = np.stack([u, v], axis=1).astype(np.float32)
+        uv_off, uv_len = append_aligned(uv.tobytes())
+        image_off, image_len = append_aligned(texture_file.read_bytes())
+
+    def add_view(offset: int, length: int, target=None) -> int:
+        idx = len(gltf.bufferViews)
+        gltf.bufferViews.append(BufferView(buffer=0, byteOffset=offset, byteLength=length, target=target))
+        return idx
+
+    bv_pos = add_view(pos_off, pos_len, ARRAY_BUFFER)
+    bv_norm = add_view(norm_off, norm_len, ARRAY_BUFFER)
+    bv_idx = add_view(idx_off, idx_len, ELEMENT_ARRAY_BUFFER)
+    bv_joint = add_view(joint_off, joint_len, ARRAY_BUFFER)
+    bv_weight = add_view(weight_off, weight_len, ARRAY_BUFFER)
+    bv_ibm = add_view(ibm_off, ibm_len, None)
+    bv_uv = add_view(uv_off, uv_len, ARRAY_BUFFER) if uv is not None else None
+    bv_image = add_view(image_off, image_len, None) if image_off is not None else None
+
+    gltf.accessors.append(Accessor(
+        bufferView=bv_pos, componentType=FLOAT, count=len(vertices), type="VEC3",
+        max=vertices.max(axis=0).tolist(), min=vertices.min(axis=0).tolist(),
+    ))
+    gltf.accessors.append(Accessor(bufferView=bv_norm, componentType=FLOAT, count=len(vertices), type="VEC3"))
+    gltf.accessors.append(Accessor(bufferView=bv_idx, componentType=UNSIGNED_INT, count=len(faces), type="SCALAR"))
+    gltf.accessors.append(Accessor(bufferView=bv_joint, componentType=UNSIGNED_SHORT, count=len(vertices), type="VEC4"))
+    gltf.accessors.append(Accessor(bufferView=bv_weight, componentType=FLOAT, count=len(vertices), type="VEC4"))
+    gltf.accessors.append(Accessor(bufferView=bv_ibm, componentType=FLOAT, count=skeleton["num_joints"], type="MAT4"))
+    uv_accessor = None
+    if bv_uv is not None:
+        uv_accessor = len(gltf.accessors)
+        gltf.accessors.append(Accessor(bufferView=bv_uv, componentType=FLOAT, count=len(vertices), type="VEC2"))
+
+    gltf.skins.append(Skin(
         name="humanoid_skin",
-        joints=list(range(num_joints)),  # 조인트 노드 인덱스
-        inverseBindMatrices=5  # accessor 인덱스
-    )
-    gltf.skins.append(skin)
-    
-    # Nodes 생성 (뼈대)
+        joints=list(range(skeleton["num_joints"])),
+        inverseBindMatrices=5,
+    ))
+
     names = skeleton["names"]
     parents = skeleton["parents"]
     positions = skeleton["positions"]
-    
-    # 루트 노드부터 추가
-    for i in range(num_joints):
-        parent_idx = parents[i]
-        local_pos = positions[i].copy()
-        
+    for i in range(skeleton["num_joints"]):
+        parent_idx = int(parents[i])
+        local_pos = positions[i] - positions[parent_idx] if parent_idx >= 0 else positions[i]
+        gltf.nodes.append(Node(name=names[i], translation=local_pos.tolist(), children=[]))
+    for i in range(skeleton["num_joints"]):
+        parent_idx = int(parents[i])
         if parent_idx >= 0:
-            # 로컬 위치 계산
-            local_pos = positions[i] - positions[parent_idx]
-        
-        node = Node(
-            name=names[i],
-            translation=local_pos.tolist(),
-            children=[]
-        )
-        gltf.nodes.append(node)
-    
-    # 부모-자식 관계 설정
-    for i in range(num_joints):
-        parent_idx = parents[i]
-        if parent_idx >= 0:
-            if gltf.nodes[parent_idx].children is None:
-                gltf.nodes[parent_idx].children = []
             gltf.nodes[parent_idx].children.append(i)
-    
-    # Mesh 노드 생성
-    mesh_node = Node(
-        name="avatar_mesh",
-        mesh=0,
-        skin=0,
-        translation=[0.0, 0.0, 0.0]
-    )
-    gltf.nodes.append(mesh_node)
-    
-    # Mesh 생성
-    from pygltflib import Mesh, Primitive
-    primitive = Primitive(
-        attributes={"POSITION": 0, "NORMAL": 1, "JOINTS_0": 3, "WEIGHTS_0": 4},
-        indices=2,
-        mode=4  # TRIANGLES
-    )
-    mesh_obj = Mesh(
-        name="avatar",
-        primitives=[primitive]
-    )
-    gltf.meshes.append(mesh_obj)
-    
-    # Scene 설정
-    # 루트 노드들 (hips와 mesh_node)
-    root_children = [0, num_joints]  # hips 노드와 mesh 노드
-    root_node = Node(
-        name="root",
-        children=root_children
-    )
-    gltf.nodes.append(root_node)
-    
-    # Scene
-    from pygltflib import Scene
-    scene = Scene(
-        name="main_scene",
-        nodes=[num_joints + 1]  # root 노드
-    )
-    gltf.scenes.append(scene)
+
+    attrs = {"POSITION": 0, "NORMAL": 1, "JOINTS_0": 3, "WEIGHTS_0": 4}
+    if uv_accessor is not None:
+        attrs["TEXCOORD_0"] = uv_accessor
+
+    material_index = None
+    if bv_image is not None:
+        gltf.images.append(Image(bufferView=bv_image, mimeType="image/png", name="avatar_texture"))
+        gltf.samplers.append(Sampler())
+        gltf.textures.append(Texture(source=0, sampler=0, name="avatar_texture"))
+        gltf.materials.append(Material(
+            name="avatar_material",
+            pbrMetallicRoughness=PbrMetallicRoughness(
+                baseColorTexture=TextureInfo(index=0),
+                metallicFactor=0.0,
+                roughnessFactor=1.0,
+            ),
+        ))
+        material_index = 0
+
+    primitive = Primitive(attributes=attrs, indices=2, mode=4, material=material_index)
+    gltf.meshes.append(Mesh(name="avatar", primitives=[primitive]))
+
+    mesh_node_idx = len(gltf.nodes)
+    gltf.nodes.append(Node(name="avatar_mesh", mesh=0, skin=0, translation=[0.0, 0.0, 0.0]))
+    root_idx = len(gltf.nodes)
+    gltf.nodes.append(Node(name="root", children=[0, mesh_node_idx]))
+    gltf.scenes.append(Scene(name="main_scene", nodes=[root_idx]))
     gltf.scene = 0
-    
-    # Buffer 설정
-    buffer = Buffer(
-        byteLength=len(buffer_data)
-    )
-    gltf.buffers.append(buffer)
-    
-    # GLB로 저장
+
+    gltf.buffers.append(Buffer(byteLength=len(buffer_data)))
     gltf.set_binary_blob(bytes(buffer_data))
-    gltf.save(output_path)
-    
+    gltf.save_binary(output_path)
     return output_path
 
-
-def rig_avatar(mesh_path: str, output_path: str) -> str:
+def rig_avatar(mesh_path: str, output_path: str, texture_path: str | None = None) -> str:
     """
     메시에 기본 휴머노이드 리그를 추가합니다.
     
@@ -490,7 +355,8 @@ def rig_avatar(mesh_path: str, output_path: str) -> str:
     
     # 스킨이 포함된 GLB 생성
     result = create_gltf_with_skin(
-        mesh, skeleton, joint_indices, joint_weights, output_path
+        mesh, skeleton, joint_indices, joint_weights, output_path,
+        texture_path=texture_path,
     )
     
     return result
