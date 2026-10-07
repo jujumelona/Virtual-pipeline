@@ -64,7 +64,7 @@ def test_generate_config_from_real_gltf_nodes(tmp_path):
     assert persisted["status"] == "complete"
 
 
-def test_missing_secondary_nodes_is_not_fake_complete(tmp_path):
+def test_missing_secondary_nodes_is_error(tmp_path):
     from pygltflib import GLTF2, Node
 
     path = tmp_path / "rig.gltf"
@@ -73,8 +73,9 @@ def test_missing_secondary_nodes_is_not_fake_complete(tmp_path):
     gltf.save(str(path))
 
     result = generate_springbone_config(str(path), str(tmp_path))
-    assert result["status"] == "partial"
+    assert result["status"] == "error"
     assert result["springs"] == []
+    assert "secondary-bone" in result["error"]
 
 
 def test_preset_override():
