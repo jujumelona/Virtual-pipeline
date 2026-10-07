@@ -89,6 +89,14 @@ class PipelineManifest:
         
         return hashlib.sha256(hash_input.encode('utf-8')).hexdigest()
     
+    @staticmethod
+    def _file_sha256(path: pathlib.Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
     def is_complete(self, stage_key: str) -> bool:
         """Return True only for a restorable successful stage."""
         stage_data = self._manifest.get("stages", {}).get(stage_key)
@@ -103,12 +111,22 @@ class PipelineManifest:
             return False
         artifact_paths = contract.get("artifact_paths")
         if isinstance(artifact_paths, list):
-            for artifact in artifact_paths:
-                if not isinstance(artifact, str) or not artifact:
+            if artifact_paths:
+                hashes = stage_data.get("artifact_sha256")
+                if not isinstance(hashes, dict):
+                    # Old manifests did not bind cached artifacts to their bytes.
                     return False
-                path = pathlib.Path(artifact)
-                if not path.is_file() or path.stat().st_size <= 0:
-                    return False
+                for artifact in artifact_paths:
+                    if not isinstance(artifact, str) or not artifact:
+                        return False
+                    path = pathlib.Path(artifact)
+                    if not path.is_file() or path.stat().st_size <= 0:
+                        return False
+                    expected = hashes.get(artifact)
+                    if not isinstance(expected, str) or not expected:
+                        return False
+                    if self._file_sha256(path) != expected:
+                        return False
         else:
             output_path = (
                 contract.get("output_path")
@@ -117,7 +135,14 @@ class PipelineManifest:
             )
             if output_path:
                 path = pathlib.Path(output_path)
-                if not path.is_file() or path.stat().st_size <= 0:
+                hashes = stage_data.get("artifact_sha256")
+                if (
+                    not path.is_file()
+                    or path.stat().st_size <= 0
+                    or not isinstance(hashes, dict)
+                    or not isinstance(hashes.get(str(output_path)), str)
+                    or self._file_sha256(path) != hashes[str(output_path)]
+                ):
                     return False
         return True
     def record_stage(
@@ -140,6 +165,25 @@ class PipelineManifest:
             "timestamp": self._get_timestamp(),
             "contract": contract,
         }
+        artifact_paths = contract.get("artifact_paths")
+        if not isinstance(artifact_paths, list):
+            fallback = (
+                contract.get("output_path")
+                or contract.get("mesh_path")
+                or contract.get("vrm_path")
+            )
+            artifact_paths = [fallback] if isinstance(fallback, str) and fallback else []
+
+        artifact_hashes: Dict[str, str] = {}
+        for artifact in artifact_paths:
+            if not isinstance(artifact, str) or not artifact:
+                continue
+            path = pathlib.Path(artifact)
+            if path.is_file() and path.stat().st_size > 0:
+                artifact_hashes[artifact] = self._file_sha256(path)
+        if artifact_paths:
+            stage_data["artifact_sha256"] = artifact_hashes
+
         if input_hashes:
             stage_data["input_hashes"] = input_hashes
         if config:
