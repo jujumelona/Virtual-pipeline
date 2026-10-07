@@ -38,6 +38,17 @@ class VRMValidator:
             self._vrm = {}
         return self._vrm
 
+    def validate_gltf_structure(self) -> Dict[str, Any]:
+        """Run pygltflib's structural checks before VRM-specific validation."""
+        if self._gltf is None:
+            self.parse_vrm()
+        try:
+            from pygltflib.validator import validate as validate_gltf
+            validate_gltf(self._gltf)
+            return {"valid": True, "error": None}
+        except Exception as exc:
+            return {"valid": False, "error": str(exc)}
+
     def validate_vrm_schema(self) -> Dict[str, Any]:
         vrm = self.parse_vrm()
         version = vrm.get("specVersion") if vrm else None
@@ -185,6 +196,7 @@ class VRMValidator:
 
     def run_all(self) -> Dict[str, Any]:
         checks = {
+            "gltf_structure": self.validate_gltf_structure(),
             "vrm_schema": self.validate_vrm_schema(),
             "humanoid_bones": self.validate_humanoid_bones(),
             "expressions": self.validate_expressions(),
