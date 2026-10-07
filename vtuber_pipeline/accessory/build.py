@@ -62,6 +62,7 @@ class AccessoryPipeline:
         # Import stage modules
         from vtuber_pipeline.accessory import normalize, anchors, fitting
         from vtuber_pipeline.accessory import collision, bake
+        from vtuber_pipeline.accessory import artifacts
         from vtuber_pipeline.avatar.validator import validate_vrm
         
         # Stage 1: Normalize
@@ -147,7 +148,47 @@ class AccessoryPipeline:
                 base_translation + local_push
             ).astype(float).tolist()
         
-        # Stage 5: Bake
+        # Stage 5: Portable prepared artifacts. This is the core API default.
+        results["stages"]["attachment"] = artifacts.write_attachment_manifest(
+            fitted_path,
+            anchor_name,
+            {
+                **fit_result,
+                "transform": local_transform,
+            },
+            collision_result,
+            output_dir,
+        )
+        if results["stages"]["attachment"].get("status") != "complete":
+            results["status"] = "failed"
+            results["failed_stages"] = ["attachment"]
+            results["failed_reason"] = results["stages"]["attachment"].get(
+                "error", "attachment manifest generation failed"
+            )
+            return results
+
+        results["stages"]["preview"] = artifacts.render_preview(
+            fitted_path,
+            output_dir,
+        )
+        if results["stages"]["preview"].get("status") != "complete":
+            results["status"] = "failed"
+            results["failed_stages"] = ["preview"]
+            results["failed_reason"] = results["stages"]["preview"].get(
+                "error", "preview generation failed"
+            )
+            return results
+
+        results["accessory_glb"] = fitted_path
+        results["attachment_json"] = results["stages"]["attachment"]["output_path"]
+        results["preview_png"] = results["stages"]["preview"]["output_path"]
+
+        if not bool(config.get("bake", False)):
+            results["status"] = "complete"
+            results["mode"] = "prepared"
+            return results
+
+        # Stage 6: Optional bake into the supplied base VRM.
         output_vrm = str(pathlib.Path(output_dir) / "combined.vrm")
         attachment_cfg = {
             pathlib.Path(fitted_path).stem: {
@@ -200,6 +241,7 @@ class AccessoryPipeline:
             results["failed_stages"] = failed_stages
         else:
             results["status"] = "complete"
+            results["mode"] = "baked"
             results["output_vrm"] = output_vrm
         
         return results
