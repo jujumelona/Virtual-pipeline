@@ -91,7 +91,12 @@ def avatar(image, output, profile, commercial_usage):
     ),
 )
 @click.option("--output", required=True, type=click.Path(), help="Output directory")
-@click.option("--profile", default="commercial", show_default=True)
+@click.option(
+    "--profile",
+    type=click.Choice(["commercial", "production", "development"]),
+    default="commercial",
+    show_default=True,
+)
 def accessory(base_vrm, images, anchors, custom_anchors, output, profile):
     """Reconstruct and cumulatively attach multiple accessories to one avatar."""
     from vtuber_pipeline.accessory.reconstruction import reconstruct_accessories
