@@ -22,6 +22,20 @@ class AvatarPipeline:
         self.config = config or {}
         from vtuber_pipeline.core.manifest import PipelineManifest
         self.manifest = PipelineManifest(output_dir)
+        self.code_fingerprint = self._compute_code_fingerprint()
+
+    def _compute_code_fingerprint(self) -> str:
+        """Hash current avatar pipeline source so code changes invalidate caches."""
+        digest = hashlib.sha256()
+        avatar_dir = pathlib.Path(__file__).resolve().parent
+        for path in sorted(avatar_dir.glob("*.py")):
+            digest.update(path.name.encode("utf-8"))
+            digest.update(path.read_bytes())
+        core_manifest = avatar_dir.parent / "core" / "manifest.py"
+        if core_manifest.is_file():
+            digest.update(core_manifest.name.encode("utf-8"))
+            digest.update(core_manifest.read_bytes())
+        return digest.hexdigest()
 
     def _fingerprint(self, value: Any) -> str:
         path = pathlib.Path(value) if isinstance(value, str) else None
@@ -37,7 +51,7 @@ class AvatarPipeline:
             return repr(value)
 
     def _get_stage_key(self, stage_name: str, *inputs: Any) -> str:
-        payload = [self.CACHE_SCHEMA, stage_name]
+        payload = [self.CACHE_SCHEMA, self.code_fingerprint, stage_name]
         payload.extend(self._fingerprint(value) for value in inputs)
         return hashlib.sha256("\n".join(payload).encode("utf-8")).hexdigest()[:24]
 
