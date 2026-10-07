@@ -154,7 +154,6 @@ def fit_template(
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
     
     try:
-        import numpy as np
         import trimesh
         from scipy.optimize import minimize
         from scipy.spatial import KDTree
