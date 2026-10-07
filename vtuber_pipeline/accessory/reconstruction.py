@@ -8,6 +8,9 @@ def reconstruct_accessories(
     image_paths: list[str],
     output_dir: str,
     profile: str = "commercial",
+    *,
+    model_save_format: str = "glb",
+    remove_background: bool = True,
 ) -> list[dict]:
     """Reconstruct each accessory independently and return normalized contracts."""
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -19,14 +22,19 @@ def reconstruct_accessories(
                 image_path,
                 acc_out,
                 profile=profile,
-                model_save_format="glb",
-                remove_background=True,
+                model_save_format=model_save_format,
+                remove_background=remove_background,
             )
             results.append({
                 "status": "complete",
                 "image": image_path,
                 "mesh": mesh,
                 "output_path": mesh,
+                "model_options": {
+                    "profile": profile,
+                    "model_save_format": model_save_format,
+                    "remove_background": remove_background,
+                },
             })
         except Exception as exc:
             results.append({
