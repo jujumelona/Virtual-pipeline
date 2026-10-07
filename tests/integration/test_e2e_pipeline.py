@@ -11,6 +11,9 @@ def test_e2e_pipeline(test_char_image, tmp_path):
     1. 이미지 입력 검증
     2. VRM 파일 생성
     3. VRM 1.0 스펙 준수 확인
+    4. 모든 필수 확장이 포함되었는지 검증
+    
+    이 테스트는 파이프라인이 완전하지 않으면 실패해야 합니다.
     """
     from vtuber_pipeline.avatar.build import build_avatar
     from pygltflib import GLTF2
@@ -19,41 +22,59 @@ def test_e2e_pipeline(test_char_image, tmp_path):
     output_dir = str(tmp_path / "output")
     result = build_avatar(str(test_char_image), output_dir)
     
-    # Check overall status
-    assert result["status"] in ["complete", "failed"], f"Unexpected status: {result['status']}"
+    # Check overall status - must be complete, not just any status
+    # This ensures the test fails loudly on incomplete pipeline
+    assert result["status"] == "complete", (
+        f"Pipeline did not complete successfully. "
+        f"Status: {result['status']}, "
+        f"Failed stages: {result.get('failed_stages', [])}, "
+        f"Stub stages: {result.get('stub_stages', [])}, "
+        f"Fallback stages: {result.get('fallback_stages', [])}"
+    )
     
-    # If complete, verify VRM was created
-    if result["status"] == "complete":
-        vrm_path = pathlib.Path(output_dir) / "avatar.vrm"
-        
-        # Check VRM file exists
-        assert vrm_path.exists(), f"VRM file not found at {vrm_path}"
-        assert vrm_path.stat().st_size > 0, "VRM file is empty"
-        
-        # Load VRM and check extension
-        gltf = GLTF2().load(str(vrm_path))
-        assert gltf.extensions is not None, "No extensions found"
-        assert "VRMC_vrm" in gltf.extensions, "VRMC_vrm extension not found"
-        
-        # Check VRM 1.0 schema
-        vrm_ext = gltf.extensions["VRMC_vrm"]
-        assert vrm_ext.get("specVersion") == "1.0", f"Wrong specVersion: {vrm_ext.get('specVersion')}"
-        
-        # Check humanBones (VRM 1.0 format)
-        humanoid = vrm_ext.get("humanoid", {})
-        human_bones = humanoid.get("humanBones", {})
-        assert len(human_bones) > 0, "No humanBones found"
-        
-        # Check commercial usage is set (default: corporation)
-        meta = vrm_ext.get("meta", {})
-        assert "commercialUsage" in meta, "commercialUsage not found in meta"
-        
-        # Print summary
-        print(f"\n✓ VRM created: {vrm_path}")
-        print(f"✓ VRMC_vrm extension present")
-        print(f"✓ Spec version: {vrm_ext.get('specVersion')}")
-        print(f"✓ Human bones: {len(human_bones)}")
-        print(f"✓ Commercial usage: {meta.get('commercialUsage')}")
+    # Check that validation passed
+    assert result["stages"]["validator"]["passed"] == True, (
+        f"VRM validation did not pass: {result['stages']['validator'].get('errors', [])}"
+    )
+    
+    # VRM file must exist and be non-empty
+    vrm_path = pathlib.Path(output_dir) / "avatar.vrm"
+    assert vrm_path.exists(), f"VRM file not found at {vrm_path}"
+    assert vrm_path.stat().st_size > 0, "VRM file is empty"
+    
+    # Load VRM and check extensions
+    gltf = GLTF2().load(str(vrm_path))
+    assert gltf.extensions is not None, "No extensions found in VRM file"
+    
+    # Check VRMC_vrm extension is present (required for VRM 1.0)
+    assert "VRMC_vrm" in gltf.extensions, "VRMC_vrm extension not found - not a valid VRM 1.0 file"
+    
+    # Check VRMC_springBone extension is present (required for hair/physics)
+    assert "VRMC_springBone" in gltf.extensions, (
+        "VRMC_springBone extension not found - SpringBone physics not configured"
+    )
+    
+    # Check VRM 1.0 schema
+    vrm_ext = gltf.extensions["VRMC_vrm"]
+    assert vrm_ext.get("specVersion") == "1.0", f"Wrong specVersion: {vrm_ext.get('specVersion')}"
+    
+    # Check humanBones (VRM 1.0 format)
+    humanoid = vrm_ext.get("humanoid", {})
+    human_bones = humanoid.get("humanBones", {})
+    assert len(human_bones) > 0, "No humanBones found"
+    
+    # Check commercial usage is set (default: corporation)
+    meta = vrm_ext.get("meta", {})
+    assert "commercialUsage" in meta, "commercialUsage not found in meta"
+    
+    # Print summary
+    print(f"\n✓ VRM created: {vrm_path}")
+    print(f"✓ VRMC_vrm extension present")
+    print(f"✓ VRMC_springBone extension present")
+    print(f"✓ Validation passed")
+    print(f"✓ Spec version: {vrm_ext.get('specVersion')}")
+    print(f"✓ Human bones: {len(human_bones)}")
+    print(f"✓ Commercial usage: {meta.get('commercialUsage')}")
 
 
 def test_vrm_schema_compliance(tmp_path):
