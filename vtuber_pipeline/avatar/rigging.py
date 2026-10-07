@@ -14,7 +14,7 @@ except ImportError:
 # Optional dependency - pygltflib for glTF manipulation
 try:
     from pygltflib import GLTF2, Skin, Node, Accessor, BufferView, Buffer
-    from pygltflib import ARRAY_BUFFER, ELEMENT_ARRAY_BUFFER, FLOAT, UNSIGNED_INT
+    from pygltflib import ARRAY_BUFFER, ELEMENT_ARRAY_BUFFER, FLOAT, UNSIGNED_INT, UNSIGNED_SHORT
     PYGLTFLIB_AVAILABLE = True
 except ImportError:
     GLTF2 = None
@@ -80,6 +80,12 @@ def create_humanoid_skeleton(mesh_bounds: np.ndarray) -> Dict[str, Any]:
         ("rightLowerLeg", 20, np.array([center_x + height * 0.08, base_y + height * 0.28, center_z])),
         ("rightFoot", 21, np.array([center_x + height * 0.08, base_y + height * 0.08, center_z])),
         ("rightToes", 22, np.array([center_x + height * 0.08, base_y + height * 0.02, center_z + height * 0.03])),
+        
+        # Secondary chain used by VRMC_springBone.  The chain sits behind the
+        # upper head so only back/top vertices can be weighted to it.
+        ("hairRoot", 5, np.array([center_x, base_y + height * 0.91, center_z - height * 0.03])),
+        ("hairMid", 24, np.array([center_x, base_y + height * 0.84, center_z - height * 0.07])),
+        ("hairTip", 25, np.array([center_x, base_y + height * 0.76, center_z - height * 0.09])),
     ]
     
     names = [b[0] for b in bones]
@@ -125,59 +131,45 @@ def compute_skin_weights(
     skeleton: Dict[str, Any],
     max_influences: int = 4
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    거리 기반 스키닝 가중치를 계산합니다.
-    
-    Args:
-        vertices: (N, 3) 정점 위치 배열
-        skeleton: create_humanoid_skeleton() 결과
-        max_influences: 최대 영향 뼈 수 (기본 4)
-    
-    Returns:
-        (joint_indices, joint_weights) - 각각 (N, max_influences) 형태
+    """Compute normalized skin weights with a localized secondary hair chain.
+
+    Humanoid bones are available everywhere. Secondary hair bones are only
+    eligible for upper/back-head vertices so facial/torso vertices cannot
+    accidentally inherit SpringBone motion.
     """
     num_vertices = len(vertices)
-    num_joints = skeleton["num_joints"]
     positions = skeleton["positions"]
-    
-    # 각 정점에서 각 뼈까지의 거리 계산
-    distances = np.zeros((num_vertices, num_joints), dtype=np.float32)
-    
-    for j in range(num_joints):
-        bone_pos = positions[j]
-        # 정점과 뼈 위치 간 유클리드 거리
-        diff = vertices - bone_pos
-        distances[:, j] = np.sqrt(np.sum(diff ** 2, axis=1))
-    
-    # 거리 역수로 가중치 계산 (가까울수록 큰 가중치)
-    # 0으로 나누기 방지를 위해 작은 값 추가
-    epsilon = 1e-6
-    weights = 1.0 / (distances + epsilon)
-    
-    # 가장 큰 max_influences 개의 가중치만 선택
+    names = skeleton["names"]
+    num_joints = skeleton["num_joints"]
+
+    diff = vertices[:, None, :] - positions[None, :, :]
+    distances = np.linalg.norm(diff, axis=2)
+    weights = 1.0 / (distances + 1e-6)
+
+    hair_indices = np.array([i for i, name in enumerate(names) if name.lower().startswith("hair")], dtype=int)
+    if len(hair_indices):
+        vmin = vertices.min(axis=0)
+        vmax = vertices.max(axis=0)
+        height = max(float(vmax[1] - vmin[1]), 1e-6)
+        center_z = float((vmin[2] + vmax[2]) / 2.0)
+        hair_region = (vertices[:, 1] >= vmin[1] + 0.72 * height) & (vertices[:, 2] <= center_z)
+        weights[~hair_region[:, None] & np.isin(np.arange(num_joints)[None, :], hair_indices)] = 0.0
+
     joint_indices = np.zeros((num_vertices, max_influences), dtype=np.uint16)
     joint_weights = np.zeros((num_vertices, max_influences), dtype=np.float32)
-    
-    for i in range(num_vertices):
-        # 가중치가 큰 순서대로 인덱스 정렬
-        sorted_indices = np.argsort(weights[i])[::-1][:max_influences]
-        
-        # 상위 가중치 추출
-        top_weights = weights[i, sorted_indices]
-        
-        # 정규화 (합이 1이 되도록)
-        weight_sum = np.sum(top_weights)
-        if weight_sum > 0:
-            top_weights = top_weights / weight_sum
-        else:
-            # 모든 거리가 같으면 균등 분배
-            top_weights = np.ones(max_influences, dtype=np.float32) / max_influences
-        
-        joint_indices[i] = sorted_indices
-        joint_weights[i] = top_weights
-    
-    return joint_indices, joint_weights
 
+    for i in range(num_vertices):
+        order = np.argsort(weights[i])[::-1]
+        order = order[weights[i, order] > 0][:max_influences]
+        if len(order) == 0:
+            order = np.array([0], dtype=int)
+        selected = weights[i, order].astype(np.float32)
+        total = float(selected.sum())
+        selected = selected / total if total > 0 else np.ones(len(order), dtype=np.float32) / len(order)
+        joint_indices[i, :len(order)] = order.astype(np.uint16)
+        joint_weights[i, :len(order)] = selected
+
+    return joint_indices, joint_weights
 
 def create_gltf_with_skin(
     mesh: Any,
@@ -340,7 +332,7 @@ def create_gltf_with_skin(
     # 조인트 인덱스 accessor (VEC4)
     acc_joints = Accessor(
         bufferView=3,
-        componentType=UNSIGNED_INT,  # uint16을 unsigned int로
+        componentType=UNSIGNED_SHORT,
         count=num_vertices,
         type="VEC4"
     )
