@@ -10,7 +10,7 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
 dependencies = [
-    "anime-face-detector",
+    "anime-face-detector==0.1.0",
     "trimesh[easy]",
     "pydantic>=2.0",
     "pyyaml",
