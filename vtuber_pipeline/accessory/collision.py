@@ -1,91 +1,111 @@
-"""Collision detection module for accessories.
+"""Approximate accessory/avatar collision detection and push-out."""
 
-This module provides functions for detecting and resolving collisions
-between accessories and the avatar body mesh.
-"""
+from typing import Dict, Any, Optional
 
-import pathlib
-from typing import Dict, Any
+
+def _apply_transform(vertices, transform):
+    import numpy as np
+
+    if not transform:
+        return vertices.copy()
+    scale = np.asarray(transform.get("scale", [1.0, 1.0, 1.0]), dtype=float)
+    translation = np.asarray(transform.get("translation", [0.0, 0.0, 0.0]), dtype=float)
+    x, y, z, w = transform.get("rotation", [0.0, 0.0, 0.0, 1.0])
+    rotation = np.array([
+        [1 - 2*y*y - 2*z*z, 2*x*y - 2*z*w, 2*x*z + 2*y*w],
+        [2*x*y + 2*z*w, 1 - 2*x*x - 2*z*z, 2*y*z - 2*x*w],
+        [2*x*z - 2*y*w, 2*y*z + 2*x*w, 1 - 2*x*x - 2*y*y],
+    ], dtype=float)
+    return (vertices * scale) @ rotation.T + translation
 
 
 def check_collision(
     accessory_path: str,
-    body_path: str
+    body_path: str,
+    world_transform: Optional[Dict[str, Any]] = None,
+    clearance: float = 0.003,
 ) -> Dict[str, Any]:
-    """Check for collisions between accessory and body.
-    
-    Performs penetration detection and computes push-out vectors.
-    
-    Args:
-        accessory_path: Path to the accessory mesh.
-        body_path: Path to the body mesh.
-        
-    Returns:
-        Dictionary with collision results.
+    """Detect approximate penetration using nearest body vertices/normals.
+
+    This does real geometry work and does not default to "no collision". The
+    signed test is an approximation suitable for anchor fitting; callers can
+    apply the returned push-out vector and recheck.
     """
-    result = {
+    result: Dict[str, Any] = {
         "status": "pending",
         "accessory_path": accessory_path,
         "body_path": body_path,
-        "collisions": []
+        "collisions": [],
     }
-    
     try:
         import numpy as np
-        
-        try:
-            import trimesh
-            
-            # Load meshes
-            accessory = trimesh.load(accessory_path)
-            body = trimesh.load(body_path)
-            
-            # Check collision (stub)
-            # In actual implementation:
-            # 1. Build BVH for both meshes
-            # 2. Test all accessory vertices against body
-            # 3. Compute penetration depths
-            # 4. Generate push-out vectors
-            
-            result["collision_detected"] = False
-            result["penetration_count"] = 0
-            result["pushout_vectors"] = []
-            result["status"] = "complete"
-            
-        except ImportError:
-            result["status"] = "stub"
-            result["collision_detected"] = False
-            result["warning"] = "trimesh not installed"
-            
-    except ImportError:
+        import trimesh
+        from scipy.spatial import cKDTree
+
+        accessory = trimesh.load(accessory_path)
+        body = trimesh.load(body_path)
+        if isinstance(accessory, trimesh.Scene):
+            accessory = trimesh.util.concatenate(list(accessory.geometry.values()))
+        if isinstance(body, trimesh.Scene):
+            body = trimesh.util.concatenate(list(body.geometry.values()))
+        if len(accessory.vertices) == 0 or len(body.vertices) == 0:
+            raise ValueError("Accessory or body mesh is empty")
+
+        acc_vertices = _apply_transform(np.asarray(accessory.vertices), world_transform)
+        body_vertices = np.asarray(body.vertices)
+        body_normals = np.asarray(body.vertex_normals)
+
+        tree = cKDTree(body_vertices)
+        distances, nearest_idx = tree.query(acc_vertices)
+        nearest_points = body_vertices[nearest_idx]
+        nearest_normals = body_normals[nearest_idx]
+        signed = np.einsum("ij,ij->i", acc_vertices - nearest_points, nearest_normals)
+
+        penetration_mask = (signed < 0.0) & (distances <= max(clearance * 6.0, 0.02))
+        penetration_indices = np.flatnonzero(penetration_mask)
+        push_vectors = []
+        for idx in penetration_indices:
+            depth = float(-signed[idx] + clearance)
+            push_vectors.append(nearest_normals[idx] * depth)
+
+        if push_vectors:
+            pushout = np.mean(np.asarray(push_vectors), axis=0)
+            max_depth = float(np.max(-signed[penetration_mask]))
+        else:
+            pushout = np.zeros(3, dtype=float)
+            max_depth = 0.0
+
+        result.update({
+            "status": "complete",
+            "collision_detected": bool(len(penetration_indices)),
+            "penetration_count": int(len(penetration_indices)),
+            "penetration_ratio": float(len(penetration_indices) / max(len(acc_vertices), 1)),
+            "max_penetration_depth": max_depth,
+            "pushout_vector": pushout.tolist(),
+            "clearance": clearance,
+        })
+    except Exception as exc:
         result["status"] = "error"
-        result["error"] = "numpy not installed"
-    
+        result["error"] = str(exc)
+
     return result
 
 
 def resolve_collision(
     accessory_path: str,
     body_path: str,
-    output_path: str
+    world_transform: Optional[Dict[str, Any]] = None,
+    clearance: float = 0.003,
 ) -> Dict[str, Any]:
-    """Resolve collisions by pushing accessory out of body.
-    
-    Args:
-        accessory_path: Path to the accessory mesh.
-        body_path: Path to the body mesh.
-        output_path: Path to save the resolved accessory.
-        
-    Returns:
-        Dictionary with resolution results.
-    """
-    result = check_collision(accessory_path, body_path)
-    
-    if result.get("collision_detected"):
-        # Apply push-out vectors (stub)
-        result["resolved"] = True
-    else:
-        result["resolved"] = False
-        result["message"] = "No collision detected"
-    
+    """Return a corrected world translation using one geometry push-out step."""
+    result = check_collision(accessory_path, body_path, world_transform, clearance)
+    if result.get("status") != "complete":
+        return result
+
+    transform = dict(world_transform or {})
+    translation = list(transform.get("translation", [0.0, 0.0, 0.0]))
+    push = result.get("pushout_vector", [0.0, 0.0, 0.0])
+    corrected = [float(a + b) for a, b in zip(translation, push)]
+    result["corrected_world_translation"] = corrected
+    result["resolved"] = bool(result.get("collision_detected"))
     return result
