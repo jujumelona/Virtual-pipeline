@@ -190,6 +190,30 @@ def fit_template(
                 raise ValueError("degenerate landmark/projection scale")
             return lm_centered * (proj_scale / lm_scale) + proj_center
 
+        def fit_region_weights(points):
+            """Smoothly select head/central upper torso for reference fitting.
+
+            Arms and lower body stay close to the canonical VRM rest pose.
+            """
+            pts = np.asarray(points, dtype=float)
+            pmin = pts.min(axis=0)
+            pmax = pts.max(axis=0)
+            height = max(float(pmax[1] - pmin[1]), 1e-8)
+            center_x = float((pmin[0] + pmax[0]) * 0.5)
+
+            y_norm = (pts[:, 1] - pmin[1]) / height
+            x_norm = np.abs(pts[:, 0] - center_x) / height
+
+            # Vertical ramp: no surface fitting below mid torso.
+            y_weight = np.clip((y_norm - 0.48) / 0.16, 0.0, 1.0)
+            y_weight = y_weight * y_weight * (3.0 - 2.0 * y_weight)
+
+            # Central-body ramp excludes T-pose arms while keeping head/torso.
+            x_weight = np.clip((0.24 - x_norm) / 0.08, 0.0, 1.0)
+            x_weight = x_weight * x_weight * (3.0 - 2.0 * x_weight)
+
+            return y_weight * x_weight
+
         # Full energy minimization with a 7-DOF rigid phase.
         def energy_function(params):
             scale = params[0]
@@ -216,8 +240,17 @@ def fit_template(
 
             e_surface = 0.0
             if reference_tree is not None:
-                surface_distances, _ = reference_tree.query(transformed)
-                e_surface = float(np.mean(surface_distances))
+                region = fit_region_weights(transformed)
+                active = region > 1e-4
+                if np.any(active):
+                    surface_distances, _ = reference_tree.query(
+                        transformed[active]
+                    )
+                    weights = region[active]
+                    e_surface = float(
+                        np.sum(surface_distances * weights)
+                        / max(float(np.sum(weights)), 1e-8)
+                    )
 
             e_laplacian = 0.0
             if laplacian_matrix is not None:
@@ -341,12 +374,25 @@ def fit_template(
 
         graph_displacements = np.zeros((n_graph, 3), dtype=float)
 
-        # Surface target for every graph node.
+        # Surface targets only affect the head/central upper torso. The
+        # canonical T-pose arms and lower body receive a zero-displacement
+        # preservation constraint instead.
+        surface_weight = fit_region_weights(graph_positions)
         if reference_tree is not None and reference_vertices is not None:
             _, nearest_ref_idx = reference_tree.query(graph_positions)
-            surface_delta = reference_vertices[np.asarray(nearest_ref_idx, dtype=int)] - graph_positions
+            surface_delta = (
+                reference_vertices[np.asarray(nearest_ref_idx, dtype=int)]
+                - graph_positions
+            )
         else:
             surface_delta = np.zeros((n_graph, 3), dtype=float)
+        preserve_weight = 1.0 - surface_weight
+        result["surface_fit_graph_nodes"] = int(
+            np.count_nonzero(surface_weight > 0.1)
+        )
+        result["preserved_graph_nodes"] = int(
+            np.count_nonzero(preserve_weight > 0.9)
+        )
 
         # Landmark constraints are attached only to front/head graph nodes.
         C = None
@@ -378,11 +424,17 @@ def fit_template(
 
         lambda_surface = max(float(objective.lambda_surface), 1e-6)
         lambda_landmark = max(float(objective.lambda_landmark) * 10.0, 1e-6)
-        identity = sp.eye(n_graph, format="csr")
+        lambda_preserve = max(lambda_surface * 8.0, 1.0)
+        surface_diag = sp.diags(surface_weight, format="csr")
+        preserve_diag = sp.diags(preserve_weight, format="csr")
 
         for dim in range(3):
-            A = LTL + lambda_surface * identity
-            b = lambda_surface * surface_delta[:, dim]
+            A = (
+                LTL
+                + lambda_surface * surface_diag
+                + lambda_preserve * preserve_diag
+            )
+            b = lambda_surface * surface_weight * surface_delta[:, dim]
             if C is not None and dim in (0, 1):
                 A = A + lambda_landmark * (C.T @ C)
                 b = b + lambda_landmark * (C.T @ landmark_delta[:, dim])
@@ -397,7 +449,15 @@ def fit_template(
         final_displacements = interpolate_displacements(
             rigid_transformed, graph_node_indices, graph_displacements
         )
+        vertex_fit_weight = fit_region_weights(rigid_transformed)
+        final_displacements *= vertex_fit_weight[:, None]
         fitted_vertices = rigid_transformed + final_displacements
+        result["fitted_vertex_count"] = int(
+            np.count_nonzero(vertex_fit_weight > 0.1)
+        )
+        result["preserved_vertex_count"] = int(
+            np.count_nonzero(vertex_fit_weight <= 0.1)
+        )
         result["graph_displacement_norm"] = float(np.linalg.norm(graph_displacements))
         result["final_displacement_norm"] = float(np.linalg.norm(final_displacements))
 
@@ -428,8 +488,19 @@ def fit_template(
             result["energy_landmark"] = 0.0
 
         if reference_tree is not None:
-            final_surface_dist, _ = reference_tree.query(fitted_vertices)
-            result["energy_surface"] = float(np.mean(final_surface_dist))
+            final_region = fit_region_weights(fitted_vertices)
+            active = final_region > 1e-4
+            if np.any(active):
+                final_surface_dist, _ = reference_tree.query(
+                    fitted_vertices[active]
+                )
+                weights = final_region[active]
+                result["energy_surface"] = float(
+                    np.sum(final_surface_dist * weights)
+                    / max(float(np.sum(weights)), 1e-8)
+                )
+            else:
+                result["energy_surface"] = 0.0
         else:
             result["energy_surface"] = 0.0
 
@@ -563,50 +634,80 @@ def coarse_similarity_transform(
     source_mesh: str,
     target_mesh: str,
 ) -> Dict[str, Any]:
-    """Compute a scale/translation similarity transform or fail explicitly."""
+    """Align canonical/reference using upper-head scale, not total body height.
+
+    This keeps the standardized VRM body proportion stable for bust-up inputs.
+    """
     result: Dict[str, Any] = {"status": "pending"}
     try:
         import numpy as np
         import trimesh
 
         def as_mesh(path: str):
-            loaded = trimesh.load(path)
+            loaded = trimesh.load(path, process=False)
             if isinstance(loaded, trimesh.Scene):
                 geometries = list(loaded.geometry.values())
                 if not geometries:
                     raise ValueError(f"mesh scene has no geometry: {path}")
                 loaded = trimesh.util.concatenate(geometries)
-            if len(loaded.vertices) == 0:
-                raise ValueError(f"mesh has no vertices: {path}")
-            return loaded
+            vertices = np.asarray(loaded.vertices, dtype=float)
+            if len(vertices) == 0 or not np.all(np.isfinite(vertices)):
+                raise ValueError(f"mesh has no finite vertices: {path}")
+            return vertices
 
-        source = as_mesh(source_mesh)
-        target = as_mesh(target_mesh)
-        source_vertices = np.asarray(source.vertices, dtype=float)
-        target_vertices = np.asarray(target.vertices, dtype=float)
-        source_centroid = source_vertices.mean(axis=0)
-        target_centroid = target_vertices.mean(axis=0)
-        source_extent = np.ptp(source_vertices, axis=0)
-        target_extent = np.ptp(target_vertices, axis=0)
-        valid_axes = source_extent > 1e-8
-        if not np.any(valid_axes):
-            raise ValueError("source mesh has zero spatial extent")
-        ratios = target_extent[valid_axes] / source_extent[valid_axes]
-        scale = float(np.median(ratios))
+        def head_region(vertices: np.ndarray) -> np.ndarray:
+            pmin = vertices.min(axis=0)
+            pmax = vertices.max(axis=0)
+            height = max(float(pmax[1] - pmin[1]), 1e-8)
+            mask = vertices[:, 1] >= pmin[1] + 0.72 * height
+            region = vertices[mask]
+            if len(region) < 32:
+                order = np.argsort(vertices[:, 1])
+                region = vertices[order[-min(len(vertices), 256):]]
+            return region
+
+        source_vertices = as_mesh(source_mesh)
+        target_vertices = as_mesh(target_mesh)
+        source_head = head_region(source_vertices)
+        target_head = head_region(target_vertices)
+
+        source_extent = np.ptp(source_head, axis=0)
+        target_extent = np.ptp(target_head, axis=0)
+
+        # Prefer horizontal/depth head dimensions. Vertical target extent is
+        # unreliable for cropped/bust-up references.
+        ratios = []
+        for axis in (0, 2):
+            if source_extent[axis] > 1e-8 and target_extent[axis] > 1e-8:
+                ratios.append(target_extent[axis] / source_extent[axis])
+        if not ratios:
+            valid = source_extent > 1e-8
+            ratios = (
+                target_extent[valid] / source_extent[valid]
+            ).tolist()
+        if not ratios:
+            raise ValueError("unable to estimate canonical/reference scale")
+
+        scale = float(np.median(np.asarray(ratios, dtype=float)))
         if not np.isfinite(scale) or scale <= 0.0:
             raise ValueError(f"invalid similarity scale: {scale}")
 
-        translation = target_centroid - source_centroid * scale
+        source_head_center = source_head.mean(axis=0)
+        target_head_center = target_head.mean(axis=0)
+        translation = target_head_center - source_head_center * scale
+
         result.update({
             "status": "complete",
             "scale": scale,
             "rotation": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
             "translation": translation.tolist(),
+            "scale_basis": "head_xz",
         })
     except Exception as exc:
         result["status"] = "error"
         result["error"] = str(exc)
     return result
+
 
 # Landmark names for semantic correspondence
 LANDMARK_NAMES = [
