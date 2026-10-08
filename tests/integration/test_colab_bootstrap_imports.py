@@ -58,7 +58,7 @@ print("colab-runpy-import-ok", flush=True)
     assert "colab-runpy-import-ok" in proc.stdout
 
 
-def test_second_notebook_cell_adds_checkout_before_runpy():
+def test_third_notebook_cell_adds_checkout_before_runpy():
     notebook = json.loads(
         (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab.ipynb").read_text(
             encoding="utf-8"
@@ -69,8 +69,9 @@ def test_second_notebook_cell_adds_checkout_before_runpy():
         for c in notebook["cells"]
         if c["cell_type"] == "code"
     ]
-    assert len(cells) == 2
-    launch = cells[1]
+    assert len(cells) == 3
+    assert 'prepare_models' in cells[1]
+    launch = cells[2]
     assert 'sys.path.insert(0, str(repo))' in launch
     assert launch.index('sys.path.insert(0, str(repo))') < launch.index(
         'runpy.run_path('
