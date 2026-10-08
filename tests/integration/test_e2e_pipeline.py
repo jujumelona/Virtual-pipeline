@@ -188,7 +188,8 @@ def test_commercial_profile_reconstruction_failure_is_fail_closed(
     )
 
     image = tmp_path / "input.png"
-    image.write_bytes(b"not-used-because-input-gate-is-mocked")
+    from PIL import Image
+    Image.new("RGBA", (512, 768), (240, 180, 150, 255)).save(image)
 
     result = build_module.AvatarPipeline(
         str(tmp_path / "out"),
