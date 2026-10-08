@@ -1,6 +1,10 @@
 # VTuber Commercial Pipeline
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
+[**최신 2단계 Colab 노트북 열기 — ① 환경·모델 준비 → ② 생성 UI**](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
+
+> **공식 Colab 실행 파일:** [`notebooks/VTuber_Commercial_Pipeline_Colab.ipynb`](notebooks/VTuber_Commercial_Pipeline_Colab.ipynb) — 위의 **Open In Colab 버튼과 같은 파일**입니다. 별도 구형 노트북은 사용하지 않습니다. 기존 Colab 탭을 열어둔 경우 다시 열어 최신 2개 코드 셀을 확인하세요. ①에서 설치·다운로드·검증 로그를 확인한 후 ②를 실행합니다.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
