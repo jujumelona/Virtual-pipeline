@@ -161,6 +161,8 @@ class AvatarPipeline:
             "output_path",
             "vrm_path",
             "rigged_mesh",
+            "blend",
+            "report_json",
             "fitted_mesh",
             "texture_png",
             "uv_path",
@@ -432,6 +434,7 @@ class AvatarPipeline:
         from vtuber_pipeline.avatar.gaze import configure_gaze
         from vtuber_pipeline.avatar.springbone import generate_springbone_config
         from vtuber_pipeline.avatar.vrm_export import export_vrm
+        from vtuber_pipeline.avatar.blender_bridge import export_blender_from_vrm
         from vtuber_pipeline.avatar.validator import validate_vrm
 
         # 0. Diagnose front/body, facial and optional back references.
@@ -707,6 +710,19 @@ class AvatarPipeline:
         if export.get("status") != "complete":
             return self._fail(results, "vrm_export", export.get("error") or export.get("errors") or "VRM export failed")
         vrm_path = export.get("vrm_path")
+
+        # The pure exporter is an intermediate serialization step. Final
+        # broadcast VRM MUST survive native Blender skin/shape-key validation.
+        blender = self._run_stage(
+            "blender_vrm_export", (vrm_path,),
+            lambda: export_blender_from_vrm(vrm_path, output_dir),
+        )
+        results["stages"]["blender_vrm_export"] = blender
+        if blender.get("status") != "complete":
+            return self._fail(results, "blender_vrm_export",
+                              blender.get("error", "native Blender export failed"))
+        vrm_path = blender["vrm_path"]
+        results["blend_path"] = blender["blend"]
 
         # 10. Product validator is mandatory; spec-optional features that are
         # required by this project (expressions/lookAt/SpringBone) must exist.
