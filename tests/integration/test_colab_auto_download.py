@@ -103,9 +103,13 @@ def test_colab_download_exception_preserves_vrm_and_logs_failure(tmp_path):
 def test_live_colab_server_watcher_calls_browser_download_while_ui_is_alive(
     tmp_path, monkeypatch, capsys,
 ):
-    from test_colab_isolated_ui import _launcher
+    import importlib.util
 
-    launcher = _launcher()
+    module_path = Path(__file__).resolve().parents[2] / "tools" / "colab_ui_launcher.py"
+    spec = importlib.util.spec_from_file_location("colab_ui_autodownload_test", module_path)
+    assert spec is not None and spec.loader is not None
+    launcher = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(launcher)
     launcher.WORK = tmp_path
     launcher.PID_PATH = tmp_path / "ui.pid"
     launcher.LOG_PATH = tmp_path / "logs" / "gradio_server.log"
