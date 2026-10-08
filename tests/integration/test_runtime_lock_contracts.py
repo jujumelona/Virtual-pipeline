@@ -246,6 +246,32 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
     assert f"gradio=={gradio}" in notebook_code
 
 
+
+def test_readme_open_in_colab_badge_targets_the_canonical_two_step_notebook():
+    """Keep README's primary Colab launch button wired to the updated file."""
+    readme = _read("README.md")
+    notebook_file = "notebooks/VTuber_Commercial_Pipeline_Colab.ipynb"
+    badge = (
+        "[![Open In Colab]"
+        "(https://colab.research.google.com/assets/colab-badge.svg)]"
+    )
+    launch_url = (
+        "https://colab.research.google.com/github/"
+        "jujumelona/Virtual-pipeline/blob/main/" + notebook_file
+    )
+    assert badge + "(" + launch_url + ")" in readme
+    assert "[`" + notebook_file + "`](" + notebook_file + ")" in readme
+    notebook = json.loads(_read(notebook_file))
+    code_cells = [
+        "".join(cell.get("source", []))
+        for cell in notebook["cells"]
+        if cell.get("cell_type") == "code"
+    ]
+    assert len(code_cells) == 2
+    assert "setup_python" in code_cells[0]
+    assert 'run_name="__main__"' in code_cells[1]
+
+
 def test_colab_notebook_is_only_a_fresh_main_bootstrap():
     notebook = json.loads(_read("notebooks/VTuber_Commercial_Pipeline_Colab.ipynb"))
     code_cells = [
