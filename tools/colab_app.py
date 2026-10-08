@@ -1192,8 +1192,12 @@ def build_app() -> gr.Blocks:
                     )
                     avatar_run = gr.Button("캐릭터 생성", variant="primary")
                     avatar_result = gr.File(
-                        label="완성 VRM",
+                        label="완성 VRM (다운로드 가능한 원본 파일)",
                         interactive=False,
+                    )
+                    avatar_download_button = gr.DownloadButton(
+                        label="↓ avatar.vrm 파일 직접 다운로드",
+                        value=None, interactive=False,
                     )
                 with gr.Column(scale=1, min_width=310, elem_id="generation-panel"):
                     avatar_status = gr.Markdown("대기 중")
@@ -1205,7 +1209,7 @@ def build_app() -> gr.Blocks:
                         label="전체 로그", interactive=False,
                     )
 
-            avatar_run.click(
+            avatar_generation_event = avatar_run.click(
                 fn=stream_avatar_ui,
                 inputs=[avatar_image, selected_usage, latest_avatar],
                 outputs=[
@@ -1215,6 +1219,17 @@ def build_app() -> gr.Blocks:
                 show_progress="full",
                 concurrency_id="vtuber_gpu_pipeline",
                 concurrency_limit=1,
+            )
+            # Native Gradio download uses authenticated /gradio_api/file=
+            # endpoint and a real user click; unlike Colab files.download,
+            # it does not block the notebook kernel waiting for browser JS.
+            avatar_generation_event.then(
+                fn=lambda path: gr.update(
+                    value=path, interactive=bool(path),
+                ),
+                inputs=avatar_result,
+                outputs=avatar_download_button,
+                show_progress="hidden",
             )
 
         with gr.Column(visible=False) as accessory_view:
