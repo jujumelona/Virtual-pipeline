@@ -5,6 +5,8 @@ from __future__ import annotations
 import pathlib
 from typing import Dict, Any, List, Optional
 
+from vtuber_pipeline.core.gltf import load_gltf
+
 
 SPRING_BONE_PRESETS: Dict[str, Dict[str, float]] = {
     "hair": {"stiffness": 0.50, "gravity": 0.10, "drag": 0.20, "hit_radius": 0.02},
@@ -32,7 +34,7 @@ def _load_node_names(mesh_path: str) -> List[str]:
     if not path.is_file():
         raise FileNotFoundError(f"Rigged GLB not found: {mesh_path}")
 
-    gltf = GLTF2().load(str(path))
+    gltf = load_gltf(path)
     return [node.name or "" for node in (gltf.nodes or [])]
 
 
