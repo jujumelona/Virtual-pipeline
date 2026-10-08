@@ -40,7 +40,7 @@ def ui(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "OUTPUT_ROOT", tmp_path / "outputs")
     monkeypatch.setattr(
         module,
-        "ensure_runtime",
+        "require_runtime_ready",
         lambda _progress=None: ("a" * 40, ["runtime-ready"]),
     )
     return module
