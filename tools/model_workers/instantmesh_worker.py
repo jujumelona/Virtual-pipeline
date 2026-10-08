@@ -16,11 +16,22 @@ def infer(req):
     if usage not in {"corporation", "personalProfit", "personalNonProfit"}:
         raise ValueError("Unrecognized commercial usage scope")
     if usage != "personalNonProfit":
-        raise RuntimeError(
-            "Commercial InstantMesh run.py blocked: the pinned upstream runner "
-            "loads sudo-ai/zero123plus-v1.2 (CC-BY-NC-4.0 weights). "
-            "An independently licensed multiview provider or a compatible "
-            "commercial grant is required. TripoSR remains independently MIT."
+        upstream=Path(os.environ.get("INSTANTMESH_DIR","")).expanduser().resolve()
+        config=upstream/"configs/instant-mesh-large.yaml"
+        if not config.is_file():
+            raise RuntimeError("Commercial LRM requires the pinned InstantMesh upstream config")
+        coarse=Path(req.get("coarse_obj", "")).resolve()
+        if not coarse.is_file():
+            raise RuntimeError("Commercial LRM requires a real TripoSR coarse mesh")
+        from vtuber_pipeline.common.model_assets import resolve_snapshot
+        checkpoint=Path(resolve_snapshot("instantmesh_large"))/"instant_mesh_large.ckpt"
+        if not checkpoint.is_file():
+            raise FileNotFoundError(checkpoint)
+        sys.path.insert(0, str(upstream))
+        from instantmesh_commercial import reconstruct_lrm_from_coarse
+        return reconstruct_lrm_from_coarse(
+            req["front_rgba"], str(coarse), str(config), str(checkpoint),
+            req["output_dir"],
         )
     upstream=Path(os.environ.get("INSTANTMESH_DIR","")).expanduser().resolve()
     runner=upstream/"run.py"
