@@ -245,3 +245,15 @@ def test_ci_actions_are_immutable_sha_pinned_and_full_suite_is_gated():
     assert "python -m pytest -q tests" in workflow
     assert "- full-suite" in workflow
     assert 'test "$FULL_SUITE" = success' in workflow
+
+
+def test_colab_runtime_marker_is_dependency_fingerprinted():
+    source = _read("tools/colab_app.py")
+
+    assert "def _runtime_contract_fingerprint()" in source
+    assert 'REPO_DIR / "pyproject.toml"' in source
+    assert 'REPO_DIR / "requirements.txt"' in source
+    assert 'REPO_DIR / "third_party.lock.json"' in source
+    assert "inspect.getsource(_install_runtime)" in source
+    assert "runtime_fingerprint[:16]" in source
+    assert 'f"runtime_fingerprint={runtime_fingerprint}"' in source
