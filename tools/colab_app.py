@@ -1377,9 +1377,9 @@ def launch() -> None:
     # Install the HTTP attachment route on the Gradio app *after* Gradio
     # creates its FastAPI instance, before blocking the subprocess. The route
     # is the only path guaranteeing that .vrm is downloaded, not viewed inline.
-    from tools.colab_download_contract import install_direct_download_route
-    install_direct_download_route(demo.server_app, OUTPUT_ROOT)
     if subprocess_ui:
+        from tools.colab_download_contract import install_direct_download_route
+        install_direct_download_route(demo.server_app, OUTPUT_ROOT)
         demo.block_thread()
 
 
