@@ -155,6 +155,10 @@ def _sync_triposr() -> None:
         ["git", "-C", str(TRIPOSR_DIR), "reset", "--hard", TRIPOSR_COMMIT],
         timeout=60,
     )
+    _run(
+        ["git", "-C", str(TRIPOSR_DIR), "clean", "-ffd"],
+        timeout=60,
+    )
     actual = _run(
         ["git", "-C", str(TRIPOSR_DIR), "rev-parse", "HEAD"],
         timeout=30,
