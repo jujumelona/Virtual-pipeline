@@ -1254,6 +1254,12 @@ def choose_workflow(mode: str, usage: str):
         raise ValueError(f"Unsupported workflow mode: {mode!r}")
     if usage not in {"corporation", "personalProfit", "personalNonProfit"}:
         raise ValueError(f"Unsupported use scope: {usage!r}")
+    # Each 2D worker runs in an isolated site-packages environment sharing
+    # only the existing Colab PyTorch/CUDA installation. This must happen
+    # before checkpoint fetch and before the generation button is enabled.
+    if mode in {"inochi2d", "live2d"}:
+        from tools.install_2d_workers import activate_2d_environment
+        activate_2d_environment()
     # Mode selection is the first checkpoint download boundary. Do not fetch
     # TripoSR/InstantMesh for 2D; do not fetch FLUX for 3D.
     prepare_models(mode)
