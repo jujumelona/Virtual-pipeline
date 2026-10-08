@@ -308,6 +308,7 @@ def compute_skin_weights(
     skeleton: Dict[str, Any],
     max_influences: int = 4,
     hair_vertex_start: int | None = None,
+    strand_vertex_groups: list[np.ndarray] | None = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Compute normalized skin weights with a localized secondary hair chain.
 
@@ -348,6 +349,33 @@ def compute_skin_weights(
             allowed[hair_indices] = True
             allowed[head_indices] = True
             weights[np.ix_(shell_rows, ~allowed)] = 0.0
+
+            if strand_vertex_groups is not None:
+                expected = set(range(hair_vertex_start, num_vertices))
+                observed = set()
+                for strand_id, group in enumerate(strand_vertex_groups):
+                    rows = np.asarray(group, dtype=np.int64)
+                    if (rows.ndim != 1 or len(rows) < 3
+                            or np.any(rows < hair_vertex_start)
+                            or np.any(rows >= num_vertices)
+                            or len(set(rows.tolist())) != len(rows)):
+                        raise ValueError("Physical hair strand vertex indices are invalid")
+                    if observed.intersection(rows.tolist()):
+                        raise ValueError("Hair strand components must not share vertices")
+                    observed.update(rows.tolist())
+                    prefix = f"hairStrand{strand_id:02d}"
+                    local_indices = np.array(
+                        [i for i, name in enumerate(names) if name.startswith(prefix)],
+                        dtype=int,
+                    )
+                    if len(local_indices) != 3 or len(head_indices) != 1:
+                        raise ValueError(f"{prefix}: independent skin chain missing")
+                    local_allowed = np.zeros(num_joints, dtype=bool)
+                    local_allowed[local_indices] = True
+                    local_allowed[head_indices] = True
+                    weights[np.ix_(rows, ~local_allowed)] = 0.0
+                if observed != expected:
+                    raise ValueError("Physical hair components must cover all ribbon vertices")
 
     joint_indices = np.zeros((num_vertices, max_influences), dtype=np.uint16)
     joint_weights = np.zeros((num_vertices, max_influences), dtype=np.float32)
