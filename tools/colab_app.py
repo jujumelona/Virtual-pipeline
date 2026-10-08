@@ -7,6 +7,8 @@ still execute the current UI and pipeline code.
 
 from __future__ import annotations
 
+import hashlib
+import inspect
 import os
 import pathlib
 import shutil
@@ -163,9 +165,49 @@ def _sync_triposr() -> None:
         )
 
 
+def _runtime_contract_fingerprint() -> str:
+    """Hash every input that can change the installed Colab runtime."""
+    digest = hashlib.sha256()
+    for value in (
+        RUNTIME_CONTRACT,
+        TRIPOSR_COMMIT,
+        TRIPOSR_MODEL_REVISION,
+        TRIPOSR_MODEL_WEIGHT_SHA256,
+        TORCHMCUBES_COMMIT,
+        GRADIO_VERSION,
+        f"python-{sys.version_info.major}.{sys.version_info.minor}",
+    ):
+        digest.update(str(value).encode("utf-8"))
+        digest.update(b"\0")
+
+    for path in (
+        REPO_DIR / "pyproject.toml",
+        REPO_DIR / "requirements.txt",
+        REPO_DIR / "third_party.lock.json",
+    ):
+        if not path.is_file():
+            raise RuntimeError(
+                f"Runtime contract input is missing: {path}"
+            )
+        digest.update(path.name.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+
+    # Package installation commands live in this function. Hashing its source
+    # means changing a pin/flag here invalidates the marker even when a human
+    # forgets to bump RUNTIME_CONTRACT.
+    digest.update(inspect.getsource(_install_runtime).encode("utf-8"))
+    return digest.hexdigest()
+
+
 def _install_runtime(head: str) -> None:
     python_tag = f"py{sys.version_info.major}{sys.version_info.minor}"
-    marker = WORK_ROOT / f".runtime-{RUNTIME_CONTRACT}-{python_tag}.ready"
+    runtime_fingerprint = _runtime_contract_fingerprint()
+    marker = WORK_ROOT / (
+        f".runtime-{RUNTIME_CONTRACT}-{python_tag}-"
+        f"{runtime_fingerprint[:16]}.ready"
+    )
     if marker.is_file():
         os.environ["TRIPOSR_DIR"] = str(TRIPOSR_DIR)
         if str(REPO_DIR) not in sys.path:
@@ -380,6 +422,7 @@ def _install_runtime(head: str) -> None:
         "\n".join(
             [
                 f"runtime_contract={RUNTIME_CONTRACT}",
+                f"runtime_fingerprint={runtime_fingerprint}",
                 f"installed_from_main={head}",
                 f"python={sys.version.split()[0]}",
                 f"triposr={TRIPOSR_COMMIT}",
