@@ -56,7 +56,10 @@ def refine_anatomy(fitted_mesh: str, constraints_json: str,
         if not Path(p).is_file():raise FileNotFoundError(p)
     constraints=json.loads(Path(constraints_json).read_text(encoding="utf-8"))
     references=json.loads(Path(reference_images_json).read_text(encoding="utf-8"))
-    if not constraints.get("aligned_multiview") or not Path(constraints["aligned_multiview"]).is_file():
+    if constraints.get("contract") != "vtuber-multiview-constraints-v1":
+        raise ValueError("unsupported multiview alignment contract")
+    aligned_glb = constraints.get("aligned_multiview_glb")
+    if not isinstance(aligned_glb, str) or not Path(aligned_glb).is_file():
         raise ValueError("aligned independent shape source is missing")
     mesh=_load(fitted_mesh)
     verts=np.asarray(mesh.vertices,dtype=float)
@@ -91,9 +94,9 @@ def refine_anatomy(fitted_mesh: str, constraints_json: str,
     hair.export(hair_glb,file_type="glb")
     report={"topology_preserved":True,"reference_image_roles":list(references.get("images",{})),
             "ribbon_count":7,"ribbons_are_approximate":True,
-            "maximum_surface_displacement_m":float(np.max(np.linalg.norm(mesh.vertices-verts,axis=1))),
+            "maximum_surface_displacement_mesh_units":float(np.max(np.linalg.norm(mesh.vertices-verts,axis=1))),
             "limitations":"Invisible clothing geometry and hidden finger poses cannot be observed from the input"}
     report_path=out/"surface_refine.json"
     report_path.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
-    return {"refined_glb":str(refined),"hair_geometry_glb":str(hair_glb),
-            "report_json":str(report_path)}
+    return {"status":"complete","refined_glb":str(refined),"hair_geometry_glb":str(hair_glb),
+            "report_json":str(report_path),"output_path":str(refined)}
