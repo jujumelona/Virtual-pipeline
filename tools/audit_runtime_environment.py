@@ -71,9 +71,9 @@ PERMISSIVE_LICENSE_PATTERNS = [
 # Those paragraphs are NOT the declared license of the distribution.
 _LICENSE_HEADER = re.compile(
     r"^(?:(?:THE )?GNU (?:AFFERO )?GENERAL PUBLIC LICENSE"
-    r"|APACHE LICENSE|MIT LICENSE|BSD(?:-\\d-CLAUSE| \\d-CLAUSE)? LICENSE"
+    r"|APACHE LICENSE|MIT LICENSE|BSD(?:-\d-CLAUSE| \d-CLAUSE)? LICENSE"
     r"|MOZILLA PUBLIC LICENSE|ISC LICENSE|PYTHON SOFTWARE FOUNDATION LICENSE"
-    r"|CREATIVE COMMONS ZERO|UNLICENSE)(?:\\s|$)",
+    r"|CREATIVE COMMONS ZERO|UNLICENSE)(?:\s|$)",
     re.I,
 )
 
@@ -107,7 +107,7 @@ def _license_declarations(dist: metadata.Distribution) -> List[tuple[str, str]]:
                 if header.casefold() == "apache license":
                     # "Apache License" on one line and "Version 2.0" on next.
                     header += " " + next(
-                        (line for line in lines[1:5] if re.match(r"^Version\\s+2(?:\\.0)?\\b", line, re.I)),
+                        (line for line in lines[1:5] if re.match(r"^Version\s+2(?:\.0)?\b", line, re.I)),
                         "",
                     )
                 declared.append(("License (document heading)", header))
