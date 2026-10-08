@@ -75,8 +75,8 @@ def test_main_spawns_fresh_python_with_live_colab_iframe(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(
         launcher, "_follow_server",
-        lambda process, *, download_dir=None: events.append(
-            ("follow", process.pid, download_dir)
+        lambda process, *, download_dir=None, server_port=None: events.append(
+            ("follow", process.pid, download_dir, server_port)
         ),
     )
 
@@ -112,6 +112,7 @@ def test_main_spawns_fresh_python_with_live_colab_iframe(tmp_path, monkeypatch):
     assert events[5] == (
         "follow", 12345,
         pathlib.Path(kwargs["env"]["VTUBER_COLAB_AUTODOWNLOAD_DIR"]),
+        19876,
     )
     assert launcher.PID_PATH.read_text(encoding="utf-8").strip() == "12345"
 
