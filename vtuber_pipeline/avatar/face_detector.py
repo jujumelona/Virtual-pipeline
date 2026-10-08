@@ -4,6 +4,8 @@ import hashlib
 import pathlib
 from typing import Dict, List, Any
 
+from vtuber_pipeline.core.stage_progress import report_stage
+
 # Optional dependencies
 try:
     import numpy as np
@@ -53,6 +55,10 @@ def resolve_anime_face_model_paths() -> Dict[str, str]:
 
     resolved: Dict[str, str] = {}
     for repo_id, pin in ANIME_FACE_MODEL_PINS.items():
+        report_stage(
+            "face_model", "log",
+            f"load {repo_id}@{pin['revision'][:12]} (SHA256 verification)",
+        )
         path = pathlib.Path(
             hf_hub_download(
                 repo_id=repo_id,
@@ -71,6 +77,10 @@ def resolve_anime_face_model_paths() -> Dict[str, str]:
                 f"{repo_id} expected={pin['sha256']} got={actual}"
             )
         resolved[repo_id] = str(path)
+        report_stage(
+            "face_model", "log",
+            f"verified {repo_id}, bytes={path.stat().st_size}",
+        )
     return resolved
 
 
@@ -80,6 +90,7 @@ def _create_pinned_anime_face_detector():
     import anime_face_detector.detector as detector_module
 
     resolved = resolve_anime_face_model_paths()
+    report_stage("face_model", "log", "initializing pinned YOLOv3 + HRNetV2")
     original_download = detector_module.hf_hub_download
 
     def pinned_download(repo_id, filename, *args, **kwargs):
@@ -130,35 +141,80 @@ class AnimeFaceDetector:
         if not PIL_AVAILABLE:
             raise ImportError("Pillow가 설치되지 않았습니다. pip install Pillow")
         
-        # Upstream anime-face-detector consumes OpenCV-style BGR arrays.
-        rgb = np.array(PILImage.open(image_path).convert("RGB"))
+        # Upstream detector consumes OpenCV BGR. Use only actual detections:
+        # retry on an upper-body crop for waist-up VTuber portraits where the
+        # face is small in the complete image. Reproject coordinates exactly.
+        rgb = np.asarray(PILImage.open(image_path).convert("RGB"))
         bgr = np.ascontiguousarray(rgb[..., ::-1])
-        preds = self._detector(bgr)
-        if len(preds) == 0:
-            raise ValueError(f"얼굴을 감지하지 못했습니다: {image_path}")
+        height, width = bgr.shape[:2]
+        report_stage("face_detector", "log", f"input BGR shape={bgr.shape}")
 
-        # Use the highest-confidence face instead of relying on detector order.
-        pred = max(preds, key=lambda item: float(item["bbox"][4]))
-        bbox_raw = np.asarray(pred["bbox"], dtype=float)
-        keypoints = np.asarray(pred.get("keypoints"), dtype=float)
-
-        if bbox_raw.shape[0] < 5 or not np.all(np.isfinite(bbox_raw[:5])):
-            raise ValueError("anime-face-detector returned an invalid bbox")
-        if (
-            keypoints.ndim != 2
-            or keypoints.shape[0] < 28
-            or keypoints.shape[1] < 3
-            or not np.all(np.isfinite(keypoints[:28, :3]))
-        ):
-            raise ValueError(
-                "anime-face-detector returned fewer than 28 scored landmarks"
+        # (x0, y0, x1, y1) in source pixels.
+        crops = [(0, 0, width, height, "full")]
+        if height >= 320:
+            # The face is usually in the upper half of a waist-up portrait.
+            crops.append((0, 0, width, int(height * 0.68), "upper-body"))
+        candidates = []
+        for x0, y0, x1, y1, label in crops:
+            region = np.ascontiguousarray(bgr[y0:y1, x0:x1])
+            report_stage(
+                "face_detector", "log",
+                f"pass={label} roi=({x0},{y0},{x1},{y1}) pixels={region.shape}",
             )
+            preds = self._detector(region)
+            report_stage(
+                "face_detector", "log",
+                f"pass={label} detections={len(preds)}",
+            )
+            for idx, pred in enumerate(preds):
+                bbox_raw = np.asarray(pred.get("bbox", []), dtype=float)
+                keypoints = np.asarray(pred.get("keypoints", []), dtype=float)
+                report_stage(
+                    "face_detector", "log",
+                    f"pass={label} detection={idx} bbox_shape={bbox_raw.shape} "
+                    f"landmark_shape={keypoints.shape} "
+                    f"confidence={float(bbox_raw[4]) if bbox_raw.size >= 5 else 'absent'}",
+                )
+                if (
+                    bbox_raw.ndim != 1
+                    or bbox_raw.size < 5
+                    or not np.all(np.isfinite(bbox_raw[:5]))
+                    or keypoints.ndim != 2
+                    or keypoints.shape[0] < 28
+                    or keypoints.shape[1] < 3
+                    or not np.all(np.isfinite(keypoints[:28, :3]))
+                ):
+                    continue
+                bbox_xyxy = bbox_raw[:4].astype(float).copy()
+                bbox_xyxy[[0, 2]] += x0
+                bbox_xyxy[[1, 3]] += y0
+                scored_points = keypoints[:28, :3].astype(float).copy()
+                scored_points[:, 0] += x0
+                scored_points[:, 1] += y0
+                if bbox_xyxy[2] <= bbox_xyxy[0] or bbox_xyxy[3] <= bbox_xyxy[1]:
+                    continue
+                candidates.append((
+                    float(bbox_raw[4]), bbox_xyxy, scored_points, label,
+                ))
+            if candidates and max(item[0] for item in candidates) >= 0.5:
+                break
 
+        if not candidates:
+            raise ValueError(
+                "anime-face-detector returned no face with 28 scored landmarks "
+                f"after {[item[4] for item in crops]} passes"
+            )
+        score, bbox, points, source = max(candidates, key=lambda item: item[0])
+        report_stage(
+            "face_detector", "log",
+            f"selected pass={source} confidence={score:.3f} "
+            f"bbox={bbox.tolist()} scored_landmarks={len(points)}",
+        )
         return {
-            "bbox": bbox_raw[:4].astype(float).tolist(),
-            "landmarks": keypoints[:28, :2].astype(float).tolist(),
-            "landmark_scores": keypoints[:28, 2].astype(float).tolist(),
-            "score": float(bbox_raw[4]),
+            "bbox": bbox.tolist(),
+            "landmarks": points[:, :2].tolist(),
+            "landmark_scores": points[:, 2].tolist(),
+            "score": score,
         }
 
     def detect_and_save(self, image_path: str, output_json: str) -> dict:
