@@ -1,0 +1,197 @@
+"""2D character illustration preparation path (not a Live2D model exporter).
+
+All images are supplied by the user. Converts genuine RGBA part layers to
+an OpenRaster editing project, preserving layer pixels without inventing
+occluded artwork. Neither .moc3 nor a VTube Studio model is synthesized.
+"""
+from __future__ import annotations
+
+from io import BytesIO
+import json
+from pathlib import Path, PurePosixPath
+import re
+import zipfile
+from xml.etree import ElementTree as ET
+
+MAX_LAYERS = 128
+MAX_LAYER_BYTES = 32 * 1024 * 1024
+MAX_TOTAL_BYTES = 256 * 1024 * 1024
+MAX_DIMENSION = 8192
+USAGE = {"personalNonProfit", "personalProfit", "corporation"}
+SUGGESTED_PARTS = (
+    "hair_back", "body", "face", "eye_left_white", "eye_left_iris",
+    "eye_left_lid", "eye_right_white", "eye_right_iris",
+    "eye_right_lid", "brow_left", "brow_right",
+    "mouth_closed", "mouth_open", "hair_front"
+)
+
+
+def _load_image(data: bytes, description: str):
+    from PIL import Image
+    try:
+        with Image.open(BytesIO(data)) as image:
+            if getattr(image, "is_animated", False):
+                raise ValueError(f"{description}: animation is not a supported source")
+            image.load()
+            width, height = image.size
+            if not (256 <= width <= MAX_DIMENSION and 256 <= height <= MAX_DIMENSION):
+                raise ValueError(
+                    f"{description}: each dimension must be 256..{MAX_DIMENSION}")
+            if width * height > 32_000_000:
+                raise ValueError(f"{description}: too many pixels")
+            return image.convert("RGBA")
+    except (OSError, Image.DecompressionBombError) as exc:
+        raise ValueError(f"{description}: invalid image: {exc}") from exc
+
+
+def _read_layers(archive: str, canvas: tuple[int, int]):
+    from PIL import Image
+    layers = []
+    total = 0
+    with zipfile.ZipFile(archive) as bundle:
+        entries = [x for x in bundle.infolist() if not x.is_dir()]
+        if not entries or len(entries) > MAX_LAYERS:
+            raise ValueError(f"layers ZIP must contain 1..{MAX_LAYERS} PNG files")
+        used_names = set()
+        for entry in sorted(entries, key=lambda x: x.filename.casefold()):
+            name = entry.filename.replace("\\", "/")
+            path = PurePosixPath(name)
+            if (
+                name.startswith("/") or ".." in path.parts or
+                (entry.external_attr >> 16) & 0o170000 == 0o120000 or
+                path.suffix.lower() != ".png" or
+                any(part.startswith(".") for part in path.parts)
+            ):
+                raise ValueError(f"invalid layer ZIP member: {name}")
+            if entry.file_size > MAX_LAYER_BYTES:
+                raise ValueError(f"layer exceeds {MAX_LAYER_BYTES} bytes: {name}")
+            total += entry.file_size
+            if total > MAX_TOTAL_BYTES:
+                raise ValueError("uncompressed layer ZIP exceeds size limit")
+            plain = path.stem
+            normalized = plain.casefold()
+            if normalized in used_names:
+                raise ValueError(f"duplicate layer name: {plain}")
+            used_names.add(normalized)
+            with bundle.open(entry) as file:
+                data = file.read(MAX_LAYER_BYTES + 1)
+            if len(data) > MAX_LAYER_BYTES:
+                raise ValueError(f"layer file too large: {name}")
+            # PNGs should retain a real transparent channel.
+            with Image.open(BytesIO(data)) as original:
+                if original.format != "PNG" or "A" not in original.getbands():
+                    raise ValueError(f"layer must be a transparent RGBA PNG: {name}")
+            image = _load_image(data, name)
+            if image.size != canvas:
+                raise ValueError(
+                    f"{name}: layer canvas {image.size} != source {canvas}")
+            layers.append((plain, image))
+    return layers
+
+
+def prepare_live2d_artwork(
+    image_path: str, output_dir: str, *,
+    layers_zip: str | None = None,
+    commercial_usage: str = "corporation",
+) -> dict:
+    """Create an editable, transparent OpenRaster layer package.
+
+    Returns 'needs_layering' when only a flattened source was supplied.
+    Even for complete part layers, Cubism rigging/export must still be done
+    by a licensed editor; a .moc3 is *never* reported as created.
+    """
+    from PIL import Image
+    if commercial_usage not in USAGE:
+        raise ValueError(f"unsupported commercial usage: {commercial_usage}")
+    source = Path(image_path)
+    if not source.is_file():
+        raise FileNotFoundError(f"2D source image not found: {source}")
+    if source.stat().st_size > MAX_LAYER_BYTES:
+        raise ValueError("source artwork exceeds size limit")
+    base = _load_image(source.read_bytes(), "source image")
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+
+    if layers_zip:
+        if not Path(layers_zip).is_file():
+            raise FileNotFoundError(f"layer ZIP missing: {layers_zip}")
+        layers = _read_layers(layers_zip, base.size)
+    else:
+        layers = [("flattened_reference_not_rigged", base)]
+
+    merged = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    for _, layer in reversed(layers):
+        merged = Image.alpha_composite(merged, layer)
+
+    image_root = ET.Element("image", {
+        "version": "0.0.3", "w": str(base.width), "h": str(base.height),
+        "name": "External VTuber illustration layers",
+    })
+    stack = ET.SubElement(image_root, "stack")
+    for i, (name, _) in enumerate(layers):
+        ET.SubElement(stack, "layer", {
+            "name": name, "src": f"data/layer_{i:03d}.png",
+            "opacity": "1.0", "visibility": "visible",
+            "composite-op": "svg:src-over", "x": "0", "y": "0",
+        })
+    def png_bytes(image):
+        payload = BytesIO()
+        image.save(payload, "PNG")
+        return payload.getvalue()
+
+    package = output / "live2d_artwork_prep.zip"
+    ora_bytes = BytesIO()
+    with zipfile.ZipFile(ora_bytes, "w") as ora:
+        ora.writestr("mimetype", "image/openraster", compress_type=zipfile.ZIP_STORED)
+        ora.writestr("stack.xml", ET.tostring(image_root, encoding="utf-8"),
+                     compress_type=zipfile.ZIP_DEFLATED)
+        ora.writestr("mergedimage.png", png_bytes(merged), compress_type=zipfile.ZIP_DEFLATED)
+        preview = merged.copy()
+        preview.thumbnail((256, 256), Image.Resampling.LANCZOS)
+        ora.writestr("Thumbnails/thumbnail.png", png_bytes(preview),
+                     compress_type=zipfile.ZIP_DEFLATED)
+        for i, (_, layer) in enumerate(layers):
+            ora.writestr(f"data/layer_{i:03d}.png", png_bytes(layer),
+                         compress_type=zipfile.ZIP_DEFLATED)
+
+    present = {re.sub(r"[^a-z0-9]+", "_", name.casefold()).strip("_")
+               for name, _ in layers}
+    missing = [name for name in SUGGESTED_PARTS if name not in present]
+    status = "needs_layering" if not layers_zip else "prepared"
+    manifest = {
+        "format": "live2d-artwork-preparation-v1",
+        "status": status,
+        "target": "Live2D Cubism art import and manual rigging",
+        "is_live2d_model": False,
+        "vtube_studio_ready": False,
+        "can_export_moc3": False,
+        "commercial_usage": commercial_usage,
+        "width": base.width, "height": base.height,
+        "layer_names_top_to_bottom": [name for name, _ in layers],
+        "suggested_parts_not_detected": missing,
+        "notes": [
+            "This package contains user-provided artwork only; automatic part segmentation is not claimed.",
+            "Open .ora in Krita, complete hidden/occluded artwork and save a layered PSD.",
+            "Import the PSD into Live2D Cubism Editor; rig deformation meshes, angles, blinking, lipsync and physics.",
+            "Export MOC3/model3.json/textures/physics from Cubism Editor for VTube Studio.",
+            "Inochi2D puppets are an alternative OPEN format but are NOT VTube Studio Live2D models.",
+        ],
+    }
+    instructions = (
+        "2D artwork preparation, NOT a completed Live2D or VTube Studio model.\n"
+        "1. Open artwork.ora in Krita (free/open source).\n"
+        "2. Separate front/back hair, eyes, mouth, face, and body; paint hidden regions.\n"
+        "3. Save a layered PSD and import it into the Live2D Cubism Editor.\n"
+        "4. Rig deformations/parameters/physics in Cubism and export .moc3 / .model3.json.\n"
+        "5. Load the exported model folder into VTube Studio.\n"
+        "No .moc3 or rigging has been created by this pipeline.\n"
+    )
+    with zipfile.ZipFile(package, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+        bundle.writestr("artwork.ora", ora_bytes.getvalue())
+        bundle.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+        bundle.writestr("README_NEXT_STEPS.txt", instructions)
+        bundle.writestr("original_reference.png", png_bytes(base))
+        for i, (name, layer) in enumerate(layers):
+            bundle.writestr(f"layers/{i:03d}_{re.sub(r'[^a-zA-Z0-9_-]+', '_', name)}.png",
+                            png_bytes(layer))
+    return {"status": status, "package_path": str(package), "manifest": manifest}
