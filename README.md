@@ -1,6 +1,6 @@
 # VTuber Commercial Pipeline
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v6.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v7.ipynb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
@@ -95,7 +95,7 @@ export TRIPOSR_DIR="$PWD/TripoSR"
 - eye-bone look-at
 - hair SpringBone
 - **캐릭터 VRM 생성**
-- 검증된 `avatar.vrm` 생성 직후 Colab ③ 셀이 브라우저 자동 다운로드를 요청합니다. 브라우저가 차단하면 UI의 VRM 파일 영역에서 수동 다운로드할 수 있습니다. 요청 성공은 사용자 PC 저장 완료와 다릅니다.
+- 검증된 `avatar.vrm` 생성 직후 Colab ③ 셀이 파일 경로 `/content/vtuber_builder/avatar.vrm`에 검증된 복사본을 저장하고, Colab 출력에 Gradio 서버 직접 다운로드 링크를 제공합니다. 가능한 브라우저에서는 다운로드를 자동 시도하며, 차단되면 **Gradio의 `↓ avatar.vrm 파일 직접 다운로드` 버튼**이나 출력된 링크를 클릭하세요. `google.colab.files.download()`처럼 셀을 멈추는 방식은 사용하지 않습니다.
 
 ### ② 악세사리 만들기
 
