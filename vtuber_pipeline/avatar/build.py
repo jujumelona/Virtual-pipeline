@@ -632,7 +632,7 @@ class AvatarPipeline:
             "texture_transfer",
             (reference_digests, fitted_mesh, gate.get("bbox"), texture_size, full_body),
             lambda: transfer_texture(
-                image_path,
+                reconstruction_image if full_body else image_path,
                 fitted_mesh,
                 output_dir,
                 face_bbox=gate.get("bbox"),
