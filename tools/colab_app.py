@@ -1151,43 +1151,59 @@ CSS = """
 
 def build_2d_ui(
     image_path: Optional[str], layers_zip: Optional[str], commercial_usage: str,
+    target: str = "live2d",
 ):
-    """2D artwork preparation only. Never claim to export a Cubism .moc3."""
+    """Separate source-art packaging for Inochi2D and Live2D; no fake rig."""
+    if target not in {"inochi2d", "live2d"}:
+        return f"❌ 지원하지 않는 2D 모드: {target}", "", None
     if not image_path:
-        return "❌ 2D 원본 이미지를 업로드하세요.", "", None
+        return f"❌ {target} 원본 이미지를 업로드하세요.", "", None
     try:
-        from vtuber_pipeline.two_d import prepare_live2d_artwork
-        output = OUTPUT_ROOT / f"live2d-prep-{uuid.uuid4().hex[:10]}"
-        result = prepare_live2d_artwork(
+        from vtuber_pipeline.two_d import prepare_2d_artwork
+        output = OUTPUT_ROOT / f"{target}-prep-{uuid.uuid4().hex[:10]}"
+        result = prepare_2d_artwork(
             str(image_path), str(output),
             layers_zip=str(layers_zip) if layers_zip else None,
-            commercial_usage=commercial_usage,
+            commercial_usage=commercial_usage, target=target,
         )
         manifest = result["manifest"]
         missing = manifest["suggested_parts_not_detected"]
+        editor = "Inochi Creator" if target == "inochi2d" else "Live2D Cubism Editor"
+        extension = manifest["expected_completed_extension"]
         details = (
+            f"모드: {target}\n"
             f"업로드된 실제 레이어: {len(manifest['layer_names_top_to_bottom'])}개\n"
             f"권장 파츠 이름 중 미확인: {', '.join(missing) if missing else '없음'}\n"
-            "Cubism 리깅, 물리 설정, .moc3 내보내기는 아직 수행되지 않았습니다."
+            f"{editor}에서 리깅·물리를 설정하고 {extension}를 출력해야 방송할 수 있습니다.\n"
+            "현재 결과는 편집 가능한 그림 레이어 ZIP이며 완성된 퍼펫이 아닙니다."
         )
         if result["status"] == "needs_layering":
-            message = "⚠️ 단일 그림 패키지 생성 — 눈·입·머리 파츠 분리 필요 (방송용 Live2D 아님)"
+            message = f"⚠️ {target} 단일 그림 패키지 생성 — 먼저 눈·입·머리 파츠 분리 필요"
         else:
-            message = "✅ 파츠 레이어 준비 패키지 생성 — Cubism 리깅·내보내기 필요"
+            message = f"✅ {target} 파츠 준비 완료 — 리깅·모델 내보내기 별도 필요"
         return message, details, result["package_path"]
     except Exception as exc:
-        return f"❌ 2D 준비 실패: {exc}", traceback.format_exc(), None
+        return f"❌ {target} 준비 실패: {exc}", traceback.format_exc(), None
+
+
+def build_inochi2d_ui(image_path, layers_zip, commercial_usage):
+    return build_2d_ui(image_path, layers_zip, commercial_usage, target="inochi2d")
+
+
+def build_live2d_ui(image_path, layers_zip, commercial_usage):
+    return build_2d_ui(image_path, layers_zip, commercial_usage, target="live2d")
 
 
 def choose_workflow(mode: str, usage: str):
-    """Two public production routes: 2D artwork and 3D VRM."""
-    if mode not in {"2d", "3d"}:
+    """Route independently to named Inochi2D, Live2D, or 3D VRM workflows."""
+    if mode not in {"inochi2d", "live2d", "3d"}:
         raise ValueError(f"Unsupported workflow mode: {mode!r}")
     if usage not in {"corporation", "personalProfit", "personalNonProfit"}:
         raise ValueError(f"Unsupported use scope: {usage!r}")
     return (
         gr.update(visible=False),
-        gr.update(visible=(mode == "2d")),
+        gr.update(visible=(mode == "inochi2d")),
+        gr.update(visible=(mode == "live2d")),
         gr.update(visible=(mode == "3d")),
         gr.update(visible=False),
         usage,
@@ -1198,6 +1214,7 @@ def return_to_workflow_choice():
     return (
         gr.update(visible=True), gr.update(visible=False),
         gr.update(visible=False), gr.update(visible=False),
+        gr.update(visible=False),
     )
 
 
@@ -1218,7 +1235,7 @@ def build_app() -> gr.Blocks:
         with gr.Group(visible=True, elem_id="workflow-start") as workflow_start:
             mode = gr.Radio(
                 label="작업 선택",
-                choices=[("2D — Live2D 제작 준비", "2d"), ("3D — VRM 전신 제작", "3d")],
+                choices=[("Inochi2D", "inochi2d"), ("Live2D", "live2d"), ("3D VRM", "3d")],
                 value="3d",
             )
             usage = gr.Radio(
@@ -1232,14 +1249,69 @@ def build_app() -> gr.Blocks:
             )
             enter_workflow = gr.Button("다음", variant="primary")
 
-        with gr.Column(visible=False) as two_d_view:
+        with gr.Column(visible=False) as inochi2d_view:
             gr.Markdown(
-                "## 2D — Live2D 그림 준비\n"
+                "## Inochi2D\n"
+                "외부에서 제작한 캐릭터 원본/투명 파츠를 업로드합니다. "
+                "**오픈소스 Inochi Creator / Inochi Session**을 목표로 합니다. "
+                "지금은 그림 레이어를 준비하며 .inp 자동 리깅·내보내기는 아직 없습니다."
+            )
+            inochi_back = gr.Button("← 모드 선택", size="sm", variant="secondary")
+            inochi_image = gr.Image(
+                label="Inochi2D 캐릭터 그림", sources=["upload"],
+                type="filepath", height=390,
+            )
+            inochi_layers = gr.File(
+                label="투명 PNG 파츠 ZIP (선택)", file_types=[".zip"], type="filepath",
+            )
+            with gr.Accordion("외부 이미지 AI용 Inochi2D 프롬프트", open=False):
+                gr.Textbox(
+                    label="Inochi2D 기본 캐릭터",
+                    value=(
+                        "Original anime VTuber character, centered orthographic front "
+                        "portrait, neutral symmetrical head with both eyes open, "
+                        "clear separation of facial features, visible torso and arms, "
+                        "clean bangs/back hair/clothing silhouette, consistent soft "
+                        "lighting, high-resolution clean line art, no text, no watermark."
+                    ), lines=5,
+                )
+                gr.Textbox(
+                    label="Inochi2D 투명 파츠 보완",
+                    value=(
+                        "The exact same character, preserve pixel alignment and "
+                        "original full-size canvas: supply separate transparent "
+                        "PNG layers for hair_back, body, face, hair_front, eyes, "
+                        "irises, eyelids, eyebrows, mouth_open, mouth_closed, "
+                        "including painted occluded regions for deformations. "
+                        "Do not change identity or proportions."
+                    ), lines=5,
+                )
+            inochi_run = gr.Button("Inochi2D 레이어 패키지 준비", variant="primary")
+            inochi_status = gr.Markdown("대기 중")
+            inochi_report = gr.Textbox(
+                label="Inochi2D 입력·파츠 검사", interactive=False, lines=5,
+            )
+            inochi_result = gr.File(
+                label="Inochi2D 작업용 OpenRaster ZIP (.inp 아님)",
+                interactive=False,
+            )
+            inochi_run.click(
+                fn=build_inochi2d_ui,
+                inputs=[inochi_image, inochi_layers, selected_usage],
+                outputs=[inochi_status, inochi_report, inochi_result],
+                show_progress="full",
+                concurrency_id="vtuber_gpu_pipeline",
+                concurrency_limit=1,
+            )
+
+        with gr.Column(visible=False) as live2d_view:
+            gr.Markdown(
+                "## Live2D\n"
                 "외부 AI/일러스트 프로그램으로 제작한 이미지를 올리세요. "
                 "레이어 패키지를 생성하며, Cubism 리깅과 .moc3 출력은 별도로 필요합니다. "
                 "**VRM을 생성하거나 완성된 Live2D 모델을 출력하지 않습니다.**"
             )
-            two_d_back = gr.Button("← 2D / 3D 선택", size="sm", variant="secondary")
+            live2d_back = gr.Button("← 모드 선택", size="sm", variant="secondary")
             two_d_image = gr.Image(
                 label="2D 캐릭터 원본 일러스트 (필수)",
                 sources=["upload"], type="filepath", height=390,
@@ -1283,7 +1355,7 @@ def build_app() -> gr.Blocks:
                 interactive=False,
             )
             two_d_run.click(
-                fn=build_2d_ui,
+                fn=build_live2d_ui,
                 inputs=[two_d_image, two_d_layers, selected_usage],
                 outputs=[two_d_status, two_d_report, two_d_result],
                 show_progress="full",
@@ -1494,13 +1566,13 @@ def build_app() -> gr.Blocks:
 
         enter_workflow.click(
             fn=choose_workflow, inputs=[mode, usage],
-            outputs=[workflow_start, two_d_view, avatar_view, accessory_view, selected_usage],
+            outputs=[workflow_start, inochi2d_view, live2d_view, avatar_view, accessory_view, selected_usage],
             show_progress="hidden",
         )
-        for back in (two_d_back, avatar_back):
+        for back in (inochi_back, live2d_back, avatar_back):
             back.click(
                 fn=return_to_workflow_choice,
-                outputs=[workflow_start, two_d_view, avatar_view, accessory_view],
+                outputs=[workflow_start, inochi2d_view, live2d_view, avatar_view, accessory_view],
                 show_progress="hidden",
             )
         avatar_to_accessory.click(
