@@ -37,7 +37,7 @@ def _hash_inputs(value):
 def _paths(value):
     if isinstance(value, dict):
         for key, item in value.items():
-            if key.endswith(("_png", "_json", "_obj", "_glb", "_path", "_dir")) and isinstance(item, str):
+            if key.endswith(("_png", "_json", "_obj", "_glb", "_npy", "_npz", "_path", "_dir")) and isinstance(item, str):
                 yield item
             elif isinstance(item, (list, dict)):
                 yield from _paths(item)
