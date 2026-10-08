@@ -415,6 +415,25 @@ def main() -> None:
                         flush=True,
                     )
 
+                    # Verify the real, fully validated VRM is handed to the
+                    # notebook kernel only after production validation.
+                    from tools.colab_download_contract import (
+                        publish_avatar_download, consume_avatar_downloads,
+                    )
+                    queue = out / "colab_download"
+                    publish_avatar_download(vrm_path, out, queue)
+                    initiated = []
+                    outcome = consume_avatar_downloads(
+                        queue, out, initiated.append,
+                    )
+                    assert len(outcome) == 1 and outcome[0]["status"] == "requested"
+                    assert initiated == [str(vrm_path)]
+                    print(
+                        "[REAL-MODEL] Verified automatic Colab download handoff "
+                        "for final avatar.vrm",
+                        flush=True,
+                    )
+
             report(
                 "real production TripoSR subprocess full mesh extraction/export",
                 run_actual_cli_mesh,
