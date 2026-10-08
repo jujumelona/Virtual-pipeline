@@ -59,7 +59,7 @@ print("colab-runpy-import-ok", flush=True)
     assert "colab-runpy-import-ok" in proc.stdout
 
 
-def test_third_notebook_cell_adds_checkout_before_runpy():
+def test_third_notebook_cell_launches_fresh_python_server():
     notebook = json.loads(
         (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab.ipynb").read_text(
             encoding="utf-8"
@@ -73,11 +73,11 @@ def test_third_notebook_cell_adds_checkout_before_runpy():
     assert len(cells) == 3
     assert 'prepare_models' in cells[1]
     launch = cells[2]
-    assert 'sys.path.insert(0, str(repo))' in launch
-    assert launch.index('sys.path.insert(0, str(repo))') < launch.index(
-        'runpy.run_path('
-    )
+    assert 'colab_ui_launcher.py' in launch
     assert 'run_name="__main__"' in launch
+    assert 'sys.path.insert' not in launch
+    assert 'import gradio' not in launch
+    assert 'import numpy' not in launch
 
 
 def test_gradio_6_theme_and_css_are_only_set_during_launch():
@@ -221,9 +221,9 @@ def test_setup_stage_prints_and_persists_exception(tmp_path, capsys):
 
 def test_readme_canonical_notebook_uses_fresh_cell_source():
     """The README route must not target the previously cached Colab path."""
-    notebook_path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v2.ipynb"
+    notebook_path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v3.ipynb"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v2.ipynb" in readme
+    assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v3.ipynb" in readme
     cells = [
         "".join(c["source"])
         for c in json.loads(notebook_path.read_text(encoding="utf-8"))["cells"]
@@ -235,3 +235,5 @@ def test_readme_canonical_notebook_uses_fresh_cell_source():
     assert "VTUBER_SETUP_ONLY" in cells[0]
     assert "prepare_models" in cells[1]
     assert 'run_name="__main__"' in cells[2]
+    assert "colab_ui_launcher.py" in cells[2]
+    assert "import gradio" not in cells[2]
