@@ -236,11 +236,81 @@ def test_commercial_dirty_triposr_checkout_is_rejected(
 
     monkeypatch.setattr(module.subprocess, "run", fake_run)
 
-    with pytest.raises(RuntimeError, match="unmodified pinned TripoSR"):
+    with pytest.raises(RuntimeError, match="exact pinned TripoSR"):
         module.verify_triposr_revision(
             str(run_script),
             "commercial",
         )
+
+
+def test_commercial_untracked_source_injection_is_rejected(
+    tmp_path,
+    monkeypatch,
+):
+    import vtuber_pipeline.avatar.reconstruction as module
+
+    run_script = tmp_path / "TripoSR" / "run.py"
+    run_script.parent.mkdir()
+    run_script.write_text("# fake", encoding="utf-8")
+
+    def fake_run(cmd, **kwargs):
+        if cmd[-2:] == ["rev-parse", "HEAD"]:
+            return types.SimpleNamespace(
+                returncode=0,
+                stdout=module.TRIPOSR_PINNED_COMMIT + "\n",
+                stderr="",
+            )
+        if "status" in cmd:
+            assert "--untracked-files=all" in cmd
+            return types.SimpleNamespace(
+                returncode=0,
+                stdout="?? tsr/injected_backend.py\n",
+                stderr="",
+            )
+        raise AssertionError(cmd)
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="untracked changes"):
+        module.verify_triposr_revision(
+            str(run_script),
+            "commercial",
+        )
+
+
+def test_commercial_checkout_ignores_only_python_bytecode_cache(
+    tmp_path,
+    monkeypatch,
+):
+    import vtuber_pipeline.avatar.reconstruction as module
+
+    run_script = tmp_path / "TripoSR" / "run.py"
+    run_script.parent.mkdir()
+    run_script.write_text("# fake", encoding="utf-8")
+
+    def fake_run(cmd, **kwargs):
+        if cmd[-2:] == ["rev-parse", "HEAD"]:
+            return types.SimpleNamespace(
+                returncode=0,
+                stdout=module.TRIPOSR_PINNED_COMMIT + "\n",
+                stderr="",
+            )
+        if "status" in cmd:
+            return types.SimpleNamespace(
+                returncode=0,
+                stdout=(
+                    "?? tsr/__pycache__/system.cpython-312.pyc\n"
+                    "?? __pycache__/run.cpython-312.pyc\n"
+                ),
+                stderr="",
+            )
+        raise AssertionError(cmd)
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    module.verify_triposr_revision(
+        str(run_script),
+        "commercial",
+    )
 
 
 @pytest.mark.parametrize("remove_background", [True, False])
