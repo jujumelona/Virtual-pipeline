@@ -281,6 +281,7 @@ jobs:
           python - <<'PY'
           import json
           import pathlib
+          import re
 
           data = json.loads(pathlib.Path("third_party.lock.json").read_text(encoding="utf-8"))
           tools = data.get("tools")
@@ -291,8 +292,38 @@ jobs:
               if not isinstance(item, dict) or item.get("commercial_safe") is not True
           ]
           assert not blocked, f"non-commercial or unresolved tools: {blocked}"
+          blocked_patterns = [
+              re.compile(r"\\bAGPL\\b", re.I),
+              re.compile(r"GNU Affero General Public License", re.I),
+              re.compile(r"\\bGPL(?:-|\\b)", re.I),
+              re.compile(r"GNU General Public License", re.I),
+              re.compile(r"non[- ]commercial", re.I),
+              re.compile(r"CC[- ]BY[- ]NC", re.I),
+          ]
+          blocked_licenses = {}
           for name, item in tools.items():
               assert item.get("license"), f"{name}: missing license"
+              license_texts = [
+                  str(item.get("license") or ""),
+                  str(item.get("model_license") or ""),
+              ]
+              models = item.get("models")
+              if isinstance(models, dict):
+                  license_texts.extend(
+                      str(model.get("license") or "")
+                      for model in models.values()
+                      if isinstance(model, dict)
+                  )
+              hits = [
+                  value
+                  for value in license_texts
+                  if any(pattern.search(value) for pattern in blocked_patterns)
+              ]
+              if hits:
+                  blocked_licenses[name] = hits
+          assert not blocked_licenses, (
+              f"blocked license families in commercial lock: {blocked_licenses}"
+          )
           print("commercial-lock-ok")
           PY
 
