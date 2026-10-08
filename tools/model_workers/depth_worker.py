@@ -38,7 +38,12 @@ def infer(req):
     manifest=out/"depth_manifest.json"
     manifest.write_text(json.dumps({"model":model,"units":"relative/no-metric-scale","views":views},
                                     ensure_ascii=False,indent=2),encoding="utf-8")
-    return {"depth_manifest":str(manifest), **{"depth_"+key:data["depth_npy"] for key,data in views.items()}}
+    return {
+        "depth_manifest": str(manifest),
+        "manifest_json": str(manifest),
+        **{"depth_" + key: data["depth_npy"] for key, data in views.items()},
+        **{"depth_" + key + "_npy": data["depth_npy"] for key, data in views.items()},
+    }
 
 if __name__=="__main__":
     execute(infer)
