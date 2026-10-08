@@ -24,6 +24,12 @@ def export_blender_from_vrm(source_vrm: str, output_dir: str,
     blend = folder / "avatar_rigged.blend"
     target = folder / "avatar.vrm"
     report = folder / "blender_export_report.json"
+    # The pure VRM exporter and the native exporter can target the same
+    # output directory. Preserve the input before cleaning stale results.
+    if source == target:
+        staged = folder / "pre_blender_source.vrm"
+        shutil.copy2(source, staged)
+        source = staged
     for artifact in (blend, target, report):
         artifact.unlink(missing_ok=True)
     script = Path(__file__).resolve().parents[2] / "tools/blender_jobs/avatar_rig_export.py"
