@@ -109,7 +109,10 @@ def test_all_source_and_model_pins_agree():
     assert re.fullmatch(r"[0-9a-f]{40}", MAKEHUMAN_BASE_GIT_BLOB_SHA1)
     assert MAKEHUMAN_CC0_COMMIT in readme
 
-    assert tools["torchmcubes"]["source_commit"] == colab["TORCHMCUBES_COMMIT"]
+    assert "torchmcubes" not in tools
+    assert "TORCHMCUBES_COMMIT" not in colab
+    assert tools["scikit_image"]["package"] == "scikit-image"
+    assert tools["scikit_image"]["package_version"] == "0.26.0"
 
     assert tools["dino_vitb16"]["model_id"] == DINO_MODEL_ID
     assert tools["dino_vitb16"]["source_commit"] == DINO_MODEL_REVISION
@@ -195,6 +198,7 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
         "transformers",
         "trimesh",
         "rembg",
+        "scikit_image",
     ):
         item = lock["tools"][key]
         package = item["package"]
