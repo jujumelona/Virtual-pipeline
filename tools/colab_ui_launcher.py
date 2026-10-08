@@ -90,6 +90,52 @@ def _wait_for_http(port: int, process: subprocess.Popen, timeout: int) -> None:
     )
 
 
+def _follow_server(process: subprocess.Popen) -> None:
+    """Keep Colab's third cell active for the ENTIRE Gradio server lifetime.
+
+    Colab's iframe helper returns immediately. Previously the cell completed
+    even while a generation was running in the detached UI process. The kernel
+    must remain blocked here without importing NumPy, SciPy or torch.
+    """
+    print(
+        "[UI] 서버 실행 중 — 이 셀은 Avatar 생성 중에도 종료되지 않습니다. "
+        "중지하려면 셀 실행을 중단하세요.",
+        flush=True,
+    )
+    next_heartbeat = time.monotonic() + 60
+    try:
+        while True:
+            code = process.poll()
+            if code is not None:
+                PID_PATH.unlink(missing_ok=True)
+                tail = (
+                    LOG_PATH.read_text(encoding="utf-8", errors="replace")[-12000:]
+                    if LOG_PATH.is_file() else "(server log missing)"
+                )
+                raise RuntimeError(
+                    f"Gradio UI server exited (exit={code}).\\n"
+                    f"{tail}\\nFull server log: {LOG_PATH}"
+                )
+            now = time.monotonic()
+            if now >= next_heartbeat:
+                print(
+                    f"[UI] server alive PID={process.pid} · "
+                    f"full log: {LOG_PATH}",
+                    flush=True,
+                )
+                next_heartbeat = now + 60
+            time.sleep(2)
+    except KeyboardInterrupt:
+        print("[UI] 셀 중단 요청 — UI 서버 종료", flush=True)
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=10)
+        PID_PATH.unlink(missing_ok=True)
+
+
 def main() -> None:
     WORK.mkdir(parents=True, exist_ok=True)
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -127,6 +173,9 @@ def main() -> None:
     print(f"UI server PID={process.pid}, port={port}", flush=True)
     print(f"Server log: {LOG_PATH}", flush=True)
     output.serve_kernel_port_as_iframe(port, height="1100")
+    # serve_kernel_port_as_iframe() returns immediately. Do NOT let the
+    # notebook finish while the server or its model inference is still alive.
+    _follow_server(process)
 
 
 if __name__ == "__main__":
