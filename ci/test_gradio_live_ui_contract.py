@@ -55,15 +55,28 @@ def test_gradio_6_builds_named_2d_and_3d_workflows():
 
 
 def test_gradio_real_update_routes_without_refreshing_installed_packages():
+    # Test actual Gradio component updates without kicking off multi-GB
+    # checkpoint downloads or cloning a Git repository on a CPU UI runner.
+    # Separate production tests cover the worker setup contracts.
+    from unittest.mock import patch
     ui = _app()
-    for mode, visible in (
-        ("inochi2d", [False, True, False, False, False]),
-        ("live2d", [False, False, True, False, False]),
-        ("3d", [False, False, False, True, False]),
+    with (
+        patch("tools.install_2d_workers.activate_2d_environment") as two_d_setup,
+        patch.object(ui, "_setup_stage") as stage,
+        patch.object(ui, "prepare_models") as prepare,
     ):
-        selection = ui.choose_workflow(mode, "personalNonProfit")
-        assert [value["visible"] for value in selection[:-1]] == visible
-        assert selection[-1] == "personalNonProfit"
+        for mode, visible in (
+            ("inochi2d", [False, True, False, False, False]),
+            ("live2d", [False, False, True, False, False]),
+            ("3d", [False, False, False, True, False]),
+        ):
+            selection = ui.choose_workflow(mode, "personalNonProfit")
+            assert [value["visible"] for value in selection[:-1]] == visible
+            assert selection[-1] == "personalNonProfit"
+            prepare.assert_any_call(mode)
+        assert two_d_setup.call_count == 2
+        stage.assert_called_once()
+        assert stage.call_args.args[0] == "3D TripoSR checkout"
 
 
 def test_both_streaming_handlers_keep_progress_and_log_file_outputs():
