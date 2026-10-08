@@ -135,9 +135,24 @@ def test_real_gradio_native_file_route_serves_verified_avatar_bytes(tmp_path):
         gr.DownloadButton(value=str(model), label="Download avatar.vrm")
     demo.allowed_paths = [str(tmp_path / "output")]
     test_app = App.create_app(demo)
+    # In pinned Gradio 6.3, VRM MIME is model/vrml, which gets rendered
+    # inline. Verify we really fix the browser behavior, not only body bytes.
+    original = TestClient(test_app).get("/gradio_api/file=" + str(model))
+    assert original.status_code == 200
+    assert original.content == data
+    assert "inline" in original.headers.get("content-disposition", "").lower()
+
+    from tools.colab_download_contract import install_direct_download_route
+    install_direct_download_route(test_app, tmp_path / "output")
     response = TestClient(test_app).get(
-        "/gradio_api/file=" + str(model)
+        "/vtuber-download/avatar-123/avatar.vrm"
     )
     assert response.status_code == 200, (response.status_code, response.text[:300])
     assert response.content == data
-    assert "attachment" in response.headers.get("content-disposition", "").lower()
+    disposition = response.headers.get("content-disposition", "").lower()
+    assert "attachment" in disposition, disposition
+    assert "avatar.vrm" in disposition
+    assert response.headers["content-type"].startswith("application/octet-stream")
+    assert TestClient(test_app).get(
+        "/vtuber-download/..%2f..%2fetc/avatar.vrm"
+    ).status_code != 200
