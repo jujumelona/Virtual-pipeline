@@ -50,7 +50,10 @@ def prepare_common_2d(source: SourceSet) -> dict:
     work.mkdir(exist_ok=True)
     supplied = _layers(source,work/"supplied")
     from vtuber_pipeline.perception.face_landmarks import detect
-    landmarks = detect(source.face_image or source.front_image,str(work/"face"))
+    # The 2D art/part masks live in front_image pixel coordinates.
+    # Independently supplied face crops are NOT spatially registered to that
+    # image, so their HRNet landmarks must not be used for full-canvas rigging.
+    landmarks = detect(source.front_image, str(work / "face"))
     complete_layer_ids = {"hair.front", "hair.back", "face",
                           "eye.left.white", "eye.right.white", "mouth.inner"}
     have = {p.semantic_id for p in supplied.parts} if supplied else set()
