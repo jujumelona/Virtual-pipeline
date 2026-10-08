@@ -1,6 +1,8 @@
 """Avatar rigging module for VTuber Pipeline."""
 
 import pathlib
+
+from vtuber_pipeline.core.gltf import load_gltf
 import numpy as np
 from typing import Dict, List, Tuple, Any
 
@@ -420,7 +422,7 @@ def create_gltf_with_skin(
         raise RuntimeError("Rigged GLB export produced no artifact")
 
     # Re-import the exact binary that later stages will consume.
-    check = GLTF2().load(str(output))
+    check = load_gltf(output)
     if len(check.skins or []) != 1:
         raise RuntimeError("Rigged GLB re-import lost its skin")
     if not check.meshes or not check.meshes[0].primitives:
