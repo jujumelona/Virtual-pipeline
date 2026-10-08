@@ -503,15 +503,25 @@ def _model_fingerprint() -> str:
     return digest.hexdigest()
 
 
-def _model_marker() -> pathlib.Path:
+def _model_scope(mode: str) -> str:
+    if mode in ("inochi2d", "live2d", "common_2d"):
+        return "common_2d"
+    if mode == "3d":
+        return "3d"
+    raise ValueError(f"unsupported model prefetch mode: {mode!r}")
+
+
+def _model_marker(mode: str = "3d") -> pathlib.Path:
+    scope = _model_scope(mode)
     tag = f"py{sys.version_info.major}{sys.version_info.minor}"
     return WORK_ROOT / (
-        f".models-{RUNTIME_CONTRACT}-{tag}-{_model_fingerprint()[:16]}.ready"
+        f".models-{scope}-{RUNTIME_CONTRACT}-{tag}-{_model_fingerprint()[:16]}.ready"
     )
 
 
-def _prepare_models_checked() -> None:
-    """Download and initialize models; never mark an incomplete cache ready."""
+def _prepare_models_checked(mode: str = "3d") -> None:
+    """Prepare only selected-model checkpoints; record a per-mode ready marker."""
+    scope = _model_scope(mode)
     revision = subprocess.run(
         ["git", "-C", str(REPO_DIR), "rev-parse", "HEAD"],
         text=True, capture_output=True, timeout=15,
@@ -528,10 +538,11 @@ def _prepare_models_checked() -> None:
         f"installed_from_main={head}" not in environment.read_text(encoding="utf-8").splitlines()
     ):
         raise RuntimeError("① 환경 설치를 먼저 완료하세요.")
-    marker = _model_marker()
+    marker = _model_marker(scope)
     if marker.is_file():
         lines = marker.read_text(encoding="utf-8").splitlines()
         if (f"model_fingerprint={_model_fingerprint()}" in lines
+                and f"model_scope={scope}" in lines
                 and "face_detector_initialized=true" in lines):
             if f"installed_from_main={head}" not in lines:
                 lines = [line for line in lines if not line.startswith("installed_from_main=")]
@@ -539,9 +550,10 @@ def _prepare_models_checked() -> None:
                 marker.write_text("\n".join(lines) + "\n", encoding="utf-8")
             print("[models] 검증된 모델 캐시 사용", flush=True)
             return
-    print("[models] TripoSR / YOLO / HRNet / u2net / DINO / MakeHuman", flush=True)
+    print(f"[models] 선택 모드만 준비: {scope}", flush=True)
     _run(
-        [sys.executable, "-u", str(REPO_DIR / "tools" / "prefetch_model_assets.py")],
+        [sys.executable, "-u", str(REPO_DIR / "tools" / "prefetch_model_assets.py"),
+         "--mode", scope],
         timeout=3000,
     )
     # Downloaded weights do not prove that the detector can be instantiated.
@@ -563,18 +575,20 @@ def _prepare_models_checked() -> None:
     marker.write_text(
         f"model_fingerprint={_model_fingerprint()}\n"
         f"installed_from_main={head}\n"
+        f"model_scope={scope}\n"
         "face_detector_initialized=true\n",
         encoding="utf-8",
     )
 
 
-def prepare_models() -> None:
-    """Surface every model-stage failure in Colab, including legacy notebooks."""
+def prepare_models(mode: str = "3d") -> None:
+    """Explicitly prepare only the models for the selected workflow."""
+    scope = _model_scope(mode)
     log_file = WORK_ROOT / "logs" / "model_setup.log"
     log_file.parent.mkdir(parents=True, exist_ok=True)
     print(f"[models] 모델 준비 시작 · 전체 오류 로그: {log_file}", flush=True)
     try:
-        _prepare_models_checked()
+        _prepare_models_checked(scope)
     except Exception:
         detail = "[models] 준비 실패\n" + traceback.format_exc()
         with log_file.open("a", encoding="utf-8") as output:
@@ -639,8 +653,9 @@ def ensure_runtime(
 
 
 
-def require_runtime_ready() -> Tuple[str, List[str]]:
-    """Generation MUST NOT install dependencies, sync Git or download models."""
+def require_runtime_ready(mode: str = "3d") -> Tuple[str, List[str]]:
+    """Generation must not install packages or download checkpoints."""
+    scope = _model_scope(mode)
     revision = subprocess.run(
         ["git", "-C", str(REPO_DIR), "rev-parse", "HEAD"],
         capture_output=True,
@@ -662,9 +677,10 @@ def require_runtime_ready() -> Tuple[str, List[str]]:
     details = marker.read_text(encoding="utf-8")
     if f"installed_from_main={head}" not in details.splitlines():
         raise RuntimeError("① 환경 설치를 다시 실행하세요.")
-    model_marker = _model_marker()
+    model_marker = _model_marker(scope)
     if not model_marker.is_file() or (
         f"installed_from_main={head}" not in model_marker.read_text(encoding="utf-8").splitlines()
+        or f"model_scope={scope}" not in model_marker.read_text(encoding="utf-8").splitlines()
     ):
         raise RuntimeError("② 모델 다운로드·검증을 먼저 완료하세요.")
     os.environ["TRIPOSR_DIR"] = str(TRIPOSR_DIR)
@@ -1169,6 +1185,7 @@ def build_2d_ui(image_path, layers_zip, commercial_usage, target="live2d"):
     if not image_path:
         return "원본 캐릭터 이미지를 업로드하세요.", "", None
     try:
+        require_runtime_ready(target)
         from vtuber_pipeline.common.schemas import SourceSet
         from vtuber_pipeline.two_d.build import build_inochi2d, build_live2d
         output = OUTPUT_ROOT / uuid.uuid4().hex[:10] / target
@@ -1237,6 +1254,9 @@ def choose_workflow(mode: str, usage: str):
         raise ValueError(f"Unsupported workflow mode: {mode!r}")
     if usage not in {"corporation", "personalProfit", "personalNonProfit"}:
         raise ValueError(f"Unsupported use scope: {usage!r}")
+    # Mode selection is the first checkpoint download boundary. Do not fetch
+    # TripoSR/InstantMesh for 2D; do not fetch FLUX for 3D.
+    prepare_models(mode)
     return (
         gr.update(visible=False),
         gr.update(visible=(mode == "inochi2d")),
@@ -1582,7 +1602,9 @@ def build_app() -> gr.Blocks:
         enter_workflow.click(
             fn=choose_workflow, inputs=[mode, usage],
             outputs=[workflow_start, inochi2d_view, live2d_view, avatar_view, accessory_view, selected_usage],
-            show_progress="hidden",
+            show_progress="full",
+            concurrency_id="vtuber_model_setup",
+            concurrency_limit=1,
         )
         for back in (inochi_back, live2d_back, avatar_back):
             back.click(
