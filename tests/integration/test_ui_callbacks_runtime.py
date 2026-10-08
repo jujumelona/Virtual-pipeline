@@ -315,3 +315,56 @@ def test_native_import_failure_is_written_to_ui_log_instead_of_gradio_traceback(
     log = pathlib.Path(updates[-1][-1])
     assert log.is_file()
     assert "ModuleNotFoundError" in log.read_text(encoding="utf-8")
+
+
+def test_avatar_success_publishes_verified_download_for_colab_kernel(
+    ui, tmp_path, monkeypatch,
+):
+    import json
+
+    image = tmp_path / "face.png"
+    image.write_bytes(b"png")
+    queue = tmp_path / "session"
+    monkeypatch.setenv("VTUBER_COLAB_AUTODOWNLOAD_DIR", str(queue))
+
+    def produce(*, image_path, output_dir, config):
+        path = pathlib.Path(output_dir) / "avatar.vrm"
+        path.write_bytes(b"glTF" + b"0" * 36)
+        return {
+            "status": "complete", "vrm_path": str(path),
+            "stages": {"validator": {"status": "complete"}},
+        }
+
+    monkeypatch.setattr(ui, "_pipeline_imports", lambda: (produce, None, None))
+    status, logs, download, state = ui.build_avatar_ui(
+        str(image), "corporation", None,
+    )
+    assert status.startswith("✅"), (status, logs)
+    assert "자동 다운로드 요청 중" in status
+    assert download == state
+    events = list(queue.glob("request-*.json"))
+    assert len(events) == 1
+    content = json.loads(events[0].read_text(encoding="utf-8"))
+    assert pathlib.Path(content["path"]).samefile(download)
+    assert content["filename"] == "avatar.vrm"
+
+
+def test_failed_avatar_does_not_publish_or_download(tmp_path, ui, monkeypatch):
+    queue = tmp_path / "session"
+    monkeypatch.setenv("VTUBER_COLAB_AUTODOWNLOAD_DIR", str(queue))
+    image = tmp_path / "face.png"
+    image.write_bytes(b"png")
+
+    monkeypatch.setattr(
+        ui, "_pipeline_imports",
+        lambda: (lambda **kwargs: {
+            "status": "failed", "failed_reason": "template fit invalid",
+            "stages": {"template_fitting": {"status": "error"}},
+        }, None, None),
+    )
+    status, logs, download, state = ui.build_avatar_ui(
+        str(image), "corporation", None,
+    )
+    assert status.startswith("❌"), (status, logs)
+    assert download is None
+    assert not list(queue.glob("request-*.json")) if queue.is_dir() else True
