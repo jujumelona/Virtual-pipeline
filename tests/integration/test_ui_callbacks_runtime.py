@@ -330,7 +330,9 @@ def test_launch_clears_stale_pipeline_modules_before_runtime_check(ui, tmp_path,
     )
     monkeypatch.setattr(ui, "build_app", lambda: (events.append("build") or FakeDemo()))
     ui.launch()
-    assert events == ["reload", "runtime", "build", "queue", "launch"]
+    # 2D art preparation launches even if 3D model assets are not ready.
+    # 3D callbacks still enforce their runtime readiness individually.
+    assert events == ["reload", "build", "queue", "launch"]
 
 
 def test_native_import_failure_is_written_to_ui_log_instead_of_gradio_traceback(
