@@ -177,7 +177,7 @@ def test_follow_server_keeps_cell_running_until_process_really_exits(
     assert "Full server log:" in str(exc.value)
     assert sleeps == [2, 2, 2]  # The cell did NOT return while server was live
     assert not launcher.PID_PATH.exists()
-    assert "서버 실행 중" in capsys.readouterr().out
+    assert "Avatar 생성 대기 중" in capsys.readouterr().out
 
 
 def test_follow_server_cell_interrupt_terminates_server_cleanly(
