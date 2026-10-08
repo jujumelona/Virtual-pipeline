@@ -14,6 +14,8 @@ def transfer_texture(
     *,
     face_image_path: Optional[str] = None,
     back_image_path: Optional[str] = None,
+    left_image_path: Optional[str] = None,
+    right_image_path: Optional[str] = None,
     full_body: bool = False,
     texture_size: int = 1024,
 ) -> Dict[str, Any]:
@@ -84,10 +86,17 @@ def transfer_texture(
                 back_rgba = back_img.convert("RGBA")
                 back_width, back_height = back_rgba.size
                 back_pixels = np.asarray(back_rgba)
+        side_pixels = {}
+        for role, path in (("left", left_image_path), ("right", right_image_path)):
+            if path:
+                with Image.open(path) as side_img:
+                    side_pixels[role] = np.asarray(side_img.convert("RGBA"))
         result["reference_sources"] = {
             "front": image_path,
             "face": face_image_path,
             "back": back_image_path,
+            "left": left_image_path,
+            "right": right_image_path,
         }
 
         # Try to load mesh and get UV coordinates
@@ -231,6 +240,30 @@ def transfer_texture(
                     mesh_height * back_height*.91,
                 ])
 
+            # Side orthographic projections come from independently supplied
+            # real views. Local depth (Z) is horizontal from a side camera;
+            # left/right views mirror that axis. Preserve source alpha margins.
+            side_xy = {}
+            for role, pixels in side_pixels.items():
+                sh, sw = pixels.shape[:2]
+                fg = pixels[:, :, 3] > 32
+                if fg.any() and (~fg).any():
+                    sy, sx = np.nonzero(fg)
+                    lx, ty = float(sx.min()), float(sy.min())
+                    rx, by = float(sx.max() + 1), float(sy.max() + 1)
+                else:
+                    lx, ty, rx, by = sw * .05, sh * .05, sw * .95, sh * .95
+                center_z = float((pmin[2] + pmax[2]) * .5)
+                center_y = float((pmin[1] + pmax[1]) * .5)
+                depth_span = max(float(pmax[2] - pmin[2]), 1e-8)
+                flip = 1.0 if role == "left" else -1.0
+                side_xy[role] = np.column_stack([
+                    (lx + rx) * .5 + flip * (vertices[:, 2] - center_z)
+                    * ((rx - lx) / depth_span),
+                    (ty + by) * .5 - (vertices[:, 1] - center_y)
+                    * ((by - ty) / mesh_height),
+                ])
+
             # Every occupied UV texel is projected independently (not a
             # triangle-center color fill). Unobserved areas stay transparent.
             from vtuber_pipeline.avatar.uv_projection import rasterize_multiview_texture
@@ -239,6 +272,10 @@ def transfer_texture(
                 texture_size, face_pixels=face_pixels,
                 face_xy=face_projected_xy, back_pixels=back_pixels,
                 back_xy=back_projected_xy,
+                left_pixels=side_pixels.get("left"),
+                left_xy=side_xy.get("left"),
+                right_pixels=side_pixels.get("right"),
+                right_xy=side_xy.get("right"),
             )
             if visibility["painted_texels"] == 0:
                 raise RuntimeError("No visible source image pixels project onto the UV atlas")
