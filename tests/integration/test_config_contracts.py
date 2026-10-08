@@ -166,3 +166,19 @@ def test_accessory_output_dir_override_cannot_escape_bound_pipeline(tmp_path):
     assert result["status"] == "failed"
     assert result["failed_stages"] == ["orchestrator"]
     assert "bound to one output directory" in result["failed_reason"]
+
+
+def test_unsupported_dynamic_accessory_physics_fails_before_geometry(
+    tmp_path, monkeypatch,
+):
+    import vtuber_pipeline.accessory.normalize as normalize
+
+    def must_not_run(*_args, **_kwargs):
+        raise AssertionError("unsupported physics must not process geometry")
+
+    monkeypatch.setattr(normalize, "normalize_glb", must_not_run)
+    result = _accessory(tmp_path, {"physics": {"enabled": True}})
+    assert result["status"] == "failed"
+    assert result["failed_stages"] == ["physics"]
+    assert result["stages"]["physics"]["status"] == "error"
+    assert "not supported" in result["failed_reason"]
