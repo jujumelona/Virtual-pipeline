@@ -20,6 +20,16 @@ def split_semantic_layers(original_rgba: str, masks_json: str,
     out.mkdir(parents=True, exist_ok=True)
     base = Image.open(original_rgba).convert("RGBA")
     width, height = base.size
+    # Store actual detector points in the same source canvas only; a separate
+    # zoomed face reference cannot be mapped without image registration.
+    face_keypoints = []
+    landmark_path = Path(landmarks_json)
+    if landmark_path.is_file():
+        record = json.loads(landmark_path.read_text(encoding="utf-8"))
+        if record.get("image_size") == [width, height]:
+            candidate = np.asarray(record.get("landmarks", []), dtype=float)
+            if candidate.shape == (28, 2) and np.isfinite(candidate).all():
+                face_keypoints = candidate.tolist()
     masks = json.loads(Path(masks_json).read_text(encoding="utf-8"))
     if not masks.get("parts"):
         raise ValueError("SAM produced no semantic part masks")
@@ -70,7 +80,7 @@ def split_semantic_layers(original_rgba: str, masks_json: str,
             parts.append(Part(
                 identity, str(rgba_path), mask_path, hidden_path,
                 [int(xs.min()), int(ys.min()), int(xs.max() + 1), int(ys.max() + 1)],
-                depth, [], "sam2.1",
+                depth, face_keypoints if identity in {"face", "head"} else [], "sam2.1",
             ))
             index += 1
 
