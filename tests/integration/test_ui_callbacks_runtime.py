@@ -235,7 +235,7 @@ def test_generation_requires_explicit_prepared_runtime_without_install(ui, tmp_p
             returncode=0, stdout="b" * 40 + "\n", stderr="",
         ),
     )
-    with pytest.raises(RuntimeError, match="① 환경 준비"):
+    with pytest.raises(RuntimeError, match="① 환경 설치"):
         ui._real_require_runtime_ready()
 
 
