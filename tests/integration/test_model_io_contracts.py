@@ -119,6 +119,7 @@ def test_triposr_wrapper_maps_options_to_cli_timeout_and_output(
         lambda: str(model_dir),
     )
     monkeypatch.setenv("TRIPOSR_TIMEOUT_SECONDS", "77")
+    monkeypatch.setenv("MODEL_CHECKSUM_DISABLED", "1")
 
     class FakeScene:
         pass
@@ -143,10 +144,12 @@ def test_triposr_wrapper_maps_options_to_cli_timeout_and_output(
         text,
         timeout,
         cwd,
+        env,
     ):
         captured["cmd"] = list(cmd)
         captured["timeout"] = timeout
         captured["cwd"] = cwd
+        captured["env"] = dict(env)
 
         out_index = cmd.index("--output-dir") + 1
         format_index = cmd.index("--model-save-format") + 1
@@ -176,8 +179,9 @@ def test_triposr_wrapper_maps_options_to_cli_timeout_and_output(
         "production",
     )
     assert captured["cmd"][0] == sys.executable
-    assert captured["cmd"][1] == str(run_script)
-    assert captured["cmd"][2] == str(image_path)
+    assert captured["cmd"][1].endswith("triposr_runner.py")
+    assert captured["cmd"][2] == str(run_script)
+    assert captured["cmd"][3] == str(image_path)
     assert captured["cmd"][
         captured["cmd"].index("--output-dir") + 1
     ] == str(output_dir)
@@ -190,6 +194,7 @@ def test_triposr_wrapper_maps_options_to_cli_timeout_and_output(
     ] == str(model_dir)
     assert captured["timeout"] == 77
     assert captured["cwd"] == str(triposr_dir)
+    assert "MODEL_CHECKSUM_DISABLED" not in captured["env"]
     assert result == str(output_dir / "0" / "mesh.glb")
 
 
@@ -704,3 +709,37 @@ def test_triposr_model_resolver_rejects_weight_hash_mismatch(
             reconstruction.resolve_triposr_model()
     finally:
         reconstruction.resolve_triposr_model.cache_clear()
+
+
+def test_triposr_runner_forces_nested_dino_revision(monkeypatch):
+    import vtuber_pipeline.avatar.triposr_runner as runner
+
+    calls = []
+
+    def original(repo_id, filename, *args, **kwargs):
+        calls.append((repo_id, filename, args, kwargs))
+        return "/tmp/fake"
+
+    fake_hub = types.SimpleNamespace(hf_hub_download=original)
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hub)
+
+    runner._install_hf_revision_guard()
+
+    fake_hub.hf_hub_download(
+        runner.DINO_MODEL_ID,
+        "config.json",
+    )
+    assert calls[-1][3]["revision"] == runner.DINO_MODEL_REVISION
+
+    fake_hub.hf_hub_download(
+        "some/other-model",
+        "config.json",
+    )
+    assert "revision" not in calls[-1][3]
+
+    with pytest.raises(RuntimeError, match="revision override rejected"):
+        fake_hub.hf_hub_download(
+            runner.DINO_MODEL_ID,
+            "config.json",
+            revision="floating-main",
+        )
