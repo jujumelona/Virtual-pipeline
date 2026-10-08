@@ -168,6 +168,9 @@ class AvatarPipeline:
             "uv_path",
             "mesh_path",
             "fit_npz",
+            "refined_glb",
+            "hair_geometry_glb",
+            "report_json",
             "face_png",
             "body_png",
             "rgba_png",
@@ -597,6 +600,32 @@ class AvatarPipeline:
         if not fitted_mesh or not pathlib.Path(fitted_mesh).is_file():
             return self._fail(results, "template_fitting", "fitted mesh artifact is missing")
         results["fitted_mesh"] = fitted_mesh
+
+        # 3b. Apply bounded multiview surface corrections to the canonical
+        # vertex topology. No TripoSR/InstantMesh mesh substitution is allowed.
+        if full_body:
+            from vtuber_pipeline.avatar.surface_refine import refine_anatomy
+            try:
+                refined = self._run_stage(
+                    "surface_refine",
+                    (fitted_mesh, constraints_path, references["report_path"]),
+                    lambda: refine_anatomy(
+                        fitted_mesh, constraints_path, references["report_path"],
+                        str(pathlib.Path(output_dir) / "surface_refine"),
+                    ),
+                )
+            except Exception as exc:
+                return self._fail(results, "surface_refine", str(exc))
+            results["stages"]["surface_refine"] = refined
+            surface_path = refined.get("refined_glb")
+            hair_path = refined.get("hair_geometry_glb")
+            if refined.get("status") != "complete" or not surface_path or not pathlib.Path(surface_path).is_file():
+                return self._fail(results, "surface_refine", refined.get("error", "refined anatomical GLB missing"))
+            if not hair_path or not pathlib.Path(hair_path).is_file():
+                return self._fail(results, "surface_refine", "separate hair ribbons are missing")
+            fitted_mesh = surface_path
+            results["refined_mesh"] = surface_path
+            results["hair_geometry_glb"] = hair_path
 
         # 4. Project source appearance onto the fitted canonical topology.
         texture = self._run_stage(
