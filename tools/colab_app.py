@@ -407,12 +407,17 @@ def _install_runtime(head: str) -> None:
                 "import _verify_rembg_u2net, DINO_MODEL_ID, DINO_MODEL_REVISION; "
                 "from vtuber_pipeline.avatar.template_mesh import get_template_path; "
                 "from huggingface_hub import hf_hub_download; "
+                "print('[models 1/5] TripoSR 가중치 다운로드·검증', flush=True); "
                 "print('triposr-model', resolve_triposr_model(), flush=True); "
+                "print('[models 2/5] 얼굴 검출 YOLO+HRNet 다운로드·검증', flush=True); "
                 "print('anime-face-models', resolve_anime_face_model_paths(), flush=True); "
+                "print('[models 3/5] 배경 제거 u2net 다운로드·검증', flush=True); "
                 "print('rembg-u2net', _verify_rembg_u2net(), flush=True); "
+                "print('[models 4/5] DINO ViT 설정 다운로드', flush=True); "
                 "print('dino-config', hf_hub_download("
                 "repo_id=DINO_MODEL_ID, filename='config.json', "
                 "revision=DINO_MODEL_REVISION), flush=True); "
+                "print('[models 5/5] MakeHuman CC0 메시 다운로드·템플릿 구성', flush=True); "
                 "print('makehuman-template', get_template_path(), flush=True)"
             ),
         ],
