@@ -172,15 +172,15 @@ def _follow_server(
     process: subprocess.Popen, *, download_dir: pathlib.Path | None = None,
     server_port: int | None = None,
 ) -> None:
-    """Keep Colab's third cell active for the ENTIRE Gradio server lifetime.
+    """Wait for avatar production, then finish the notebook cell normally.
 
-    Colab's iframe helper returns immediately. Previously the cell completed
-    even while a generation was running in the detached UI process. The kernel
-    must remain blocked here without importing NumPy, SciPy or torch.
+    The Gradio server is an independent subprocess. Keep the Colab cell active
+    while generation runs, but return after the verified VRM download link is
+    displayed. Do NOT kill the server here: its HTTP attachment link must
+    remain usable after the notebook cell has finished.
     """
     print(
-        "[UI] 서버 실행 중 — 이 셀은 Avatar 생성 중에도 종료되지 않습니다. "
-        "중지하려면 셀 실행을 중단하세요.",
+        "[UI] Avatar 생성 대기 중 — 다운로드 링크가 준비되면 ③ 셀이 자동 종료됩니다.",
         flush=True,
     )
     next_heartbeat = time.monotonic() + 60
@@ -202,17 +202,28 @@ def _follow_server(
                 for outcome in outcomes:
                     if outcome["status"] == "requested":
                         print(
-                            "[VRM] 파일 직접 다운로드 링크 표시됨. 브라우저가 자동 다운로드를 "
-                            "차단하면 출력된 링크를 클릭하세요. ③ 셀은 계속 실행됩니다.",
+                            "[VRM] 검증된 avatar.vrm 다운로드 링크 표시 및 "
+                            "브라우저 다운로드 요청 완료. 파일은 Colab에 보존됩니다.",
                             flush=True,
                         )
                     else:
                         print(
-                            "[VRM] 직접 다운로드 링크 생성 실패: "
+                            "[VRM] 다운로드 링크 생성 실패: "
                             + outcome["detail"]
-                            + f" · Colab 파일 탐색기: {WORK / 'output'}",
+                            + f" · 저장된 파일은 Colab 파일 탐색기에서 찾으세요: {WORK / 'output'}",
                             flush=True,
                         )
+                if outcomes:
+                    # A completed build is terminal for the notebook cell,
+                    # even if a browser blocks its download. Retain the
+                    # detached Gradio server so users can click the link
+                    # after the cell finishes; do not kill it here.
+                    print(
+                        "[UI] Avatar 작업 종료 — ③ 셀이 정상 종료됩니다. "
+                        "Gradio 다운로드 서버는 링크 사용을 위해 유지됩니다.",
+                        flush=True,
+                    )
+                    return
             code = process.poll()
             if code is not None:
                 PID_PATH.unlink(missing_ok=True)
@@ -286,8 +297,9 @@ def main() -> None:
     print(f"UI server PID={process.pid}, port={port}", flush=True)
     print(f"Server log: {LOG_PATH}", flush=True)
     output.serve_kernel_port_as_iframe(port, height="1100")
-    # serve_kernel_port_as_iframe() returns immediately. Do NOT let the
-    # notebook finish while the server or its model inference is still alive.
+    # The iframe helper returns immediately. Wait until the new generation
+    # produces a verified VRM delivery event, THEN finish the notebook cell.
+    # The detached server remains available for clicking its HTTP file link.
     print("[VRM] 생성 성공 시 직접 HTTP 다운로드 링크와 고정 파일 경로를 표시합니다.", flush=True)
     # Existing generated VRMs survive Git notebook/UI restarts. Immediately
     # offer the previous file too, so users are not forced to rerun expensive
