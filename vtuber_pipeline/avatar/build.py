@@ -4,6 +4,7 @@ import hashlib
 import json
 import pathlib
 from typing import Dict, Any, Optional, Callable
+from vtuber_pipeline.core.stage_progress import report_stage
 
 
 class AvatarPipeline:
@@ -73,6 +74,7 @@ class AvatarPipeline:
         inputs: tuple[Any, ...],
         fn: Callable[[], Dict[str, Any]],
     ) -> Dict[str, Any]:
+        report_stage(name, "running")
         key = self._get_stage_key(name, *inputs)
         if self.manifest.is_complete(key):
             cached = self.manifest.get_stage(key)
@@ -80,9 +82,14 @@ class AvatarPipeline:
                 restored = dict(cached)
                 restored["cache_hit"] = True
                 restored["stage_key"] = key
+                report_stage(name, "cached")
                 return restored
 
-        result = fn()
+        try:
+            result = fn()
+        except Exception as exc:
+            report_stage(name, "error", str(exc))
+            raise
         if not isinstance(result, dict):
             result = {"status": "error", "error": f"{name} returned a non-dict result"}
         result.setdefault("stage_name", name)
@@ -112,6 +119,7 @@ class AvatarPipeline:
             result["output_path"] = artifacts[0]
         result["artifact_paths"] = artifacts
         self.manifest.record_stage(key, result)
+        report_stage(name, str(result.get("status", "unknown")), str(result.get("error") or ""))
         return result
 
     @staticmethod
@@ -119,6 +127,7 @@ class AvatarPipeline:
         results["status"] = "failed"
         results["failed_stages"] = [stage]
         results["failed_reason"] = reason
+        report_stage(stage, "failed", str(reason))
         return results
 
     def build(
