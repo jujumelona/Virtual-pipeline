@@ -509,12 +509,16 @@ def build_avatar_ui(
     latest_avatar: Optional[str],
     progress: gr.Progress = gr.Progress(),
 ):
-    del latest_avatar
+    previous_avatar = (
+        str(latest_avatar)
+        if latest_avatar and pathlib.Path(latest_avatar).is_file()
+        else None
+    )
 
     logs: List[str] = []
     try:
         if not image_path:
-            return "❌ 캐릭터 이미지를 선택하세요.", "", None, None
+            return "❌ 캐릭터 이미지를 선택하세요.", "", None, previous_avatar
 
         head, setup_logs = ensure_runtime(progress)
         logs.extend(setup_logs)
@@ -546,7 +550,7 @@ def build_avatar_ui(
                 f"❌ Avatar 생성 실패: {reason}",
                 "\n".join(logs),
                 None,
-                None,
+                previous_avatar,
             )
 
         vrm_path = pathlib.Path(result["vrm_path"])
@@ -567,7 +571,7 @@ def build_avatar_ui(
             f"❌ 실패: {exc}",
             "\n".join(logs),
             None,
-            None,
+            previous_avatar,
         )
 
 
