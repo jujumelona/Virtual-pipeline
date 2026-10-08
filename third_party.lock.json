@@ -135,7 +135,7 @@
     "anime_face_detector_usage": "Package version is pinned exactly in pyproject.toml.",
     "vrm_export": "VRM 1.0 is emitted by the pure-Python pygltflib path; Blender/VRM Add-on is not a runtime dependency.",
     "torchmcubes_usage": "Install after PyTorch and build dependencies with --no-build-isolation; native build parallelism is capped for Colab.",
-    "runtime_contract": "Colab runtime v4 pins the direct compatibility packages recorded here. artifact_sha256 stays null unless exact installed wheel bytes are captured and trusted.",
+    "runtime_contract": "Colab runtime v6 pins the direct compatibility packages recorded here. artifact_sha256 stays null unless exact installed wheel bytes are captured and trusted.",
     "transitive_scope": "commercial_safe flags cover the direct locked components; installed transitive distributions must still be audited from the resolved environment.",
     "triposr_model_integrity": "The Hugging Face model revision is pinned separately from the TripoSR source revision; model.ckpt bytes are verified against model_weight_sha256 before inference.",
     "gradio_usage": "Colab notebook pins Gradio exactly; the published wheel SHA256 is recorded separately from observed artifact_sha256.",
