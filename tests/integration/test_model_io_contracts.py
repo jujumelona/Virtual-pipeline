@@ -692,6 +692,51 @@ def test_triposr_model_resolver_uses_exact_hf_revision_and_hash(
     ]
 
 
+def test_triposr_model_resolver_retains_hf_snapshot_filenames(tmp_path, monkeypatch):
+    """HF blobs are hashes, whereas TSR.from_pretrained needs the named snapshot."""
+    import hashlib
+    import json
+    import vtuber_pipeline.avatar.reconstruction as reconstruction
+
+    cache = tmp_path / "models--stabilityai--TripoSR"
+    blob = cache / "blobs"
+    snapshot = cache / "snapshots" / reconstruction.TRIPOSR_MODEL_REVISION
+    blob.mkdir(parents=True)
+    snapshot.mkdir(parents=True)
+    config_bytes = json.dumps(reconstruction.TRIPOSR_MODEL_CONFIG).encode("utf-8")
+    weight_bytes = b"verified-snapshot-checkpoint-for-path-regression"
+    (blob / "config-blob").write_bytes(config_bytes)
+    (blob / "model-blob").write_bytes(weight_bytes)
+    (snapshot / "config.yaml").symlink_to(blob / "config-blob")
+    (snapshot / "model.ckpt").symlink_to(blob / "model-blob")
+    monkeypatch.setattr(
+        reconstruction, "TRIPOSR_MODEL_WEIGHT_SHA256",
+        hashlib.sha256(weight_bytes).hexdigest(),
+    )
+    monkeypatch.delenv("TRIPOSR_MODEL_DIR", raising=False)
+
+    def local_hf(*, repo_id, filename, revision):
+        assert repo_id == reconstruction.TRIPOSR_MODEL_ID
+        assert revision == reconstruction.TRIPOSR_MODEL_REVISION
+        return str(snapshot / filename)
+
+    monkeypatch.setitem(
+        sys.modules, "huggingface_hub",
+        types.SimpleNamespace(hf_hub_download=local_hf),
+    )
+    reconstruction.resolve_triposr_model.cache_clear()
+    try:
+        model_dir = reconstruction.resolve_triposr_model()
+    finally:
+        reconstruction.resolve_triposr_model.cache_clear()
+    assert model_dir == str(snapshot)
+    assert (pathlib.Path(model_dir) / "config.yaml").read_bytes() == config_bytes
+    assert (pathlib.Path(model_dir) / "model.ckpt").read_bytes() == weight_bytes
+    assert pathlib.Path(model_dir).resolve() == snapshot.resolve()
+    # The *file* symlinks resolve to hashes in /blobs; do not use that folder.
+    assert (snapshot / "model.ckpt").resolve().parent == blob
+
+
 def test_triposr_model_resolver_rejects_weight_hash_mismatch(
     tmp_path,
     monkeypatch,
