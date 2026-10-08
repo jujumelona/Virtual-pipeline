@@ -151,10 +151,14 @@ def test_live_colab_server_watcher_calls_browser_download_while_ui_is_alive(
             self.count += 1
             return None if self.count <= 2 else 0
 
-    with pytest.raises(RuntimeError, match="exit=0"):
-        launcher._follow_server(AliveThenExit(), download_dir=queue, server_port=19876)
+    server = AliveThenExit()
+    launcher._follow_server(server, download_dir=queue, server_port=19876)
+    # Delivery terminates ③ without waiting for the still-live server.
+    assert server.count == 0
     assert calls == [(19876, str(file))]
-    assert "파일 직접 다운로드 링크 표시됨" in capsys.readouterr().out
+    assert "③ 셀이 정상 종료됩니다" in capsys.readouterr().out
+    assert launcher.PID_PATH.is_file()  # download server remains accessible
+    assert file.is_file()  # user can re-download later
     assert len(list(queue.glob("receipt-*.json"))) == 1
 
 
@@ -242,3 +246,69 @@ def test_restart_offers_latest_completed_vrm_without_rebuilding(tmp_path):
     os.utime(bad, (30, 30))
     assert launcher._latest_existing_avatar(root) == second
     assert launcher._latest_existing_avatar(tmp_path / "no-such-output") is None
+
+
+def test_download_link_failure_finishes_cell_but_preserves_avatar_and_ui(tmp_path, monkeypatch, capsys):
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[2] / "tools" / "colab_ui_launcher.py"
+    spec = importlib.util.spec_from_file_location("download_fail_terminal", path)
+    assert spec and spec.loader
+    launcher = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(launcher)
+    launcher.WORK = tmp_path
+    launcher.PID_PATH = tmp_path / "ui.pid"
+    launcher.PID_PATH.write_text("4321")
+    launcher.LOG_PATH = tmp_path / "ui.log"
+    root = tmp_path / "output"
+    root.mkdir()
+    file = avatar_fixture(root)
+    queue = tmp_path / "events"
+    publish_avatar_download(file, root, queue)
+    monkeypatch.setattr(
+        launcher, "_show_direct_download",
+        lambda port, source: (_ for _ in ()).throw(PermissionError("browser blocked")),
+    )
+
+    class Alive:
+        pid = 4321
+        def poll(self):
+            raise AssertionError("Must not wait for server exit after completed avatar")
+
+    launcher._follow_server(Alive(), download_dir=queue, server_port=19876)
+    assert file.is_file()
+    assert launcher.PID_PATH.is_file()
+    out = capsys.readouterr().out
+    assert "browser blocked" in out
+    assert "③ 셀이 정상 종료됩니다" in out
+
+
+def test_no_finished_avatar_keeps_colab_cell_alive_while_generation_runs(tmp_path, monkeypatch):
+    import importlib.util
+    path = Path(__file__).resolve().parents[2] / "tools" / "colab_ui_launcher.py"
+    spec = importlib.util.spec_from_file_location("running_generation_watcher", path)
+    assert spec and spec.loader
+    launcher = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(launcher)
+    launcher.WORK = tmp_path
+    launcher.PID_PATH = tmp_path / "ui.pid"
+    launcher.PID_PATH.write_text("4321")
+    launcher.LOG_PATH = tmp_path / "ui.log"
+    launcher.LOG_PATH.write_text("server exited unexpectedly")
+    queue = tmp_path / "empty"
+    queue.mkdir()
+    calls = []
+    monkeypatch.setattr(launcher.time, "sleep", lambda seconds: calls.append(seconds))
+
+    class RunningThenFail:
+        pid = 4321
+        def __init__(self):
+            self.count = 0
+        def poll(self):
+            self.count += 1
+            return None if self.count < 4 else 5
+
+    with pytest.raises(RuntimeError, match="exit=5"):
+        launcher._follow_server(RunningThenFail(), download_dir=queue, server_port=19876)
+    assert calls == [2, 2, 2]
+    assert not launcher.PID_PATH.exists()
