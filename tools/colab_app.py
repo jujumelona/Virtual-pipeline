@@ -22,6 +22,13 @@ import traceback
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
+# runpy.run_path() does not add the script directory to sys.path. Colab
+# installs in a separate Python process, so an editable .pth may not be loaded
+# in the already-running notebook kernel. Import from this checkout explicitly.
+_SOURCE_REPO_DIR = pathlib.Path(__file__).resolve().parent.parent
+if str(_SOURCE_REPO_DIR) not in sys.path:
+    sys.path.insert(0, str(_SOURCE_REPO_DIR))
+
 import gradio as gr
 
 
@@ -1003,20 +1010,13 @@ CSS = """
 
 
 def build_app() -> gr.Blocks:
-    with gr.Blocks(
-        title="VTuber Builder",
-        css=CSS,
-        theme=gr.themes.Soft(),
-    ) as demo:
+    with gr.Blocks(title="VTuber Builder") as demo:
         latest_avatar = gr.State(value=None)
 
         gr.HTML(
             """
             <div id="hero">
               <div style="font-size:30px;font-weight:800">VTuber Builder</div>
-              <div style="color:#5f6368;margin-top:4px">
-                ① 환경 준비 셀 완료 → ② UI 실행 → 이미지 업로드 → 생성. 생성 버튼에서 설치하지 않습니다.
-              </div>
             </div>
             """
         )
@@ -1221,6 +1221,8 @@ def launch() -> None:
         show_error=True,
         height=1100,
         allowed_paths=[str(WORK_ROOT), str(OUTPUT_ROOT)],
+        css=CSS,
+        theme=gr.themes.Soft(),
     )
 
 
