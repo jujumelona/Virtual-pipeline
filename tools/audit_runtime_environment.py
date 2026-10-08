@@ -49,7 +49,7 @@ BLOCKED_LICENSE_PATTERNS = [
     re.compile(r"GNU Affero General Public License", re.I),
     re.compile(r"\bGPL(?:-|\b)", re.I),
     re.compile(r"GNU General Public License", re.I),
-    re.compile(r"non[- ]commercial", re.I),
+    re.compile(r"non[- _]?commercial", re.I),
     re.compile(r"CC[- ]BY[- ]NC", re.I),
 ]
 
