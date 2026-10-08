@@ -112,10 +112,6 @@ def prefetch_assets(
     print("[models] 모든 필수 모델 준비 완료", flush=True)
 
 
-if __name__ == "__main__":
-    prefetch_assets()
-
-
 # Explicit per-mode opt-in; legacy prefetch_assets() still verifies existing 3D pins.
 from vtuber_pipeline.common.model_assets import MODE_ASSETS, MODELS, record_artifacts
 MODEL_ASSETS = MODE_ASSETS
@@ -140,3 +136,28 @@ def prefetch_mode(mode: str, *, cache_dir: str | None = None, timeout: int = 240
                 f"print(resolve_snapshot({name!r}, cache_dir={cache_dir!r}), flush=True)"
             )
         run_model_task(name, code, timeout=timeout)
+    if mode == "3d":
+        # These files are not independent selectable model families, but the
+        # deployed TripoSR/rig pipeline requires them in its environment.
+        for label, code in TASKS:
+            if label in {"DINO", "u2net", "MakeHuman"}:
+                run_model_task(label, code, timeout=timeout)
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """Explicit mode prefetch without auto-installing unrelated model families."""
+    import argparse
+    parser = argparse.ArgumentParser(description="VTuber mode-scoped model prefetch")
+    parser.add_argument("--mode", choices=("common_2d", "3d", "legacy"), default="legacy")
+    parser.add_argument("--timeout", type=int, default=2400)
+    arguments = parser.parse_args(argv)
+    if arguments.timeout < 1:
+        parser.error("--timeout must be positive")
+    if arguments.mode == "legacy":
+        prefetch_assets()
+    else:
+        prefetch_mode(arguments.mode, timeout=arguments.timeout)
+
+
+if __name__ == "__main__":
+    main()
