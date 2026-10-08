@@ -450,7 +450,19 @@ def _auto_detect_bone_mapping(gltf: "GLTF2") -> Dict[str, int]:
     Returns:
         Dict mapping VRM bone names to node indices.
     """
-    bone_mapping = {}
+    # Prefer exact VRM semantic names. Aliases are fallback-only and must
+    # never overwrite an already resolved canonical node (notably "root"
+    # used as a hips alias).
+    node_names = {
+        node.name: i
+        for i, node in enumerate(gltf.nodes or [])
+        if getattr(node, "name", None)
+    }
+    bone_mapping = {
+        bone_name: node_names[bone_name]
+        for bone_name in VRM_HUMANOID_BONES
+        if bone_name in node_names
+    }
     
     # Common bone name variations
     bone_name_variants = {
@@ -481,9 +493,11 @@ def _auto_detect_bone_mapping(gltf: "GLTF2") -> Dict[str, int]:
         "rightToes": ["rightToes", "RightToes", "toe_R", "Toe_R"],
     }
     
-    for i, node in enumerate(gltf.nodes):
+    for i, node in enumerate(gltf.nodes or []):
         node_name = node.name or ""
         for vrm_bone, variants in bone_name_variants.items():
+            if vrm_bone in bone_mapping:
+                continue
             if node_name in variants:
                 bone_mapping[vrm_bone] = i
                 break
