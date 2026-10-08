@@ -24,7 +24,9 @@ except ImportError:
     PYGLTFLIB_AVAILABLE = False
 
 
-def create_humanoid_skeleton(mesh_bounds: np.ndarray) -> Dict[str, Any]:
+def create_humanoid_skeleton(
+    mesh_bounds: np.ndarray, *, strand_vertex_groups: list[np.ndarray] | None = None,
+) -> Dict[str, Any]:
     """
     메시 바운드에서 휴머노이드 뼈대 계층 구조를 생성합니다.
     
@@ -101,6 +103,25 @@ def create_humanoid_skeleton(mesh_bounds: np.ndarray) -> Dict[str, Any]:
         ("hairTip", 25, np.array([center_x, base_y + height * 0.76, center_z - height * 0.09])),
     ]
     
+    # Real, disconnected front/back hair strands each get their own
+    # head-attached secondary root/mid/tip chain. This intentionally extends
+    # the non-humanoid skin without altering the canonical VRM bone slots.
+    for strand_id, strand in enumerate(strand_vertex_groups or []):
+        vertices = np.asarray(strand, dtype=np.float64)
+        if (vertices.ndim != 2 or vertices.shape[1] != 3
+                or len(vertices) < 3 or not np.isfinite(vertices).all()):
+            raise ValueError("Invalid observed hair ribbon geometry")
+        lo, hi = vertices.min(axis=0), vertices.max(axis=0)
+        x = float(np.median(vertices[:, 0]))
+        z = float(np.median(vertices[:, 2]))
+        idx = len(bones)
+        prefix = f"hairStrand{strand_id:02d}"
+        bones.extend((
+            (prefix + "Root", 5, np.array([x, hi[1], z])),
+            (prefix + "Mid", idx, np.array([x, .5 * (hi[1] + lo[1]), z])),
+            (prefix + "Tip", idx + 1, np.array([x, lo[1], z])),
+        ))
+
     names = [b[0] for b in bones]
     parents = np.array([b[1] for b in bones], dtype=np.int32)
     positions = np.array([b[2] for b in bones], dtype=np.float32)
