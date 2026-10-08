@@ -1258,7 +1258,7 @@ def build_app() -> gr.Blocks:
                         "clean separation of front/back hair, bangs, brows, "
                         "neck, shoulders and clothing, consistent light, "
                         "no text or watermark, plain background"
-                    ), lines=5, show_copy_button=True,
+                    ), lines=5,
                 )
                 gr.Textbox(
                     label="파츠 분리 보완 프롬프트",
@@ -1271,7 +1271,7 @@ def build_app() -> gr.Blocks:
                         "Preserve identical canvas coordinates and proportions. "
                         "Draw hidden/occluded details behind separate moving parts. "
                         "No new hairstyle or outfit."
-                    ), lines=6, show_copy_button=True,
+                    ), lines=6,
                 )
             two_d_run = gr.Button("2D 레이어 준비 패키지 생성", variant="primary")
             two_d_status = gr.Markdown("대기 중")
@@ -1335,7 +1335,7 @@ def build_app() -> gr.Blocks:
                                 " separated clean silhouette, matching costume and hair,"
                                 " studio even lighting, plain background, original design,"
                                 " no objects, no text, no watermark, portrait 2:3 or 3:4"
-                            ), lines=5, show_copy_button=True,
+                            ), lines=5,
                         )
                         gr.Textbox(
                             label="같은 캐릭터 얼굴 확대 (필수 권장)",
@@ -1345,7 +1345,7 @@ def build_app() -> gr.Blocks:
                                 " neutral mouth closed, both eyes open, detailed eyelashes eyebrows"
                                 " eye colors and hairline, same color palette and hair, soft studio light,"
                                 " uncluttered background, no watermark, no occlusion"
-                            ), lines=5, show_copy_button=True,
+                            ), lines=5,
                         )
                         gr.Textbox(
                             label="같은 캐릭터 전신 후면 (선택)",
@@ -1355,7 +1355,7 @@ def build_app() -> gr.Blocks:
                                 " neutral A-pose, coherent hair length and clothing seams,"
                                 " shoes visible, same scale silhouette and lighting,"
                                 " no pose change, no props, no text, no watermark"
-                            ), lines=5, show_copy_button=True,
+                            ), lines=5,
                         )
                     avatar_run = gr.Button("전신 VRM 변환", variant="primary")
                     avatar_result = gr.File(
