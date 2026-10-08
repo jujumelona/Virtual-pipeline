@@ -39,6 +39,7 @@ def rasterize_multiview_texture(
     left_xy: np.ndarray | None = None,
     right_pixels: np.ndarray | None = None,
     right_xy: np.ndarray | None = None,
+    fill_unobserved: bool = False,
 ) -> tuple[np.ndarray, dict]:
     """Paint UV texels with interpolated image coordinates from actual views.
 
@@ -79,6 +80,7 @@ def rasterize_multiview_texture(
 
     canvas = np.zeros((texture_size, texture_size, 4), dtype=np.uint8)
     painted = np.zeros((texture_size, texture_size), dtype=bool)
+    uv_occupied = np.zeros_like(painted)
     y_min = float(vertices[:, 1].min())
     body_height = max(float(np.ptp(vertices[:, 1])), 1e-8)
     texel_count_by_view = {name: 0 for name in views}
@@ -107,6 +109,7 @@ def rasterize_multiview_texture(
         if not mask.any():
             continue
         coords_y, coords_x = yy[mask], xx[mask]
+        uv_occupied[coords_y, coords_x] = True
         weights = np.column_stack((w0[mask], w1[mask], w2[mask]))
         normal = np.cross(tri[1] - tri[0], tri[2] - tri[0])
         norm = float(np.linalg.norm(normal))
@@ -148,7 +151,27 @@ def rasterize_multiview_texture(
             painted[coords_y[chosen], coords_x[chosen]] = True
             remaining[chosen] = False
             texel_count_by_view[name] += int(valid.sum())
+    # When an image cannot observe the back or side of a mesh, preserve the
+    # provenance distinction, but avoid shipping transparent/invisible body
+    # polygons in the final avatar. The nearest measured atlas texel gives a
+    # conservative appearance estimate. UV space outside actual triangles
+    # remains transparent; this NEVER counts as observed image evidence.
+    inferred_mask = uv_occupied & ~painted
+    inferred_count = int(inferred_mask.sum())
+    if fill_unobserved and inferred_count:
+        if not painted.any():
+            raise ValueError("No observed UV texels to infer surface appearance")
+        from scipy.ndimage import distance_transform_edt
+        _, nearest = distance_transform_edt(~painted, return_indices=True)
+        canvas[inferred_mask] = canvas[
+            nearest[0][inferred_mask], nearest[1][inferred_mask]]
+        canvas[inferred_mask, 3] = 255
     return canvas, {
+        "uv_occupied_texels": int(uv_occupied.sum()),
+        "surface_coverage_observed": float(painted.sum() / max(int(uv_occupied.sum()), 1)),
+        "inferred_fill_texels": inferred_count if fill_unobserved else 0,
+        "unobserved_surface_texels": inferred_count,
+        "inferred_colors_are_observed": False,
         "painted_texels": int(painted.sum()),
         "painted_fraction": float(painted.mean()),
         "view_texel_samples": texel_count_by_view,
