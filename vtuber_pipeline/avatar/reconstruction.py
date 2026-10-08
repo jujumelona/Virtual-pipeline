@@ -226,16 +226,21 @@ def resolve_triposr_model() -> str:
                 "huggingface-hub is required to resolve the pinned TripoSR model"
             ) from exc
 
+        # Keep the snapshot paths and their original filenames. Calling
+        # .resolve() dereferences HF snapshot symlinks to /blobs/<sha>,
+        # so returning their common /blobs directory breaks upstream
+        # TSR.from_pretrained(), which opens model_dir/config.yaml and
+        # model_dir/model.ckpt by name.
         config_path = pathlib.Path(hf_hub_download(
             repo_id=TRIPOSR_MODEL_ID,
             filename="config.yaml",
             revision=TRIPOSR_MODEL_REVISION,
-        )).resolve()
+        )).expanduser().absolute()
         weight_path = pathlib.Path(hf_hub_download(
             repo_id=TRIPOSR_MODEL_ID,
             filename="model.ckpt",
             revision=TRIPOSR_MODEL_REVISION,
-        )).resolve()
+        )).expanduser().absolute()
         if config_path.parent != weight_path.parent:
             raise RuntimeError(
                 "Pinned TripoSR config and weights resolved to different snapshots"
