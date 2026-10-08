@@ -955,224 +955,180 @@ def build_accessories_ui(
 
 
 CSS = """
-.gradio-container {
-  max-width: 1120px !important;
-  margin: 0 auto !important;
-}
-#hero {
-  border: 1px solid #d9dce1;
-  border-radius: 16px;
-  padding: 18px 22px;
-  margin-bottom: 14px;
-}
-.mode-tab button {
-  font-size: 18px !important;
-  font-weight: 700 !important;
-  min-height: 54px !important;
-}
-.section-note {
-  border: 1px solid #e2e5ea;
-  border-radius: 12px;
-  padding: 12px 14px;
-}
-.run-button {
-  min-height: 48px !important;
-  font-size: 16px !important;
-  font-weight: 700 !important;
-}
+.gradio-container {max-width: 1280px !important; margin: 0 auto !important;}
+#workflow-start {max-width: 690px; margin: 32px auto; padding: 22px !important;}
+#workflow-start .gr-radio {font-size: 16px;}
+#generation-panel {position: sticky; top: 12px; align-self: flex-start;}
+#generation-panel textarea {font-family: ui-monospace, SFMono-Regular, Menlo, monospace;}
+@media (max-width: 850px) {#generation-panel {position: static;}}
 """
+
+
+def choose_workflow(mode: str):
+    """Show exactly the selected mode; keep usage selection unchanged."""
+    if mode not in {"avatar", "accessory"}:
+        raise ValueError(f"Unsupported workflow mode: {mode!r}")
+    return (
+        gr.update(visible=False),
+        gr.update(visible=(mode == "avatar")),
+        gr.update(visible=(mode == "accessory")),
+    )
+
+
+def return_to_workflow_choice():
+    return (gr.update(visible=True), gr.update(visible=False),
+            gr.update(visible=False))
 
 
 def build_app() -> gr.Blocks:
     with gr.Blocks(title="VTuber Builder") as demo:
         latest_avatar = gr.State(value=None)
+        gr.Markdown("# VTuber Builder")
 
-        gr.HTML(
-            """
-            <div id="hero">
-              <div style="font-size:30px;font-weight:800">VTuber Builder</div>
-            </div>
-            """
-        )
+        with gr.Group(visible=True, elem_id="workflow-start") as workflow_start:
+            mode = gr.Radio(
+                label="작업 선택",
+                choices=[("캐릭터 / 얼굴", "avatar"), ("악세사리", "accessory")],
+                value="avatar",
+            )
+            usage = gr.Radio(
+                label="사용 범위",
+                choices=[
+                    ("기업 / 수익", "corporation"),
+                    ("개인 수익", "personalProfit"),
+                    ("개인 비영리", "personalNonProfit"),
+                ],
+                value="corporation",
+            )
+            enter_workflow = gr.Button("다음", variant="primary")
 
-        with gr.Tabs(elem_classes=["mode-tab"]):
-            with gr.Tab("① 캐릭터 / 얼굴 만들기", id="avatar"):
-                gr.Markdown(
-                    """
-                    ### 캐릭터 이미지 → VTuber VRM
-                    제작 10단계 실시간 표시: 입력 검증 → TripoSR → 피팅 → 텍스처 → 리깅 → 표정 → 시선 → 헤어 물리 → VRM 출력 → 검증.
-                    """,
-                    elem_classes=["section-note"],
-                )
-
-                with gr.Row():
+        with gr.Column(visible=False) as avatar_view:
+            gr.Markdown("## 캐릭터 VRM")
+            avatar_back = gr.Button("← 모드 선택", size="sm", variant="secondary")
+            with gr.Row():
+                with gr.Column(scale=2, min_width=360):
                     avatar_image = gr.Image(
-                        label="캐릭터 이미지 1장",
+                        label="캐릭터 이미지",
                         sources=["upload"],
                         type="filepath",
-                        height=360,
+                        height=430,
                     )
-                    with gr.Column():
-                        usage = gr.Dropdown(
-                            label="출력 사용 범위",
-                            choices=[
-                                ("기업/수익 사용 허용", "corporation"),
-                                ("개인 수익 사용", "personalProfit"),
-                                ("개인 비영리", "personalNonProfit"),
-                            ],
-                            value="corporation",
-                        )
-                        avatar_run = gr.Button(
-                            "캐릭터 VRM 생성",
-                            variant="primary",
-                            elem_classes=["run-button"],
-                        )
-                        avatar_status = gr.Markdown("대기 중")
-                        avatar_result = gr.File(
-                            label="완성 VRM 다운로드",
-                            interactive=False,
-                        )
+                    avatar_run = gr.Button("캐릭터 생성", variant="primary")
+                    avatar_result = gr.File(
+                        label="완성 VRM",
+                        interactive=False,
+                    )
+                with gr.Column(scale=1, min_width=310, elem_id="generation-panel"):
+                    avatar_status = gr.Markdown("대기 중")
+                    avatar_log = gr.Textbox(
+                        label="진행 로그", lines=21, max_lines=30,
+                        interactive=False, autoscroll=True,
+                        show_copy_button=True,
+                    )
+                    avatar_log_file = gr.File(
+                        label="전체 로그", interactive=False,
+                    )
 
-                avatar_log = gr.Textbox(
-                    label="실시간 제작 단계 · GPU 상태 · 작업 로그",
-                    lines=18,
-                    max_lines=28,
-                    interactive=False,
-                    autoscroll=True,
-                )
-                avatar_log_file = gr.File(
-                    label="전체 제작 로그 다운로드",
-                    interactive=False,
-                )
+            avatar_run.click(
+                fn=stream_avatar_ui,
+                inputs=[avatar_image, usage, latest_avatar],
+                outputs=[
+                    avatar_status, avatar_log, avatar_result,
+                    latest_avatar, avatar_log_file,
+                ],
+                show_progress="full",
+                concurrency_id="vtuber_gpu_pipeline",
+                concurrency_limit=1,
+            )
 
-                avatar_run.click(
-                    fn=stream_avatar_ui,
-                    inputs=[avatar_image, usage, latest_avatar],
-                    outputs=[
-                        avatar_status,
-                        avatar_log,
-                        avatar_result,
-                        latest_avatar,
-                        avatar_log_file,
-                    ],
-                    show_progress="full",
-                    concurrency_id="vtuber_gpu_pipeline",
-                    concurrency_limit=1,
-                )
+        with gr.Column(visible=False) as accessory_view:
+            gr.Markdown("## 악세사리 VRM")
+            accessory_back = gr.Button("← 모드 선택", size="sm", variant="secondary")
+            with gr.Row():
+                with gr.Column(scale=2, min_width=360):
+                    use_latest = gr.Checkbox(
+                        label="이 세션의 캐릭터 VRM 사용",
+                        value=True,
+                    )
+                    base_vrm = gr.File(
+                        label="또는 기준 VRM 업로드",
+                        file_types=[".vrm"],
+                        type="filepath",
+                    )
+                    accessory_inputs: List[Any] = []
+                    for slot in range(8):
+                        with gr.Accordion(f"악세사리 {slot + 1}", open=(slot == 0)):
+                            with gr.Row():
+                                image = gr.Image(
+                                    label=f"이미지 {slot + 1}",
+                                    sources=["upload"],
+                                    type="filepath",
+                                    height=200,
+                                )
+                                anchor = gr.Dropdown(
+                                    label="부착 위치", choices=ANCHORS, value="HEAD_TOP",
+                                )
+                            with gr.Accordion("세부 위치", open=False):
+                                custom_parent = gr.Dropdown(
+                                    label="CUSTOM parent bone/node",
+                                    choices=[
+                                        "head", "neck", "chest", "upperChest", "hips",
+                                        "leftShoulder", "rightShoulder",
+                                        "leftHand", "rightHand",
+                                        "leftFoot", "rightFoot",
+                                    ],
+                                    value="head", allow_custom_value=True,
+                                )
+                                with gr.Row():
+                                    custom_x = gr.Number(label="X", value=0.0)
+                                    custom_y = gr.Number(label="Y", value=0.0)
+                                    custom_z = gr.Number(label="Z", value=0.0)
+                                    custom_size = gr.Number(
+                                        label="크기", value=0.12, minimum=0.001,
+                                    )
+                            accessory_inputs.extend([
+                                image, anchor, custom_parent, custom_x,
+                                custom_y, custom_z, custom_size,
+                            ])
 
-            with gr.Tab("② 악세사리 만들기", id="accessory"):
-                gr.Markdown(
-                    """
-                    ### 기존 VRM + 악세사리 이미지 → 악세사리 적용 VRM
-                    악세사리 재구성 → 정규화·본 앵커·피팅·충돌 처리 → VRM 합성/검증. 단계와 GPU 상태를 실시간 표시합니다.
-                    """,
-                    elem_classes=["section-note"],
-                )
+                    accessory_run = gr.Button("악세사리 적용", variant="primary")
+                    accessory_result = gr.File(
+                        label="완성 VRM", interactive=False,
+                    )
+                with gr.Column(scale=1, min_width=310, elem_id="generation-panel"):
+                    accessory_status = gr.Markdown("대기 중")
+                    accessory_log = gr.Textbox(
+                        label="진행 로그", lines=21, max_lines=30,
+                        interactive=False, autoscroll=True,
+                        show_copy_button=True,
+                    )
+                    accessory_log_file = gr.File(
+                        label="전체 로그", interactive=False,
+                    )
 
-                use_latest = gr.Checkbox(
-                    label="이 세션에서 방금 만든 캐릭터 VRM 사용",
-                    value=True,
-                )
-                base_vrm = gr.File(
-                    label="또는 기준 캐릭터 VRM 업로드",
-                    file_types=[".vrm"],
-                    type="filepath",
-                )
+            accessory_run.click(
+                fn=stream_accessories_ui,
+                inputs=[use_latest, base_vrm, latest_avatar, *accessory_inputs],
+                outputs=[
+                    accessory_status, accessory_log, accessory_result,
+                    accessory_log_file,
+                ],
+                show_progress="full",
+                concurrency_id="vtuber_gpu_pipeline",
+                concurrency_limit=1,
+            )
 
-                gr.Markdown("### 악세사리 슬롯")
-                accessory_inputs: List[Any] = []
-
-                for slot in range(8):
-                    with gr.Accordion(
-                        f"악세사리 {slot + 1}",
-                        open=(slot == 0),
-                    ):
-                        with gr.Row():
-                            image = gr.Image(
-                                label=f"악세사리 {slot + 1} 이미지",
-                                sources=["upload"],
-                                type="filepath",
-                                height=220,
-                            )
-                            anchor = gr.Dropdown(
-                                label="부착 위치",
-                                choices=ANCHORS,
-                                value="HEAD_TOP",
-                            )
-                        gr.Markdown(
-                            "CUSTOM 선택 시 아래 값만 사용합니다. "
-                            "offset 단위는 meter이며 parent bone/node의 로컬 좌표입니다."
-                        )
-                        custom_parent = gr.Dropdown(
-                            label="CUSTOM parent bone/node",
-                            choices=[
-                                "head", "neck", "chest", "upperChest", "hips",
-                                "leftShoulder", "rightShoulder",
-                                "leftHand", "rightHand",
-                                "leftFoot", "rightFoot",
-                            ],
-                            value="head",
-                            allow_custom_value=True,
-                        )
-                        with gr.Row():
-                            custom_x = gr.Number(label="CUSTOM X", value=0.0)
-                            custom_y = gr.Number(label="CUSTOM Y", value=0.0)
-                            custom_z = gr.Number(label="CUSTOM Z", value=0.0)
-                            custom_size = gr.Number(
-                                label="CUSTOM target size",
-                                value=0.12,
-                                minimum=0.001,
-                            )
-                        accessory_inputs.extend([
-                            image,
-                            anchor,
-                            custom_parent,
-                            custom_x,
-                            custom_y,
-                            custom_z,
-                            custom_size,
-                        ])
-
-                accessory_run = gr.Button(
-                    "악세사리 적용",
-                    variant="primary",
-                    elem_classes=["run-button"],
-                )
-                accessory_status = gr.Markdown("대기 중")
-                accessory_result = gr.File(
-                    label="완성 VRM 다운로드",
-                    interactive=False,
-                )
-                accessory_log = gr.Textbox(
-                    label="실시간 제작 단계 · GPU 상태 · 작업 로그",
-                    lines=18,
-                    max_lines=28,
-                    interactive=False,
-                    autoscroll=True,
-                )
-                accessory_log_file = gr.File(
-                    label="전체 제작 로그 다운로드",
-                    interactive=False,
-                )
-
-                accessory_run.click(
-                    fn=stream_accessories_ui,
-                    inputs=[
-                        use_latest,
-                        base_vrm,
-                        latest_avatar,
-                        *accessory_inputs,
-                    ],
-                    outputs=[
-                        accessory_status,
-                        accessory_log,
-                        accessory_result,
-                        accessory_log_file,
-                    ],
-                    show_progress="full",
-                    concurrency_id="vtuber_gpu_pipeline",
-                    concurrency_limit=1,
-                )
+        enter_workflow.click(
+            fn=choose_workflow, inputs=[mode],
+            outputs=[workflow_start, avatar_view, accessory_view],
+            show_progress="hidden",
+        )
+        for back in (avatar_back, accessory_back):
+            back.click(
+                fn=return_to_workflow_choice,
+                outputs=[workflow_start, avatar_view, accessory_view],
+                show_progress="hidden",
+            )
 
     return demo
 
