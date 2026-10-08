@@ -8,6 +8,8 @@ import logging
 import os
 import sys
 
+from vtuber_pipeline.avatar.triposr_runner import REMBG_U2NET_MD5
+
 logger = logging.getLogger(__name__)
 
 TRIPOSR_PINNED_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
@@ -15,7 +17,6 @@ TRIPOSR_MODEL_ID = "stabilityai/TripoSR"
 TRIPOSR_MODEL_REVISION = "c1cf7716aed5aa6c1c5e174657791ef0e1327bde"
 TRIPOSR_MODEL_WEIGHT_SHA256 = "429e2c6b22a0923967459de24d67f05962b235f79cde6b032aa7ed2ffcd970ee"
 TRIPOSR_DEFAULT_TIMEOUT_SECONDS = 1200
-REMBG_U2NET_MD5 = "60024c5c889badc19c04ad937298a77b"
 
 
 def find_triposr_installation() -> str:
