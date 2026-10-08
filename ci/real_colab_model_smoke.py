@@ -161,6 +161,37 @@ def main() -> None:
             assert actual_commit == TRIPOSR_PINNED_COMMIT, (
                 actual_commit, TRIPOSR_PINNED_COMMIT
             )
+            # Crucial: production executes upstream run.py via runpy,
+            # unlike direct imports done by the old model-only CI path.
+            # This failed on Colab with ModuleNotFoundError: tsr.
+            def verify_real_subprocess_import():
+                runner = (
+                    pathlib.Path(__file__).resolve().parents[1]
+                    / "vtuber_pipeline/avatar/triposr_runner.py"
+                )
+                command = [
+                    sys.executable, "-u", str(runner), str(repo / "run.py"),
+                    "--no-remove-bg", "--help",
+                ]
+                env = os.environ.copy()
+                env.pop("VTUBER_REQUIRE_CUDA", None)
+                result = subprocess.run(
+                    command, cwd=str(repo), env=env, text=True,
+                    capture_output=True, timeout=120,
+                )
+                if result.returncode != 0:
+                    raise RuntimeError(
+                        f"Production TripoSR wrapper exited {result.returncode}:\\n"
+                        f"{result.stdout}\\n{result.stderr}"
+                    )
+                assert "usage:" in result.stdout.lower(), result.stdout
+                assert "[TripoSR] source import root:" in result.stdout
+                return result
+
+            report(
+                "real pinned TripoSR production runner CLI subprocess tsr import",
+                verify_real_subprocess_import,
+            )
             sys.path.insert(0, str(repo))
             install_triposr_marching_cubes()
             _install_hf_revision_guard()
