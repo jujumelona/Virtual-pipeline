@@ -11,6 +11,11 @@ def transfer_texture(
     mesh_path: str,
     output_dir: str,
     face_bbox: Optional[List[float]] = None,
+    *,
+    face_image_path: Optional[str] = None,
+    back_image_path: Optional[str] = None,
+    full_body: bool = False,
+    texture_size: int = 1024,
 ) -> Dict[str, Any]:
     """Transfer texture from source image to fitted mesh.
     
@@ -37,6 +42,10 @@ def transfer_texture(
     Returns:
         Dictionary with output texture paths.
     """
+    if type(texture_size) is not int or texture_size not in (1024, 2048):
+        raise ValueError("texture_size must be 1024 or 2048")
+    if full_body and not face_image_path:
+        raise ValueError("full-body texture transfer needs an independent face reference")
     result = {
         "status": "pending",
         "image_path": image_path,
@@ -61,6 +70,26 @@ def transfer_texture(
             _write_texture_report(output_dir, result)
             return result
         
+        face_pixels = None
+        face_width = face_height = 0
+        if face_image_path:
+            with Image.open(face_image_path) as face_img:
+                face_rgba = face_img.convert("RGBA")
+                face_width, face_height = face_rgba.size
+                face_pixels = np.asarray(face_rgba)
+        back_pixels = None
+        back_width = back_height = 0
+        if back_image_path:
+            with Image.open(back_image_path) as back_img:
+                back_rgba = back_img.convert("RGBA")
+                back_width, back_height = back_rgba.size
+                back_pixels = np.asarray(back_rgba)
+        result["reference_sources"] = {
+            "front": image_path,
+            "face": face_image_path,
+            "back": back_image_path,
+        }
+
         # Try to load mesh and get UV coordinates
         try:
             import trimesh
@@ -139,10 +168,69 @@ def transfer_texture(
                 scale_y = (src_height * 0.45) / head_height
                 result["projection_mode"] = "centered_fallback"
 
-            projected_image_xy = np.column_stack([
+            # Full-body texture coordinates must cover feet, torso, sleeves
+            # and hair. Projecting every vertex through the *face* bounding
+            # box (legacy behavior) paints much of the body from face pixels.
+            if full_body:
+                margin_x = src_width * 0.07
+                margin_y = src_height * 0.045
+                source_bbox = result.get("front_alpha_bbox")
+                if source_bbox is None:
+                    rgba_alpha = src_pixels[:, :, 3]
+                    foreground = rgba_alpha > 32
+                    if np.any(foreground) and np.any(~foreground):
+                        yy, xx = np.nonzero(foreground)
+                        source_bbox = (int(xx.min()), int(yy.min()),
+                                       int(xx.max()) + 1, int(yy.max()) + 1)
+                if source_bbox is not None:
+                    lx, ty, rx, by = source_bbox
+                    margin_x, margin_y = float(lx), float(ty)
+                    frame_w = max(float(rx - lx), 1.)
+                    frame_h = max(float(by - ty), 1.)
+                    result["projection_mode"] = "full_body_alpha_bounds"
+                else:
+                    frame_w = src_width - 2 * margin_x
+                    frame_h = src_height - 2 * margin_y
+                    result["projection_mode"] = "full_body_canvas_bounds"
+                cx = margin_x + frame_w / 2
+                cy = margin_y + frame_h / 2
+                scale_x = frame_w / max(float(pmax[0] - pmin[0]), 1e-8)
+                scale_y = frame_h / mesh_height
+                projected_image_xy = np.column_stack([
+                    cx + (vertices[:, 0] - (pmin[0] + pmax[0])/2) * scale_x,
+                    cy - (vertices[:, 1] - (pmin[1] + pmax[1])/2) * scale_y,
+                ])
+            else:
+                projected_image_xy = np.column_stack([
                 bbox_cx + (vertices[:, 0] - hcenter[0]) * scale_x,
                 bbox_cy - (vertices[:, 1] - hcenter[1]) * scale_y,
-            ])
+                ])
+            # Face texture uses a separate zoomed reference; pixels must be
+            # projected with the face image's own landmark bbox.
+            face_projected_xy = None
+            if face_pixels is not None:
+                fx1, fy1, fx2, fy2 = (
+                    [float(x) for x in face_bbox[:4]]
+                    if valid_bbox else [
+                        face_width * .25, face_height * .20,
+                        face_width * .75, face_height * .75,
+                    ]
+                )
+                face_projected_xy = np.column_stack([
+                    (fx1 + fx2) * .5 +
+                    (vertices[:, 0] - hcenter[0]) * ((fx2 - fx1) / head_width),
+                    (fy1 + fy2) * .5 -
+                    (vertices[:, 1] - hcenter[1]) * ((fy2 - fy1) / head_height),
+                ])
+            back_projected_xy = None
+            if back_pixels is not None:
+                back_projected_xy = np.column_stack([
+                    back_width * .5 - (vertices[:, 0] - (pmin[0]+pmax[0])*.5) /
+                    max(float(pmax[0] - pmin[0]), 1e-8) * back_width*.86,
+                    back_height*.5 - (vertices[:, 1] - (pmin[1]+pmax[1])*.5) /
+                    mesh_height * back_height*.91,
+                ])
+
             fallback_color = tuple(
                 np.median(src_pixels.reshape(-1, 4), axis=0)
                 .astype(np.uint8)
@@ -150,7 +238,6 @@ def transfer_texture(
             )
             
             # Create texture atlas (1024x1024)
-            texture_size = 1024
             texture = Image.new('RGBA', (texture_size, texture_size), (255, 255, 255, 255))
             draw = ImageDraw.Draw(texture)
             
@@ -162,17 +249,26 @@ def transfer_texture(
                 # Scale UV coordinates to texture size
                 uv_scaled = uv_tri * (texture_size - 1)
 
-                img_coords = projected_image_xy[face]
-                center = img_coords.mean(axis=0)
-                if (
-                    0.0 <= center[0] < src_width
-                    and 0.0 <= center[1] < src_height
-                ):
-                    center_u = int(round(center[0]))
-                    center_v = int(round(center[1]))
-                    center_u = min(max(center_u, 0), src_width - 1)
-                    center_v = min(max(center_v, 0), src_height - 1)
-                    color_tuple = tuple(src_pixels[center_v, center_u].tolist())
+                tri = vertices[face]
+                normal = np.cross(tri[1] - tri[0], tri[2] - tri[0])
+                normal_len = np.linalg.norm(normal)
+                facing = float(normal[2] / normal_len) if normal_len > 1e-10 else 0.
+                head_region = float(np.mean(tri[:, 1])) >= (
+                    pmin[1] + .72 * mesh_height)
+                if back_projected_xy is not None and facing < -.12:
+                    coords, pixels = back_projected_xy[face], back_pixels
+                elif face_projected_xy is not None and facing > .12 and head_region:
+                    coords, pixels = face_projected_xy[face], face_pixels
+                else:
+                    coords, pixels = projected_image_xy[face], src_pixels
+                center = coords.mean(axis=0)
+                h, w = pixels.shape[:2]
+                if 0 <= center[0] < w and 0 <= center[1] < h:
+                    u = min(max(int(round(center[0])), 0), w - 1)
+                    v = min(max(int(round(center[1])), 0), h - 1)
+                    color_tuple = tuple(pixels[v, u].tolist())
+                    if color_tuple[3] < 32:
+                        color_tuple = fallback_color
                 else:
                     color_tuple = fallback_color
                 
@@ -190,12 +286,16 @@ def transfer_texture(
             result["texture_atlas"] = str(texture_path)
             result["texture_size"] = [texture_size, texture_size]
             
-            # Also generate face texture (1024x1024 crop from source)
-            width, height = source_img.size
+            # Dedicated facial crop is saved for inspection and iteration.
+            if face_image_path:
+                face_source = Image.open(face_image_path).convert('RGBA')
+            else:
+                face_source = source_img
+            width, height = face_source.size
             min_dim = min(width, height)
             left = (width - min_dim) // 2
             top = (height - min_dim) // 2
-            face_crop = source_img.crop((left, top, left + min_dim, top + min_dim))
+            face_crop = face_source.crop((left, top, left + min_dim, top + min_dim))
             face_texture = face_crop.resize((1024, 1024), Image.Resampling.LANCZOS)
             
             face_path = pathlib.Path(output_dir) / "face.png"
