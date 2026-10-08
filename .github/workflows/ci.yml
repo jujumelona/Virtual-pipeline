@@ -380,8 +380,15 @@ jobs:
         run: python -u tools/runtime_abi_probe.py
       - name: Real safetensors state dict and alias tests
         run: python -m pytest -q ci/test_face_weights_runtime.py
-      - name: Download and SHA-check real pinned model weights and execute both networks
-        run: python -u ci/real_colab_model_smoke.py --device cpu --all-assets
+      - name: Clone immutable TripoSR production source
+        run: |
+          git clone https://github.com/VAST-AI-Research/TripoSR.git /tmp/vtuber-ci-triposr
+          git -C /tmp/vtuber-ci-triposr checkout --detach 107cefdc244c39106fa830359024f6a2f1c78871
+          test "$(git -C /tmp/vtuber-ci-triposr rev-parse HEAD)" = "107cefdc244c39106fa830359024f6a2f1c78871"
+      - name: Download actual weights, initialize YOLO/HRNet and TripoSR, run neural forwards
+        env:
+          TRIPOSR_DIR: /tmp/vtuber-ci-triposr
+        run: python -u ci/real_colab_model_smoke.py --device cpu --all-assets --triposr-load
 
   gate:
     name: CI gate
