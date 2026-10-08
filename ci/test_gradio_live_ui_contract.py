@@ -24,7 +24,7 @@ def _app():
     return module
 
 
-def test_gradio_6_builds_initial_chooser_and_two_hidden_workflows():
+def test_gradio_6_builds_named_2d_and_3d_workflows():
     ui = _app()
     demo = ui.build_app()
     assert isinstance(demo, gr.Blocks)
@@ -48,25 +48,22 @@ def test_gradio_6_builds_initial_chooser_and_two_hidden_workflows():
     assert ui.return_to_workflow_choice in handlers
     assert ui.stream_avatar_ui in handlers
     assert ui.stream_accessories_ui in handlers
-    assert ui.build_2d_ui in handlers
+    assert ui.build_inochi2d_ui in handlers
+    assert ui.build_live2d_ui in handlers
     assert ui.show_3d_accessory in handlers
     assert ui.show_3d_avatar in handlers
 
 
 def test_gradio_real_update_routes_without_refreshing_installed_packages():
     ui = _app()
-    selection = ui.choose_workflow("3d", "personalNonProfit")
-    assert selection[0]["visible"] is False
-    assert selection[1]["visible"] is False
-    assert selection[2]["visible"] is True
-    assert selection[3]["visible"] is False
-    assert selection[4] == "personalNonProfit"
-
-    selection = ui.choose_workflow("2d", "corporation")
-    assert selection[1]["visible"] is True
-    assert selection[2]["visible"] is False
-    assert selection[3]["visible"] is False
-    assert selection[4] == "corporation"
+    for mode, visible in (
+        ("inochi2d", [False, True, False, False, False]),
+        ("live2d", [False, False, True, False, False]),
+        ("3d", [False, False, False, True, False]),
+    ):
+        selection = ui.choose_workflow(mode, "personalNonProfit")
+        assert [value["visible"] for value in selection[:-1]] == visible
+        assert selection[-1] == "personalNonProfit"
 
 
 def test_both_streaming_handlers_keep_progress_and_log_file_outputs():
@@ -89,6 +86,8 @@ def test_both_streaming_handlers_keep_progress_and_log_file_outputs():
     }
     assert "stream_avatar_ui" in names
     assert "stream_accessories_ui" in names
+    assert "build_inochi2d_ui" in names
+    assert "build_live2d_ui" in names
 
 
 def test_avatar_has_native_download_button_bound_to_completed_generator():
