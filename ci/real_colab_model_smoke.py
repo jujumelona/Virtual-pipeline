@@ -335,6 +335,86 @@ def main() -> None:
                         flush=True,
                     )
 
+                    # Continue across EVERY production boundary. Previously
+                    # the real-model CI stopped at mesh export even while the
+                    # actual notebook must produce an accepted VRM 1.0.
+                    from vtuber_pipeline.avatar.texture_transfer import transfer_texture
+                    from vtuber_pipeline.avatar.rigging import rig_avatar
+                    from vtuber_pipeline.avatar.expressions import (
+                        generate_expressions, validate_expressions,
+                    )
+                    from vtuber_pipeline.avatar.gaze import configure_gaze
+                    from vtuber_pipeline.avatar.springbone import generate_springbone_config
+                    from vtuber_pipeline.avatar.vrm_export import export_vrm
+                    from vtuber_pipeline.avatar.validator import validate_vrm
+
+                    downstream = out / "avatar_e2e"
+                    downstream.mkdir()
+                    texture = report(
+                        "real production texture projection",
+                        lambda: transfer_texture(
+                            str(sample), str(fitted), str(downstream),
+                            face_bbox=[
+                                0.43 * width, 0.22 * height,
+                                0.57 * width, 0.39 * height,
+                            ],
+                        ),
+                    )
+                    assert texture["status"] == "complete", texture
+                    texture_path = pathlib.Path(texture["texture_png"])
+                    uv_path = pathlib.Path(texture["uv_path"])
+                    assert texture_path.is_file() and uv_path.is_file()
+                    rig_path = downstream / "rigged.glb"
+                    report(
+                        "real production humanoid/hair rigging",
+                        lambda: rig_avatar(
+                            str(fitted), str(rig_path),
+                            texture_path=str(texture_path), uv_path=str(uv_path),
+                        ),
+                    )
+                    assert rig_path.is_file() and rig_path.stat().st_size > 0
+                    expressions = report(
+                        "real broadcast face morph generation",
+                        lambda: generate_expressions(str(rig_path)),
+                    )
+                    assert expressions["status"] != "error", expressions
+                    expression_map = expressions["expressions"]
+                    morph_check = validate_expressions(
+                        expression_map, str(downstream),
+                    )
+                    assert morph_check["pass"], morph_check
+                    gaze = report(
+                        "real humanoid eye gaze", lambda: configure_gaze(
+                            str(rig_path), str(downstream),
+                        ),
+                    )
+                    assert gaze["status"] == "complete", gaze
+                    spring = report(
+                        "real hair secondary-bone chains", lambda: generate_springbone_config(
+                            str(rig_path), str(downstream),
+                        ),
+                    )
+                    assert spring["status"] == "complete", spring
+                    exported = report(
+                        "real VRM 1.0 export", lambda: export_vrm(
+                            str(rig_path), str(downstream),
+                            expressions=expression_map, commercial_usage="corporation",
+                            springbone_config=spring, gaze_config=gaze.get("config"),
+                        ),
+                    )
+                    assert exported["status"] == "complete", exported
+                    vrm_path = pathlib.Path(exported["vrm_path"])
+                    assert vrm_path.is_file() and vrm_path.stat().st_size > 0
+                    validated = report(
+                        "strict real VRM 1.0 product validator",
+                        lambda: validate_vrm(str(vrm_path), str(downstream)),
+                    )
+                    assert validated["status"] == "complete" and validated["passed"], validated
+                    print(
+                        f"[REAL-MODEL] VALID VRM bytes={vrm_path.stat().st_size}",
+                        flush=True,
+                    )
+
             report(
                 "real production TripoSR subprocess full mesh extraction/export",
                 run_actual_cli_mesh,
