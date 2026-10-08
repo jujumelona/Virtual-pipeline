@@ -21,7 +21,21 @@
       "license": "MIT",
       "license_url": "https://github.com/hysts/anime-face-detector/blob/main/LICENSE",
       "description": "Anime Face Detector with YOLOv3",
-      "commercial_safe": true
+      "commercial_safe": true,
+      "models": {
+        "yolov3": {
+          "model_id": "hysts/anime-face-detector-yolov3",
+          "revision": "afdd4226a79ae8bb81f334dbcffd34f8cc000c38",
+          "weight_sha256": "23bbc708146bcbc1c910f00fe152adbc70d7658d875a0121eaf4ee61d978b2c4",
+          "license": "MIT"
+        },
+        "hrnetv2": {
+          "model_id": "hysts/anime-face-detector-hrnetv2",
+          "revision": "9b3435248b26aeb82e2a8578fe9d86d5d57158af",
+          "weight_sha256": "e71271376406a743c01528a0460637fcc06e72aeeea583f85007cc72dc8b7a4a",
+          "license": "MIT"
+        }
+      }
     },
     "makehuman_cc0": {
       "source_commit": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
@@ -133,7 +147,7 @@
   "notes": {
     "integrity": "source_revision and artifact_sha256 are separate fields. artifact_sha256 is populated only from actual downloaded bytes and is never substituted with a git SHA or package version.",
     "triposr_usage": "Commercial profile requires the pinned TripoSR source commit.",
-    "anime_face_detector_usage": "Package version is pinned exactly in pyproject.toml.",
+    "anime_face_detector_usage": "Package version 0.1.0 is pinned exactly; YOLOv3 and HRNetV2 Hugging Face revisions and safetensors SHA256 values are independently pinned and verified before detector construction.",
     "vrm_export": "VRM 1.0 is emitted by the pure-Python pygltflib path; Blender/VRM Add-on is not a runtime dependency.",
     "torchmcubes_usage": "Install after PyTorch and build dependencies with --no-build-isolation; native build parallelism is capped for Colab.",
     "runtime_contract": "Colab runtime v6 pins the direct compatibility packages recorded here. artifact_sha256 stays null unless exact installed wheel bytes are captured and trusted.",
