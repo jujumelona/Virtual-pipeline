@@ -195,14 +195,40 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
         assert f"{package}=={version}" in colab_source, (key, package, version)
 
     # Direct project dependencies that are exact-pinned in the lock must also
-    # be exact in the package metadata surfaces.
+    # resolve to the exact version in package metadata. Compare normalized PEP
+    # 508 names so Pillow/pillow and extras such as trimesh[easy] are handled
+    # without weakening the version contract.
+    project_requirements = [
+        Requirement(raw) for raw in project_deps
+    ]
+    requirements_requirements = [
+        Requirement(line.strip())
+        for line in requirements.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
     for key in ("anime_face_detector", "pygltflib", "pillow", "trimesh"):
         item = lock["tools"][key]
-        package = item["package"]
-        version = item["package_version"]
-        expected = f"{package}=={version}"
-        assert expected in project_deps, (key, expected)
-        assert expected in requirements, (key, expected)
+        expected_name = canonicalize_name(item["package"])
+        expected_specifier = f"=={item['package_version']}"
+        for surface_name, surface in (
+            ("pyproject", project_requirements),
+            ("requirements", requirements_requirements),
+        ):
+            matches = [
+                req for req in surface
+                if canonicalize_name(req.name) == expected_name
+            ]
+            assert len(matches) == 1, (
+                key,
+                surface_name,
+                [str(req) for req in matches],
+            )
+            assert str(matches[0].specifier) == expected_specifier, (
+                key,
+                surface_name,
+                str(matches[0]),
+                expected_specifier,
+            )
 
     gradio = lock["tools"]["gradio"]["package_version"]
     assert _constants("tools/colab_app.py")["GRADIO_VERSION"] == gradio
