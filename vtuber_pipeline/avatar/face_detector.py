@@ -42,44 +42,63 @@ def _sha256_file(path: pathlib.Path) -> str:
     return digest.hexdigest()
 
 
+def resolve_anime_face_model_paths() -> Dict[str, str]:
+    """Download exact YOLOv3/HRNetV2 revisions and verify weight bytes."""
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError as exc:
+        raise RuntimeError(
+            "huggingface-hub is required for anime face model resolution"
+        ) from exc
+
+    resolved: Dict[str, str] = {}
+    for repo_id, pin in ANIME_FACE_MODEL_PINS.items():
+        path = pathlib.Path(
+            hf_hub_download(
+                repo_id=repo_id,
+                filename="model.safetensors",
+                revision=pin["revision"],
+            )
+        ).expanduser().resolve()
+        if not path.is_file() or path.stat().st_size <= 0:
+            raise RuntimeError(
+                f"anime-face-detector model is missing or empty: {path}"
+            )
+        actual = _sha256_file(path)
+        if actual != pin["sha256"]:
+            raise RuntimeError(
+                "anime-face-detector model SHA256 mismatch: "
+                f"{repo_id} expected={pin['sha256']} got={actual}"
+            )
+        resolved[repo_id] = str(path)
+    return resolved
+
+
 def _create_pinned_anime_face_detector():
-    """Create YOLOv3+HRNetV2 while pinning and verifying both HF weights."""
+    """Create YOLOv3+HRNetV2 using only preverified pinned local weights."""
     import anime_face_detector
     import anime_face_detector.detector as detector_module
 
+    resolved = resolve_anime_face_model_paths()
     original_download = detector_module.hf_hub_download
 
     def pinned_download(repo_id, filename, *args, **kwargs):
         pin = ANIME_FACE_MODEL_PINS.get(repo_id)
-        if pin is not None:
-            requested = kwargs.get("revision")
-            if requested not in (None, pin["revision"]):
-                raise RuntimeError(
-                    "anime-face-detector revision override rejected: "
-                    f"{repo_id} requested={requested!r} expected={pin['revision']}"
-                )
-            kwargs["revision"] = pin["revision"]
-
-        resolved = pathlib.Path(
-            original_download(repo_id, filename, *args, **kwargs)
-        ).expanduser().resolve()
-
-        if pin is not None:
-            if filename != "model.safetensors":
-                raise RuntimeError(
-                    f"Unexpected pinned anime-face model file: {repo_id}/{filename}"
-                )
-            if not resolved.is_file() or resolved.stat().st_size <= 0:
-                raise RuntimeError(
-                    f"anime-face-detector model is missing or empty: {resolved}"
-                )
-            actual = _sha256_file(resolved)
-            if actual != pin["sha256"]:
-                raise RuntimeError(
-                    "anime-face-detector model SHA256 mismatch: "
-                    f"{repo_id} expected={pin['sha256']} got={actual}"
-                )
-        return str(resolved)
+        if pin is None:
+            raise RuntimeError(
+                f"Unexpected anime-face-detector model repository: {repo_id}"
+            )
+        requested = kwargs.get("revision")
+        if requested not in (None, pin["revision"]):
+            raise RuntimeError(
+                "anime-face-detector revision override rejected: "
+                f"{repo_id} requested={requested!r} expected={pin['revision']}"
+            )
+        if filename != "model.safetensors":
+            raise RuntimeError(
+                f"Unexpected pinned anime-face model file: {repo_id}/{filename}"
+            )
+        return resolved[repo_id]
 
     detector_module.hf_hub_download = pinned_download
     try:
