@@ -31,7 +31,14 @@ _SOURCE_REPO_DIR = pathlib.Path(__file__).resolve().parent.parent
 if str(_SOURCE_REPO_DIR) not in sys.path:
     sys.path.insert(0, str(_SOURCE_REPO_DIR))
 
-import gradio as gr
+# The package installer runs before the final Gradio dependency graph is
+# resolved. It must not import Gradio merely to reach ensure_runtime().
+# Normal UI execution still imports the real Gradio package.
+if os.environ.get("VTUBER_SETUP_ONLY") == "1":
+    from types import SimpleNamespace
+    gr = SimpleNamespace(Progress=lambda: None)
+else:
+    import gradio as gr
 
 
 REPO_URL = "https://github.com/jujumelona/Virtual-pipeline.git"
