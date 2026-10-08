@@ -82,7 +82,35 @@ def refine_anatomy(fitted_mesh: str, constraints_json: str,
     limit=0.006*max(float(np.ptp(verts[:,1])),1e-6)
     delta=smoothed-verts
     multiplier=np.minimum(1.0,limit/np.maximum(drift,1e-9))[:,None]
-    mesh.vertices=verts+delta*multiplier
+    smoothed_vertices = verts + delta * multiplier
+
+    # Actually consume the independently inferred, registered InstantMesh
+    # surface as a WEAK geometric constraint. It cannot override observed
+    # canonical anatomy or introduce/replace template vertices. Reject distant
+    # nearest-neighbor matches rather than treating hallucinations as evidence.
+    from scipy.spatial import cKDTree
+    alternative = _load(aligned_glb)
+    alternative_vertices = np.asarray(alternative.vertices, dtype=float)
+    confidence = float(constraints.get("registration", {}).get("confidence", 0.0))
+    if not np.isfinite(confidence) or not 0 <= confidence <= 1:
+        raise ValueError("alignment confidence must be finite and in [0,1]")
+    native_height = max(float(np.ptp(verts[:, 1])), 1e-6)
+    distances, indices = cKDTree(alternative_vertices).query(smoothed_vertices, k=1)
+    if not np.isfinite(distances).all():
+        raise RuntimeError("nonfinite multiview nearest-neighbor error")
+    # Nearest-vertex residuals are less trustworthy around the face, feet and
+    # hidden clothing. Preserve those regions more strongly.
+    selected = distances < 0.04 * native_height
+    local_weight = np.clip(1 - distances / (0.04 * native_height), 0, 1)
+    anatomical_weight = np.where((y_fraction > 0.82) | (y_fraction < 0.12), 0.1, 1.0)
+    attraction = (confidence * 0.16 * local_weight * anatomical_weight * selected)[:, None]
+    proposed = (alternative_vertices[indices] - smoothed_vertices) * attraction
+    lengths = np.linalg.norm(proposed, axis=1)
+    max_attraction = 0.004 * native_height
+    proposed *= np.minimum(1.0, max_attraction / np.maximum(lengths, 1e-10))[:, None]
+    mesh.vertices = smoothed_vertices + proposed
+    if not np.isfinite(mesh.vertices).all():
+        raise RuntimeError("nonfinite refined geometry")
     # Preserve template face connectivity and vertex indices for humanoid skinning.
     if len(mesh.vertices)!=count or len(mesh.faces)<100:raise RuntimeError("lost template topology")
     hair=_ribbons(mesh)
@@ -94,6 +122,9 @@ def refine_anatomy(fitted_mesh: str, constraints_json: str,
     hair.export(hair_glb,file_type="glb")
     report={"topology_preserved":True,"reference_image_roles":list(references.get("images",{})),
             "ribbon_count":7,"ribbons_are_approximate":True,
+            "registered_multiview_confidence":confidence,
+            "multiview_constrained_vertex_count":int(np.count_nonzero(selected)),
+            "mean_multiview_correction_mesh_units":float(np.mean(np.linalg.norm(proposed, axis=1))),
             "maximum_surface_displacement_mesh_units":float(np.max(np.linalg.norm(mesh.vertices-verts,axis=1))),
             "limitations":"Invisible clothing geometry and hidden finger poses cannot be observed from the input"}
     report_path=out/"surface_refine.json"
