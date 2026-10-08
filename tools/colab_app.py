@@ -27,9 +27,8 @@ TRIPOSR_DIR = pathlib.Path("/content/third_party/TripoSR")
 TRIPOSR_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
 TRIPOSR_MODEL_REVISION = "c1cf7716aed5aa6c1c5e174657791ef0e1327bde"
 TRIPOSR_MODEL_WEIGHT_SHA256 = "429e2c6b22a0923967459de24d67f05962b235f79cde6b032aa7ed2ffcd970ee"
-TORCHMCUBES_COMMIT = "879926d0ef58e6ce0ac2630fdecb5e53af7ed3ff"
 GRADIO_VERSION = "6.3.0"
-RUNTIME_CONTRACT = "colab-runtime-v7"
+RUNTIME_CONTRACT = "colab-runtime-v8"
 WORK_ROOT = pathlib.Path("/content/vtuber_builder")
 OUTPUT_ROOT = WORK_ROOT / "output"
 
@@ -177,7 +176,6 @@ def _runtime_contract_fingerprint() -> str:
         TRIPOSR_COMMIT,
         TRIPOSR_MODEL_REVISION,
         TRIPOSR_MODEL_WEIGHT_SHA256,
-        TORCHMCUBES_COMMIT,
         GRADIO_VERSION,
         f"python-{sys.version_info.major}.{sys.version_info.minor}",
     ):
@@ -270,6 +268,7 @@ def _install_runtime(head: str) -> None:
             "--only-binary=:all:",
             "Pillow==12.3.0",
             "xatlas==0.0.11",
+            "scikit-image==0.26.0",
             "moderngl==5.12.0",
             "onnxruntime==1.30.0",
             "opencv-python-headless>=4.10.0.84",
@@ -321,39 +320,9 @@ def _install_runtime(head: str) -> None:
         timeout=600,
     )
 
-    # torchmcubes must compile against the already-installed PyTorch.
-    _run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "-U",
-            "scikit-build-core>=1.0",
-            "pybind11>=2.10",
-            "cmake>=3.18",
-            "ninja",
-        ],
-        timeout=600,
-    )
-
-    os.environ.setdefault("MAX_JOBS", "2")
-    os.environ.setdefault("CMAKE_BUILD_PARALLEL_LEVEL", "2")
-    if pathlib.Path("/usr/local/cuda").is_dir():
-        os.environ.setdefault("CUDA_HOME", "/usr/local/cuda")
-
-    _run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "--no-build-isolation",
-            f"git+https://github.com/tatsy/torchmcubes.git@{TORCHMCUBES_COMMIT}",
-        ],
-        timeout=1800,
-    )
-
+    # Pinned TripoSR only needs marching_cubes, supplied by our scikit-image
+    # bridge in the isolated TripoSR subprocess. No native CUDA extension
+    # is built at Colab startup.
     # Install the freshly synchronized repository without re-running the
     # dependency resolver and undoing the compatibility set above.
     _run(
@@ -396,9 +365,17 @@ def _install_runtime(head: str) -> None:
             (
                 "import PIL, xatlas, moderngl, onnxruntime, cv2, safetensors; "
                 "import omegaconf, einops, trimesh, rembg, imageio, scipy; "
-                "import huggingface_hub, pygltflib, torch, torchvision, torchmcubes, gradio; "
+                "import huggingface_hub, pygltflib, torch, torchvision, gradio; "
                 "from transformers.models.vit.modeling_vit import ViTModel; "
-                "from anime_face_detector import create_detector; "
+                "from anime_face_detector import create_detector; from skimage import measure; "
+                "from vtuber_pipeline.avatar.marching_cubes_backend import install_triposr_marching_cubes; "
+                "install_triposr_marching_cubes(); "
+                "from torchmcubes import marching_cubes; "
+                "grid = torch.linspace(-1, 1, 12); "
+                "z, y, x = torch.meshgrid(grid, grid, grid, indexing='ij'); "
+                "vertices, faces = marching_cubes(x*x + y*y + z*z, 0.5); "
+                "assert vertices.shape[1] == 3 and faces.shape[1] == 3; "
+                "assert vertices.numel() > 0 and faces.numel() > 0; "
                 "print('runtime-smoke-ok'); "
                 "print('Pillow', PIL.__version__); "
                 "print('trimesh', trimesh.__version__); "
@@ -432,10 +409,11 @@ def _install_runtime(head: str) -> None:
                 f"triposr={TRIPOSR_COMMIT}",
                 f"triposr_model_revision={TRIPOSR_MODEL_REVISION}",
                 f"triposr_model_sha256={TRIPOSR_MODEL_WEIGHT_SHA256}",
-                f"torchmcubes={TORCHMCUBES_COMMIT}",
+                "marching_cubes=scikit-image-0.26.0",
                 f"gradio={GRADIO_VERSION}",
                 "pillow=12.3.0",
                 "xatlas=0.0.11",
+                "scikit-image=0.26.0",
                 "moderngl=5.12.0",
                 "onnxruntime=1.30.0",
                 "transformers=4.57.6",
