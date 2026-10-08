@@ -186,3 +186,52 @@ def test_avatar_ui_keeps_previous_success_on_new_generation_failure(
     assert download is None
     assert state == str(prior)
     assert prior.is_file()
+
+
+def test_avatar_generator_streams_stage_updates_and_full_log(ui, tmp_path, monkeypatch):
+    from vtuber_pipeline.core.stage_progress import report_stage
+
+    image = tmp_path / "image.png"
+    image.write_bytes(b"image")
+    monkeypatch.setattr(ui, "WORK_ROOT", tmp_path / "work")
+    monkeypatch.setattr(ui, "_gpu_snapshot", lambda: "GPU VRAM 125/15000 MiB, 사용률 4%")
+
+    def fake_build(*, image_path, output_dir, config):
+        report_stage("input_gate", "running")
+        report_stage("input_gate", "complete")
+        report_stage("reference_reconstruction", "running")
+        report_stage("reference_reconstruction", "complete")
+        vrm = pathlib.Path(output_dir) / "avatar.vrm"
+        vrm.write_bytes(b"valid")
+        return {"status": "complete", "vrm_path": str(vrm), "stages": {}}
+
+    monkeypatch.setattr(ui, "_pipeline_imports", lambda: (fake_build, None, None))
+    updates = list(ui.stream_avatar_ui(
+        str(image), "corporation", None, progress=FakeProgress(),
+    ))
+
+    assert len(updates) >= 4
+    assert all(len(item) == 5 for item in updates)
+    assert any("[input_gate] running" in item[1] for item in updates)
+    assert any("[reference_reconstruction] running" in item[1] for item in updates)
+    assert any("GPU VRAM 125" in item[1] for item in updates)
+    assert updates[-1][0].startswith("✅")
+    assert pathlib.Path(updates[-1][2]).is_file()
+    assert updates[-1][3] == updates[-1][2]
+    log_file = pathlib.Path(updates[-1][4])
+    assert log_file.is_file()
+    assert "input_gate" in log_file.read_text(encoding="utf-8")
+
+
+def test_generation_requires_explicit_prepared_runtime_without_install(ui, tmp_path, monkeypatch):
+    monkeypatch.setattr(ui, "WORK_ROOT", tmp_path / "not-prepared")
+    monkeypatch.setattr(ui, "REPO_DIR", tmp_path / "checkout")
+    monkeypatch.setattr(ui, "_runtime_contract_fingerprint", lambda: "a" * 64)
+    monkeypatch.setattr(
+        ui.subprocess, "run",
+        lambda *args, **kwargs: types.SimpleNamespace(
+            returncode=0, stdout="b" * 40 + "\n", stderr="",
+        ),
+    )
+    with pytest.raises(RuntimeError, match="① 환경 준비"):
+        ui.require_runtime_ready()
