@@ -841,6 +841,8 @@ def build_app() -> gr.Blocks:
                         latest_avatar,
                     ],
                     show_progress="full",
+                    concurrency_id="vtuber_gpu_pipeline",
+                    concurrency_limit=1,
                 )
 
             with gr.Tab("② 악세사리 만들기", id="accessory"):
@@ -947,6 +949,8 @@ def build_app() -> gr.Blocks:
                         accessory_result,
                     ],
                     show_progress="full",
+                    concurrency_id="vtuber_gpu_pipeline",
+                    concurrency_limit=1,
                 )
 
     return demo
