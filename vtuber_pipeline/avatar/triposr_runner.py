@@ -121,6 +121,20 @@ def main() -> None:
     if not run_script.is_file():
         raise FileNotFoundError(f"TripoSR run.py not found: {run_script}")
 
+    # runpy.run_path executes run.py as __main__, but unlike
+    # 'python /path/to/TripoSR/run.py' it DOES NOT prepend the script's
+    # directory to sys.path. The wrapper is inside vtuber_pipeline, so the
+    # upstream 'from tsr.system import TSR' otherwise raises
+    # ModuleNotFoundError despite a correct pinned checkout and CUDA GPU.
+    source_root = run_script.parent
+    if not (source_root / "tsr" / "__init__.py").is_file():
+        raise RuntimeError(
+            f"Pinned TripoSR source is incomplete: missing {source_root / 'tsr' / '__init__.py'}"
+        )
+    if str(source_root) not in sys.path:
+        sys.path.insert(0, str(source_root))
+    print(f"[TripoSR] source import root: {source_root}", flush=True)
+
     upstream_args = sys.argv[2:]
 
     # The pinned TripoSR isosurface helper imports only marching_cubes.
