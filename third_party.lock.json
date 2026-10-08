@@ -235,7 +235,7 @@
       "weights_license": "Apache-2.0",
       "model_revision": "b785b4ecfb6636ef34a08c748f96f6a5686244d0",
       "model_weight_sha256": null,
-      "commercial_safe": true,
+      "commercial_safe": false,
       "license": "Apache-2.0",
       "download_allow_patterns": [
         "instant_mesh_large.ckpt",
@@ -246,7 +246,28 @@
       "model_url": "https://huggingface.co/TencentARC/InstantMesh/tree/b785b4ecfb6636ef34a08c748f96f6a5686244d0",
       "source_commit": "08822c52fdc399b93ea00e4fa9e596344ed52ccc",
       "source_url": "https://github.com/TencentARC/InstantMesh",
-      "license_url": "https://huggingface.co/TencentARC/InstantMesh/blob/b785b4ecfb6636ef34a08c748f96f6a5686244d0/README.md"
+      "license_url": "https://huggingface.co/TencentARC/InstantMesh/blob/b785b4ecfb6636ef34a08c748f96f6a5686244d0/README.md",
+      "commercial_runtime_status": "blocked: official LRM depends on Nvidia research-only nvdiffrast and proprietary source; official run.py additionally loads CC-BY-NC Zero123++",
+      "inference_dependencies": [
+        {
+          "name": "sudo-ai/zero123plus-v1.2",
+          "license": "CC-BY-NC-4.0",
+          "commercial_safe": false,
+          "used_by": "official run.py only"
+        },
+        {
+          "name": "NVlabs/nvdiffrast",
+          "license": "Nvidia Source Code License (1-Way Commercial), section 3.3 noncommercial-use limitation",
+          "commercial_safe": false,
+          "used_by": "InstantMesh mesh rendering/extraction"
+        },
+        {
+          "name": "InstantMesh embedded Nvidia-proprietary renderer code",
+          "license": "LicenseRef-NvidiaProprietary",
+          "commercial_safe": false,
+          "used_by": "InstantMesh LRM source imports"
+        }
+      ]
     },
     "depth_anything_v2_small": {
       "model_id": "depth-anything/Depth-Anything-V2-Small-hf",
