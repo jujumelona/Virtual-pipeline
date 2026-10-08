@@ -1200,6 +1200,7 @@ def build_app() -> gr.Blocks:
                         label="↓ avatar.vrm 파일 직접 다운로드",
                         value=None, interactive=False,
                     )
+                    avatar_http_link = gr.Markdown(value="", visible=False)
                 with gr.Column(scale=1, min_width=310, elem_id="generation-panel"):
                     avatar_status = gr.Markdown("대기 중")
                     avatar_log = gr.Textbox(
@@ -1221,15 +1222,31 @@ def build_app() -> gr.Blocks:
                 concurrency_id="vtuber_gpu_pipeline",
                 concurrency_limit=1,
             )
-            # Native Gradio download uses authenticated /gradio_api/file=
-            # endpoint and a real user click; unlike Colab files.download,
-            # it does not block the notebook kernel waiting for browser JS.
+            # A direct anchor to our same-port FastAPI attachment endpoint
+            # is the primary reliable fallback. Gradio 6.3 serves .vrm files
+            # as 'inline' at /gradio_api/file=, so that route is insufficient.
+            def show_download_controls(path):
+                if not path:
+                    return gr.update(value=None, interactive=False), gr.update(
+                        value="", visible=False,
+                    )
+                from tools.colab_download_contract import gradio_file_route
+                route = gradio_file_route(path, OUTPUT_ROOT)
+                return (
+                    gr.update(value=path, interactive=True),
+                    gr.update(
+                        value=(
+                            f"**[↓ avatar.vrm 다운로드 (브라우저 저장)]({route})**"
+                            f"  \\nColab 파일: \`{path}\\`"
+                        ),
+                        visible=True,
+                    ),
+                )
+
             avatar_generation_event.then(
-                fn=lambda path: gr.update(
-                    value=path, interactive=bool(path),
-                ),
+                fn=show_download_controls,
                 inputs=avatar_result,
-                outputs=avatar_download_button,
+                outputs=[avatar_download_button, avatar_http_link],
                 show_progress="hidden",
             )
 
