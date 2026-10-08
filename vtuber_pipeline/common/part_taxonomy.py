@@ -1,6 +1,7 @@
 """Semantic parts are character-left/right, not viewer-left/right."""
 PART_DEPTH = {
     "hair.back": 10, "body": 20, "leg": 22, "shoe": 24, "arm": 26,
+    "head": 38, "hand": 60, "brow": 54, "sleeve": 36, "accessory": 80,
     "neck": 30, "cloth": 35, "face": 40, "eye": 50, "eyebrow": 54,
     "mouth": 55, "hair.side": 65, "hair.front": 70,
     "ornament": 80, "hat": 85,

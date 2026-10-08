@@ -3,6 +3,24 @@ import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from _entry import execute
 
+def parse_boxes(parsed, semantic, image_size):
+    """Florence open-vocabulary outputs bboxes_labels, unlike OD's labels."""
+    import math
+    boxes = parsed.get('bboxes', [])
+    labels = parsed.get('bboxes_labels', parsed.get('labels', []))
+    if len(boxes) != len(labels):
+        raise ValueError('Florence bbox/label count mismatch')
+    parts = []
+    for box, label in zip(boxes, labels):
+        if len(box) != 4 or not all(math.isfinite(v) for v in box):
+            raise ValueError('invalid Florence coordinates')
+        coords = [max(0, min(round(v), image_size[i % 2])) for i, v in enumerate(box)]
+        if coords[2] <= coords[0] or coords[3] <= coords[1]:
+            continue
+        parts.append({'semantic_id': semantic, 'bbox_xyxy': coords,
+                      'source': 'Florence-2-base', 'score': None, 'detected_label': label})
+    return parts
+
 def infer(req):
     import json
     import torch
@@ -24,11 +42,7 @@ def infer(req):
             generated=model.generate(**inputs,max_new_tokens=256,num_beams=3,do_sample=False)
         decoded=processor.batch_decode(generated,skip_special_tokens=False)[0]
         parsed=processor.post_process_generation(decoded,task=task,image_size=image.size).get(task,{})
-        for box,label in zip(parsed.get("bboxes",[]), parsed.get("labels",[])):
-            coords=[max(0,min(round(v),image.size[i%2])) for i,v in enumerate(box)]
-            if coords[2]<=coords[0] or coords[3]<=coords[1]:
-                continue
-            parts.append({"semantic_id":semantic, "bbox_xyxy":coords,"source":"Florence-2-base", "score":None, "detected_label":label})
+        parts.extend(parse_boxes(parsed, semantic, image.size))
     if not parts:
         raise RuntimeError("Florence-2 found no usable semantic part bounding boxes")
     path=Path(req["output_dir"])/"boxes.json"
