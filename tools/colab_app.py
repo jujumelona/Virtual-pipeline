@@ -1225,6 +1225,8 @@ def build_app() -> gr.Blocks:
 
 
 def launch() -> None:
+    # Do not show a usable-looking UI before the model assets are verified.
+    require_runtime_ready()
     WORK_ROOT.mkdir(parents=True, exist_ok=True)
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 
