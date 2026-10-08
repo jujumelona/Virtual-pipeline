@@ -191,6 +191,6 @@ def test_commercial_profile_reconstruction_failure_is_fail_closed(
 def test_char_image():
     """Path to the explicit GPU E2E fixture."""
     fixture_path = pathlib.Path(__file__).parent.parent / "fixtures" / "test_char.png"
-    if not fixture_path.exists():
-        pytest.skip("E2E fixture is not present")
+    assert fixture_path.is_file(), f"E2E fixture is missing: {fixture_path}"
+    assert fixture_path.stat().st_size > 0, f"E2E fixture is empty: {fixture_path}"
     return fixture_path
