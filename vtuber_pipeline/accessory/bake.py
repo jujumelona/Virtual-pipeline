@@ -4,6 +4,8 @@ import copy
 import pathlib
 from typing import Dict, Any, List, Optional
 
+from vtuber_pipeline.core.gltf import load_gltf
+
 
 def _humanoid_node_map(gltf) -> Dict[str, int]:
     extensions = gltf.extensions or {}
@@ -182,10 +184,9 @@ def bake_accessories(
     pathlib.Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        from pygltflib import GLTF2
         from pygltflib.validator import validate as validate_gltf
 
-        base = GLTF2().load(base_vrm)
+        base = load_gltf(base_vrm)
         if len(base.buffers or []) != 1 or base.binary_blob() is None:
             raise ValueError(
                 "Base VRM must contain exactly one embedded GLB buffer"
@@ -198,7 +199,7 @@ def bake_accessories(
         merged: List[Dict[str, Any]] = []
 
         for i, acc_path in enumerate(accessory_paths):
-            acc = GLTF2().load(acc_path)
+            acc = load_gltf(acc_path)
             validate_gltf(acc)
             _require_static_accessory_contract(acc, acc_path)
 
@@ -372,7 +373,7 @@ def bake_accessories(
             raise RuntimeError("Accessory bake did not produce a VRM file")
 
         # Fresh parse catches serialization-only failures.
-        reloaded = GLTF2().load(str(out))
+        reloaded = load_gltf(out)
         validate_gltf(reloaded)
 
         result.update({
