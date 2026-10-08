@@ -207,3 +207,37 @@ def test_accessory_batch_preserves_per_item_failure_contract(
     assert result[1]["image"] == images[1]
     assert result[1]["mesh"] is None
     assert "synthetic failure" in result[1]["error"]
+
+
+def test_commercial_dirty_triposr_checkout_is_rejected(
+    tmp_path,
+    monkeypatch,
+):
+    import vtuber_pipeline.avatar.reconstruction as module
+
+    run_script = tmp_path / "TripoSR" / "run.py"
+    run_script.parent.mkdir()
+    run_script.write_text("# fake", encoding="utf-8")
+
+    def fake_run(cmd, **kwargs):
+        if cmd[-2:] == ["rev-parse", "HEAD"]:
+            return types.SimpleNamespace(
+                returncode=0,
+                stdout=module.TRIPOSR_PINNED_COMMIT + "\n",
+                stderr="",
+            )
+        if "status" in cmd:
+            return types.SimpleNamespace(
+                returncode=0,
+                stdout=" M run.py\n",
+                stderr="",
+            )
+        raise AssertionError(cmd)
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="unmodified pinned TripoSR"):
+        module.verify_triposr_revision(
+            str(run_script),
+            "commercial",
+        )
