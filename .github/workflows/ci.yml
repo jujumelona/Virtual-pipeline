@@ -123,7 +123,27 @@ jobs:
           pytest packaging numpy scipy pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
       - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - name: Discover and run every CPU-safe test
-        run: python -m pytest -q tests
+        run: |
+          python -m pytest -q tests --strict-markers --strict-config --junitxml=/tmp/full-suite.xml
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse("/tmp/full-suite.xml").getroot()
+          skipped = []
+          for case in root.iter("testcase"):
+              if case.find("skipped") is not None:
+                  skipped.append((case.get("classname"), case.get("name")))
+
+          expected = [(
+              "tests.integration.test_e2e_pipeline",
+              "test_e2e_pipeline",
+          )]
+          assert skipped == expected, (
+              "Unexpected skipped tests; CPU CI must not silently lose coverage",
+              skipped,
+          )
+          print("skip-contract-ok", skipped)
+          PY
 
   package-smoke:
     name: Package and public API smoke
@@ -157,20 +177,42 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - run: python -m pip install --disable-pip-version-check -U pip build
+      - run: python -m pip install --disable-pip-version-check -U pip build packaging
       - name: Build sdist and wheel
         run: python -m build
       - name: Inspect distributions
         run: |
           python - <<'PY'
+          import email
           import pathlib
           import tarfile
+          import tomllib
           import zipfile
+
+          from packaging.requirements import Requirement
+          from packaging.utils import canonicalize_name
+
+          def normalized_requirement(raw):
+              req = Requirement(raw)
+              return (
+                  canonicalize_name(req.name),
+                  tuple(sorted(req.extras)),
+                  str(req.specifier),
+                  str(req.marker) if req.marker else None,
+              )
 
           wheels = list(pathlib.Path("dist").glob("*.whl"))
           sdists = list(pathlib.Path("dist").glob("*.tar.gz"))
           assert len(wheels) == 1, wheels
           assert len(sdists) == 1, sdists
+
+          pyproject = tomllib.loads(
+              pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
+          )
+          expected_requires = {
+              normalized_requirement(raw)
+              for raw in pyproject["project"]["dependencies"]
+          }
 
           with zipfile.ZipFile(wheels[0]) as zf:
               names = set(zf.namelist())
@@ -183,9 +225,36 @@ jobs:
               }
               assert required <= names, sorted(required - names)
 
+              metadata_name = next(
+                  name for name in names
+                  if name.endswith(".dist-info/METADATA")
+              )
+              metadata = email.message_from_bytes(zf.read(metadata_name))
+              actual_requires = {
+                  normalized_requirement(raw)
+                  for raw in metadata.get_all("Requires-Dist", [])
+                  if "extra ==" not in raw
+              }
+              assert actual_requires == expected_requires, (
+                  expected_requires - actual_requires,
+                  actual_requires - expected_requires,
+              )
+
+              entry_points_name = next(
+                  name for name in names
+                  if name.endswith(".dist-info/entry_points.txt")
+              )
+              entry_points = zf.read(entry_points_name).decode("utf-8")
+              assert (
+                  "vtuber-pipeline = vtuber_pipeline.cli:cli"
+                  in entry_points
+              )
+
           with tarfile.open(sdists[0], "r:gz") as tf:
               names = tf.getnames()
               assert any(name.endswith("/pyproject.toml") for name in names)
+              assert any(name.endswith("/third_party.lock.json") for name in names)
+              assert any(name.endswith("/requirements.txt") for name in names)
               assert any(name.endswith("/vtuber_pipeline/avatar/build.py") for name in names)
           PY
       - name: Install wheel into clean venv
