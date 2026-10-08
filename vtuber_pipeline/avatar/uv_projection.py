@@ -35,6 +35,10 @@ def rasterize_multiview_texture(
     face_xy: np.ndarray | None = None,
     back_pixels: np.ndarray | None = None,
     back_xy: np.ndarray | None = None,
+    left_pixels: np.ndarray | None = None,
+    left_xy: np.ndarray | None = None,
+    right_pixels: np.ndarray | None = None,
+    right_xy: np.ndarray | None = None,
 ) -> tuple[np.ndarray, dict]:
     """Paint UV texels with interpolated image coordinates from actual views.
 
@@ -63,6 +67,10 @@ def rasterize_multiview_texture(
         views["face"] = (face_pixels, face_xy)
     if back_pixels is not None and back_xy is not None:
         views["back"] = (back_pixels, back_xy)
+    if left_pixels is not None and left_xy is not None:
+        views["left"] = (left_pixels, left_xy)
+    if right_pixels is not None and right_xy is not None:
+        views["right"] = (right_pixels, right_xy)
     for name, (pixels, projected) in views.items():
         if pixels.ndim != 3 or pixels.shape[2] != 4:
             raise ValueError(f"{name} must be HxWx4 RGBA")
@@ -104,12 +112,22 @@ def rasterize_multiview_texture(
         norm = float(np.linalg.norm(normal))
         facing = float(normal[2] / norm) if norm > eps else 0
         head = float(np.mean(tri[:, 1])) >= y_min + .72 * body_height
-        # An orthographic front source does not observe back-facing/side
-        # triangles. Never paint those texels from a projected front image.
-        # A real rear reference is the only admissible rear observation.
-        if facing < -0.12:
+        # Choose only an image that can plausibly observe this oriented
+        # surface. A positive X normal faces camera at +X (right), negative X
+        # faces the left camera. Never paint unseen back/side UVs from front.
+        lateral = float(normal[0] / norm) if norm > eps else 0.0
+        if abs(lateral) > abs(facing) and abs(lateral) > .12:
+            preferred = "right" if lateral > 0 else "left"
+            ordered = [preferred] if preferred in views else []
+            # Angled surfaces can also be visible from a second actual camera.
+            if facing > .25:
+                ordered.extend(["face", "front"] if head and "face" in views
+                               else ["front"])
+            elif facing < -.25 and "back" in views:
+                ordered.append("back")
+        elif facing < -.12:
             ordered = ["back"] if "back" in views else []
-        elif facing > 0.12:
+        elif facing > .12:
             ordered = (["face", "front"] if head and "face" in views
                        else ["front"])
         else:
