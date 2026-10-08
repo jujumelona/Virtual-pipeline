@@ -75,6 +75,26 @@ def classify_springbone_chains(
         bone_names = find_bones_by_region(mesh_path, skeleton, region)
         if not bone_names:
             continue
+        if region == "hair":
+            import re
+            strands = {}
+            for name in bone_names:
+                match = re.fullmatch(r"hairStrand(\\d+)(Root|Mid|Tip)", name)
+                if match:
+                    strands.setdefault(int(match.group(1)), {})[match.group(2)] = name
+            if strands:
+                for strand_id, parts in sorted(strands.items()):
+                    if set(parts) != {"Root", "Mid", "Tip"}:
+                        raise ValueError(f"Hair strand {strand_id} has incomplete springbone chain")
+                    chains.append({
+                        "name": f"hairStrand{strand_id:02d}",
+                        "joints": [
+                            _joint_from_name(parts[level], preset)
+                            for level in ("Root", "Mid", "Tip")
+                        ],
+                        "colliderGroups": [],
+                    })
+                continue
         chains.append({
             "name": region,
             "joints": [_joint_from_name(name, preset) for name in bone_names],
