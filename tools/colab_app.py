@@ -297,7 +297,9 @@ def _install_runtime(head: str) -> None:
                 "print('python', __import__('sys').version); "
                 "print('torch', torch.__version__); "
                 "print('torchvision', torchvision.__version__); "
-                "print('cuda', torch.version.cuda, torch.cuda.is_available())"
+                "print('cuda', torch.version.cuda, torch.cuda.is_available()); "
+                "assert torch.cuda.is_available(), "
+                "'GPU 연결 안 됨: Colab 런타임 > 런타임 유형 변경 > T4 GPU 선택'"
             ),
         ],
         timeout=60,
