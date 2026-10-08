@@ -176,6 +176,34 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
     assert f"pygltflib=={pygltf}" in requirements
     assert f"pygltflib=={pygltf}" in colab_source
 
+    # Every exact runtime package pin in the lock must match the Colab
+    # installation surface instead of drifting independently.
+    for key in (
+        "anime_face_detector",
+        "pygltflib",
+        "pillow",
+        "xatlas",
+        "moderngl",
+        "onnxruntime",
+        "transformers",
+        "trimesh",
+        "rembg",
+    ):
+        item = lock["tools"][key]
+        package = item["package"]
+        version = item["package_version"]
+        assert f"{package}=={version}" in colab_source, (key, package, version)
+
+    # Direct project dependencies that are exact-pinned in the lock must also
+    # be exact in the package metadata surfaces.
+    for key in ("anime_face_detector", "pygltflib", "pillow", "trimesh"):
+        item = lock["tools"][key]
+        package = item["package"]
+        version = item["package_version"]
+        expected = f"{package}=={version}"
+        assert expected in project_deps, (key, expected)
+        assert expected in requirements, (key, expected)
+
     gradio = lock["tools"]["gradio"]["package_version"]
     assert _constants("tools/colab_app.py")["GRADIO_VERSION"] == gradio
     assert f"gradio=={gradio}" in notebook_code
