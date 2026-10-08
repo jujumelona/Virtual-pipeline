@@ -14,6 +14,32 @@ from vtuber_pipeline.common.schemas import Part, PartsDocument
 from vtuber_pipeline.common.part_taxonomy import z_order
 
 
+def _landmark_subset(semantic_id: str, all_points: list) -> list:
+    """Choose aligned semantic HRNet points in character-relative coordinates."""
+    if len(all_points) != 28:
+        return []
+    points = np.asarray(all_points, dtype=float)
+    if semantic_id in {"face", "head"}:
+        return all_points
+    if semantic_id.startswith("mouth"):
+        return points[23:28].tolist()
+    if semantic_id.startswith("eye."):
+        groups = [points[11:17], points[17:23]]
+        groups.sort(key=lambda g: float(g[:, 0].mean()), reverse=True)
+        if semantic_id.startswith("eye.left"):
+            return groups[0].tolist()
+        if semantic_id.startswith("eye.right"):
+            return groups[1].tolist()
+        return points[11:23].tolist()
+    if semantic_id.startswith("brow.") or semantic_id.startswith("eyebrow."):
+        groups = [points[5:8], points[8:11]]
+        groups.sort(key=lambda g: float(g[:, 0].mean()), reverse=True)
+        return (groups[0] if ".left" in semantic_id else groups[1]).tolist()
+    if semantic_id in {"brow", "eyebrow"}:
+        return points[5:11].tolist()
+    return []
+
+
 def split_semantic_layers(original_rgba: str, masks_json: str,
                           landmarks_json: str, output_dir: str) -> PartsDocument:
     out = Path(output_dir)
@@ -80,7 +106,7 @@ def split_semantic_layers(original_rgba: str, masks_json: str,
             parts.append(Part(
                 identity, str(rgba_path), mask_path, hidden_path,
                 [int(xs.min()), int(ys.min()), int(xs.max() + 1), int(ys.max() + 1)],
-                depth, face_keypoints if identity in {"face", "head"} else [], "sam2.1",
+                depth, _landmark_subset(identity, face_keypoints), "sam2.1",
             ))
             index += 1
 
