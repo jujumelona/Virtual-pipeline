@@ -105,6 +105,8 @@ def align_sources(
     depth_manifest: str,
     reference_manifest: str | dict,
     output_dir: str,
+    *,
+    source_metadata: str | None = None,
 ) -> dict[str, Any]:
     """Return a registered GLB and explicit observation/uncertainty contract.
 
@@ -149,6 +151,31 @@ def align_sources(
             "relative_depth_only": True,
         }
 
+    licensed_source = None
+    independent_roles = []
+    if source_metadata is not None:
+        licensed_source = _document(source_metadata, "licensed multiview provenance")
+        if licensed_source.get("contract") != "vtuber-commercial-triposr-multiview-v1":
+            raise ValueError("Unrecognized commercial reconstruction provenance")
+        if licensed_source.get("noncommercial_checkpoints_used") is not False:
+            raise ValueError("Noncommercial reconstruction weights are forbidden")
+        if Path(licensed_source.get("geometry_mesh", "")).resolve() != Path(multiview_obj).resolve():
+            raise ValueError("Multiview mesh does not match attested licensed source")
+        roles = licensed_source.get("registered_views")
+        if not isinstance(roles, list) or len(set(roles)) != len(roles):
+            raise ValueError("Registered observed view roles must be unique")
+        if set(roles) - {"back", "left", "right"}:
+            raise ValueError("Unexpected synthetic camera role in licensed source")
+        for role in roles:
+            record = licensed_source.get("views", {}).get(role, {})
+            reference = reference_images.get(role)
+            if (not reference or role not in observations or
+                record.get("status") != "registered" or
+                record.get("input_view_observed") is not True or
+                Path(record.get("input_image", "")).resolve() != Path(reference["path"]).resolve()):
+                raise ValueError(f"{role}: license provenance is not supported by an actual observed image/depth")
+        independent_roles = roles
+
     registration = _best_similarity(np.asarray(generated.vertices), np.asarray(coarse.vertices))
     rotation = registration["rotation"]
     scale = registration["scale"]
@@ -163,8 +190,22 @@ def align_sources(
     out.mkdir(parents=True, exist_ok=True)
     aligned_path = out / "aligned_multiview.glb"
     aligned.export(aligned_path)
+    # Front-only candidate is exactly the already-reconstructed source, not
+    # an independent view. Bound its weak geometric weight appropriately.
+    # Independently supplied images add evidence but are still not calibrated
+    # cameras; never grant them full confidence.
+    raw_confidence = float(np.clip(1.0 - normalized_error / 0.65, 0.0, 1.0))
+    if licensed_source is not None:
+        evidence_scale = min(0.85, 0.22 + 0.20 * len(independent_roles))
+    else:
+        evidence_scale = 1.0
+
     diagnostics = {
         "contract": "vtuber-multiview-constraints-v1",
+        "geometry_provider": (licensed_source or {}).get("geometry_provider", "unspecified"),
+        "licensed_multiview_source": str(Path(source_metadata).resolve()) if source_metadata else None,
+        "independently_observed_roles": independent_roles,
+        "front_only_reconstruction": bool(licensed_source is not None and not independent_roles),
         "reference_frame": "TripoSR mesh local coordinates (not metrically calibrated)",
         "aligned_multiview_glb": str(aligned_path.resolve()),
         "coarse_mesh": str(Path(coarse_obj).resolve()),
@@ -179,7 +220,8 @@ def align_sources(
             "initial_yaw_radians": registration["yaw_initial_radians"],
             "orientation_verified_by_calibrated_camera": False,
             "observed_camera_alignment": False,
-            "confidence": float(np.clip(1.0 - normalized_error / 0.65, 0.0, 1.0)),
+            "confidence": raw_confidence * evidence_scale,
+            "confidence_evidence_multiplier": evidence_scale,
         },
         "observed_views": observations,
         "inferred_views_are_observed": False,
