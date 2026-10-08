@@ -43,6 +43,7 @@ jobs:
             tests/production/test_2d_observed_keyform_pivots.py \
             tests/production/test_2d_spring_keyform_binding.py \
             tests/production/test_depth_pinned_worker.py \
+            tests/production/test_relative_depth_constraint.py \
             tests/production/test_supplied_hair_geometry.py \
             tests/integration/test_pipeline_wiring_static.py \
             tests/integration/test_module_graph_runtime.py \
