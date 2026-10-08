@@ -622,9 +622,13 @@ def rig_avatar(
 
     # Full-body builds provide actual head-derived strand ribbons. Attach
     # those meshes instead of discarding them and silently inventing a shell.
+    strand_vertex_groups = None
     if hair_mesh_path is not None:
         mesh, rig_uv, hair_vertex_start = _combine_supplied_hair_geometry(
             mesh, source_uv, hair_mesh_path,
+        )
+        strand_vertex_groups = _hair_component_vertex_groups(
+            mesh, hair_vertex_start,
         )
     else:
         mesh, rig_uv, hair_vertex_start = _build_secondary_hair_shell(
@@ -637,7 +641,13 @@ def rig_avatar(
     bounds = mesh.bounds  # (2, 3) - [min, max]
     
     # 휴머노이드 뼈대 생성
-    skeleton = create_humanoid_skeleton(bounds)
+    skeleton = create_humanoid_skeleton(
+        bounds,
+        strand_vertex_groups=(
+            [np.asarray(mesh.vertices)[indices] for indices in strand_vertex_groups]
+            if strand_vertex_groups is not None else None
+        ),
+    )
     
     # 스킨 가중치 계산
     joint_indices, joint_weights = compute_skin_weights(
@@ -645,6 +655,7 @@ def rig_avatar(
         skeleton,
         max_influences=4,
         hair_vertex_start=hair_vertex_start,
+        strand_vertex_groups=strand_vertex_groups,
     )
     
     # 스킨이 포함된 GLB 생성
