@@ -3,6 +3,8 @@
 import pathlib
 from typing import Dict, Any, List, Optional
 
+from vtuber_pipeline.core.gltf import load_gltf
+
 
 ANCHOR_POINTS: List[Dict[str, Any]] = [
     {"name": "HEAD_TOP", "bone": "head", "offset": [0.0, 0.10, 0.0], "target_size": 0.18},
@@ -222,12 +224,10 @@ def generate_anchor_manifest(
         "anchors": [],
     }
     try:
-        from pygltflib import GLTF2
-
         path = pathlib.Path(vrm_path)
         if not path.is_file():
             raise FileNotFoundError(f"Base VRM not found: {vrm_path}")
-        gltf = GLTF2().load(str(path))
+        gltf = load_gltf(path)
         nodes = gltf.nodes or []
         name_to_idx = {
             node.name: i
