@@ -1271,11 +1271,18 @@ def launch() -> None:
     # Gradio 6.3.0 is pinned by the notebook because later 6.x releases have
     # a documented Colab share=False regression. Keep the cell alive while
     # the inline UI server is running.
+    # Colab starts the server in a *fresh* Python process after pip completes.
+    # Its iframe is displayed separately by the notebook kernel. Do not run
+    # the server inside the kernel that may hold pre-install NumPy C modules.
+    subprocess_ui = os.environ.get("VTUBER_COLAB_EXTERNAL_IFRAME") == "1"
+    port = int(os.environ.get("VTUBER_COLAB_SERVER_PORT", "7860"))
     demo.launch(
-        inline=True,
+        inline=not subprocess_ui,
         share=False,
-        debug=True,
+        debug=not subprocess_ui,
         prevent_thread_lock=False,
+        server_name="0.0.0.0" if subprocess_ui else None,
+        server_port=port if subprocess_ui else None,
         show_error=True,
         height=1100,
         allowed_paths=[str(WORK_ROOT), str(OUTPUT_ROOT)],
