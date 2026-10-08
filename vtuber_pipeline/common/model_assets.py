@@ -18,8 +18,10 @@ MODELS = {
 MODE_ASSETS = {
     "common_2d": ("skytnt_anime_seg_isnet_is", "florence2_base", "sam2_1_hiera_tiny",
                   "anime_face_yolov3", "anime_face_hrnetv2", "flux2_klein_4b"),
+    # Do not prefetch restricted InstantMesh checkpoints. The production
+    # geometry provider is the MIT-licensed TripoSR for each observed view.
     "3d": ("skytnt_anime_seg_isnet_is", "anime_face_yolov3", "anime_face_hrnetv2",
-           "triposr", "instantmesh_large", "depth_anything_v2_small"),
+           "triposr", "depth_anything_v2_small"),
 }
 def sha256_file(path: str) -> str:
     h = hashlib.sha256()
