@@ -62,6 +62,7 @@ jobs:
           tests/integration/test_config_contracts.py
           tests/integration/test_marching_cubes_bridge.py
           tests/integration/test_runtime_license_audit.py
+          tests/integration/test_triposr_live_logging.py
 
   unit:
     name: Unit / Python ${{ matrix.python-version }}
