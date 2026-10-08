@@ -8,7 +8,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from PIL import Image
 import pytest
 
-from vtuber_pipeline.two_d import prepare_live2d_artwork
+from vtuber_pipeline.two_d import (prepare_2d_artwork, prepare_inochi2d_artwork, prepare_live2d_artwork)
 
 
 def _artwork(path, rgba=(20, 40, 60, 255)):
@@ -83,3 +83,49 @@ def test_rejects_different_layer_canvas(tmp_path):
     with pytest.raises(ValueError, match="layer canvas"):
         prepare_live2d_artwork(
             str(artwork), str(tmp_path / "out"), layers_zip=str(archive))
+
+
+@pytest.mark.parametrize("target,final_extension", [
+    ("inochi2d", ".inp"),
+    ("live2d", ".moc3"),
+])
+def test_both_named_2d_modes_are_independent_and_cannot_claim_completion(
+    tmp_path, target, final_extension,
+):
+    artwork = tmp_path / "original.png"
+    _artwork(artwork)
+    output = tmp_path / target
+    result = prepare_2d_artwork(str(artwork), str(output), target=target)
+    assert result["status"] == "needs_layering"
+    assert Path(result["package_path"]).name == f"{target}_artwork_prep.zip"
+    manifest = result["manifest"]
+    assert manifest["mode"] == target
+    assert manifest["expected_completed_extension"] == final_extension
+    assert manifest["rig_generated"] is False
+    assert manifest["vtube_studio_ready"] is False
+    assert manifest["inochi_session_ready"] is False
+    with ZipFile(result["package_path"]) as archive:
+        assert not any(name.endswith((".inp", ".moc3")) for name in archive.namelist())
+        instructions = archive.read("README_NEXT_STEPS.txt").decode("utf-8")
+        if target == "inochi2d":
+            assert "Inochi Creator" in instructions
+            assert "Inochi Session" in instructions
+        else:
+            assert "Cubism Editor" in instructions
+            assert "VTube Studio" in instructions
+
+
+def test_named_2d_wrappers_cannot_route_to_other_target(tmp_path):
+    artwork = tmp_path / "ref.png"
+    _artwork(artwork)
+    inochi = prepare_inochi2d_artwork(str(artwork), str(tmp_path / "i"))
+    live2d = prepare_live2d_artwork(str(artwork), str(tmp_path / "l"))
+    assert inochi["manifest"]["mode"] == "inochi2d"
+    assert live2d["manifest"]["mode"] == "live2d"
+
+
+def test_2d_rejects_unrecognized_target(tmp_path):
+    artwork = tmp_path / "ref.png"
+    _artwork(artwork)
+    with pytest.raises(ValueError, match="unsupported 2D target"):
+        prepare_2d_artwork(str(artwork), str(tmp_path / "output"), target="2d")
