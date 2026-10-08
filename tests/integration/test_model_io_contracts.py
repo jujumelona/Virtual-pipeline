@@ -14,6 +14,7 @@ import sys
 import types
 
 import numpy as np
+import pytest
 from click.testing import CliRunner
 from PIL import Image
 
