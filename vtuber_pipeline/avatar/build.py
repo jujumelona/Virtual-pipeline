@@ -310,7 +310,27 @@ class AvatarPipeline:
             "stages": {},
         }
 
-        from vtuber_pipeline.avatar.input_gate import validate_input
+        import vtuber_pipeline.avatar.input_gate as input_gate_module
+        validate_input = input_gate_module.validate_input
+        source = pathlib.Path(validate_input.__code__.co_filename).resolve()
+        expected_source = pathlib.Path(__file__).resolve().with_name("input_gate.py")
+        contract = getattr(input_gate_module, "INPUT_GATE_CONTRACT", None)
+        report_stage(
+            "module_diagnostics", "log",
+            f"input_gate runtime_file={source} expected_file={expected_source} "
+            f"module_file={getattr(input_gate_module, '__file__', None)} "
+            f"contract={contract!r}",
+        )
+        if contract != "scored-28-landmarks-v2":
+            return self._fail(
+                results, "input_gate",
+                "stale input_gate Python module (missing scored-28-landmarks-v2 contract)",
+            )
+        if source != expected_source:
+            return self._fail(
+                results, "input_gate",
+                f"input_gate loaded from unexpected file: {source}",
+            )
         from vtuber_pipeline.avatar.reconstruction import reconstruct_avatar
         from vtuber_pipeline.avatar.template_mesh import get_template_path
         from vtuber_pipeline.avatar.template_fitting import fit_template
