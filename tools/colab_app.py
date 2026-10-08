@@ -891,6 +891,13 @@ def build_avatar_ui(
         head, setup_logs = require_runtime_ready()
         logs.extend(setup_logs)
 
+        # The official Blender binary/VRM extension is only needed for 3D.
+        # Installation and operator validation must finish before model work.
+        from tools.setup_blender_runtime import ensure_blender_runtime
+        blender_bin = ensure_blender_runtime(
+            str(WORK_ROOT / "third_party" / "blender")
+        )
+        logs.append(f"Blender VRM extension verified: {blender_bin}")
         progress(0.30, desc="Avatar 생성 시작")
         build_avatar, _, _ = _pipeline_imports()
 
