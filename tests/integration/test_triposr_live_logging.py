@@ -70,3 +70,24 @@ def test_outside_colab_ui_preserves_existing_subprocess_run_contract(monkeypatch
         "cwd": "/triposr",
         "env": {},
     }
+
+
+def test_carriage_return_only_gpu_progress_is_forwarded_before_process_exit(monkeypatch):
+    observed = []
+
+    class FakePopen:
+        def __init__(self, cmd, **kwargs):
+            # GPU libraries often report progress with CR and no newline.
+            self.stdout = io.StringIO("load 10%\rload 65%\rload 100%\r")
+
+        def wait(self, timeout):
+            return 0
+
+    monkeypatch.setattr(reconstruction.subprocess, "Popen", FakePopen)
+    with stage_reporter(lambda name, status, detail: observed.append((name, status, detail))):
+        result = reconstruction._run_triposr_with_diagnostics(
+            ["python", "run.py"], timeout=5, cwd="/models", env={},
+        )
+    assert result.returncode == 0
+    messages = [detail for name, status, detail in observed if name == "triposr_output"]
+    assert messages[-3:] == ["load 10%", "load 65%", "load 100%"]
