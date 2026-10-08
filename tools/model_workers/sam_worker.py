@@ -1,0 +1,40 @@
+from pathlib import Path
+import json
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from _entry import execute
+
+def infer(req):
+    import torch
+    import numpy as np
+    from PIL import Image
+    from sam2.sam2_image_predictor import SAM2ImagePredictor
+    image = np.asarray(Image.open(req["image_path"]).convert("RGB"))
+    alpha=np.asarray(Image.open(req["person_alpha_png"]).convert("L"))
+    data=json.loads(Path(req["boxes_json"]).read_text(encoding="utf-8"))
+    predictor=SAM2ImagePredictor.from_pretrained("facebook/sam2.1-hiera-tiny")
+    predictor.set_image(image)
+    folder=Path(req["output_dir"])/"part_masks"
+    folder.mkdir(parents=True, exist_ok=True)
+    results=[]
+    for i,item in enumerate(data["parts"]):
+        with torch.inference_mode():
+            masks,scores,_=predictor.predict(box=np.array(item["bbox_xyxy"],dtype=np.float32),multimask_output=False)
+        mask=np.where((masks[0]>0) & (alpha>10),255,0).astype("uint8")
+        x0,y0,x1,y1=item["bbox_xyxy"]
+        rect=np.zeros_like(mask)
+        rect[y0:y1,x0:x1]=255
+        mask &= rect
+        if not np.any(mask):
+            continue
+        path=folder/("part_%03d.png"%i)
+        Image.fromarray(mask,"L").save(path)
+        results.append({**item,"mask_png":str(path),"score":float(scores[0])})
+    if not results:
+        raise RuntimeError("SAM2 did not resolve any nonempty masks")
+    index=Path(req["output_dir"])/"masks.json"
+    index.write_text(json.dumps({"parts":results},ensure_ascii=False,indent=2),encoding="utf-8")
+    return {"mask_dir":str(folder),"index_json":str(index)}
+
+if __name__=="__main__":
+    execute(infer)

@@ -1,0 +1,1 @@
+"""Shared character extraction stages."""
