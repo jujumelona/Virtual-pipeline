@@ -151,11 +151,13 @@ def test_only_genuinely_absent_face_detector_package_gets_missing_label(monkeypa
 def test_model_preparation_must_instantiate_face_detector_before_cache_marker():
     root = pathlib.Path(__file__).resolve().parents[2]
     source = (root / "tools" / "colab_app.py").read_text(encoding="utf-8")
-    begin = source.index("def prepare_models()")
-    end = source.index("def _reload_pipeline_modules()", begin)
+    begin = source.index("def _prepare_models_checked()")
+    end = source.index("def prepare_models()", begin)
     function = source[begin:end]
     assert "face-detector-init-ok" in function
     assert "detector = AnimeFaceDetector()" in function
+    assert 'and "face_detector_initialized=true" in lines' in function
+    assert '"face_detector_initialized=true\\n"' in function
     # The earlier marker write only refreshes a previously verified cache.
     # A newly created success marker must come after the real model init.
     assert function.index("face-detector-init-ok") < function.rindex(
