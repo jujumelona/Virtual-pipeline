@@ -7,6 +7,8 @@ format using pygltflib (Pure Python implementation).
 import pathlib
 from typing import Dict, Any, Optional
 
+from vtuber_pipeline.core.gltf import load_gltf
+
 # Import the new VRM builder
 from vtuber_pipeline.avatar.vrm_builder import export_vrm as _export_vrm_pure
 
@@ -104,8 +106,7 @@ def _validate_for_vrm(
         return result
 
     try:
-        from pygltflib import GLTF2
-        gltf = GLTF2().load(str(path))
+        gltf = load_gltf(path)
         node_names = {node.name for node in (gltf.nodes or []) if node.name}
         required_bones = {
             "hips", "spine", "chest", "neck", "head",
