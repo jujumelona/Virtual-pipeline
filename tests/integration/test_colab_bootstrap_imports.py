@@ -221,9 +221,9 @@ def test_setup_stage_prints_and_persists_exception(tmp_path, capsys):
 
 def test_readme_canonical_notebook_uses_fresh_cell_source():
     """The README route must not target the previously cached Colab path."""
-    notebook_path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v6.ipynb"
+    notebook_path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v7.ipynb"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v6.ipynb" in readme
+    assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v7.ipynb" in readme
     cells = [
         "".join(c["source"])
         for c in json.loads(notebook_path.read_text(encoding="utf-8"))["cells"]
@@ -250,7 +250,7 @@ def test_model_step_preserves_real_subprocess_failure_in_notebook_log(
     import pytest
 
     notebook = json.loads(
-        (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v6.ipynb").read_text(
+        (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v7.ipynb").read_text(
             encoding="utf-8"
         )
     )
@@ -324,7 +324,7 @@ def test_all_colab_launch_cells_hide_runpy_namespace_from_ipython():
     """Colab must not display runpy's giant __builtins__ mapping as cell output."""
     import ast
 
-    for suffix in ("", "_v2", "_v3", "_v4", "_v5", "_v6"):
+    for suffix in ("", "_v2", "_v3", "_v4", "_v5", "_v6", "_v7"):
         notebook_path = (
             ROOT / "notebooks" / f"VTuber_Commercial_Pipeline_Colab{suffix}.ipynb"
         )
