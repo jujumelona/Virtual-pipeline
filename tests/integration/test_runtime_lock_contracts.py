@@ -70,6 +70,7 @@ def test_requirements_and_pyproject_direct_dependencies_match():
 def test_all_source_and_model_pins_agree():
     from vtuber_pipeline.avatar.face_detector import ANIME_FACE_MODEL_PINS
     from vtuber_pipeline.avatar.reconstruction import (
+        TRIPOSR_MODEL_CONFIG,
         TRIPOSR_MODEL_ID,
         TRIPOSR_MODEL_REVISION,
         TRIPOSR_MODEL_WEIGHT_SHA256,
@@ -112,6 +113,12 @@ def test_all_source_and_model_pins_agree():
 
     assert tools["dino_vitb16"]["model_id"] == DINO_MODEL_ID
     assert tools["dino_vitb16"]["source_commit"] == DINO_MODEL_REVISION
+    assert (
+        TRIPOSR_MODEL_CONFIG["image_tokenizer"][
+            "pretrained_model_name_or_path"
+        ]
+        == DINO_MODEL_ID
+    )
 
     from vtuber_pipeline.avatar.reconstruction import REMBG_U2NET_MD5
     assert tools["rembg"]["model_name"] == "u2net"
@@ -302,6 +309,41 @@ def test_lock_entries_are_fail_closed_and_complete():
     makehuman = tools["makehuman_cc0"]
     assert re.fullmatch(r"[0-9a-f]{40}", makehuman["source_commit"])
     assert re.fullmatch(r"[0-9a-f]{40}", makehuman["git_blob_sha1"])
+
+
+def test_commercial_lock_rejects_blocked_license_families():
+    lock = json.loads(_read("third_party.lock.json"))
+    blocked_patterns = (
+        re.compile(r"\\bAGPL\\b", re.I),
+        re.compile(r"GNU Affero General Public License", re.I),
+        re.compile(r"\\bGPL(?:-|\\b)", re.I),
+        re.compile(r"GNU General Public License", re.I),
+        re.compile(r"non[- ]commercial", re.I),
+        re.compile(r"CC[- ]BY[- ]NC", re.I),
+    )
+
+    blocked = {}
+    for name, item in lock["tools"].items():
+        texts = [
+            str(item.get("license") or ""),
+            str(item.get("model_license") or ""),
+        ]
+        models = item.get("models")
+        if isinstance(models, dict):
+            texts.extend(
+                str(model.get("license") or "")
+                for model in models.values()
+                if isinstance(model, dict)
+            )
+        hits = [
+            text
+            for text in texts
+            if any(pattern.search(text) for pattern in blocked_patterns)
+        ]
+        if hits:
+            blocked[name] = hits
+
+    assert blocked == {}
 
 
 def test_ci_actions_are_immutable_sha_pinned_and_full_suite_is_gated():
