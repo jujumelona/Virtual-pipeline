@@ -17,8 +17,11 @@ def _safe(root, rel):
 def validate_official_export(folder: str) -> dict:
     root=Path(folder).resolve()
     models=list(root.glob("*.model3.json"))
+    if not models:
+        models=list(root.rglob("*.model3.json"))
     if len(models)!=1:
-        raise ValueError("need exactly one top-level model3.json")
+        raise ValueError("need exactly one model3.json")
+    root=models[0].parent.resolve()
     refs=json.loads(models[0].read_text(encoding="utf-8")).get("FileReferences")
     if not isinstance(refs, dict):
         raise ValueError("Cubism file references missing")
@@ -66,8 +69,11 @@ def create_cubism_package(parts_json: str, psd_path: str, meshes_json: str,
     guide=output/"CUBISM_EDITOR_REQUIRED.txt"
     guide.write_text("Import avatar.psd to Cubism Editor. Apply cubism_spec.json meshes/keyforms/physics manually, save .cmo3 and export .moc3 plus .model3.json and textures. Reimport the exported folder. This archive is NOT a MOC3 model.\n",encoding="utf-8")
     archive=output/"cubism_handoff.zip"
+    ora=output/"avatar.ora"
+    if not ora.is_file() or ora.stat().st_size==0:
+        raise FileNotFoundError("avatar.ora is required for the Cubism handoff")
     with zipfile.ZipFile(archive,"w",compression=zipfile.ZIP_DEFLATED) as out:
-        for source in [*sources,spec_path,guide]:
+        for source in [*sources,ora,spec_path,guide]:
             out.write(source,source.name)
         for i,part in enumerate(parts["parts"]):
             p=Path(part["rgba_png"])
@@ -77,7 +83,7 @@ def create_cubism_package(parts_json: str, psd_path: str, meshes_json: str,
 
 def collect_official_export(export_folder: str, output_dir: str) -> BuildResult:
     checked=validate_official_export(export_folder)
-    src=Path(export_folder).resolve()
+    src=Path(checked["model3_json"]).resolve().parent
     dest=Path(output_dir).resolve()/"official_export"
     if src==dest or dest.is_relative_to(src):
         raise ValueError("cannot import an export inside its own directory")
