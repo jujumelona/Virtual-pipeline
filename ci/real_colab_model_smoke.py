@@ -241,6 +241,64 @@ def main() -> None:
             del triposr
             gc.collect()
 
+            # The prior smoke called TSR directly, bypassing CLI bootstrap,
+            # mesh extraction and export. Exercise the exact production wrapper
+            # with a real image from the immutable upstream checkout.
+            import tempfile
+
+            def run_actual_cli_mesh():
+                sample = repo / "examples" / "police_woman.png"
+                assert sample.is_file(), sample
+                with tempfile.TemporaryDirectory(prefix="vtuber-real-cli-") as folder:
+                    out = pathlib.Path(folder)
+                    (out / "0").mkdir()
+                    command = [
+                        sys.executable, "-u", str(
+                            pathlib.Path(__file__).resolve().parents[1]
+                            / "vtuber_pipeline/avatar/triposr_runner.py"
+                        ),
+                        str(repo / "run.py"), str(sample),
+                        "--output-dir", str(out),
+                        "--pretrained-model-name-or-path", str(model_dir),
+                        "--no-remove-bg",
+                        "--mc-resolution", "32",
+                        "--chunk-size", "2048",
+                        "--device", args.device,
+                    ]
+                    env = os.environ.copy()
+                    if args.device == "cuda:0":
+                        env["VTUBER_REQUIRE_CUDA"] = "1"
+                    else:
+                        env.pop("VTUBER_REQUIRE_CUDA", None)
+                    proc = subprocess.run(
+                        command, cwd=str(repo), env=env,
+                        capture_output=True, text=True, timeout=360,
+                    )
+                    if proc.returncode != 0:
+                        raise RuntimeError(
+                            f"Actual production CLI failed (exit={proc.returncode}):\\n"
+                            f"{proc.stdout}\\n{proc.stderr}"
+                        )
+                    mesh = out / "0" / "mesh.obj"
+                    assert mesh.is_file() and mesh.stat().st_size > 0, (
+                        f"Missing produced OBJ mesh. stdout={proc.stdout} "
+                        f"stderr={proc.stderr}"
+                    )
+                    loaded_mesh = trimesh.load(mesh, process=False)
+                    assert len(loaded_mesh.vertices) > 0
+                    assert len(loaded_mesh.faces) > 0
+                    print(
+                        f"[REAL-MODEL] Produced OBJ bytes={mesh.stat().st_size} "
+                        f"vertices={len(loaded_mesh.vertices)} "
+                        f"faces={len(loaded_mesh.faces)}",
+                        flush=True,
+                    )
+
+            report(
+                "real production TripoSR subprocess full mesh extraction/export",
+                run_actual_cli_mesh,
+            )
+
     if args.device == "cuda:0":
         assert torch.cuda.memory_allocated(0) > 0, "GPU smoke allocated no CUDA memory"
         print(
