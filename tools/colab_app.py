@@ -8,6 +8,10 @@ still execute the current UI and pipeline code.
 from __future__ import annotations
 
 import hashlib
+import queue
+import shlex
+import threading
+from datetime import datetime, timezone
 import inspect
 import os
 import pathlib
@@ -28,7 +32,7 @@ TRIPOSR_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
 TRIPOSR_MODEL_REVISION = "c1cf7716aed5aa6c1c5e174657791ef0e1327bde"
 TRIPOSR_MODEL_WEIGHT_SHA256 = "429e2c6b22a0923967459de24d67f05962b235f79cde6b032aa7ed2ffcd970ee"
 GRADIO_VERSION = "6.3.0"
-RUNTIME_CONTRACT = "colab-runtime-v8"
+RUNTIME_CONTRACT = "colab-runtime-v9"
 WORK_ROOT = pathlib.Path("/content/vtuber_builder")
 OUTPUT_ROOT = WORK_ROOT / "output"
 
@@ -59,19 +63,52 @@ def _run(
     timeout: int,
     cwd: Optional[pathlib.Path] = None,
 ) -> subprocess.CompletedProcess:
-    proc = subprocess.run(
+    # Stream stdout/stderr as they arrive: Colab users must see pip downloads,
+    # model verification and failures, not a silent 20-minute capture_output.
+    log_path = WORK_ROOT / "logs" / "runtime_setup.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    command = shlex.join(cmd)
+    print(f"[setup] $ {command}", flush=True)
+    output: List[str] = []
+    process = subprocess.Popen(
         cmd,
         cwd=str(cwd) if cwd else None,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
-        timeout=timeout,
+        bufsize=1,
     )
-    if proc.returncode != 0:
-        tail = (proc.stderr or proc.stdout or "")[-6000:]
+
+    def forward() -> None:
+        assert process.stdout is not None
+        with log_path.open("a", encoding="utf-8") as log:
+            log.write(f"\n[setup] $ {command}\n")
+            for line in process.stdout:
+                output.append(line)
+                log.write(line)
+                log.flush()
+                print(line, end="", flush=True)
+
+    reader = threading.Thread(target=forward, daemon=True)
+    reader.start()
+    try:
+        code = process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        process.kill()
+        process.wait(timeout=10)
+        reader.join(timeout=10)
         raise RuntimeError(
-            f"Command failed ({proc.returncode}): {' '.join(cmd)}\n{tail}"
+            f"Command timeout ({timeout}s): {command}\n"
+            f"Full log: {log_path}"
+        ) from exc
+    reader.join(timeout=10)
+    combined = "".join(output)
+    if code:
+        raise RuntimeError(
+            f"Command failed ({code}): {command}\n"
+            f"{combined[-6000:]}\nFull log: {log_path}"
         )
-    return proc
+    return subprocess.CompletedProcess(cmd, code, stdout=combined, stderr="")
 
 
 def _sync_repo() -> str:
@@ -211,6 +248,7 @@ def _install_runtime(head: str) -> None:
         f"{runtime_fingerprint[:16]}.ready"
     )
     if marker.is_file():
+        print(f"[setup] 기존 패키지/모델 캐시 재사용: {marker.name}", flush=True)
         os.environ["TRIPOSR_DIR"] = str(TRIPOSR_DIR)
         if str(REPO_DIR) not in sys.path:
             sys.path.insert(0, str(REPO_DIR))
@@ -226,6 +264,7 @@ def _install_runtime(head: str) -> None:
 
     WORK_ROOT.mkdir(parents=True, exist_ok=True)
 
+    print("[setup 1/8] pip/setuptools/wheel 준비 (GPU 사용 전)", flush=True)
     _run(
         [
             sys.executable,
@@ -240,6 +279,7 @@ def _install_runtime(head: str) -> None:
         timeout=600,
     )
 
+    print("[setup 2/8] PyTorch/CUDA 환경 점검 (GPU 추론 아님)", flush=True)
     # Colab already provides CUDA-enabled torch/torchvision. Never let the
     # resolver replace them with a different build.
     _run(
@@ -257,6 +297,7 @@ def _install_runtime(head: str) -> None:
         timeout=60,
     )
 
+    print("[setup 3/8] 사전 빌드된 이미지/메시 라이브러리 설치", flush=True)
     # Native packages: wheel-only. This deliberately prevents silent source
     # builds such as Pillow==10.1.0 on newer Colab Python runtimes.
     _run(
@@ -279,6 +320,7 @@ def _install_runtime(head: str) -> None:
 
     # TripoSR + local pipeline runtime. These versions retain TripoSR's used
     # APIs while supporting the current 3.12/3.13 Colab runtime.
+    print("[setup 4/8] TripoSR 의존성 설치 (GPU 추론 아님)", flush=True)
     runtime_packages = [
         "omegaconf==2.3.0",
         "einops==0.7.0",
@@ -305,6 +347,7 @@ def _install_runtime(head: str) -> None:
         timeout=1800,
     )
 
+    print("[setup 5/8] 얼굴 검출 라이브러리 설치", flush=True)
     # anime-face-detector depends on the existing torch/torchvision pair.
     # Install its package without dependency resolution so pip cannot replace
     # Colab's CUDA-enabled PyTorch.
@@ -323,6 +366,7 @@ def _install_runtime(head: str) -> None:
     # Pinned TripoSR only needs marching_cubes, supplied by our scikit-image
     # bridge in the isolated TripoSR subprocess. No native CUDA extension
     # is built at Colab startup.
+    print("[setup 6/8] VTuber Pipeline 설치", flush=True)
     # Install the freshly synchronized repository without re-running the
     # dependency resolver and undoing the compatibility set above.
     _run(
@@ -338,6 +382,7 @@ def _install_runtime(head: str) -> None:
         timeout=600,
     )
 
+    print("[setup 7/8] TripoSR/얼굴 모델 가중치 다운로드 및 해시 검증", flush=True)
     # Resolve the exact Hugging Face snapshot and verify model.ckpt before the
     # UI can start. reconstruct_avatar() reuses the same cached snapshot.
     _run(
@@ -356,6 +401,7 @@ def _install_runtime(head: str) -> None:
         timeout=2400,
     )
 
+    print("[setup 8/8] 메시 추출 테스트 · 의존성 라이선스 감사", flush=True)
     # End-to-end import smoke test for every external runtime edge used before
     # the first model inference.
     _run(
