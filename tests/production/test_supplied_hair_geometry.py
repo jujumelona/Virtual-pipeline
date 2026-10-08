@@ -46,3 +46,46 @@ def test_distant_unregistered_hair_fails_closed(tmp_path):
     hair.export(hair_path)
     with pytest.raises(ValueError, match="too far"):
         _combine_supplied_hair_geometry(body, uv, hair_path)
+
+
+def test_each_independent_ribbon_has_its_own_springbone_chain(tmp_path):
+    from vtuber_pipeline.avatar.rigging import _hair_component_vertex_groups
+    from vtuber_pipeline.avatar.springbone import classify_springbone_chains
+
+    body, uv, hair_path, _, _ = _inputs(tmp_path)
+    strand_a = trimesh.load(hair_path, force="mesh")
+    strand_b = strand_a.copy()
+    strand_b.apply_translation([.25, 0, 0])
+    trimesh.util.concatenate((strand_a, strand_b)).export(hair_path)
+
+    merged, _rig_uv, start = _combine_supplied_hair_geometry(body, uv, hair_path)
+    groups = _hair_component_vertex_groups(merged, start)
+    assert len(groups) == 2
+    skeleton = create_humanoid_skeleton(
+        merged.bounds,
+        strand_vertex_groups=[np.asarray(merged.vertices)[g] for g in groups],
+    )
+    joints, weights = compute_skin_weights(
+        np.asarray(merged.vertices), skeleton,
+        hair_vertex_start=start, strand_vertex_groups=groups,
+    )
+    for index, group in enumerate(groups):
+        own = np.array([
+            i for i, name in enumerate(skeleton["names"])
+            if name.startswith(f"hairStrand{index:02d}")
+        ])
+        other = np.array([
+            i for i, name in enumerate(skeleton["names"])
+            if name.startswith(f"hairStrand{1-index:02d}")
+        ])
+        assert len(own) == 3
+        assert np.any(np.isin(joints[group], own) & (weights[group] > 0))
+        assert not np.any(np.isin(joints[group], other) & (weights[group] > 0))
+
+    springs = classify_springbone_chains("no_mesh_read_needed", skeleton)
+    strand_springs = [s for s in springs if s["name"].startswith("hairStrand")]
+    assert [s["name"] for s in strand_springs] == [
+        "hairStrand00", "hairStrand01",
+    ]
+    assert all(len(s["joints"]) == 3 for s in strand_springs)
+    assert all(s["joints"][0]["node"].endswith("Root") for s in strand_springs)
