@@ -30,8 +30,22 @@ def validate_official_export(folder: str) -> dict:
     if not isinstance(moc,str) or not moc.endswith(".moc3") or not isinstance(tex,list) or not tex:
         raise ValueError("Cubism MOC3 or textures missing")
     files=[_safe(root,moc)]+[_safe(root,p) for p in tex]
+    # An arbitrary file renamed .moc3 is not a Cubism runtime model.
+    # This is a necessary signature check, not proof of full MOC3 validity.
+    with files[0].open("rb") as handle:
+        if handle.read(4)!=b"MOC3":
+            raise ValueError("Cubism MOC3 signature is missing")
     if any(p.suffix.lower()!=".png" for p in files[1:]):
         raise ValueError("Cubism textures must be PNG")
+    from PIL import Image
+    for texture_path in files[1:]:
+        try:
+            with Image.open(texture_path) as image:
+                if image.format!="PNG":
+                    raise ValueError("texture is not a PNG image")
+                image.verify()
+        except Exception as exc:
+            raise ValueError(f"invalid Cubism texture: {texture_path.name}: {exc}") from exc
     for key in ("Physics","Pose","UserData","DisplayInfo"):
         if refs.get(key):
             files.append(_safe(root,refs[key]))
