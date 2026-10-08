@@ -190,14 +190,23 @@ def main() -> None:
                 "[REAL-MODEL] TripoSR checkpoint strict loading PASS",
                 flush=True,
             )
-            if args.device == "cuda:0":
-                rgb = Image.new("RGB", (128, 128), (160, 160, 160))
-                with torch.inference_mode():
-                    codes = report(
-                        "real TripoSR CUDA neural forward",
-                        lambda: triposr([rgb], device=args.device),
-                    )
-                assert codes.numel() > 0 and torch.isfinite(codes).all()
+            # Execute the actual TripoSR DINO -> transformer -> triplane
+            # compute graph even on a CPU-only GitHub runner. Loading a
+            # checkpoint alone misses shape/device/attention failures.
+            if args.device == "cpu":
+                torch.set_num_threads(min(4, os.cpu_count() or 1))
+            rgb = Image.new("RGB", (128, 128), (160, 160, 160))
+            with torch.inference_mode():
+                codes = report(
+                    f"real TripoSR {args.device} neural forward",
+                    lambda: triposr([rgb], device=args.device),
+                )
+            assert codes.numel() > 0 and torch.isfinite(codes).all()
+            print(
+                f"[REAL-MODEL] TripoSR scene codes shape={tuple(codes.shape)}",
+                flush=True,
+            )
+            del codes
             del triposr
             gc.collect()
 
