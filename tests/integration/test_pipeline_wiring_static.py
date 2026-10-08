@@ -56,17 +56,26 @@ def test_avatar_stage_dag_is_complete_and_ordered():
             stages.append((item.lineno, item.args[0].value))
 
     ordered = [name for _, name in sorted(stages)]
+    # Optional full-body branches are part of the declared DAG even if the
+    # default legacy/half-body runtime skips them. Keep each real stage in
+    # dependency order so no produced geometry is consumed prematurely.
     assert ordered == [
         "reference_quality",
+        "person_alpha",
         "input_gate",
+        "relative_depth",
         "reference_reconstruction",
+        "instantmesh",
+        "multiview_alignment",
         "template_fitting",
+        "surface_refine",
         "texture_transfer",
         "rig",
         "expressions",
         "gaze",
         "springbone",
         "vrm_export",
+        "blender_vrm_export",
         "validator",
     ]
 
