@@ -638,13 +638,10 @@ def ensure_runtime(
         os.environ["TRIPOSR_DIR"] = str(TRIPOSR_DIR)
         return head, logs
 
+    # The user has not selected a mode yet. Avoid cloning TripoSR on
+    # Inochi2D / Live2D-only sessions; checkout belongs in 3D setup.
     if progress:
-        progress(0.12, desc="TripoSR 준비")
-    _setup_stage("TripoSR checkout", _sync_triposr)
-    logs.append(f"TripoSR: {TRIPOSR_COMMIT[:12]}")
-
-    if progress:
-        progress(0.20, desc="필요 패키지 준비")
+        progress(0.20, desc="공통 패키지 준비")
     _setup_stage("Python dependency installation", lambda: _install_runtime(head))
     logs.append("Python 환경 준비 완료")
 
@@ -1261,6 +1258,11 @@ def choose_workflow(mode: str, usage: str):
     if mode in {"inochi2d", "live2d"}:
         from tools.install_2d_workers import activate_2d_environment
         activate_2d_environment()
+    else:
+        # 3D workers actually require this exact source revision; neither
+        # the 2D models nor shared Colab startup require the checkout.
+        _setup_stage("3D TripoSR checkout", _sync_triposr)
+        os.environ["TRIPOSR_DIR"] = str(TRIPOSR_DIR)
     # Mode selection is the first checkpoint download boundary. Do not fetch
     # TripoSR/InstantMesh for 2D; do not fetch FLUX for 3D.
     prepare_models(mode)
