@@ -79,7 +79,7 @@ def classify_springbone_chains(
             import re
             strands = {}
             for name in bone_names:
-                match = re.fullmatch(r"hairStrand(\\d+)(Root|Mid|Tip)", name)
+                match = re.fullmatch(r"hairStrand([0-9]+)(Root|Mid|Tip)", name)
                 if match:
                     strands.setdefault(int(match.group(1)), {})[match.group(2)] = name
             if strands:
