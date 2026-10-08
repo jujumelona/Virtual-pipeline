@@ -927,10 +927,10 @@ def build_avatar_ui(
                 delivery_event = publish_avatar_download(
                     vrm_path, OUTPUT_ROOT, auto_download_dir
                 )
-                delivery = " · avatar.vrm 자동 다운로드 요청 중"
+                delivery = " · avatar.vrm 직접 다운로드 링크 생성 중 (브라우저 차단 시 다운로드 버튼 사용)"
                 logs.append(f"Colab 자동 다운로드 전달 요청: {delivery_event.name}")
             except Exception as exc:
-                delivery = " · ⚠️ 자동 다운로드 요청 실패; 아래 VRM 파일에서 직접 다운로드"
+                delivery = " · ⚠️ 다운로드 링크 생성 실패; 아래 직접 다운로드 버튼 사용"
                 logs.append(
                     f"자동 다운로드 전달 실패: {type(exc).__name__}: {exc}"
                 )
