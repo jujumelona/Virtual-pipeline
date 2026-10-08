@@ -45,8 +45,8 @@ def test_real_safetensors_loads_for_both_hrnet_and_yolo_without_pickle(
     monkeypatch, tmp_path,
 ):
     weights = {
-        "hysts/anime-face-detector-yolov3": tmp_path / "yolo.safetensors",
-        "hysts/anime-face-detector-hrnetv2": tmp_path / "hrnet.safetensors",
+        "hysts/anime-face-detector-yolov3": tmp_path / "23bbc708146bcbc1c910f00fe152adbc70d7658d875a0121eaf4ee61d978b2c4",
+        "hysts/anime-face-detector-hrnetv2": tmp_path / "e71271376406a743c01528a0460637fcc06e72aeeea583f85007cc72dc8b7a4a",
     }
     save_file({"yolo.weight": torch.tensor([3.0])}, str(weights[
         "hysts/anime-face-detector-yolov3"
@@ -54,6 +54,9 @@ def test_real_safetensors_loads_for_both_hrnet_and_yolo_without_pickle(
     save_file({"hrnet.weight": torch.tensor([7.0])}, str(weights[
         "hysts/anime-face-detector-hrnetv2"
     ]))
+    # Hugging Face caches store safetensors as extensionless SHA256 blobs.
+    # That bypassed the upstream '.safetensors' suffix check as well.
+    assert all(not path.suffix for path in weights.values())
     paths = {name: str(path) for name, path in weights.items()}
     monkeypatch.setattr(
         face_detector, "resolve_anime_face_model_paths", lambda: paths,
