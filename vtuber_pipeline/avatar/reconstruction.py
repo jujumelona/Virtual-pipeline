@@ -115,6 +115,36 @@ def verify_triposr_revision(run_script: str, profile: str) -> None:
             f"TripoSR revision mismatch: expected {TRIPOSR_PINNED_COMMIT}, got {actual}"
         )
 
+    try:
+        status = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_dir),
+                "status",
+                "--porcelain",
+                "--untracked-files=no",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(
+            "Commercial profile could not verify TripoSR working tree"
+        ) from exc
+    if status.returncode != 0:
+        raise RuntimeError(
+            "Commercial profile could not inspect TripoSR working tree: "
+            + status.stderr.strip()
+        )
+    dirty = status.stdout.strip()
+    if dirty:
+        raise RuntimeError(
+            "Commercial profile requires an unmodified pinned TripoSR checkout; "
+            f"tracked changes detected: {dirty}"
+        )
+
 
 def _sha256(path: pathlib.Path) -> str:
     digest = hashlib.sha256()
