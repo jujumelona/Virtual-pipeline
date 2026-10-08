@@ -645,6 +645,7 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
         elif kind == "progress":
             _, fraction, desc = event
             current_stage = desc or current_stage
+            progress(max(0.0, min(1.0, fraction)), desc=current_stage)
             logs = append(f"[단계] {current_stage}")
             yield show("⏳ 생성 실행 중 · " + current_stage, logs, avatar_state=preserve_avatar)
         elif kind == "done":
