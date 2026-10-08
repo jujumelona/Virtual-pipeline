@@ -20,7 +20,8 @@ def _triangle_coverage(binary, coords, cv2) -> float:
     if x0 >= x1 or y0 >= y1:
         return 0.0
     footprint = np.zeros((y1 - y0, x1 - x0), dtype=np.uint8)
-    cv2.fillConvexPoly(footprint, points - [x0, y0], color=1)
+    shifted = np.ascontiguousarray(points - np.array([x0, y0], dtype=np.int32), dtype=np.int32)
+    cv2.fillConvexPoly(footprint, shifted, color=1)
     total = int(footprint.sum())
     if not total:
         return 0.0
