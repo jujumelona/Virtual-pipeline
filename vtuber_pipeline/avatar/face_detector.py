@@ -2,6 +2,7 @@
 
 import hashlib
 import pathlib
+from unittest.mock import patch
 from typing import Dict, List, Any
 
 from vtuber_pipeline.core.stage_progress import report_stage
@@ -85,13 +86,23 @@ def resolve_anime_face_model_paths() -> Dict[str, str]:
 
 
 def _create_pinned_anime_face_detector():
-    """Create YOLOv3+HRNetV2 using only preverified pinned local weights."""
+    """Initialize both networks from SHA256-pinned safetensors, never pickle.
+
+    anime-face-detector==0.1.0 mistakenly invokes torch.load(weights_only=True)
+    even for model.safetensors. Those files are not torch pickle archives.
+    Replace only the two vendor loader references during construction; do not
+    use unsafe weights_only=False or patch torch.load globally.
+    """
     import anime_face_detector
     import anime_face_detector.detector as detector_module
+    import anime_face_detector._landmark as landmark_module
+    import anime_face_detector._face as face_module
+    from safetensors.torch import load_file
 
     resolved = resolve_anime_face_model_paths()
+    verified_paths = {pathlib.Path(value).resolve() for value in resolved.values()}
     report_stage("face_model", "log", "initializing pinned YOLOv3 + HRNetV2")
-    original_download = detector_module.hf_hub_download
+    report_stage("face_model", "log", "verified safetensors loader (no torch.load/pickle)")
 
     def pinned_download(repo_id, filename, *args, **kwargs):
         pin = ANIME_FACE_MODEL_PINS.get(repo_id)
@@ -111,12 +122,21 @@ def _create_pinned_anime_face_detector():
             )
         return resolved[repo_id]
 
-    detector_module.hf_hub_download = pinned_download
-    try:
-        return anime_face_detector.create_detector("yolov3")
-    finally:
-        detector_module.hf_hub_download = original_download
+    def load_verified_state_dict(checkpoint_path):
+        path = pathlib.Path(checkpoint_path).expanduser().resolve()
+        if path not in verified_paths:
+            raise RuntimeError(f"Unverified anime-face checkpoint path: {path}")
+        report_stage("face_model", "log", f"safetensors loading {path.name}")
+        return load_file(str(path), device="cpu")
 
+    # The pip 0.1.0 release imports load_state_dict_from_path directly into
+    # _face and _landmark. Patching _weights alone does not change those aliases.
+    with (
+        patch.object(detector_module, "hf_hub_download", pinned_download),
+        patch.object(landmark_module, "load_state_dict_from_path", load_verified_state_dict),
+        patch.object(face_module, "load_state_dict_from_path", load_verified_state_dict),
+    ):
+        return anime_face_detector.create_detector("yolov3")
 
 class AnimeFaceDetector:
     """anime-face-detector 래퍼. bbox와 28개 랜드마크를 반환합니다."""
