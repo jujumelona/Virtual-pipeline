@@ -1263,6 +1263,11 @@ def choose_workflow(mode: str, usage: str):
         # the 2D models nor shared Colab startup require the checkout.
         _setup_stage("3D TripoSR checkout", _sync_triposr)
         os.environ["TRIPOSR_DIR"] = str(TRIPOSR_DIR)
+        # Full-body 3D references use exactly the same official alpha
+        # segmentation worker as 2D, but not Florence/SAM/FLUX. Previously
+        # selecting 3D never provisioned the required ANIME_SEGMENTATION_REPO.
+        from tools.install_2d_workers import activate_alpha_environment
+        _setup_stage("3D alpha-only worker environment", activate_alpha_environment)
     # Mode selection is the first checkpoint download boundary. Do not fetch
     # TripoSR/InstantMesh for 2D; do not fetch FLUX for 3D.
     prepare_models(mode)
