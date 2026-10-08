@@ -75,8 +75,12 @@ def test_gradio_real_update_routes_without_refreshing_installed_packages():
             assert selection[-1] == "personalNonProfit"
             prepare.assert_any_call(mode)
         assert two_d_setup.call_count == 2
-        stage.assert_called_once()
-        assert stage.call_args.args[0] == "3D TripoSR checkout"
+        # 3D selects TripoSR source plus a minimal alpha worker, not the
+        # entire 2D SAM/FLUX dependency environment.
+        assert [call.args[0] for call in stage.call_args_list] == [
+            "3D TripoSR checkout",
+            "3D alpha-only worker environment",
+        ]
 
 
 def test_both_streaming_handlers_keep_progress_and_log_file_outputs():
