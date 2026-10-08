@@ -916,10 +916,29 @@ def build_avatar_ui(
         if not vrm_path.is_file():
             raise RuntimeError(f"VRM output missing: {vrm_path}")
 
+        auto_download_dir = os.environ.get("VTUBER_COLAB_AUTODOWNLOAD_DIR")
+        delivery = ""
+        if auto_download_dir:
+            from tools.colab_download_contract import publish_avatar_download
+            # The separate notebook process owns google.colab.files.download;
+            # Gradio can only publish a verified, atomic delivery request.
+            # Never say "download completed" from the server process.
+            try:
+                delivery_event = publish_avatar_download(
+                    vrm_path, OUTPUT_ROOT, auto_download_dir
+                )
+                delivery = " · avatar.vrm 자동 다운로드 요청 중"
+                logs.append(f"Colab 자동 다운로드 전달 요청: {delivery_event.name}")
+            except Exception as exc:
+                delivery = " · ⚠️ 자동 다운로드 요청 실패; 아래 VRM 파일에서 직접 다운로드"
+                logs.append(
+                    f"자동 다운로드 전달 실패: {type(exc).__name__}: {exc}"
+                )
+
         progress(1.0, desc="완료")
         logs.append(f"완료: {vrm_path.name}")
         return (
-            f"✅ 캐릭터 VRM 생성 완료 · main {head[:12]}",
+            f"✅ 캐릭터 VRM 생성 완료 · main {head[:12]}{delivery}",
             "\n".join(logs),
             str(vrm_path),
             str(vrm_path),
