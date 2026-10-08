@@ -1,9 +1,9 @@
 anime-face-detector==0.1.0
-trimesh[easy]
-pyyaml
-pillow
+trimesh[easy]==4.12.2
+pyyaml>=6.0
+pillow==12.3.0
 numpy
-scipy
+scipy>=1.13
 click>=8.0
 pygltflib==1.16.5
 # TripoSR source is cloned separately and pinned to 107cefdc244c39106fa830359024f6a2f1c78871
