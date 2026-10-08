@@ -743,3 +743,25 @@ def test_triposr_runner_forces_nested_dino_revision(monkeypatch):
             "config.json",
             revision="floating-main",
         )
+
+
+def test_triposr_runner_forces_commercial_safe_rembg_model(monkeypatch):
+    import vtuber_pipeline.avatar.triposr_runner as runner
+
+    calls = []
+
+    def original(model_name="bria-rmbg", *args, **kwargs):
+        calls.append((model_name, args, kwargs))
+        return object()
+
+    fake_rembg = types.SimpleNamespace(new_session=original)
+    monkeypatch.setitem(sys.modules, "rembg", fake_rembg)
+
+    runner._install_rembg_model_guard()
+
+    fake_rembg.new_session()
+    assert calls == [(runner.REMBG_MODEL_NAME, (), {})]
+    assert runner.REMBG_MODEL_NAME == "u2net"
+
+    with pytest.raises(RuntimeError, match="Unexpected rembg model"):
+        fake_rembg.new_session("bria-rmbg")
