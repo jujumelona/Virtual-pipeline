@@ -1,12 +1,38 @@
-"""Run one heavy model in its own subprocess and verify on-disk outputs."""
-from __future__ import annotations
+"""Serial model processes with bounded lifetime and content-verified resume."""
+from collections import deque
 import hashlib
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import threading
-import time
+def write_json(path, value):
+    path = Path(path)
+    temporary = path.with_suffix(path.suffix + '.tmp')
+    temporary.write_text(json.dumps(value, indent=2, allow_nan=False))
+    temporary.replace(path)
+
+_GPU_LOCK = threading.Lock()
+
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _hash_inputs(value):
+    if isinstance(value, dict):
+        return {k: _hash_inputs(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_hash_inputs(v) for v in value]
+    if isinstance(value, str) and Path(value).is_file():
+        return {'path': value, 'sha256': sha256(value)}
+    return value
+
 
 def _paths(value):
     if isinstance(value, dict):
@@ -19,53 +45,103 @@ def _paths(value):
         for item in value:
             yield from _paths(item)
 
+
+def _outputs(result, cwd):
+    if result.get('status') != 'complete':
+        raise RuntimeError(f"worker failed: {result.get('error', 'missing complete status')}")
+    paths = list(_paths(result))
+    if not paths:
+        raise RuntimeError('stage did not declare any output artifacts')
+    hashes = {}
+    pending = list(paths)
+    seen = set()
+    while pending:
+        name = pending.pop()
+        path = (Path(cwd) / name).resolve()
+        if path in seen:
+            continue
+        seen.add(path)
+        if path.is_dir():
+            children = list(path.rglob('*'))
+            files = [p for p in children if p.is_file()]
+            if not files:
+                raise RuntimeError(f'empty artifact directory: {path}')
+            pending.extend(str(p) for p in files)
+            continue
+        if not path.is_file() or not path.stat().st_size:
+            raise RuntimeError(f'missing or empty artifact: {path}')
+        hashes[str(path)] = sha256(path)
+        if path.suffix == '.json':
+            data = json.loads(path.read_text())
+            pending.extend(_paths(data))
+    return hashes
+
+
 def run_stage(*, worker: str, request_json: str, result_json: str,
               executable: str, cwd: str, timeout_sec: int) -> dict:
     if timeout_sec <= 0:
-        raise ValueError("timeout_sec must be positive")
-    request = Path(request_json).resolve()
-    result = Path(result_json).resolve()
-    if not request.is_file():
-        raise FileNotFoundError(request)
-    result.parent.mkdir(parents=True, exist_ok=True)
-    result.unlink(missing_ok=True)  # reject stale output
-    command = [executable, "-u", worker, str(request), str(result)]
-    proc = subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True, bufsize=1, start_new_session=(os.name != "nt"))
-    log_path = result.with_suffix(".log")
-    def collect():
-        with log_path.open("w", encoding="utf-8") as log:
-            if proc.stdout:
-                for line in proc.stdout:
-                    log.write(line)
-                    log.flush()
-                    print("[model]", line.rstrip(), flush=True)
-    thread = threading.Thread(target=collect, daemon=True)
-    thread.start()
-    try:
-        exit_code = proc.wait(timeout=timeout_sec)
-    except subprocess.TimeoutExpired as exc:
-        if os.name != "nt":
-            import signal
-            os.killpg(proc.pid, signal.SIGKILL)
-        else:
-            proc.kill()
-        proc.wait(timeout=10)
-        raise RuntimeError("model stage timed out: " + worker) from exc
-    finally:
-        thread.join(timeout=10)
-    if exit_code:
-        raise RuntimeError("model stage failed: " + worker + " exit=" + str(exit_code)
-                           + "; see " + str(log_path))
-    if not result.is_file():
-        raise RuntimeError("worker did not write result JSON: " + worker)
-    data = json.loads(result.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or data.get("status") != "complete":
-        raise RuntimeError("model worker failed: " + str(data.get("error") if isinstance(data, dict) else data))
-    for path in _paths(data):
-        if not Path(path).exists():
-            raise RuntimeError("model worker returned missing artifact: " + path)
-    record = {"worker": worker, "request_sha256": hashlib.sha256(request.read_bytes()).hexdigest(),
-              "result_json": str(result), "checked_at": int(time.time()), "artifacts": list(_paths(data))}
-    result.with_suffix(".stage.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
-    return data
+        raise ValueError('timeout_sec must be positive')
+    worker = str(Path(worker).resolve())
+    request_json = str(Path(request_json).resolve())
+    result_path = Path(result_json).resolve()
+    provenance = result_path.with_suffix(result_path.suffix + '.provenance.json')
+    request = json.loads(Path(request_json).read_text())
+    identity = {'request': _hash_inputs(request), 'worker_sha256': sha256(worker),
+                'executable': str(Path(executable).resolve()), 'cwd': str(Path(cwd).resolve())}
+    fingerprint = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    with _GPU_LOCK:
+        if provenance.is_file() and result_path.is_file():
+            try:
+                old = json.loads(provenance.read_text())
+                result = json.loads(result_path.read_text())
+                if old['fingerprint'] == fingerprint and _outputs(result, cwd) == old['outputs']:
+                    return result
+            except (ValueError, KeyError, OSError, RuntimeError):
+                pass
+        result_path.unlink(missing_ok=True)
+        provenance.unlink(missing_ok=True)
+        log_path = result_path.with_suffix('.log')
+        tail = deque(maxlen=30)
+        with log_path.open('w') as log:
+            process = subprocess.Popen([executable, '-u', worker, request_json, str(result_path)], cwd=cwd,
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                       text=True, errors='replace', start_new_session=True)
+            def stream():
+                for line in process.stdout:
+                    log.write(line); log.flush(); tail.append(line)
+                    print(f'[{Path(worker).stem}] {line}', end='', flush=True)
+            reader = threading.Thread(target=stream, daemon=True)
+            reader.start()
+            try:
+                status = process.wait(timeout=timeout_sec)
+            except BaseException as exc:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait(timeout=10)
+                reader.join(timeout=10)
+                result_path.unlink(missing_ok=True)
+                if isinstance(exc, subprocess.TimeoutExpired):
+                    raise RuntimeError(f'{worker}: timed out after {timeout_sec}s; log={log_path}') from exc
+                raise
+            reader.join(timeout=10)
+            # No descendant may hold GPU allocations after this stage finishes.
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            reader.join(timeout=2)
+        if status:
+            result_path.unlink(missing_ok=True)
+            raise RuntimeError(f'{worker}: exit={status}; log={log_path}\n' + ''.join(tail))
+        if not result_path.is_file():
+            raise RuntimeError(f'{worker}: missing result JSON')
+        result = json.loads(result_path.read_text())
+        if result.get('error'):
+            raise RuntimeError(f'{worker}: {result["error"]}')
+        outputs = _outputs(result, cwd)
+        write_json(result_path, result)
+        write_json(provenance, {'fingerprint': fingerprint, 'identity': identity, 'outputs': outputs})
+        return result
