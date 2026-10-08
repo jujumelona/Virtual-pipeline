@@ -85,7 +85,7 @@ def resolve_anime_face_model_paths() -> Dict[str, str]:
     return resolved
 
 
-def _create_pinned_anime_face_detector():
+def _create_pinned_anime_face_detector(*, device: str | None = None):
     """Initialize both networks from SHA256-pinned safetensors, never pickle.
 
     anime-face-detector==0.1.0 mistakenly invokes torch.load(weights_only=True)
@@ -136,7 +136,11 @@ def _create_pinned_anime_face_detector():
         patch.object(landmark_module, "load_state_dict_from_path", load_verified_state_dict),
         patch.object(face_module, "load_state_dict_from_path", load_verified_state_dict),
     ):
-        return anime_face_detector.create_detector("yolov3")
+        if device is None:
+            return anime_face_detector.create_detector("yolov3")
+        if device not in ("cpu", "cuda:0"):
+            raise ValueError(f"Unsupported detector device: {device}")
+        return anime_face_detector.create_detector("yolov3", device=device)
 
 class AnimeFaceDetector:
     """anime-face-detector 래퍼. bbox와 28개 랜드마크를 반환합니다."""
