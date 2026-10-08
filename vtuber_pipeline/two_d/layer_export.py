@@ -22,12 +22,15 @@ def write_psd_and_ora(parts, output_dir: str) -> dict:
         im=Image.open(p.rgba_png).convert("RGBA")
         if im.size!=(parts.width,parts.height):
             raise ValueError("PSD part must use original full canvas")
-        psd.create_pixel_layer(im,name=p.semantic_id,top=0,left=0)
         ET.SubElement(node,"layer",{"name":p.semantic_id,"src":"data/layer_%03d.png"%i,
                       "opacity":"1.0","visibility":"visible","composite-op":"svg:src-over","x":"0","y":"0"})
         buf=BytesIO()
         im.save(buf,format="PNG")
         images.append(buf.getvalue())
+    # psd-tools appends layers bottom-to-top; ORA lists top-to-bottom.
+    for p in reversed(layers):
+        psd.create_pixel_layer(Image.open(p.rgba_png).convert("RGBA"),
+                               name=p.semantic_id, top=0, left=0)
     psd_path=out/"avatar.psd"
     psd.save(str(psd_path))
     # Validate real PSD format, not renamed bitmap.

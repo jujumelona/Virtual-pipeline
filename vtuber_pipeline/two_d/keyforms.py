@@ -47,7 +47,7 @@ def build_keyforms(meshes_json: str, parts_json: str,
                 dy=v[:,0]
             elif p.endswith(".open"):
                 dx=np.zeros(len(v))
-                dy=v[:,1]*0.65
+                dy=v[:,1] if p.startswith("eye.") else v[:,1]*0.65
             elif p.endswith(".form"):
                 dx=-v[:,0]*0.25
                 dy=v[:,1]*0.10
@@ -56,9 +56,11 @@ def build_keyforms(meshes_json: str, parts_json: str,
             elif p.endswith(".y"):dx=np.zeros(len(v));dy=np.full(len(v),0.20*span[1])
             elif p=="breath":dx=v[:,0]*0.018;dy=-np.full(len(v),0.012*span[1])
             else:continue
-            amount=math.radians(hi) if "angle" in p else hi-mid
-            plus=np.column_stack((dx,dy))*amount
-            minus=-plus
+            # Endpoints need independent offsets: eye.open has default == max.
+            high_amount=math.radians(hi-mid) if "angle" in p else hi-mid
+            low_amount=math.radians(low-mid) if "angle" in p else low-mid
+            plus=np.column_stack((dx,dy))*high_amount
+            minus=np.column_stack((dx,dy))*low_amount
             deltas[p]={"min":minus.tolist(),"default":np.zeros_like(plus).tolist(),"max":plus.tolist()}
         entries.append({"semantic_id":part,"deltas":deltas})
     out=Path(output_dir)/"keyforms.json";out.parent.mkdir(parents=True,exist_ok=True)
