@@ -15,6 +15,12 @@ def main() -> None:
     from scipy.sparse import csr_matrix
     import trimesh
     import gradio
+    # The production gate must be importable before Gradio starts accepting
+    # images. This imports the real vendor module and its transitive modules.
+    from anime_face_detector import create_detector
+    import anime_face_detector.detector as detector_module
+    assert callable(create_detector)
+    assert callable(detector_module.get_checkpoint_path)
 
     # Exercise both NumPy's testing C-extension and SciPy's compiled modules.
     npt.assert_allclose(np.array([1.0, 2.0]) + 1, [2.0, 3.0])
