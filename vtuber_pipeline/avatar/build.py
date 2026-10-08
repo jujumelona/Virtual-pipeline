@@ -660,6 +660,8 @@ class AvatarPipeline:
                 face_bbox=gate.get("bbox"),
                 face_image_path=face_image,
                 back_image_path=back_image,
+                left_image_path=left_image,
+                right_image_path=right_image,
                 full_body=full_body,
                 texture_size=texture_size,
             ),
