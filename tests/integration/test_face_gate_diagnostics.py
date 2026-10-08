@@ -106,3 +106,60 @@ def test_detector_failure_includes_traceback_and_failing_checks(tmp_path, monkey
         and "Traceback" in detail and "no valid 28-point detection" in detail
         for name, status, detail in events
     )
+
+
+
+def test_nested_detector_import_failure_is_not_labeled_package_missing(monkeypatch):
+    """Never hide missing transitive dependencies under a generic pip hint."""
+    import pytest
+    import vtuber_pipeline.avatar.face_detector as module
+
+    monkeypatch.setitem(
+        sys.modules, "anime_face_detector",
+        types.SimpleNamespace(create_detector=lambda name: None),
+    )
+
+    def broken_initialization():
+        raise ModuleNotFoundError(
+            "No module named 'runtime_missing_backend'",
+            name="runtime_missing_backend",
+        )
+
+    monkeypatch.setattr(module, "_create_pinned_anime_face_detector", broken_initialization)
+    events = []
+    with stage_reporter(lambda *args: events.append(args)):
+        with pytest.raises(ModuleNotFoundError, match="runtime_missing_backend"):
+            module.AnimeFaceDetector()
+
+    diagnostics = [
+        detail for stage, status, detail in events
+        if stage == "face_model" and status == "error"
+    ]
+    assert any("runtime_missing_backend" in detail for detail in diagnostics)
+    assert not any("패키지를 찾을 수 없습니다" in detail for detail in diagnostics)
+
+
+def test_only_genuinely_absent_face_detector_package_gets_missing_label(monkeypatch):
+    import pytest
+    import vtuber_pipeline.avatar.face_detector as module
+
+    monkeypatch.setitem(sys.modules, "anime_face_detector", None)
+    with pytest.raises(RuntimeError, match="anime-face-detector 패키지를 찾을 수 없습니다"):
+        module.AnimeFaceDetector()
+
+
+def test_model_preparation_must_instantiate_face_detector_before_cache_marker():
+    root = pathlib.Path(__file__).resolve().parents[2]
+    source = (root / "tools" / "colab_app.py").read_text(encoding="utf-8")
+    begin = source.index("def prepare_models()")
+    end = source.index("def _reload_pipeline_modules()", begin)
+    function = source[begin:end]
+    assert "face-detector-init-ok" in function
+    assert "detector = AnimeFaceDetector()" in function
+    assert function.index("face-detector-init-ok") < function.index(
+        'marker.write_text('
+    )
+
+    probe = (root / "tools" / "runtime_abi_probe.py").read_text(encoding="utf-8")
+    assert "from anime_face_detector import create_detector" in probe
+    assert "anime_face_detector.detector" in probe
