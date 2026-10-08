@@ -137,5 +137,10 @@ def test_real_cpu_avatar_post_reconstruction_chain(tmp_path):
         str(tmp_path / "validation"),
         product_contract=True,
     )
-    assert validation["status"] == "complete", validation
-    assert validation["passed"] is True, validation
+    failed_checks = {
+        name: check
+        for name, check in validation.get("checks", {}).items()
+        if not check.get("valid", False)
+    }
+    assert validation["status"] == "complete", failed_checks
+    assert validation["passed"] is True, failed_checks
