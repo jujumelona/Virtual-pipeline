@@ -126,6 +126,13 @@ def prefetch_mode(mode: str, *, cache_dir: str | None = None, timeout: int = 240
         raise ValueError("unsupported prefetch mode")
     import json
     for name in MODE_ASSETS[mode]:
+        # The InstantMesh model checkpoint is not a clearance to execute the
+        # bundled CC-BY-NC Zero123++/Nvidia source renderer. Delay this large
+        # download until a permitted end-to-end runtime is explicitly verified.
+        if mode == "3d" and name == "instantmesh_large":
+            print("[prefetch] InstantMesh checkpoint deferred: runtime licence "
+                  "gate must pass before full-body inference", flush=True)
+            continue
         if name in ("anime_face_yolov3", "anime_face_hrnetv2"):
             code = "from vtuber_pipeline.avatar.face_detector import resolve_anime_face_model_paths; resolve_anime_face_model_paths()"
         elif name == "triposr":
