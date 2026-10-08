@@ -240,34 +240,65 @@ def test_generation_requires_explicit_prepared_runtime_without_install(ui, tmp_p
 
 
 def test_start_routes_to_exact_mode_with_selected_scope(ui):
-    hidden, avatar, accessory, usage = ui.choose_workflow(
-        "avatar", "personalProfit",
+    hidden, two_d, avatar, accessory, usage = ui.choose_workflow(
+        "3d", "personalProfit",
     )
     assert hidden["visible"] is False
+    assert two_d["visible"] is False
     assert avatar["visible"] is True
     assert accessory["visible"] is False
     assert usage == "personalProfit"
 
-    hidden, avatar, accessory, usage = ui.choose_workflow(
-        "accessory", "corporation",
+    hidden, two_d, avatar, accessory, usage = ui.choose_workflow(
+        "2d", "corporation",
     )
     assert hidden["visible"] is False
+    assert two_d["visible"] is True
     assert avatar["visible"] is False
-    assert accessory["visible"] is True
+    assert accessory["visible"] is False
     assert usage == "corporation"
 
     assert [v["visible"] for v in ui.return_to_workflow_choice()] == [
-        True, False, False,
+        True, False, False, False,
     ]
+    assert ui.show_3d_accessory() == (
+        {"visible": False}, {"visible": True},
+    )
+    assert ui.show_3d_avatar() == (
+        {"visible": True}, {"visible": False},
+    )
 
 
 @pytest.mark.parametrize(
     "mode,usage",
-    [("garbage", "corporation"), ("avatar", "GPL"), ("accessory", "")],
+    [("garbage", "corporation"), ("3d", "GPL"), ("2d", "")],
 )
 def test_workflow_selection_rejects_invalid_mode_or_usage(ui, mode, usage):
     with pytest.raises(ValueError):
         ui.choose_workflow(mode, usage)
+
+
+def test_2d_ui_prepare_does_not_require_3d_gpu_runtime(ui, tmp_path, monkeypatch):
+    from PIL import Image
+    artwork = tmp_path / "artwork.png"
+    Image.new("RGBA", (512, 768), (20, 40, 60, 255)).save(artwork)
+    monkeypatch.setattr(
+        ui, "require_runtime_ready",
+        lambda *args: (_ for _ in ()).throw(AssertionError("3D runtime called")),
+    )
+    status, report, path = ui.build_2d_ui(str(artwork), None, "personalProfit")
+    assert "단일 그림" in status
+    assert "Cubism" in report
+    assert pathlib.Path(path).is_file()
+    assert pathlib.Path(path).suffix == ".zip"
+    import json
+    import zipfile
+    with zipfile.ZipFile(path) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["vtube_studio_ready"] is False
+        assert manifest["is_live2d_model"] is False
+        assert "artwork.ora" in archive.namelist()
+        assert all(not name.endswith(".moc3") for name in archive.namelist())
 
 
 
