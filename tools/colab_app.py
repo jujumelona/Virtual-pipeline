@@ -705,7 +705,7 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
     log_file.parent.mkdir(parents=True, exist_ok=True)
     transcript: List[str] = []
     stage_names = [
-        "input_gate", "reference_reconstruction", "template_fitting",
+        "reference_quality", "input_gate", "reference_reconstruction", "template_fitting",
         "texture_transfer", "rig", "expressions", "gaze", "springbone",
         "vrm_export", "validator",
     ]
@@ -820,11 +820,12 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
 
 def stream_avatar_ui(
     image_path, commercial_usage, latest_avatar,
+    face_image=None, back_image=None, full_body=True, texture_size=2048,
     progress: gr.Progress = gr.Progress(),
 ):
     previous = latest_avatar if latest_avatar and pathlib.Path(latest_avatar).is_file() else None
     yield from _stream_ui_task(
-        build_avatar_ui, (image_path, commercial_usage, latest_avatar),
+        build_avatar_ui, (image_path, commercial_usage, latest_avatar, face_image, back_image, full_body, texture_size),
         5, progress, preserve_avatar=previous,
     )
 
@@ -866,6 +867,10 @@ def build_avatar_ui(
     image_path: Optional[str],
     commercial_usage: str,
     latest_avatar: Optional[str],
+    face_image: Optional[str] = None,
+    back_image: Optional[str] = None,
+    full_body: bool = False,
+    texture_size: int = 2048,
     progress: gr.Progress = gr.Progress(),
 ):
     previous_avatar = (
@@ -895,6 +900,12 @@ def build_avatar_ui(
             config={
                 "profile": "commercial",
                 "commercial_usage": commercial_usage,
+                "references": {
+                    "full_body": bool(full_body),
+                    "face_image": str(face_image) if face_image else None,
+                    "back_image": str(back_image) if back_image else None,
+                    "texture_size": int(texture_size),
+                },
             },
         )
         logs.extend(_stage_log(result.get("stages", {})))
@@ -1166,7 +1177,7 @@ def build_app() -> gr.Blocks:
         with gr.Group(visible=True, elem_id="workflow-start") as workflow_start:
             mode = gr.Radio(
                 label="작업 선택",
-                choices=[("캐릭터 / 얼굴", "avatar"), ("악세사리", "accessory")],
+                choices=[("전신 캐릭터 → VRM", "avatar"), ("악세사리", "accessory")],
                 value="avatar",
             )
             usage = gr.Radio(
@@ -1181,17 +1192,71 @@ def build_app() -> gr.Blocks:
             enter_workflow = gr.Button("다음", variant="primary")
 
         with gr.Column(visible=False) as avatar_view:
-            gr.Markdown("## 캐릭터 VRM")
+            gr.Markdown("## 사용자 이미지 → 전신 VRM\n외부 AI에서 직접 만든 이미지를 업로드합니다. 이 프로그램은 이미지를 생성하지 않습니다.")
             avatar_back = gr.Button("← 모드 선택", size="sm", variant="secondary")
             with gr.Row():
                 with gr.Column(scale=2, min_width=360):
                     avatar_image = gr.Image(
-                        label="캐릭터 이미지",
+                        label="전신 정면 이미지 (필수)",
                         sources=["upload"],
                         type="filepath",
                         height=430,
                     )
-                    avatar_run = gr.Button("캐릭터 생성", variant="primary")
+                    avatar_face_image = gr.Image(
+                        label="얼굴 확대 이미지 (전신 고품질 모드 필수)",
+                        sources=["upload"],
+                        type="filepath",
+                        height=260,
+                    )
+                    avatar_back_image = gr.Image(
+                        label="전신 후면 이미지 (선택: 후면 텍스처에 사용)",
+                        sources=["upload"],
+                        type="filepath",
+                        height=320,
+                    )
+                    avatar_full_body = gr.Checkbox(
+                        label="전신 고품질 모드 (얼굴 확대 입력 필요)",
+                        value=True,
+                    )
+                    avatar_texture_size = gr.Dropdown(
+                        label="텍스처 아틀라스 해상도",
+                        choices=[("2048×2048 (권장)", 2048), ("1024×1024 (빠름)", 1024)],
+                        value=2048,
+                    )
+                    with gr.Accordion("외부 이미지 생성 AI에 넣을 제작 프롬프트", open=False):
+                        gr.Markdown("이 프롬프트를 외부 대형 이미지 AI에 복사해 이미지를 만든 다음 위에 업로드하세요. **AI 이미지 생성 기능은 이 프로그램에 포함되지 않습니다.**")
+                        gr.Textbox(
+                            label="전신 정면 원본",
+                            value=(
+                                "One original anime VTuber character, full body head-to-toe,"
+                                " symmetrical standing neutral A-pose, front orthographic view,"
+                                " full arms hands fingers legs shoes visible, no cropped limbs,"
+                                " separated clean silhouette, matching costume and hair,"
+                                " studio even lighting, plain background, original design,"
+                                " no objects, no text, no watermark, portrait 2:3 or 3:4"
+                            ), lines=5, show_copy_button=True,
+                        )
+                        gr.Textbox(
+                            label="같은 캐릭터 얼굴 확대 (필수 권장)",
+                            value=(
+                                "The exact same original VTuber character and outfit as reference,"
+                                " clean close-up face, straight-on front orthographic view,"
+                                " neutral mouth closed, both eyes open, detailed eyelashes eyebrows"
+                                " eye colors and hairline, same color palette and hair, soft studio light,"
+                                " uncluttered background, no watermark, no occlusion"
+                            ), lines=5, show_copy_button=True,
+                        )
+                        gr.Textbox(
+                            label="같은 캐릭터 전신 후면 (선택)",
+                            value=(
+                                "The exact same original character and outfit as front reference,"
+                                " full body from head to feet, strict back orthographic view,"
+                                " neutral A-pose, coherent hair length and clothing seams,"
+                                " shoes visible, same scale silhouette and lighting,"
+                                " no pose change, no props, no text, no watermark"
+                            ), lines=5, show_copy_button=True,
+                        )
+                    avatar_run = gr.Button("전신 VRM 변환", variant="primary")
                     avatar_result = gr.File(
                         label="완성 VRM (다운로드 가능한 원본 파일)",
                         interactive=False,
@@ -1213,7 +1278,7 @@ def build_app() -> gr.Blocks:
 
             avatar_generation_event = avatar_run.click(
                 fn=stream_avatar_ui,
-                inputs=[avatar_image, selected_usage, latest_avatar],
+                inputs=[avatar_image, selected_usage, latest_avatar, avatar_face_image, avatar_back_image, avatar_full_body, avatar_texture_size],
                 outputs=[
                     avatar_status, avatar_log, avatar_result,
                     latest_avatar, avatar_log_file,
