@@ -276,6 +276,7 @@ def transfer_texture(
                 left_xy=side_xy.get("left"),
                 right_pixels=side_pixels.get("right"),
                 right_xy=side_xy.get("right"),
+                fill_unobserved=full_body,
             )
             if visibility["painted_texels"] == 0:
                 raise RuntimeError("No visible source image pixels project onto the UV atlas")
