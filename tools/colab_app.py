@@ -1149,23 +1149,64 @@ CSS = """
 """
 
 
+def build_2d_ui(
+    image_path: Optional[str], layers_zip: Optional[str], commercial_usage: str,
+):
+    """2D artwork preparation only. Never claim to export a Cubism .moc3."""
+    if not image_path:
+        return "❌ 2D 원본 이미지를 업로드하세요.", "", None
+    try:
+        from vtuber_pipeline.two_d import prepare_live2d_artwork
+        output = OUTPUT_ROOT / f"live2d-prep-{uuid.uuid4().hex[:10]}"
+        result = prepare_live2d_artwork(
+            str(image_path), str(output),
+            layers_zip=str(layers_zip) if layers_zip else None,
+            commercial_usage=commercial_usage,
+        )
+        manifest = result["manifest"]
+        missing = manifest["suggested_parts_not_detected"]
+        details = (
+            f"업로드된 실제 레이어: {len(manifest['layer_names_top_to_bottom'])}개\n"
+            f"권장 파츠 이름 중 미확인: {', '.join(missing) if missing else '없음'}\n"
+            "Cubism 리깅, 물리 설정, .moc3 내보내기는 아직 수행되지 않았습니다."
+        )
+        if result["status"] == "needs_layering":
+            message = "⚠️ 단일 그림 패키지 생성 — 눈·입·머리 파츠 분리 필요 (방송용 Live2D 아님)"
+        else:
+            message = "✅ 파츠 레이어 준비 패키지 생성 — Cubism 리깅·내보내기 필요"
+        return message, details, result["package_path"]
+    except Exception as exc:
+        return f"❌ 2D 준비 실패: {exc}", traceback.format_exc(), None
+
+
 def choose_workflow(mode: str, usage: str):
-    """Choose one existing pipeline and carry the user-selected license scope."""
-    if mode not in {"avatar", "accessory"}:
+    """Two public production routes: 2D artwork and 3D VRM."""
+    if mode not in {"2d", "3d"}:
         raise ValueError(f"Unsupported workflow mode: {mode!r}")
     if usage not in {"corporation", "personalProfit", "personalNonProfit"}:
         raise ValueError(f"Unsupported use scope: {usage!r}")
     return (
         gr.update(visible=False),
-        gr.update(visible=(mode == "avatar")),
-        gr.update(visible=(mode == "accessory")),
+        gr.update(visible=(mode == "2d")),
+        gr.update(visible=(mode == "3d")),
+        gr.update(visible=False),
         usage,
     )
 
 
 def return_to_workflow_choice():
-    return (gr.update(visible=True), gr.update(visible=False),
-            gr.update(visible=False))
+    return (
+        gr.update(visible=True), gr.update(visible=False),
+        gr.update(visible=False), gr.update(visible=False),
+    )
+
+
+def show_3d_accessory():
+    return gr.update(visible=False), gr.update(visible=True)
+
+
+def show_3d_avatar():
+    return gr.update(visible=True), gr.update(visible=False)
 
 
 def build_app() -> gr.Blocks:
@@ -1177,8 +1218,8 @@ def build_app() -> gr.Blocks:
         with gr.Group(visible=True, elem_id="workflow-start") as workflow_start:
             mode = gr.Radio(
                 label="작업 선택",
-                choices=[("전신 캐릭터 → VRM", "avatar"), ("악세사리", "accessory")],
-                value="avatar",
+                choices=[("2D — Live2D 제작 준비", "2d"), ("3D — VRM 전신 제작", "3d")],
+                value="3d",
             )
             usage = gr.Radio(
                 label="사용 범위",
@@ -1191,9 +1232,69 @@ def build_app() -> gr.Blocks:
             )
             enter_workflow = gr.Button("다음", variant="primary")
 
+        with gr.Column(visible=False) as two_d_view:
+            gr.Markdown(
+                "## 2D — Live2D 그림 준비\n"
+                "외부 AI/일러스트 프로그램으로 제작한 이미지를 올리세요. "
+                "레이어 패키지를 생성하며, Cubism 리깅과 .moc3 출력은 별도로 필요합니다. "
+                "**VRM을 생성하거나 완성된 Live2D 모델을 출력하지 않습니다.**"
+            )
+            two_d_back = gr.Button("← 2D / 3D 선택", size="sm", variant="secondary")
+            two_d_image = gr.Image(
+                label="2D 캐릭터 원본 일러스트 (필수)",
+                sources=["upload"], type="filepath", height=390,
+            )
+            two_d_layers = gr.File(
+                label="분리된 투명 PNG 파츠 ZIP (선택; 모든 PNG는 원본과 동일한 캔버스)",
+                file_types=[".zip"], type="filepath",
+            )
+            with gr.Accordion("외부 대형 AI에 넣을 2D 제작 프롬프트", open=False):
+                gr.Textbox(
+                    label="2D 전면 캐릭터 일러스트",
+                    value=(
+                        "Original high-resolution anime VTuber portrait, "
+                        "front-facing camera, neutral expression, both eyes open, "
+                        "clear eyelids and iris, mouth closed, symmetrical face, "
+                        "clean separation of front/back hair, bangs, brows, "
+                        "neck, shoulders and clothing, consistent light, "
+                        "no text or watermark, plain background"
+                    ), lines=5, show_copy_button=True,
+                )
+                gr.Textbox(
+                    label="파츠 분리 보완 프롬프트",
+                    value=(
+                        "Create individual aligned transparent RGBA layers of "
+                        "the SAME original character: hair_back, body, face, "
+                        "eye_left_white, eye_left_iris, eye_left_lid, "
+                        "eye_right_white, eye_right_iris, eye_right_lid, "
+                        "brow_left, brow_right, mouth_closed, mouth_open, hair_front. "
+                        "Preserve identical canvas coordinates and proportions. "
+                        "Draw hidden/occluded details behind separate moving parts. "
+                        "No new hairstyle or outfit."
+                    ), lines=6, show_copy_button=True,
+                )
+            two_d_run = gr.Button("2D 레이어 준비 패키지 생성", variant="primary")
+            two_d_status = gr.Markdown("대기 중")
+            two_d_report = gr.Textbox(
+                label="2D 준비 검사 결과", interactive=False, lines=5,
+            )
+            two_d_result = gr.File(
+                label="OpenRaster 레이어 및 Cubism 안내 ZIP",
+                interactive=False,
+            )
+            two_d_run.click(
+                fn=build_2d_ui,
+                inputs=[two_d_image, two_d_layers, selected_usage],
+                outputs=[two_d_status, two_d_report, two_d_result],
+                show_progress="full",
+                concurrency_id="vtuber_gpu_pipeline",
+                concurrency_limit=1,
+            )
+
         with gr.Column(visible=False) as avatar_view:
             gr.Markdown("## 사용자 이미지 → 전신 VRM\n외부 AI에서 직접 만든 이미지를 업로드합니다. 이 프로그램은 이미지를 생성하지 않습니다.")
-            avatar_back = gr.Button("← 모드 선택", size="sm", variant="secondary")
+            avatar_back = gr.Button("← 2D / 3D 선택", size="sm", variant="secondary")
+            avatar_to_accessory = gr.Button("3D 액세서리 제작 →", size="sm", variant="secondary")
             with gr.Row():
                 with gr.Column(scale=2, min_width=360):
                     avatar_image = gr.Image(
@@ -1317,7 +1418,7 @@ def build_app() -> gr.Blocks:
 
         with gr.Column(visible=False) as accessory_view:
             gr.Markdown("## 악세사리 VRM")
-            accessory_back = gr.Button("← 모드 선택", size="sm", variant="secondary")
+            accessory_back = gr.Button("← 3D VRM 제작", size="sm", variant="secondary")
             with gr.Row():
                 with gr.Column(scale=2, min_width=360):
                     use_latest = gr.Checkbox(
@@ -1393,15 +1494,25 @@ def build_app() -> gr.Blocks:
 
         enter_workflow.click(
             fn=choose_workflow, inputs=[mode, usage],
-            outputs=[workflow_start, avatar_view, accessory_view, selected_usage],
+            outputs=[workflow_start, two_d_view, avatar_view, accessory_view, selected_usage],
             show_progress="hidden",
         )
-        for back in (avatar_back, accessory_back):
+        for back in (two_d_back, avatar_back):
             back.click(
                 fn=return_to_workflow_choice,
-                outputs=[workflow_start, avatar_view, accessory_view],
+                outputs=[workflow_start, two_d_view, avatar_view, accessory_view],
                 show_progress="hidden",
             )
+        avatar_to_accessory.click(
+            fn=show_3d_accessory,
+            outputs=[avatar_view, accessory_view],
+            show_progress="hidden",
+        )
+        accessory_back.click(
+            fn=show_3d_avatar,
+            outputs=[avatar_view, accessory_view],
+            show_progress="hidden",
+        )
 
     return demo
 
