@@ -4,7 +4,35 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
-외부에서 만든 캐릭터 이미지를 입력으로 받아 상업용 VTuber VRM과 액세서리 변형을 만드는 fail-closed 파이프라인입니다.
+외부에서 만든 캐릭터 이미지를 입력으로 받아 **2D 일러스트 준비** 또는 **3D 전신 VRM 변환**을 선택하는 파이프라인입니다. 이 프로그램은 프롬프트를 제공하지만 **이미지를 생성하지 않습니다.** 상업적 사용 권한은 업로드한 원본 이미지에도 별도로 필요합니다.
+
+## 제작 모드 (2D / 3D)
+
+| 모드 | 입력 | 실제 구현 출력 | 아직 구현하지 않은 작업 |
+|---|---|---|---|
+| **2D — Live2D 그림 준비** | 외부에서 제작한 원본 이미지와 선택적 투명 PNG 레이어 ZIP | 레이어가 보존된 OpenRaster `.ora`, PNG, manifest, 안내문을 묶은 ZIP | 자동 얼굴/눈/입/머리카락 분리, 숨겨진 부분 AI 복원, 자동 Cubism 리깅, `.moc3` 내보내기 |
+| **3D — VRM 전신 제작** | 사용자가 업로드한 정면 전신 이미지 + 얼굴 확대(전신 모드 필수) + 선택적 후면 이미지 | VRM 1.0 (`.vrm`) 및 검증 리포트 | 고품질 전신을 보증하는 멀티뷰 3D 최적화, AI 자동 품질 반복 개선 |
+| **3D — 액세서리** | 3D VRM + 별도 액세서리 이미지 | 정적 액세서리가 결합된 VRM | 2D Live2D 파츠에 액세서리를 자동 리깅하는 기능 |
+
+3D 액세서리는 **3D 모드 안에서만** 접근합니다. 2D와 3D 결과물을 혼용하지 않습니다.
+
+### 2D 출력의 정확한 의미
+
+- 사용자가 **이미 분리한** 투명 PNG 레이어가 있으면 레이어 위치와 순서를 유지해 OpenRaster 포맷으로 묶습니다. ZIP 안의 PNG는 반드시 원본 이미지와 같은 캔버스 크기를 사용하세요.
+- **원본 이미지 한 장만 있으면** `needs_layering`으로 표시합니다. 이 경우 산출물은 평면 원본을 담은 편집용 자료이며, 애니메이션 리깅 모델이 **아닙니다**.
+- `.ora` 파일은 Krita에서 열어 파츠 분리·가려진 면 보완을 진행하고 레이어 PSD로 저장할 수 있습니다. 그 다음 Live2D Cubism Editor로 가져와 파라미터·메시·변형·표정·물리 리깅을 수행하고 `.moc3`, `.model3.json` 및 텍스처를 내보내야 **VTube Studio**에서 사용할 수 있습니다.
+- Live2D Cubism Editor는 오픈소스가 아닙니다. [Live2D 공식 Export 가이드](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/)를 확인하세요. 완전히 오픈소스인 별도 제작·방송 환경을 원하는 경우 [Inochi Creator/Session](https://inochi2d.com/download/)을 사용할 수 있지만, **Inochi2D 결과물을 VTube Studio용 Live2D 파일이라고 부르면 안 됩니다.**
+
+### 2D CLI
+
+```bash
+vtuber-pipeline live2d-prep --image character.png --output output/2d
+vtuber-pipeline live2d-prep --image character.png --layers-zip my_layers.zip --output output/2d
+```
+
+산출물 `live2d_artwork_prep.zip`에는 `artwork.ora`, 이미지 레이어, `manifest.json` 및 `README_NEXT_STEPS.txt`가 들어 있습니다. 이 ZIP은 **Live2D Cubism 런타임 패키지가 아닙니다.**
+
+3D VRM 및 액세서리의 기존 실행·검증 기능은 아래와 같습니다.
 
 ## Mainline
 
