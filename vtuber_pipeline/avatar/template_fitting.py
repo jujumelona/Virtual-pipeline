@@ -9,6 +9,8 @@ from typing import Dict, Any, List, Optional, Tuple
 import pathlib
 import numpy as np
 
+from vtuber_pipeline.core.stage_progress import report_stage
+
 
 @dataclass
 class FittingObjective:
@@ -261,6 +263,34 @@ def fit_template(
 
             return y_weight * x_weight
 
+        # The nearest-surface/nearest-landmark objective changes correspondences
+        # discretely. L-BFGS-B finite-difference gradients are undefined at
+        # those transitions, causing the observed 'ABNORMAL' line-search stop.
+        # A deterministic, stratified vertex subset bounds CPU cost for
+        # derivative-free 7-DOF search. All vertices are transformed later.
+        indices = np.linspace(
+            0, len(original_vertices) - 1,
+            min(1536, len(original_vertices)), dtype=np.intp,
+        )
+        head_start = float(np.min(original_vertices[:, 1])) + (
+            0.70 * float(np.ptp(original_vertices[:, 1]))
+        )
+        head_indices = np.flatnonzero(original_vertices[:, 1] >= head_start)
+        if len(head_indices):
+            head_extra = head_indices[np.linspace(
+                0, len(head_indices) - 1,
+                min(512, len(head_indices)), dtype=np.intp,
+            )]
+            indices = np.unique(np.concatenate([indices, head_extra]))
+        rigid_sample = original_vertices[indices]
+        laplacian_base_energy = (
+            float(np.mean(np.linalg.norm(
+                laplacian_matrix @ original_vertices, axis=1,
+            )))
+            if laplacian_matrix is not None else 0.0
+        )
+        result["rigid_sample_count"] = int(len(rigid_sample))
+
         # Full energy minimization with a 7-DOF rigid phase.
         def energy_function(params):
             scale = params[0]
@@ -274,7 +304,7 @@ def fit_template(
             cos_z, sin_z = np.cos(rz), np.sin(rz)
             Rz = np.array([[cos_z, -sin_z, 0], [sin_z, cos_z, 0], [0, 0, 1]])
             R = Rz @ Ry @ Rx
-            transformed = (scale * (R @ original_vertices.T)).T + np.array([tx, ty, tz])
+            transformed = (scale * (R @ rigid_sample.T)).T + np.array([tx, ty, tz])
 
             e_landmark = 0.0
             if len(landmarks_2d) > 0:
@@ -299,10 +329,9 @@ def fit_template(
                         / max(float(np.sum(weights)), 1e-8)
                     )
 
-            e_laplacian = 0.0
-            if laplacian_matrix is not None:
-                lap_coords = laplacian_matrix @ transformed
-                e_laplacian = float(np.mean(np.linalg.norm(lap_coords, axis=1)))
+            # Rigid rotations/translations leave uniform Laplacian lengths
+            # unchanged; only the positive uniform scale changes them.
+            e_laplacian = float(scale * laplacian_base_energy)
 
             e_symmetry = 0.0
             x_center = float(np.median(transformed[:, 0]))
@@ -352,21 +381,70 @@ def fit_template(
             (coarse_translation[2] - 2.0 * max_extent, coarse_translation[2] + 2.0 * max_extent),
         ]
 
+        initial_value = float(energy_function(np.asarray(initial_params, dtype=float)))
+        if not np.isfinite(initial_value):
+            raise RuntimeError("rigid coarse alignment has non-finite energy")
+        if not np.isfinite(coarse_scale) or coarse_scale <= 0:
+            raise RuntimeError("rigid coarse alignment has invalid scale")
+        report_stage(
+            "template_fit_solver", "log",
+            f"initial={initial_value:.8g} scale={coarse_scale:.8g} "
+            f"sample={len(rigid_sample)} reference={len(reference_vertices) if reference_vertices is not None else 0}",
+        )
+
+        # Powell uses bounded one-dimensional searches rather than gradients.
+        # More importantly, its iteration limit is not a proof of failure:
+        # preserve the verified coarse solution if no better finite iterate
+        # was found. Never silently pass an invalid/empty reference.
         opt_result = minimize(
             energy_function,
-            initial_params,
-            method="L-BFGS-B",
+            np.asarray(initial_params, dtype=float),
+            method="Powell",
             bounds=bounds,
-            options={"maxiter": 100},
+            options={"maxiter": 16, "maxfev": 240, "xtol": 2e-3, "ftol": 2e-3},
         )
-        if not np.all(np.isfinite(opt_result.x)):
-            raise RuntimeError("rigid fitting produced non-finite parameters")
-        if not bool(opt_result.success):
-            raise RuntimeError(
-                f"rigid fitting did not converge: {opt_result.message}"
+        candidate = np.asarray(opt_result.x, dtype=float)
+        candidate_in_bounds = (
+            candidate.shape == (7,)
+            and np.all(np.isfinite(candidate))
+            and all(
+                lo - 1e-10 <= float(value) <= hi + 1e-10
+                for value, (lo, hi) in zip(candidate, bounds)
             )
-
-        params = opt_result.x
+        )
+        candidate_value = (
+            float(energy_function(candidate)) if candidate_in_bounds
+            else float("inf")
+        )
+        improved = (
+            np.isfinite(candidate_value)
+            and candidate_value <= initial_value + 1e-10
+        )
+        params = (
+            candidate.copy() if improved
+            else np.asarray(initial_params, dtype=float)
+        )
+        result["rigid_solver"] = "bounded_powell"
+        result["rigid_solver_success"] = bool(opt_result.success) and improved
+        result["rigid_solver_message"] = str(opt_result.message)
+        result["rigid_solver_status"] = int(getattr(opt_result, "status", -1))
+        result["rigid_initial_energy"] = initial_value
+        result["rigid_candidate_energy"] = (
+            candidate_value if np.isfinite(candidate_value) else None
+        )
+        result["rigid_selected_energy"] = (
+            candidate_value if improved else initial_value
+        )
+        result["rigid_used_coarse_initialization"] = bool(not improved)
+        report_stage(
+            "template_fit_solver", "log",
+            f"solver=Powell success={bool(opt_result.success)} "
+            f"iterations={getattr(opt_result, 'nit', 0)} "
+            f"initial={initial_value:.8g} "
+            f"candidate={candidate_value:.8g} "
+            f"selected={result['rigid_selected_energy']:.8g} "
+            f"coarse_retained={not improved} message={opt_result.message}",
+        )
         scale = params[0]
         rx, ry, rz = params[1:4]
         tx, ty, tz = params[4:7]
@@ -512,8 +590,9 @@ def fit_template(
         
         # Sparse solve doesn't have iterations like L-BFGS-B, use rigid phase results
         # objective_value will be computed after delta_norm is available
-        result["iterations"] = int(opt_result.nit)
-        result["converged"] = bool(opt_result.success) and result.get("sparse_solve_success", False)
+        result["iterations"] = int(getattr(opt_result, "nit", 0))
+        result["converged"] = bool(result["rigid_solver_success"]) and result.get("sparse_solve_success", False)
+        result["fit_accepted"] = bool(result.get("sparse_solve_success", False))
         result["optimized_params"] = {
             "scale": float(scale),
             "rotation": [float(rx), float(ry), float(rz)],
@@ -588,12 +667,14 @@ def fit_template(
         result["fit_npz"] = str(fit_path)
         result["delta_norm"] = float(np.linalg.norm(deltas))
         
-        # Compute objective value from rigid phase and non-rigid displacement
-        # Using opt_result.fun if available, otherwise estimate from delta_norm
-        if hasattr(opt_result, 'fun') and opt_result.fun is not None:
-            result["objective_value"] = float(opt_result.fun) + result["delta_norm"] * 0.01
-        else:
-            result["objective_value"] = float(result["delta_norm"])
+        # Report the accepted rigid parameters rather than a rejected
+        # optimizer candidate. Finite sample energy is a diagnostic, not a
+        # claim that a global optimum was reached.
+        result["objective_value"] = float(
+            result["rigid_selected_energy"] + result["delta_norm"] * 0.01
+        )
+        if not np.all(np.isfinite(fitted_vertices)):
+            raise RuntimeError("non-rigid fitting produced non-finite vertices")
         
         # 피팅된 메시 저장
         fitted_mesh = trimesh.Trimesh(vertices=fitted_vertices, faces=mesh.faces)
