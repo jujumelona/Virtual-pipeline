@@ -221,9 +221,9 @@ def test_setup_stage_prints_and_persists_exception(tmp_path, capsys):
 
 def test_readme_canonical_notebook_uses_fresh_cell_source():
     """The README route must not target the previously cached Colab path."""
-    notebook_path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v4.ipynb"
+    notebook_path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v5.ipynb"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v4.ipynb" in readme
+    assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v5.ipynb" in readme
     cells = [
         "".join(c["source"])
         for c in json.loads(notebook_path.read_text(encoding="utf-8"))["cells"]
@@ -250,7 +250,7 @@ def test_model_step_preserves_real_subprocess_failure_in_notebook_log(
     import pytest
 
     notebook = json.loads(
-        (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v4.ipynb").read_text(
+        (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v5.ipynb").read_text(
             encoding="utf-8"
         )
     )
@@ -318,3 +318,30 @@ def test_model_prepare_entrypoint_dumps_unmodified_traceback(tmp_path, capsys):
     assert "pin-verification-failed-unique-code" in (
         tmp_path / "logs" / "model_setup.log"
     ).read_text(encoding="utf-8")
+
+
+def test_all_colab_launch_cells_hide_runpy_namespace_from_ipython():
+    """Colab must not display runpy's giant __builtins__ mapping as cell output."""
+    import ast
+
+    for suffix in ("", "_v2", "_v3", "_v4", "_v5"):
+        notebook_path = (
+            ROOT / "notebooks" / f"VTuber_Commercial_Pipeline_Colab{suffix}.ipynb"
+        )
+        notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+        code = [
+            "".join(cell["source"])
+            for cell in notebook["cells"] if cell["cell_type"] == "code"
+        ][2]
+        tree = ast.parse(code)
+        # An expression as the final cell statement makes IPython display
+        # runpy.run_path's massive dictionary. Keep it assigned and discard it.
+        assert isinstance(tree.body[-1], ast.Delete), notebook_path
+        assert any(
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Attribute)
+            and node.value.func.attr == "run_path"
+            for node in tree.body
+        ), notebook_path
+        assert "del _launcher_globals" in code
