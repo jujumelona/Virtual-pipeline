@@ -223,6 +223,7 @@ class AvatarPipeline:
             "commercial_usage",
             "reconstruction",
             "fitting",
+            "references",
         }
         unknown_top = sorted(set(cfg) - allowed_top)
         if unknown_top:
@@ -296,6 +297,60 @@ class AvatarPipeline:
         else:
             return config_failure("fitting config must be an object")
 
+        reference_raw = cfg.get("references") or {}
+        if not isinstance(reference_raw, dict):
+            return config_failure("references must be an object")
+        unknown_references = sorted(
+            set(reference_raw) -
+            {"full_body", "face_image", "back_image", "texture_size"}
+        )
+        if unknown_references:
+            return config_failure(
+                f"Unknown references config keys: {unknown_references}"
+            )
+        full_body = reference_raw.get("full_body", False)
+        if not isinstance(full_body, bool):
+            return config_failure("references.full_body must be boolean")
+        face_image = reference_raw.get("face_image")
+        back_image = reference_raw.get("back_image")
+        for ref_name, ref_value in (("face_image", face_image), ("back_image", back_image)):
+            if ref_value is not None and (
+                not isinstance(ref_value, str) or not ref_value.strip()
+            ):
+                return config_failure(f"references.{ref_name} must be a file path")
+        texture_size = reference_raw.get("texture_size", 2048 if full_body else 1024)
+        if type(texture_size) is not int or texture_size not in {1024, 2048}:
+            return config_failure("references.texture_size must be 1024 or 2048")
+        if full_body and not face_image:
+            return config_failure(
+                "full-body mode requires references.face_image, independently "
+                "of the full-body front reference"
+            )
+
+        def input_digest(path: str | None) -> str | None:
+            if not path:
+                return None
+            source_path = pathlib.Path(path)
+            if not source_path.is_file():
+                return f"missing:{source_path}"
+            sha = hashlib.sha256()
+            with source_path.open("rb") as file:
+                for block in iter(lambda: file.read(1048576), b""):
+                    sha.update(block)
+            return sha.hexdigest()
+
+        reference_digests = {
+            "front": input_digest(image_path),
+            "face": input_digest(face_image),
+            "back": input_digest(back_image),
+        }
+        reference_options = {
+            "full_body": full_body,
+            "face_image": face_image,
+            "back_image": back_image,
+            "texture_size": texture_size,
+        }
+
         reconstruction_options = {
             "profile": profile,
             "model_save_format": model_save_format,
@@ -334,6 +389,7 @@ class AvatarPipeline:
                 results, "input_gate",
                 f"input_gate loaded from unexpected file: {source}",
             )
+        from vtuber_pipeline.avatar.reference_quality import inspect_references
         from vtuber_pipeline.avatar.reconstruction import reconstruct_avatar
         from vtuber_pipeline.avatar.template_mesh import get_template_path
         from vtuber_pipeline.avatar.template_fitting import fit_template
@@ -345,11 +401,29 @@ class AvatarPipeline:
         from vtuber_pipeline.avatar.vrm_export import export_vrm
         from vtuber_pipeline.avatar.validator import validate_vrm
 
-        # 1. Input gate also performs face detection and persists landmarks.
+        # 0. Diagnose front/body, facial and optional back references.
+        # No synthetic silhouettes, inferred viewpoints, or fake anatomy scores.
+        references = self._run_stage(
+            "reference_quality",
+            (reference_digests, reference_options),
+            lambda: inspect_references(
+                image_path, face_image=face_image, back_image=back_image,
+                full_body=full_body, output_dir=output_dir,
+            ),
+        )
+        results["stages"]["reference_quality"] = references
+        if references.get("status") != "complete":
+            return self._fail(
+                results, "reference_quality",
+                "; ".join(references.get("errors") or ["Invalid source references"]),
+            )
+
+        # 1. Detect 28 facial landmarks from the dedicated face image.
+        # The source for TripoSR remains the complete front-body image.
         gate = self._run_stage(
             "input_gate",
-            (image_path,),
-            lambda: validate_input(image_path, output_dir),
+            (input_digest(face_image or image_path),),
+            lambda: validate_input(face_image or image_path, output_dir),
         )
         results["stages"]["input_gate"] = gate
         if gate.get("status") != "complete" or not gate.get("valid"):
@@ -382,7 +456,7 @@ class AvatarPipeline:
 
         reconstruction = self._run_stage(
             "reference_reconstruction",
-            (image_path, reconstruction_options),
+            (reference_digests["front"], reconstruction_options),
             reconstruct_stage,
         )
         results["stages"]["reference_reconstruction"] = reconstruction
@@ -418,12 +492,16 @@ class AvatarPipeline:
         # 4. Project source appearance onto the fitted canonical topology.
         texture = self._run_stage(
             "texture_transfer",
-            (image_path, fitted_mesh, gate.get("bbox")),
+            (reference_digests, fitted_mesh, gate.get("bbox"), texture_size, full_body),
             lambda: transfer_texture(
                 image_path,
                 fitted_mesh,
                 output_dir,
                 face_bbox=gate.get("bbox"),
+                face_image_path=face_image,
+                back_image_path=back_image,
+                full_body=full_body,
+                texture_size=texture_size,
             ),
         )
         results["stages"]["texture_transfer"] = texture
