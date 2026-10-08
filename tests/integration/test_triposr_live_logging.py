@@ -36,10 +36,14 @@ def test_triposr_subprocess_streams_actual_stdout_and_stderr_to_ui(monkeypatch):
     assert captured["kwargs"]["cwd"] == "/models"
     assert captured["kwargs"]["env"]["PYTHONUNBUFFERED"] == "1"
     assert captured["timeout"] == 30
+    assert captured["kwargs"]["env"]["VTUBER_REQUIRE_CUDA"] == "1"
     assert observed == [
+        ("gpu_inference", "running", "TripoSR CUDA 프로세스 시작"),
+        ("triposr_output", "log", "TripoSR 시작: CUDA 필수, CPU 폴백 금지"),
         ("triposr_output", "log", "loading TripoSR model"),
         ("triposr_output", "log", "GPU inference started"),
         ("triposr_output", "log", "mesh saved"),
+        ("gpu_inference", "complete", "TripoSR 종료 코드 0"),
     ]
 
 
