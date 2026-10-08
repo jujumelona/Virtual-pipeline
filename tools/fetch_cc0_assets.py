@@ -20,7 +20,7 @@ MAKEHUMAN_BASE_URL = (
 def _git_blob_sha1(path: pathlib.Path) -> str:
     size = path.stat().st_size
     digest = hashlib.sha1()
-    digest.update(f"blob {size}\\0".encode("ascii"))
+    digest.update(f"blob {size}\0".encode("ascii"))
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
