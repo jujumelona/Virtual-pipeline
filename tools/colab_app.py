@@ -34,9 +34,17 @@ if str(_SOURCE_REPO_DIR) not in sys.path:
 # The package installer runs before the final Gradio dependency graph is
 # resolved. It must not import Gradio merely to reach ensure_runtime().
 # Normal UI execution still imports the real Gradio package.
-if os.environ.get("VTUBER_SETUP_ONLY") == "1":
+# Legacy Colab tabs call runpy.run_path(..., run_name='vtuber_prepare')
+# without setting VTUBER_SETUP_ONLY. Honor both forms so old tabs can still
+# prepare the freshly cloned main without importing an unstable Gradio install.
+_PREPARATION_MODE = (
+    os.environ.get("VTUBER_SETUP_ONLY") == "1"
+    or __name__ in {"vtuber_prepare", "prepare"}
+)
+if _PREPARATION_MODE:
     from types import SimpleNamespace
     gr = SimpleNamespace(Progress=lambda: None)
+    print("[setup] Python preparation entrypoint loaded", flush=True)
 else:
     import gradio as gr
 
