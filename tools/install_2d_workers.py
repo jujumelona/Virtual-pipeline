@@ -136,8 +136,12 @@ def install_2d_environment() -> dict:
     # standalone pip above already resolved Python libraries; never let an
     # external pyproject replace torch/torchvision.
     for kind in ("sam", "diffusers"):
+        # SAM2's pyproject declares torch as a build dependency. Disabling
+        # build isolation is essential: installing build dependencies into an
+        # isolated environment could download a second CUDA PyTorch build.
         _exec([str(python), "-m", "pip", "install", "--no-deps",
-               "--editable", str(sources[kind])], env=env, timeout=1800)
+               "--no-build-isolation", "--editable", str(sources[kind])],
+              env=env, timeout=1800)
     if not (sources["anime"] / "train.py").is_file():
         raise RuntimeError("pinned Anime Segmentation train.py is missing")
     _smoke(python, sources["anime"], torch_version, vision_version)
