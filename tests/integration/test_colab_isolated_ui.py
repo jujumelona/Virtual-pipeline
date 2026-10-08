@@ -75,7 +75,9 @@ def test_main_spawns_fresh_python_with_live_colab_iframe(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(
         launcher, "_follow_server",
-        lambda process: events.append(("follow", process.pid)),
+        lambda process, *, download_dir=None: events.append(
+            ("follow", process.pid, download_dir)
+        ),
     )
 
     output = types.ModuleType("google.colab.output")
@@ -101,10 +103,16 @@ def test_main_spawns_fresh_python_with_live_colab_iframe(tmp_path, monkeypatch):
     assert kwargs["start_new_session"] is True
     assert kwargs["env"]["VTUBER_COLAB_EXTERNAL_IFRAME"] == "1"
     assert kwargs["env"]["VTUBER_COLAB_SERVER_PORT"] == "19876"
+    assert pathlib.Path(
+        kwargs["env"]["VTUBER_COLAB_AUTODOWNLOAD_DIR"]
+    ).is_dir()
     assert kwargs["stderr"] == launcher.subprocess.STDOUT
     assert events[3] == ("ready", 19876, launcher.STARTUP_TIMEOUT_SECONDS)
     assert events[4] == ("iframe", 19876, {"height": "1100"})
-    assert events[5] == ("follow", 12345)
+    assert events[5] == (
+        "follow", 12345,
+        pathlib.Path(kwargs["env"]["VTUBER_COLAB_AUTODOWNLOAD_DIR"]),
+    )
     assert launcher.PID_PATH.read_text(encoding="utf-8").strip() == "12345"
 
 
