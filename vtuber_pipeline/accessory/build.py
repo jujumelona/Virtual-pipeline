@@ -6,7 +6,8 @@ complete accessory processing pipeline.
 
 import math
 import pathlib
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Callable
+from vtuber_pipeline.core.stage_progress import report_stage
 
 
 class AccessoryPipeline:
@@ -31,6 +32,18 @@ class AccessoryPipeline:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.config = {} if config is None else config
     
+    @staticmethod
+    def _reported(name: str, callback: Callable[[], Dict[str, Any]]) -> Dict[str, Any]:
+        report_stage(name, "running")
+        try:
+            result = callback()
+        except Exception as exc:
+            report_stage(name, "error", str(exc))
+            raise
+        report_stage(name, str(result.get("status", "unknown")),
+                     str(result.get("error") or result.get("failed_reason") or ""))
+        return result
+
     def build(
         self,
         base_vrm: str,
@@ -193,20 +206,20 @@ class AccessoryPipeline:
 
         # Stage 1: Normalize
         normalized_path = str(pathlib.Path(output_dir) / "normalized.glb")
-        results["stages"]["normalize"] = normalize.normalize_glb(
+        results["stages"]["normalize"] = self._reported("normalize", lambda: normalize.normalize_glb(
             accessory_glb, normalized_path
-        )
+        ))
         if results["stages"]["normalize"].get("status") != "complete":
             results["status"] = "failed"
             results["failed_stages"] = ["normalize"]
             return results
         
         # Stage 2: Anchors
-        results["stages"]["anchors"] = anchors.generate_anchor_manifest(
+        results["stages"]["anchors"] = self._reported("anchors", lambda: anchors.generate_anchor_manifest(
             base_vrm,
             output_dir,
             custom_anchor=custom_anchor if anchor_name == "CUSTOM" else None,
-        )
+        ))
         if results["stages"]["anchors"].get("status") != "complete":
             results["status"] = "failed"
             results["failed_stages"] = ["anchors"]
@@ -214,9 +227,9 @@ class AccessoryPipeline:
         
         # Stage 3: Fit
         anchor_manifest = results["stages"]["anchors"]
-        results["stages"]["fit"] = fitting.fit_accessory(
+        results["stages"]["fit"] = self._reported("fit", lambda: fitting.fit_accessory(
             normalized_path, anchor_name, anchor_manifest, output_dir
-        )
+        ))
         
         # Stage 4: Collision against the avatar in world space.
         fitted_path = results["stages"]["fit"].get("output_path", normalized_path)
@@ -226,12 +239,12 @@ class AccessoryPipeline:
             results["failed_stages"] = ["fit"]
             return results
 
-        results["stages"]["collision"] = collision.resolve_collision(
+        results["stages"]["collision"] = self._reported("collision", lambda: collision.resolve_collision(
             fitted_path,
             base_vrm,
             world_transform=fit_result.get("world_transform"),
             clearance=clearance,
-        )
+        ))
         collision_result = results["stages"]["collision"]
         if collision_result.get("status") != "complete":
             results["status"] = "failed"
@@ -266,7 +279,7 @@ class AccessoryPipeline:
             ).astype(float).tolist()
         
         # Stage 5: Portable prepared artifacts. This is the core API default.
-        results["stages"]["attachment"] = artifacts.write_attachment_manifest(
+        results["stages"]["attachment"] = self._reported("attachment", lambda: artifacts.write_attachment_manifest(
             fitted_path,
             anchor_name,
             {
@@ -275,7 +288,7 @@ class AccessoryPipeline:
             },
             collision_result,
             output_dir,
-        )
+        ))
         if results["stages"]["attachment"].get("status") != "complete":
             results["status"] = "failed"
             results["failed_stages"] = ["attachment"]
@@ -284,10 +297,10 @@ class AccessoryPipeline:
             )
             return results
 
-        results["stages"]["preview"] = artifacts.render_preview(
+        results["stages"]["preview"] = self._reported("preview", lambda: artifacts.render_preview(
             fitted_path,
             output_dir,
-        )
+        ))
         if results["stages"]["preview"].get("status") != "complete":
             results["status"] = "failed"
             results["failed_stages"] = ["preview"]
@@ -313,12 +326,12 @@ class AccessoryPipeline:
                 "parent_bone": fit_result.get("parent_bone", "head"),
             }
         }
-        results["stages"]["bake"] = bake.bake_accessories(
+        results["stages"]["bake"] = self._reported("bake", lambda: bake.bake_accessories(
             base_vrm,
             [fitted_path],
             output_vrm,
             attachment_config=attachment_cfg,
-        )
+        ))
         if results["stages"]["bake"].get("status") != "complete":
             results["status"] = "failed"
             results["failed_stages"] = ["bake"]
@@ -331,11 +344,11 @@ class AccessoryPipeline:
 
         # Re-import the merged file and apply the same strict product contract
         # used by Avatar Mode. This catches broken index/buffer remaps.
-        results["stages"]["validator"] = validate_vrm(
+        results["stages"]["validator"] = self._reported("validator", lambda: validate_vrm(
             output_vrm,
             output_dir,
             product_contract=True,
-        )
+        ))
         if (
             results["stages"]["validator"].get("status") != "complete"
             or not results["stages"]["validator"].get("passed")
