@@ -156,8 +156,10 @@ def test_model_preparation_must_instantiate_face_detector_before_cache_marker():
     function = source[begin:end]
     assert "face-detector-init-ok" in function
     assert "detector = AnimeFaceDetector()" in function
-    assert function.index("face-detector-init-ok") < function.index(
-        'marker.write_text('
+    # The earlier marker write only refreshes a previously verified cache.
+    # A newly created success marker must come after the real model init.
+    assert function.index("face-detector-init-ok") < function.rindex(
+        '    marker.write_text('
     )
 
     probe = (root / "tools" / "runtime_abi_probe.py").read_text(encoding="utf-8")
