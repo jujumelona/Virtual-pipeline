@@ -111,7 +111,8 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
     import vtuber_pipeline.avatar.vrm_export as export_module
 
     source = tmp_path / "source.png"
-    source.write_bytes(b"source")
+    from PIL import Image
+    Image.new("RGBA", (512, 768), (240, 180, 150, 255)).save(source)
 
     artifacts = {
         name: tmp_path / name
@@ -186,7 +187,15 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
             "fitted_mesh": str(artifacts["fitted.glb"]),
         }
 
-    def fake_texture(image_path, mesh_path, output_dir, face_bbox=None):
+    def fake_texture(
+        image_path, mesh_path, output_dir, face_bbox=None, *,
+        face_image_path=None, back_image_path=None,
+        full_body=False, texture_size=1024,
+    ):
+        assert face_image_path is None
+        assert back_image_path is None
+        assert full_body is False
+        assert texture_size == 1024
         calls.append("texture_transfer")
         assert image_path == str(source)
         assert mesh_path == str(artifacts["fitted.glb"])
