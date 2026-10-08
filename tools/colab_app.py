@@ -964,14 +964,17 @@ CSS = """
 """
 
 
-def choose_workflow(mode: str):
-    """Show exactly the selected mode; keep usage selection unchanged."""
+def choose_workflow(mode: str, usage: str):
+    """Choose one existing pipeline and carry the user-selected license scope."""
     if mode not in {"avatar", "accessory"}:
         raise ValueError(f"Unsupported workflow mode: {mode!r}")
+    if usage not in {"corporation", "personalProfit", "personalNonProfit"}:
+        raise ValueError(f"Unsupported use scope: {usage!r}")
     return (
         gr.update(visible=False),
         gr.update(visible=(mode == "avatar")),
         gr.update(visible=(mode == "accessory")),
+        usage,
     )
 
 
@@ -983,6 +986,7 @@ def return_to_workflow_choice():
 def build_app() -> gr.Blocks:
     with gr.Blocks(title="VTuber Builder") as demo:
         latest_avatar = gr.State(value=None)
+        selected_usage = gr.State(value="corporation")
         gr.Markdown("# VTuber Builder")
 
         with gr.Group(visible=True, elem_id="workflow-start") as workflow_start:
@@ -1031,7 +1035,7 @@ def build_app() -> gr.Blocks:
 
             avatar_run.click(
                 fn=stream_avatar_ui,
-                inputs=[avatar_image, usage, latest_avatar],
+                inputs=[avatar_image, selected_usage, latest_avatar],
                 outputs=[
                     avatar_status, avatar_log, avatar_result,
                     latest_avatar, avatar_log_file,
@@ -1119,8 +1123,8 @@ def build_app() -> gr.Blocks:
             )
 
         enter_workflow.click(
-            fn=choose_workflow, inputs=[mode],
-            outputs=[workflow_start, avatar_view, accessory_view],
+            fn=choose_workflow, inputs=[mode, usage],
+            outputs=[workflow_start, avatar_view, accessory_view, selected_usage],
             show_progress="hidden",
         )
         for back in (avatar_back, accessory_back):
