@@ -645,7 +645,10 @@ def test_triposr_model_resolver_uses_exact_hf_revision_and_hash(
 
     model_dir = tmp_path / "snapshot"
     model_dir.mkdir()
-    (model_dir / "config.yaml").write_text("model: test\n", encoding="utf-8")
+    (model_dir / "config.yaml").write_text(
+        __import__("json").dumps(reconstruction.TRIPOSR_MODEL_CONFIG),
+        encoding="utf-8",
+    )
     weight_bytes = b"pinned-trip-osr-weights"
     (model_dir / "model.ckpt").write_bytes(weight_bytes)
 
@@ -698,7 +701,10 @@ def test_triposr_model_resolver_rejects_weight_hash_mismatch(
 
     model_dir = tmp_path / "model"
     model_dir.mkdir()
-    (model_dir / "config.yaml").write_text("model: test\n", encoding="utf-8")
+    (model_dir / "config.yaml").write_text(
+        __import__("json").dumps(reconstruction.TRIPOSR_MODEL_CONFIG),
+        encoding="utf-8",
+    )
     (model_dir / "model.ckpt").write_bytes(b"wrong-weights")
 
     monkeypatch.setenv("TRIPOSR_MODEL_DIR", str(model_dir))
@@ -711,6 +717,43 @@ def test_triposr_model_resolver_rejects_weight_hash_mismatch(
     reconstruction.resolve_triposr_model.cache_clear()
     try:
         with pytest.raises(RuntimeError, match="SHA256 mismatch"):
+            reconstruction.resolve_triposr_model()
+    finally:
+        reconstruction.resolve_triposr_model.cache_clear()
+
+
+def test_triposr_model_resolver_rejects_config_semantic_mismatch(
+    tmp_path,
+    monkeypatch,
+):
+    import hashlib
+    import json
+    import pytest
+    import vtuber_pipeline.avatar.reconstruction as reconstruction
+
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    bad_config = dict(reconstruction.TRIPOSR_MODEL_CONFIG)
+    bad_config["image_tokenizer"] = {
+        "pretrained_model_name_or_path": "some/other-model",
+    }
+    (model_dir / "config.yaml").write_text(
+        json.dumps(bad_config),
+        encoding="utf-8",
+    )
+    weight_bytes = b"valid-weight-for-config-test"
+    (model_dir / "model.ckpt").write_bytes(weight_bytes)
+
+    monkeypatch.setenv("TRIPOSR_MODEL_DIR", str(model_dir))
+    monkeypatch.setattr(
+        reconstruction,
+        "TRIPOSR_MODEL_WEIGHT_SHA256",
+        hashlib.sha256(weight_bytes).hexdigest(),
+    )
+
+    reconstruction.resolve_triposr_model.cache_clear()
+    try:
+        with pytest.raises(RuntimeError, match="config mismatch"):
             reconstruction.resolve_triposr_model()
     finally:
         reconstruction.resolve_triposr_model.cache_clear()
@@ -736,11 +779,17 @@ def test_triposr_runner_forces_nested_dino_revision(monkeypatch):
     )
     assert calls[-1][3]["revision"] == runner.DINO_MODEL_REVISION
 
-    fake_hub.hf_hub_download(
-        "some/other-model",
-        "config.json",
-    )
-    assert "revision" not in calls[-1][3]
+    with pytest.raises(RuntimeError, match="Unexpected Hugging Face repository"):
+        fake_hub.hf_hub_download(
+            "some/other-model",
+            "config.json",
+        )
+
+    with pytest.raises(RuntimeError, match="Unexpected DINO artifact"):
+        fake_hub.hf_hub_download(
+            runner.DINO_MODEL_ID,
+            "model.safetensors",
+        )
 
     with pytest.raises(RuntimeError, match="revision override rejected"):
         fake_hub.hf_hub_download(
