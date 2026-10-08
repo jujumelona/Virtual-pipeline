@@ -1149,41 +1149,63 @@ CSS = """
 """
 
 
-def build_2d_ui(
-    image_path: Optional[str], layers_zip: Optional[str], commercial_usage: str,
-    target: str = "live2d",
-):
-    """Separate source-art packaging for Inochi2D and Live2D; no fake rig."""
+def build_2d_ui(image_path, layers_zip, commercial_usage, target="live2d"):
+    """Run actual 2D production graph, with strict editor/native status."""
     if target not in {"inochi2d", "live2d"}:
-        return f"❌ 지원하지 않는 2D 모드: {target}", "", None
+        return "지원하지 않는 2D 모드", "", None
     if not image_path:
-        return f"❌ {target} 원본 이미지를 업로드하세요.", "", None
+        return "원본 캐릭터 이미지를 업로드하세요.", "", None
     try:
-        from vtuber_pipeline.two_d import prepare_2d_artwork
-        output = OUTPUT_ROOT / f"{target}-prep-{uuid.uuid4().hex[:10]}"
-        result = prepare_2d_artwork(
-            str(image_path), str(output),
-            layers_zip=str(layers_zip) if layers_zip else None,
-            commercial_usage=commercial_usage, target=target,
-        )
-        manifest = result["manifest"]
-        missing = manifest["suggested_parts_not_detected"]
-        editor = "Inochi Creator" if target == "inochi2d" else "Live2D Cubism Editor"
-        extension = manifest["expected_completed_extension"]
-        details = (
-            f"모드: {target}\n"
-            f"업로드된 실제 레이어: {len(manifest['layer_names_top_to_bottom'])}개\n"
-            f"권장 파츠 이름 중 미확인: {', '.join(missing) if missing else '없음'}\n"
-            f"{editor}에서 리깅·물리를 설정하고 {extension}를 출력해야 방송할 수 있습니다.\n"
-            "현재 결과는 편집 가능한 그림 레이어 ZIP이며 완성된 퍼펫이 아닙니다."
-        )
-        if result["status"] == "needs_layering":
-            message = f"⚠️ {target} 단일 그림 패키지 생성 — 먼저 눈·입·머리 파츠 분리 필요"
+        from vtuber_pipeline.common.schemas import SourceSet
+        from vtuber_pipeline.two_d.build import build_inochi2d, build_live2d
+        output = OUTPUT_ROOT / f"{target}-{uuid.uuid4().hex[:10]}"
+        source = SourceSet(mode=target, front_image=str(image_path),
+                           user_layers_zip=str(layers_zip) if layers_zip else None,
+                           commercial_usage=commercial_usage, output_dir=str(output))
+        result = build_inochi2d(source) if target == "inochi2d" else build_live2d(source)
+        details = (f"mode: {target}\nstatus: {result.status}\n"
+                   f"primary_file: {result.primary_file}\neditable_file: {result.editable_file}\n"
+                   f"error: {result.error or 'none'}")
+        if result.status == "complete":
+            message = f"{target}: 실제 방송용 모델 생성 완료"
+        elif result.status == "needs_editor_export":
+            message = "Live2D: Cubism 편집·정식 MOC3 출력이 필요합니다"
         else:
-            message = f"✅ {target} 파츠 준비 완료 — 리깅·모델 내보내기 별도 필요"
-        return message, details, result["package_path"]
+            message = f"{target}: 제작 실패 (임시 그림 파일을 모델 완성으로 표시하지 않음)"
+        return message, details, result.primary_file if result.primary_file and pathlib.Path(result.primary_file).is_file() else None
     except Exception as exc:
-        return f"❌ {target} 준비 실패: {exc}", traceback.format_exc(), None
+        return f"{target} 제작 실패: {exc}", traceback.format_exc(), None
+
+
+def collect_cubism_zip_ui(official_zip):
+    """Securely extract the official Cubism ZIP and validate its runtime files."""
+    if not official_zip:
+        return "공식 Cubism 출력 ZIP을 업로드하세요", "", None
+    try:
+        import zipfile
+        from pathlib import Path, PurePosixPath
+        from vtuber_pipeline.two_d.cubism_handoff import collect_official_export
+        output = OUTPUT_ROOT / f"live2d-official-{uuid.uuid4().hex[:10]}"
+        unpack = output / "source"
+        unpack.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(official_zip) as source:
+            files=[f for f in source.infolist() if not f.is_dir()]
+            if not files or len(files)>256 or sum(f.file_size for f in files)>1024*1024*1024:
+                raise ValueError("invalid Cubism ZIP archive size/count")
+            for member in files:
+                rel=PurePosixPath(member.filename)
+                if member.filename.startswith("/") or ".." in rel.parts or not rel.parts or (member.external_attr >> 16)&0o170000==0o120000:
+                    raise ValueError("unsafe Cubism ZIP member")
+                dest=unpack.joinpath(*rel.parts)
+                dest.parent.mkdir(parents=True,exist_ok=True)
+                with source.open(member) as inp, dest.open("wb") as out:
+                    import shutil
+                    shutil.copyfileobj(inp,out)
+        result=collect_official_export(str(unpack),str(output))
+        package=output/"live2d_official_export.zip"
+        return "공식 MOC3 수집 완료", str(result.primary_file), str(package)
+    except Exception as exc:
+        return "공식 MOC3 검증/수집 실패: "+str(exc), traceback.format_exc(), None
 
 
 def build_inochi2d_ui(image_path, layers_zip, commercial_usage):
@@ -1286,13 +1308,13 @@ def build_app() -> gr.Blocks:
                         "Do not change identity or proportions."
                     ), lines=5,
                 )
-            inochi_run = gr.Button("Inochi2D 레이어 패키지 준비", variant="primary")
+            inochi_run = gr.Button("Inochi2D 네이티브 퍼펫 제작", variant="primary")
             inochi_status = gr.Markdown("대기 중")
             inochi_report = gr.Textbox(
                 label="Inochi2D 입력·파츠 검사", interactive=False, lines=5,
             )
             inochi_result = gr.File(
-                label="Inochi2D 작업용 OpenRaster ZIP (.inp 아님)",
+                label="Inochi2D 결과 (.inp 성공 시)",
                 interactive=False,
             )
             inochi_run.click(
@@ -1345,18 +1367,30 @@ def build_app() -> gr.Blocks:
                         "No new hairstyle or outfit."
                     ), lines=6,
                 )
-            two_d_run = gr.Button("2D 레이어 준비 패키지 생성", variant="primary")
+            two_d_run = gr.Button("Live2D Cubism 제작 자료 생성", variant="primary")
             two_d_status = gr.Markdown("대기 중")
             two_d_report = gr.Textbox(
                 label="2D 준비 검사 결과", interactive=False, lines=5,
             )
             two_d_result = gr.File(
-                label="OpenRaster 레이어 및 Cubism 안내 ZIP",
+                label="Cubism 편집 자료 ZIP",
                 interactive=False,
             )
             two_d_run.click(
                 fn=build_live2d_ui,
                 inputs=[two_d_image, two_d_layers, selected_usage],
+                outputs=[two_d_status, two_d_report, two_d_result],
+                show_progress="full",
+                concurrency_id="vtuber_gpu_pipeline",
+                concurrency_limit=1,
+            )
+
+            gr.Markdown("### 공식 Cubism Editor에서 출력한 모델 수집")
+            cubism_official_zip = gr.File(label="공식 Cubism 출력 폴더 ZIP (.model3.json, .moc3, textures 포함)", file_types=[".zip"], type="filepath")
+            cubism_import_button = gr.Button("공식 MOC3 수집 및 검증")
+            cubism_import_button.click(
+                fn=collect_cubism_zip_ui,
+                inputs=[cubism_official_zip],
                 outputs=[two_d_status, two_d_report, two_d_result],
                 show_progress="full",
                 concurrency_id="vtuber_gpu_pipeline",
