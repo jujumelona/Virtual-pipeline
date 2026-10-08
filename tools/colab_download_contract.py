@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import uuid
 
@@ -38,6 +39,31 @@ def checked_avatar(path: str | Path, output_root: str | Path) -> dict:
         "size": file.stat().st_size,
         "sha256": _digest(file),
     }
+
+
+def save_latest_avatar(path: str | Path, output_root: str | Path, destination: str | Path) -> Path:
+    """Provide a stable Colab Files-sidebar path, without moving the original."""
+    metadata = checked_avatar(path, output_root)
+    source = Path(metadata["path"])
+    final = Path(destination).expanduser().absolute()
+    final.parent.mkdir(parents=True, exist_ok=True)
+    pending = final.with_name(f".{final.name}.{uuid.uuid4().hex}.pending")
+    try:
+        shutil.copyfile(source, pending)
+        if pending.stat().st_size != metadata["size"] or _digest(pending) != metadata["sha256"]:
+            raise RuntimeError("Latest VRM copy failed checksum verification")
+        os.replace(pending, final)
+    finally:
+        pending.unlink(missing_ok=True)
+    return final
+
+
+def gradio_file_route(path: str | Path, output_root: str | Path) -> str:
+    """URL path for the current Gradio server's directly downloadable file."""
+    from urllib.parse import quote
+
+    metadata = checked_avatar(path, output_root)
+    return "/gradio_api/file=" + quote(metadata["path"], safe="/")
 
 
 def publish_avatar_download(
