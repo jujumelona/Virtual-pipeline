@@ -249,6 +249,12 @@ def _install_runtime(head: str) -> None:
     )
     if marker.is_file():
         print(f"[setup] 기존 패키지/모델 캐시 재사용: {marker.name}", flush=True)
+        # The dependency fingerprint is identical, but Python/UI source may
+        # have changed. Record the synchronized head without reinstalling.
+        lines = marker.read_text(encoding="utf-8").splitlines()
+        lines = [line for line in lines if not line.startswith("installed_from_main=")]
+        lines.append(f"installed_from_main={head}")
+        marker.write_text("\n".join(lines) + "\n", encoding="utf-8")
         os.environ["TRIPOSR_DIR"] = str(TRIPOSR_DIR)
         if str(REPO_DIR) not in sys.path:
             sys.path.insert(0, str(REPO_DIR))
