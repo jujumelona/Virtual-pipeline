@@ -17,6 +17,8 @@ def infer(req):
         raise ValueError("Unrecognized commercial usage scope")
     if usage != "personalNonProfit":
         upstream=Path(os.environ.get("INSTANTMESH_DIR","")).expanduser().resolve()
+        from vtuber_pipeline.avatar.commercial_dependency_guard import require_commercial_compatible_upstream
+        require_commercial_compatible_upstream(upstream)
         config=upstream/"configs/instant-mesh-large.yaml"
         if not config.is_file():
             raise RuntimeError("Commercial LRM requires the pinned InstantMesh upstream config")
@@ -34,6 +36,10 @@ def infer(req):
             req["output_dir"],
         )
     upstream=Path(os.environ.get("INSTANTMESH_DIR","")).expanduser().resolve()
+    # Personal non-profit streaming is not automatically research/evaluation.
+    # A nonprofit output cannot waive Nvidia's separate runtime source rights.
+    from vtuber_pipeline.avatar.commercial_dependency_guard import require_commercial_compatible_upstream
+    require_commercial_compatible_upstream(upstream)
     runner=upstream/"run.py"
     config=upstream/"configs/instant-mesh-large.yaml"
     if not runner.is_file() or not config.is_file():
