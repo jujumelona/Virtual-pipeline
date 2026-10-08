@@ -113,6 +113,31 @@ def test_colab_gpu_queue_is_serialized():
     source = _source("tools/colab_app.py")
     assert "demo.queue(default_concurrency_limit=1)" in source
 
+    # Gradio's default limit applies per event listener. Both GPU handlers
+    # must share one concurrency_id to prevent concurrent model/pip/git work.
+    node = _function_node("tools/colab_app.py", None, "build_app")
+    callbacks = {}
+    for item in ast.walk(node):
+        if (
+            isinstance(item, ast.Call)
+            and isinstance(item.func, ast.Attribute)
+            and item.func.attr == "click"
+            and isinstance(item.func.value, ast.Name)
+            and item.func.value.id in {"avatar_run", "accessory_run"}
+        ):
+            callbacks[item.func.value.id] = {
+                kw.arg: kw.value for kw in item.keywords
+            }
+
+    assert set(callbacks) == {"avatar_run", "accessory_run"}
+    for handler in callbacks.values():
+        group = handler.get("concurrency_id")
+        limit = handler.get("concurrency_limit")
+        assert isinstance(group, ast.Constant)
+        assert group.value == "vtuber_gpu_pipeline"
+        assert isinstance(limit, ast.Constant)
+        assert limit.value == 1
+
 
 def test_colab_avatar_ui_options_reach_avatar_config():
     source = _source("tools/colab_app.py")
