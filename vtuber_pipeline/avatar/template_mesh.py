@@ -849,7 +849,7 @@ MAKEHUMAN_BASE_URL = (
 def _git_blob_sha1(path: pathlib.Path) -> str:
     size = path.stat().st_size
     digest = hashlib.sha1()
-    digest.update(f"blob {size}\\0".encode("ascii"))
+    digest.update(f"blob {size}\0".encode("ascii"))
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
@@ -914,7 +914,7 @@ def _write_template_metadata(template_path: pathlib.Path) -> None:
         "template_sha256": _file_sha256(template_path),
     }
     _template_metadata_path(template_path).write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2) + "\\n",
+        json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
