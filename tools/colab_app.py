@@ -1027,7 +1027,6 @@ def build_app() -> gr.Blocks:
                     avatar_log = gr.Textbox(
                         label="진행 로그", lines=21, max_lines=30,
                         interactive=False, autoscroll=True,
-                        show_copy_button=True,
                     )
                     avatar_log_file = gr.File(
                         label="전체 로그", interactive=False,
@@ -1104,7 +1103,6 @@ def build_app() -> gr.Blocks:
                     accessory_log = gr.Textbox(
                         label="진행 로그", lines=21, max_lines=30,
                         interactive=False, autoscroll=True,
-                        show_copy_button=True,
                     )
                     accessory_log_file = gr.File(
                         label="전체 로그", interactive=False,
