@@ -127,9 +127,11 @@ def main() -> None:
     # upstream 'from tsr.system import TSR' otherwise raises
     # ModuleNotFoundError despite a correct pinned checkout and CUDA GPU.
     source_root = run_script.parent
-    if not (source_root / "tsr" / "__init__.py").is_file():
+    # Upstream TripoSR is an implicit namespace package: there is NO
+    # tsr/__init__.py in the immutable pinned checkout. Verify its real entry.
+    if not (source_root / "tsr" / "system.py").is_file():
         raise RuntimeError(
-            f"Pinned TripoSR source is incomplete: missing {source_root / 'tsr' / '__init__.py'}"
+            f"Pinned TripoSR source is incomplete: missing {source_root / 'tsr' / 'system.py'}"
         )
     if str(source_root) not in sys.path:
         sys.path.insert(0, str(source_root))
