@@ -47,7 +47,8 @@ def fit_template(
     landmarks_2d: List[List[float]],
     output_dir: str,
     config: Optional[Dict[str, Any]] = None,
-    reference_mesh_path: Optional[str] = None
+    reference_mesh_path: Optional[str] = None,
+    reference_constraints_json: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Fit a canonical VTuber template mesh to landmark constraints.
     
@@ -200,6 +201,44 @@ def fit_template(
             reference_tree = KDTree(reference_vertices)
             result["reference_vertex_count"] = len(reference_vertices)
         
+        # Independent inferred InstantMesh geometry is a weak additional prior.
+        # It cannot be treated as a new photographed observation.
+        multiview_tree = None
+        multiview_vertices = None
+        multiview_confidence = 0.0
+        full_body_fit = False
+        if reference_constraints_json is not None:
+            constraints_path = pathlib.Path(reference_constraints_json)
+            if not constraints_path.is_file():
+                raise FileNotFoundError(constraints_path)
+            import json
+            constraints = json.loads(constraints_path.read_text(encoding="utf-8"))
+            if constraints.get("contract") != "vtuber-multiview-constraints-v1":
+                raise ValueError("incompatible multiview registration contract")
+            registration = constraints.get("registration", {})
+            confidence = registration.get("confidence")
+            if not isinstance(confidence, (int, float)) or not np.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
+                raise ValueError("invalid multiview alignment confidence")
+            multiview_path = pathlib.Path(constraints["aligned_multiview_glb"])
+            if not multiview_path.is_file():
+                raise FileNotFoundError(multiview_path)
+            aligned = trimesh.load(str(multiview_path), process=False)
+            if isinstance(aligned, trimesh.Scene):
+                geometries = list(aligned.geometry.values())
+                if not geometries:
+                    raise ValueError("empty aligned multiview mesh")
+                aligned = trimesh.util.concatenate(geometries)
+            multiview_vertices = np.asarray(aligned.vertices, dtype=float)
+            if len(multiview_vertices) < 16 or not np.isfinite(multiview_vertices).all():
+                raise ValueError("invalid registered InstantMesh geometry")
+            multiview_tree = KDTree(multiview_vertices)
+            multiview_confidence = min(0.30, 0.30 * float(confidence))
+            full_body_fit = bool(constraints.get("observed_views", {}).get("front", {}).get("observed_view"))
+            result["multiview_constraint_weight"] = multiview_confidence
+            result["multiview_source"] = str(multiview_path)
+            result["full_body_surface_fit"] = full_body_fit
+            result["depth_metric_calibration"] = False
+
         # Build Laplacian matrix for smoothness regularization
         laplacian_matrix = _build_laplacian_matrix(mesh)
         
@@ -240,27 +279,24 @@ def fit_template(
             return lm_centered * (proj_scale / lm_scale) + proj_center
 
         def fit_region_weights(points):
-            """Smoothly select head/central upper torso for reference fitting.
-
-            Arms and lower body stay close to the canonical VRM rest pose.
-            """
+            """Observed full-body source unlocks limbs/legs; do not unlock cropped refs."""
             pts = np.asarray(points, dtype=float)
             pmin = pts.min(axis=0)
             pmax = pts.max(axis=0)
             height = max(float(pmax[1] - pmin[1]), 1e-8)
             center_x = float((pmin[0] + pmax[0]) * 0.5)
-
             y_norm = (pts[:, 1] - pmin[1]) / height
             x_norm = np.abs(pts[:, 0] - center_x) / height
-
-            # Vertical ramp: no surface fitting below mid torso.
+            if full_body_fit:
+                # Fit all observed height bands. Keep lower confidence on long
+                # unconstrained arm/leg extremities to protect canonical rig.
+                lateral = np.clip((x_norm - 0.30) / 0.35, 0.0, 1.0)
+                lower = np.clip((0.45 - y_norm) / 0.45, 0.0, 1.0)
+                return np.clip(0.90 - 0.30 * lateral - 0.12 * lower, 0.40, 0.90)
             y_weight = np.clip((y_norm - 0.48) / 0.16, 0.0, 1.0)
             y_weight = y_weight * y_weight * (3.0 - 2.0 * y_weight)
-
-            # Central-body ramp excludes T-pose arms while keeping head/torso.
             x_weight = np.clip((0.24 - x_norm) / 0.08, 0.0, 1.0)
             x_weight = x_weight * x_weight * (3.0 - 2.0 * x_weight)
-
             return y_weight * x_weight
 
         # The nearest-surface/nearest-landmark objective changes correspondences
@@ -328,6 +364,10 @@ def fit_template(
                         np.sum(surface_distances * weights)
                         / max(float(np.sum(weights)), 1e-8)
                     )
+                    if multiview_tree is not None and multiview_confidence > 0:
+                        inferred_distances, _ = multiview_tree.query(transformed[active])
+                        inferred_energy = float(np.sum(inferred_distances * weights) / max(float(np.sum(weights)), 1e-8))
+                        e_surface = (e_surface + multiview_confidence * inferred_energy) / (1.0 + multiview_confidence)
 
             # Rigid rotations/translations leave uniform Laplacian lengths
             # unchanged; only the positive uniform scale changes them.
@@ -511,6 +551,10 @@ def fit_template(
             )
         else:
             surface_delta = np.zeros((n_graph, 3), dtype=float)
+        if multiview_tree is not None and multiview_confidence > 0:
+            _, nearest_extra = multiview_tree.query(graph_positions)
+            inferred_delta = multiview_vertices[np.asarray(nearest_extra, dtype=int)] - graph_positions
+            surface_delta = (surface_delta + multiview_confidence * inferred_delta) / (1.0 + multiview_confidence)
         preserve_weight = 1.0 - surface_weight
         result["surface_fit_graph_nodes"] = int(
             np.count_nonzero(surface_weight > 0.1)
@@ -576,6 +620,13 @@ def fit_template(
         )
         vertex_fit_weight = fit_region_weights(rigid_transformed)
         final_displacements *= vertex_fit_weight[:, None]
+        if full_body_fit:
+            # Prevent ill-posed inferences from collapsing distal limbs.
+            max_displacement = max(0.01, 0.09 * float(np.ptp(rigid_transformed[:, 1])))
+            lengths = np.linalg.norm(final_displacements, axis=1)
+            limited = lengths > max_displacement
+            final_displacements[limited] *= (max_displacement / lengths[limited])[:, None]
+            result["clipped_displacement_vertices"] = int(np.count_nonzero(limited))
         fitted_vertices = rigid_transformed + final_displacements
         result["fitted_vertex_count"] = int(
             np.count_nonzero(vertex_fit_weight > 0.1)
