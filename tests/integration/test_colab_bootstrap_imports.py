@@ -167,3 +167,70 @@ def test_two_prepare_cells_bypass_gradio_but_ui_imports_real_package():
     assert "VTUBER_SETUP_ONLY" not in cells[2]
     for code in cells:
         compile(code, "<colab-cell>", "exec")
+
+
+def test_legacy_open_colab_cell_does_not_import_gradio(tmp_path):
+    """Old, already-open Colab cells don't set VTUBER_SETUP_ONLY."""
+    checkout = tmp_path / "checkout"
+    (checkout / "tools").mkdir(parents=True)
+    shutil.copy2(ROOT / "tools" / "colab_app.py", checkout / "tools" / "colab_app.py")
+    probe = """
+import os, pathlib, runpy, sys
+os.environ.pop('VTUBER_SETUP_ONLY', None)
+sys.modules['gradio'] = None
+checkout = pathlib.Path(sys.argv[1])
+app = runpy.run_path(str(checkout / 'tools' / 'colab_app.py'), run_name='vtuber_prepare')
+assert app['_PREPARATION_MODE'] is True
+assert callable(app['ensure_runtime'])
+print('legacy-unflagged-setup-import-ok')
+"""
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", probe, str(checkout)],
+        cwd=tmp_path, text=True, capture_output=True, timeout=20,
+    )
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    assert "legacy-unflagged-setup-import-ok" in result.stdout
+
+
+def test_setup_stage_prints_and_persists_exception(tmp_path, capsys):
+    """The exact setup failure is in stdout for old check=True notebook cells."""
+    import os
+    from unittest.mock import patch
+
+    with patch.dict(os.environ, {"VTUBER_SETUP_ONLY": "1"}):
+        module = runpy.run_path(
+            str(ROOT / "tools" / "colab_app.py"), run_name="vtuber_prepare",
+        )
+    stage = module["_setup_stage"]
+    stage.__globals__["WORK_ROOT"] = tmp_path
+
+    def explode():
+        raise RuntimeError("forced-setup-failure-marker")
+
+    import pytest
+    with pytest.raises(RuntimeError, match="forced-setup-failure-marker"):
+        stage("forced package setup", explode)
+    out = capsys.readouterr().out
+    assert "forced package setup: FAILED" in out
+    assert "Traceback (most recent call last):" in out
+    assert "forced-setup-failure-marker" in out
+    logged = (tmp_path / "logs" / "runtime_setup.log").read_text(encoding="utf-8")
+    assert "forced-setup-failure-marker" in logged
+
+
+def test_readme_canonical_notebook_uses_fresh_cell_source():
+    """The README route must not target the previously cached Colab path."""
+    notebook_path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v2.ipynb"
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v2.ipynb" in readme
+    cells = [
+        "".join(c["source"])
+        for c in json.loads(notebook_path.read_text(encoding="utf-8"))["cells"]
+        if c["cell_type"] == "code"
+    ]
+    assert len(cells) == 3
+    assert "subprocess.Popen(" in cells[0]
+    assert "colab_bootstrap.log" in cells[0]
+    assert "VTUBER_SETUP_ONLY" in cells[0]
+    assert "prepare_models" in cells[1]
+    assert 'run_name="__main__"' in cells[2]
