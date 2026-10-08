@@ -254,8 +254,28 @@ def test_lock_entries_are_fail_closed_and_complete():
         )
 
     triposr = tools["triposr"]
-    assert triposr["model_revision"]
-    assert triposr["model_weight_sha256"]
+    assert re.fullmatch(r"[0-9a-f]{40}", triposr["model_revision"])
+    assert re.fullmatch(r"[0-9a-f]{64}", triposr["model_weight_sha256"])
+
+    anime_models = tools["anime_face_detector"].get("models")
+    assert isinstance(anime_models, dict) and {
+        "yolov3",
+        "hrnetv2",
+    } <= set(anime_models)
+    for model_name, model in anime_models.items():
+        assert isinstance(model.get("model_id"), str) and model["model_id"], model_name
+        assert re.fullmatch(r"[0-9a-f]{40}", model.get("revision", "")), model_name
+        assert re.fullmatch(r"[0-9a-f]{64}", model.get("weight_sha256", "")), model_name
+        assert model.get("license") == "MIT", model_name
+
+    rembg = tools["rembg"]
+    assert rembg["model_name"] == "u2net"
+    assert re.fullmatch(r"[0-9a-f]{32}", rembg["model_md5"])
+    assert rembg["model_license"] == "Apache-2.0"
+
+    makehuman = tools["makehuman_cc0"]
+    assert re.fullmatch(r"[0-9a-f]{40}", makehuman["source_commit"])
+    assert re.fullmatch(r"[0-9a-f]{40}", makehuman["git_blob_sha1"])
 
 
 def test_ci_actions_are_immutable_sha_pinned_and_full_suite_is_gated():
