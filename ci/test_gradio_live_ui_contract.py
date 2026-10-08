@@ -83,3 +83,61 @@ def test_both_streaming_handlers_keep_progress_and_log_file_outputs():
     }
     assert "stream_avatar_ui" in names
     assert "stream_accessories_ui" in names
+
+
+def test_avatar_has_native_download_button_bound_to_completed_generator():
+    ui = _app()
+    demo = ui.build_app()
+    config = demo.get_config_file()
+    components = {component["id"]: component for component in config["components"]}
+    buttons = [
+        comp for comp in components.values()
+        if comp.get("type") == "downloadbutton"
+    ]
+    assert any(
+        b["props"].get("label") == "↓ avatar.vrm 파일 직접 다운로드"
+        for b in buttons
+    ), buttons
+    download = next(
+        b for b in buttons
+        if b["props"].get("label") == "↓ avatar.vrm 파일 직접 다운로드"
+    )
+    dependencies = config["dependencies"]
+    generator = next(
+        d for d in dependencies if d.get("api_name") == "stream_avatar_ui"
+    )
+    # The button only updates *after* the generation event completes.
+    assert any(
+        download["id"] in dep.get("outputs", [])
+        and generator["id"] in dep.get("targets", [])
+        for dep in dependencies
+    ) or any(
+        download["id"] in dep.get("outputs", [])
+        and any(trigger[0] == generator["id"] for trigger in dep.get("targets", []))
+        for dep in dependencies
+    ) or any(
+        download["id"] in dep.get("outputs", [])
+        and dep.get("trigger_after") == generator["id"]
+        for dep in dependencies
+    ), dependencies
+
+
+def test_real_gradio_native_file_route_serves_verified_avatar_bytes(tmp_path):
+    from fastapi.testclient import TestClient
+    from gradio.routes import App
+
+    model_dir = tmp_path / "output" / "avatar-123"
+    model_dir.mkdir(parents=True)
+    model = model_dir / "avatar.vrm"
+    data = b"glTF" + bytes(range(64))
+    model.write_bytes(data)
+    with gr.Blocks() as demo:
+        gr.DownloadButton(value=str(model), label="Download avatar.vrm")
+    demo.allowed_paths = [str(tmp_path / "output")]
+    test_app = App.create_app(demo)
+    response = TestClient(test_app).get(
+        "/gradio_api/file=" + str(model)
+    )
+    assert response.status_code == 200, (response.status_code, response.text[:300])
+    assert response.content == data
+    assert "attachment" in response.headers.get("content-disposition", "").lower()
