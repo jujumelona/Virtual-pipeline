@@ -17,8 +17,14 @@ def test_3d_prefetch_keeps_makehuman_and_nested_reconstruction_dependencies():
     seen=[]
     with patch.object(assets,"run_model_task",side_effect=lambda label,code,timeout: seen.append(label)):
         assets.prefetch_mode("3d")
-    assert seen[:len(assets.MODE_ASSETS["3d"])]==list(assets.MODE_ASSETS["3d"])
-    assert {"DINO","MakeHuman","u2net"} <= set(seen)
+    # The pinned InstantMesh *checkpoint* is not proof that the NVIDIA
+    # renderer / Zero123++ dependencies can be used commercially. Do not
+    # prefetch it until a license-cleared execution path exists.
+    eligible = [name for name in assets.MODE_ASSETS["3d"]
+                if name != "instantmesh_large"]
+    assert seen[:len(eligible)] == eligible
+    assert "instantmesh_large" not in seen
+    assert {"DINO", "MakeHuman", "u2net"} <= set(seen)
     assert "flux2_klein_4b" not in seen
 
 
