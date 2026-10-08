@@ -79,6 +79,30 @@ def avatar(image, output, face_image, back_image, full_body, texture_size, profi
     click.echo(f"VRM: {result['vrm_path']}")
 
 
+@cli.command("inochi2d-prep")
+@click.option("--image", required=True, type=click.Path(exists=True))
+@click.option("--layers-zip", type=click.Path(exists=True), default=None)
+@click.option("--output", required=True, type=click.Path())
+@click.option(
+    "--commercial-usage",
+    type=click.Choice(["personalNonProfit", "personalProfit", "corporation"]),
+    default="corporation",
+)
+def inochi2d_prep(image, layers_zip, output, commercial_usage):
+    """Prepare supplied layers for open-source Inochi Creator, not an .inp puppet."""
+    from vtuber_pipeline.two_d import prepare_inochi2d_artwork
+
+    try:
+        result = prepare_inochi2d_artwork(
+            image, output, layers_zip=layers_zip,
+            commercial_usage=commercial_usage,
+        )
+    except (OSError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"Inochi2D artwork package: {result['package_path']}")
+    click.echo("NOT an Inochi2D .inp puppet. Import PSD into Inochi Creator, then rig/export.")
+
+
 @cli.command("live2d-prep")
 @click.option("--image", required=True, type=click.Path(exists=True))
 @click.option("--layers-zip", type=click.Path(exists=True), default=None)
