@@ -15,6 +15,7 @@ dependencies = [
     "pyyaml>=6.0",
     "pillow==12.3.0",
     "numpy",
+    "scikit-image==0.26.0",
     "scipy>=1.13",
     "click>=8.0",
     "pygltflib==1.16.5",
