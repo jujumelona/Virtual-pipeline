@@ -595,7 +595,8 @@ class AvatarPipeline:
                 output_dir,
                 fitting_cfg,
                 reference_mesh_path=reference_mesh,
-                reference_constraints_json=constraints_path,
+                **({"reference_constraints_json": constraints_path}
+                   if constraints_path is not None else {}),
             ),
         )
         results["stages"]["template_fitting"] = fitting
