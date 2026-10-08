@@ -183,6 +183,7 @@ class AvatarPipeline:
             "depth_left",
             "depth_right",
             "mesh_obj",
+            "provenance_json",
             "constraints_json",
             "aligned_multiview_glb",
         )
