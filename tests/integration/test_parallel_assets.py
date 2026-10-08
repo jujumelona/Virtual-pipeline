@@ -91,4 +91,5 @@ def test_colab_setup_runs_parallel_prefetch_only_after_package_installation():
     package = source.index('"anime-face-detector==0.1.0"')
     editable = source.index('str(REPO_DIR),', package)
     audit = source.index('str(REPO_DIR / "tools" / "audit_runtime_environment.py")')
-    assert package < editable < prefetch < audit
+    assert package < editable < audit < prefetch
+    assert 'def prepare_models() -> None:' in source
