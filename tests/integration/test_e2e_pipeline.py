@@ -12,8 +12,8 @@ import pytest
 )
 def test_e2e_pipeline(test_char_image, tmp_path):
     """Run the real image -> VRM path and require a strict complete result."""
-    from pygltflib import GLTF2
     from vtuber_pipeline.avatar.build import build_avatar
+    from vtuber_pipeline.core.gltf import load_gltf
 
     output_dir = str(tmp_path / "output")
     result = build_avatar(str(test_char_image), output_dir)
@@ -26,7 +26,7 @@ def test_e2e_pipeline(test_char_image, tmp_path):
     assert vrm_path.is_file()
     assert vrm_path.stat().st_size > 0
 
-    gltf = GLTF2().load(str(vrm_path))
+    gltf = load_gltf(vrm_path)
     assert isinstance(gltf.extensions, dict)
     assert "VRMC_vrm" in gltf.extensions
     assert "VRMC_springBone" in gltf.extensions
