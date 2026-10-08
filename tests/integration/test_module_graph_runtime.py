@@ -360,7 +360,11 @@ def test_accessory_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
     def fake_normalize(input_path, output_path):
         calls.append("normalize")
         assert input_path == str(accessory)
-        pathlib.Path(output_path).write_bytes(b"normalized")
+        # The new visual alignment handler inspects actual triangle bounds.
+        # Keep GPU reconstruction mocked, but use a real trivial GLB so the
+        # CPU contact-pivot stage cannot be satisfied by a fake byte suffix.
+        import trimesh
+        trimesh.creation.box(extents=[0.2, 0.4, 0.3]).export(output_path)
         seen["normalized"] = output_path
         return {"status": "complete", "output_path": output_path}
 
@@ -378,13 +382,20 @@ def test_accessory_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
                 {
                     "name": "CUSTOM",
                     "bone": "upperChest",
+                    "node_index": 3,
+                    "position": [1.0, 2.0, 3.0],
                     "offset": [0.1, 0.2, 0.3],
                     "target_size": 0.42,
                 }
             ],
         }
 
-    def fake_fit(mesh_path, anchor_name, anchor_manifest, output_dir):
+    def fake_fit(mesh_path, anchor_name, anchor_manifest, output_dir, *, visual_alignment=None):
+        assert isinstance(visual_alignment, dict)
+        assert visual_alignment["status"] == "complete"
+        assert visual_alignment["anchor_name"] == "CUSTOM"
+        assert visual_alignment["parent_bone"] == "upperChest"
+        assert pathlib.Path(visual_alignment["alignment_json"]).is_file()
         calls.append("fit")
         assert mesh_path == seen["normalized"]
         assert anchor_name == "CUSTOM"
@@ -528,6 +539,7 @@ def test_accessory_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
 
     assert result["status"] == "complete", result
     assert result["output_vrm"] == seen["combined"]
+    assert result["stages"]["visual_alignment"]["pivot_rule"] == "center_of_bounds"
     assert calls == [
         "normalize",
         "anchors",
