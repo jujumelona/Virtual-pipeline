@@ -221,9 +221,9 @@ def test_setup_stage_prints_and_persists_exception(tmp_path, capsys):
 
 def test_readme_canonical_notebook_uses_fresh_cell_source():
     """The README route must not target the previously cached Colab path."""
-    notebook_path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v3.ipynb"
+    notebook_path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v4.ipynb"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v3.ipynb" in readme
+    assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v4.ipynb" in readme
     cells = [
         "".join(c["source"])
         for c in json.loads(notebook_path.read_text(encoding="utf-8"))["cells"]
@@ -234,6 +234,10 @@ def test_readme_canonical_notebook_uses_fresh_cell_source():
     assert "colab_bootstrap.log" in cells[0]
     assert "VTUBER_SETUP_ONLY" in cells[0]
     assert "prepare_models" in cells[1]
+    assert "colab_model_setup.log" in cells[1]
+    assert "subprocess.Popen(" in cells[1]
+    assert "raise RuntimeError(" in cells[1]
+    assert "check=True" not in cells[1]
     assert 'run_name="__main__"' in cells[2]
     assert "colab_ui_launcher.py" in cells[2]
     assert "import gradio" not in cells[2]
