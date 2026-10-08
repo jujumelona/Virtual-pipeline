@@ -95,8 +95,62 @@ def _wait_for_http(port: int, process: subprocess.Popen, timeout: int) -> None:
     )
 
 
+def _show_direct_download(port: int, file_path: str) -> None:
+    """Show a clickable authenticated Gradio file URL without files.download().
+
+    Colab files.download can block forever while printing 'Downloading ...'.
+    Colab's documented proxyPort JS gives the correct per-session URL, the
+    same mechanism used for the embedded Gradio iframe. The link remains
+    clickable even when automatic browser navigation/download is blocked.
+    """
+    import json
+    from IPython.display import Javascript, display
+    from tools.colab_download_contract import gradio_file_route, save_latest_avatar
+
+    path = pathlib.Path(file_path).resolve(strict=True)
+    output_root = WORK / "output"
+    stable = save_latest_avatar(path, output_root, WORK / "avatar.vrm")
+    route = gradio_file_route(path, output_root)
+    print(f"[VRM] 생성 파일: {path}", flush=True)
+    print(f"[VRM] 고정 복사본: {stable} (Colab 왼쪽 파일 탐색기에서도 접근)", flush=True)
+    print(f"[VRM] 서버 다운로드 경로: {route}", flush=True)
+
+    script = """(async (port, fileRoute, element) => {
+      const root = document.createElement('div');
+      root.style.padding = '12px';
+      root.style.border = '1px solid #999';
+      root.style.margin = '8px 0';
+      const heading = document.createElement('strong');
+      heading.textContent = 'avatar.vrm 생성 완료 — 직접 다운로드';
+      root.appendChild(heading);
+      root.appendChild(document.createElement('br'));
+      const link = document.createElement('a');
+      link.textContent = '↓ avatar.vrm 다운로드 (직접 HTTP 링크)';
+      link.download = 'avatar.vrm';
+      link.style.cssText = 'display:inline-block;margin-top:8px;padding:8px 12px;background:#e0e0e0;color:#101010;border-radius:5px;';
+      root.appendChild(link);
+      element.appendChild(root);
+      try {
+        const proxyUrl = await google.colab.kernel.proxyPort(port);
+        const href = new URL(fileRoute, proxyUrl).toString();
+        link.href = href;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        // Best-effort only: browsers can block programmatic clicks.
+        // A real user click on this visible link is the reliable fallback.
+        link.click();
+      } catch (error) {
+        const warning = document.createElement('span');
+        warning.textContent = ' 다운로드 URL 생성 실패: ' + error;
+        root.appendChild(warning);
+      }
+    })""" + f"({port}, {json.dumps(route)}, window.element)"
+    display(Javascript(script))
+
+
 def _follow_server(
     process: subprocess.Popen, *, download_dir: pathlib.Path | None = None,
+    server_port: int | None = None,
 ) -> None:
     """Keep Colab's third cell active for the ENTIRE Gradio server lifetime.
 
@@ -116,24 +170,27 @@ def _follow_server(
                 # This runs IN the Colab notebook kernel, not inside Gradio.
                 # The kernel is the owner of the authenticated browser download.
                 from tools.colab_download_contract import consume_avatar_downloads
-                from google.colab import files
+
+                def show_file(path: str) -> None:
+                    if server_port is None:
+                        raise RuntimeError("Cannot generate a download link without Gradio port")
+                    _show_direct_download(server_port, path)
 
                 outcomes = consume_avatar_downloads(
-                    download_dir, WORK / "output", files.download,
+                    download_dir, WORK / "output", show_file,
                 )
                 for outcome in outcomes:
                     if outcome["status"] == "requested":
                         print(
-                            "[VRM] avatar.vrm 브라우저 자동 다운로드 요청 완료. "
-                            "실제 저장 여부는 브라우저 다운로드 목록에서 확인하세요. "
-                            "UI의 VRM 파일에서도 다시 받을 수 있습니다.",
+                            "[VRM] 파일 직접 다운로드 링크 표시됨. 브라우저가 자동 다운로드를 "
+                            "차단하면 출력된 링크를 클릭하세요. ③ 셀은 계속 실행됩니다.",
                             flush=True,
                         )
                     else:
                         print(
-                            "[VRM] 자동 다운로드 실패: "
+                            "[VRM] 직접 다운로드 링크 생성 실패: "
                             + outcome["detail"]
-                            + " · UI의 VRM 파일에서 직접 다운로드하세요.",
+                            + f" · Colab 파일 탐색기: {WORK / 'output'}",
                             flush=True,
                         )
             code = process.poll()
@@ -211,8 +268,8 @@ def main() -> None:
     output.serve_kernel_port_as_iframe(port, height="1100")
     # serve_kernel_port_as_iframe() returns immediately. Do NOT let the
     # notebook finish while the server or its model inference is still alive.
-    print("[VRM] avatar.vrm 생성 성공 시 Colab 자동 다운로드 활성화", flush=True)
-    _follow_server(process, download_dir=download_dir)
+    print("[VRM] 생성 성공 시 직접 HTTP 다운로드 링크와 고정 파일 경로를 표시합니다.", flush=True)
+    _follow_server(process, download_dir=download_dir, server_port=port)
 
 
 if __name__ == "__main__":
