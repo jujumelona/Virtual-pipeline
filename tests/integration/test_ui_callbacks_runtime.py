@@ -38,6 +38,7 @@ def ui(tmp_path, monkeypatch):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     monkeypatch.setattr(module, "OUTPUT_ROOT", tmp_path / "outputs")
+    module._real_require_runtime_ready = module.require_runtime_ready
     monkeypatch.setattr(
         module,
         "require_runtime_ready",
@@ -234,4 +235,4 @@ def test_generation_requires_explicit_prepared_runtime_without_install(ui, tmp_p
         ),
     )
     with pytest.raises(RuntimeError, match="① 환경 준비"):
-        ui.require_runtime_ready()
+        ui._real_require_runtime_ready()
