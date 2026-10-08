@@ -247,7 +247,7 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
 
 
 
-def test_readme_open_in_colab_badge_targets_the_canonical_two_step_notebook():
+def test_readme_open_in_colab_badge_targets_canonical_three_step_notebook():
     """Keep README's primary Colab launch button wired to the updated file."""
     readme = _read("README.md")
     notebook_file = "notebooks/VTuber_Commercial_Pipeline_Colab.ipynb"
@@ -267,12 +267,13 @@ def test_readme_open_in_colab_badge_targets_the_canonical_two_step_notebook():
         for cell in notebook["cells"]
         if cell.get("cell_type") == "code"
     ]
-    assert len(code_cells) == 2
+    assert len(code_cells) == 3
     assert "setup_python" in code_cells[0]
-    assert 'run_name="__main__"' in code_cells[1]
+    assert "prepare_models" in code_cells[1]
+    assert 'run_name="__main__"' in code_cells[2]
 
 
-def test_colab_notebook_is_only_a_fresh_main_bootstrap():
+def test_colab_notebook_has_separate_environment_models_and_ui_cells():
     notebook = json.loads(_read("notebooks/VTuber_Commercial_Pipeline_Colab.ipynb"))
     code_cells = [
         "".join(cell.get("source", []))
@@ -281,13 +282,15 @@ def test_colab_notebook_is_only_a_fresh_main_bootstrap():
     ]
     code = "\n".join(code_cells)
 
-    assert len(code_cells) == 2
-    setup, launch = code_cells
+    assert len(code_cells) == 3
+    setup, models, launch = code_cells
     assert '"fetch", "--prune", "origin", "main"' in setup
     assert '"reset", "--hard", "origin/main"' in setup
     assert "REPO_DIR / 'tools' / 'colab_app.py'" in setup
     assert "app['ensure_runtime']()" in setup
     assert 'run([sys.executable, "-u", "-c", setup_python], 9000)' in setup
+    assert "prepare_models" in models
+    assert '"pip", "install"' not in models
     assert "runpy.run_path" in launch
     assert 'run_name="__main__"' in launch
     assert "ensure_runtime" not in launch
