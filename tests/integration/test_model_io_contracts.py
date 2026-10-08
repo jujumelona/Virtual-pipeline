@@ -53,10 +53,14 @@ def test_anime_face_detector_backend_input_and_output_contract(
 
         return detector
 
-    monkeypatch.setitem(
-        sys.modules,
-        "anime_face_detector",
-        types.SimpleNamespace(create_detector=create_detector),
+    import vtuber_pipeline.avatar.face_detector as face_module
+
+    fake_package = types.SimpleNamespace(create_detector=create_detector)
+    monkeypatch.setitem(sys.modules, "anime_face_detector", fake_package)
+    monkeypatch.setattr(
+        face_module,
+        "_create_pinned_anime_face_detector",
+        lambda: create_detector("yolov3"),
     )
 
     image_path = tmp_path / "pixel.png"
@@ -766,3 +770,124 @@ def test_triposr_runner_forces_commercial_safe_rembg_model(monkeypatch):
 
     with pytest.raises(RuntimeError, match="Unexpected rembg model"):
         fake_rembg.new_session("bria-rmbg")
+
+
+def test_anime_face_model_guard_pins_and_hashes_both_weights(
+    tmp_path,
+    monkeypatch,
+):
+    import hashlib
+    import importlib
+    import vtuber_pipeline.avatar.face_detector as module
+
+    yolo = tmp_path / "yolo.safetensors"
+    hrnet = tmp_path / "hrnet.safetensors"
+    yolo.write_bytes(b"yolo-weight-bytes")
+    hrnet.write_bytes(b"hrnet-weight-bytes")
+
+    yolo_repo = "hysts/anime-face-detector-yolov3"
+    hrnet_repo = "hysts/anime-face-detector-hrnetv2"
+    pins = {
+        yolo_repo: {
+            "revision": "yolo-revision",
+            "sha256": hashlib.sha256(yolo.read_bytes()).hexdigest(),
+        },
+        hrnet_repo: {
+            "revision": "hrnet-revision",
+            "sha256": hashlib.sha256(hrnet.read_bytes()).hexdigest(),
+        },
+    }
+    monkeypatch.setattr(module, "ANIME_FACE_MODEL_PINS", pins)
+
+    calls = []
+    detector_module = types.ModuleType("anime_face_detector.detector")
+
+    def fake_download(repo_id, filename, *args, **kwargs):
+        calls.append((repo_id, filename, dict(kwargs)))
+        if repo_id == yolo_repo:
+            return str(yolo)
+        if repo_id == hrnet_repo:
+            return str(hrnet)
+        raise AssertionError(repo_id)
+
+    detector_module.hf_hub_download = fake_download
+
+    package = types.ModuleType("anime_face_detector")
+    package.__path__ = []
+    package.detector = detector_module
+
+    sentinel = object()
+
+    def fake_create_detector(name):
+        assert name == "yolov3"
+        detector_module.hf_hub_download(hrnet_repo, "model.safetensors")
+        detector_module.hf_hub_download(yolo_repo, "model.safetensors")
+        return sentinel
+
+    package.create_detector = fake_create_detector
+    monkeypatch.setitem(sys.modules, "anime_face_detector", package)
+    monkeypatch.setitem(
+        sys.modules,
+        "anime_face_detector.detector",
+        detector_module,
+    )
+
+    result = module._create_pinned_anime_face_detector()
+
+    assert result is sentinel
+    assert calls == [
+        (
+            hrnet_repo,
+            "model.safetensors",
+            {"revision": "hrnet-revision"},
+        ),
+        (
+            yolo_repo,
+            "model.safetensors",
+            {"revision": "yolo-revision"},
+        ),
+    ]
+    assert detector_module.hf_hub_download is fake_download
+
+
+def test_anime_face_model_guard_rejects_weight_hash_mismatch(
+    tmp_path,
+    monkeypatch,
+):
+    import vtuber_pipeline.avatar.face_detector as module
+
+    model = tmp_path / "model.safetensors"
+    model.write_bytes(b"tampered")
+
+    repo_id = "hysts/anime-face-detector-yolov3"
+    monkeypatch.setattr(
+        module,
+        "ANIME_FACE_MODEL_PINS",
+        {
+            repo_id: {
+                "revision": "pinned",
+                "sha256": "0" * 64,
+            }
+        },
+    )
+
+    detector_module = types.ModuleType("anime_face_detector.detector")
+    detector_module.hf_hub_download = (
+        lambda repo_id, filename, *args, **kwargs: str(model)
+    )
+    package = types.ModuleType("anime_face_detector")
+    package.__path__ = []
+    package.detector = detector_module
+    package.create_detector = lambda name: detector_module.hf_hub_download(
+        repo_id,
+        "model.safetensors",
+    )
+    monkeypatch.setitem(sys.modules, "anime_face_detector", package)
+    monkeypatch.setitem(
+        sys.modules,
+        "anime_face_detector.detector",
+        detector_module,
+    )
+
+    with pytest.raises(RuntimeError, match="SHA256 mismatch"):
+        module._create_pinned_anime_face_detector()
