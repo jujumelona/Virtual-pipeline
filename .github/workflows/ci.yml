@@ -104,6 +104,7 @@ jobs:
           tests/integration/test_e2e_pipeline.py
           tests/integration/test_reconstruction.py
           tests/integration/test_accessory_real_cpu.py
+          tests/integration/test_avatar_real_cpu.py
           --maxfail=1
 
   full-suite:
