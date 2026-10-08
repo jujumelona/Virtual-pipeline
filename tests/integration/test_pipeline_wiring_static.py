@@ -57,6 +57,7 @@ def test_avatar_stage_dag_is_complete_and_ordered():
 
     ordered = [name for _, name in sorted(stages)]
     assert ordered == [
+        "reference_quality",
         "input_gate",
         "reference_reconstruction",
         "template_fitting",
