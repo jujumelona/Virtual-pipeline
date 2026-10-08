@@ -340,7 +340,7 @@ def test_avatar_success_publishes_verified_download_for_colab_kernel(
         str(image), "corporation", None,
     )
     assert status.startswith("✅"), (status, logs)
-    assert "자동 다운로드 요청 중" in status
+    assert "직접 다운로드 링크 생성 중" in status
     assert download == state
     events = list(queue.glob("request-*.json"))
     assert len(events) == 1
