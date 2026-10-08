@@ -137,6 +137,17 @@ def main() -> None:
         _verify_rembg_u2net()
 
     # Upstream argparse must see its own script as argv[0].
+    if os.environ.get("VTUBER_REQUIRE_CUDA") == "1":
+        import torch
+        available = bool(torch.cuda.is_available())
+        print(f"[GPU] CUDA 사용 가능: {available}", flush=True)
+        if not available:
+            raise RuntimeError("CUDA GPU 없음 — CPU 자동 전환 금지")
+        print(f"[GPU] 장치: {torch.cuda.get_device_name(0)}", flush=True)
+        print("[GPU] TripoSR 모델 로드 및 추론 시작", flush=True)
+        if "--device" not in upstream_args:
+            upstream_args.extend(["--device", "cuda:0"])
+
     sys.argv = [str(run_script), *upstream_args]
     runpy.run_path(str(run_script), run_name="__main__")
 
