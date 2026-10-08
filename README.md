@@ -50,6 +50,7 @@ Accessory Mode는 검증된 **static bone-parented bake** 경로만 제공합니
 | Component | Pin | License |
 |---|---|---|
 | TripoSR source | `107cefdc244c39106fa830359024f6a2f1c78871` | MIT |
+| Marching Cubes mesh extraction | `scikit-image==0.26.0` (prebuilt wheel) | BSD-3-Clause |
 | TripoSR model snapshot | `c1cf7716aed5aa6c1c5e174657791ef0e1327bde` + verified `model.ckpt` SHA256 | model license in upstream repository |
 | TripoSR nested DINO config | `facebook/dino-vitb16@f205d5d8e640a89a2b8ef0369670dfc37cc07fc2` | Apache-2.0 |
 | rembg runtime | `2.0.85` | MIT |
@@ -60,7 +61,7 @@ Accessory Mode는 검증된 **static bone-parented bake** 경로만 제공합니
 | MakeHuman base mesh | `a8bc2d54ff0ac92e78ff71431b1023eda42bf482` | CC0 |
 | VRM writer | local `pygltflib` path | project dependency |
 
-Commercial/production avatar reconstruction verifies the TripoSR git revision before running. The local deterministic TripoSR wrapper also pins the nested DINO config revision and overrides rembg's no-argument default so background removal always uses the Apache-2.0 `u2net` model rather than a changing rembg default. Cached/downloaded `u2net.onnx` bytes are checksum-verified before inference. The anime face path likewise resolves the exact YOLOv3 and HRNetV2 Hugging Face revisions and verifies both safetensors SHA256 values before constructing the detector.
+TripoSR의 고정된 isosurface 코드는 Marching Cubes 함수 하나만 사용합니다. Colab에서는 `torchmcubes`의 C++/CUDA wheel을 실시간 컴파일하지 않고, `scikit-image==0.26.0`의 바이너리 wheel을 통해 동일한 텐서 API와 좌표축 계약을 제공하도록 변경했습니다. GPU 추론은 PyTorch로 실행되고, 메쉬 표면 추출만 CPU에서 수행합니다.\n\nCommercial/production avatar reconstruction verifies the TripoSR git revision before running. The local deterministic TripoSR wrapper also pins the nested DINO config revision and overrides rembg's no-argument default so background removal always uses the Apache-2.0 `u2net` model rather than a changing rembg default. Cached/downloaded `u2net.onnx` bytes are checksum-verified before inference. The anime face path likewise resolves the exact YOLOv3 and HRNetV2 Hugging Face revisions and verifies both safetensors SHA256 values before constructing the detector.
 
 `third_party.lock.json` separates source revisions from binary integrity hashes. `artifact_sha256` is never filled with a git SHA or package version. It is reserved for a real SHA256 of downloaded artifact bytes.
 
