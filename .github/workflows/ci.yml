@@ -372,7 +372,7 @@ jobs:
             trimesh==4.12.2 rembg==2.0.85 \
             "huggingface-hub>=0.34.0,<1.0" "imageio[ffmpeg]>=2.34.0" \
             "PyYAML>=6.0" "scipy>=1.13" "click>=8.0" \
-            pygltflib==1.16.5 "packaging>=24.0" gradio==6.3.0
+            pygltflib==1.16.5 "packaging>=24.0" gradio==6.3.0 pytest
           python -m pip install --disable-pip-version-check --no-deps anime-face-detector==0.1.0
           python -m pip install --disable-pip-version-check --no-deps -e .
           python -m pip check
