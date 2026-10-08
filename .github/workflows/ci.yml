@@ -52,7 +52,7 @@ jobs:
       - name: Install CPU model-contract dependencies
         run: >-
           python -m pip install --disable-pip-version-check
-          pytest packaging numpy scipy scikit-image==0.26.0 pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5 psd-tools>=1.14,<2 opencv-python-headless>=4.10,<5
+          pytest packaging numpy scipy scikit-image==0.26.0 pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5 psd-tools==1.11.0 "opencv-python-headless>=4.10,<5"
       - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - name: Verify model/backend option, I/O, and runtime locks
         run: >-
@@ -127,7 +127,7 @@ jobs:
       - name: Install complete CPU test dependencies
         run: >-
           python -m pip install --disable-pip-version-check
-          pytest packaging numpy scipy scikit-image==0.26.0 pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
+          pytest packaging numpy scipy scikit-image==0.26.0 pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5 psd-tools==1.11.0 "opencv-python-headless>=4.10,<5"
       - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - name: Discover and run every CPU-safe test
         run: |
