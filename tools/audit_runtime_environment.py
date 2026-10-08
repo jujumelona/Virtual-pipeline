@@ -17,7 +17,7 @@ ROOT_PACKAGES = [
     "anime-face-detector",
     "torch",
     "torchvision",
-    "torchmcubes",
+    "scikit-image",
     "trimesh",
     "Pillow",
     "numpy",
@@ -121,9 +121,6 @@ def audit_runtime() -> Dict[str, Any]:
         try:
             dist = _installed_distribution(requested)
         except metadata.PackageNotFoundError:
-            # torchmcubes may expose importable code without normalized wheel
-            # metadata in unusual editable/VCS installs; all other roots must
-            # have distribution metadata.
             missing.append(requested)
             continue
 
@@ -156,12 +153,8 @@ def audit_runtime() -> Dict[str, Any]:
         if item["license_status"] == "unknown"
     ]
 
-    # Missing root distribution metadata is a hard failure except torchmcubes,
-    # which is validated separately by direct import immediately before this.
-    hard_missing = [
-        name for name in missing
-        if canonicalize_name(name) != "torchmcubes"
-    ]
+    # Every required runtime distribution must be installed and auditable.
+    hard_missing = list(missing)
 
     return {
         "status": "error" if blocked or hard_missing else "complete",
