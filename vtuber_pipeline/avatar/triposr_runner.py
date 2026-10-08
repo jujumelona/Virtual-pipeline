@@ -121,6 +121,15 @@ def main() -> None:
         raise FileNotFoundError(f"TripoSR run.py not found: {run_script}")
 
     upstream_args = sys.argv[2:]
+
+    # The pinned TripoSR isosurface helper imports only marching_cubes.
+    # Supply that API from a prebuilt scikit-image wheel rather than forcing
+    # a PyTorch/CUDA native extension build in Colab.
+    from vtuber_pipeline.avatar.marching_cubes_backend import (
+        install_triposr_marching_cubes,
+    )
+
+    install_triposr_marching_cubes()
     _install_hf_revision_guard()
 
     if "--no-remove-bg" not in upstream_args:
