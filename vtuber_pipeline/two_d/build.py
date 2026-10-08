@@ -95,14 +95,24 @@ def prepare_common_2d(source: SourceSet) -> dict:
 def build_inochi2d(source: SourceSet) -> BuildResult:
     if source.mode!="inochi2d":
         raise ValueError("source mode must be inochi2d")
+    art=None
     try:
         art=prepare_common_2d(source)
-        from .inochi_bridge import export_inp
-        native=export_inp(art["puppet_spec"],source.output_dir)
-        result=BuildResult("inochi2d","complete",native["inp"],
-                           native.get("editable") or art["layers"]["psd"],source.output_dir)
     except Exception as exc:
-        result=BuildResult("inochi2d","failed",None,None,source.output_dir,str(exc))
+        result=BuildResult("inochi2d","failed",None,None,source.output_dir,
+                           "2D artwork preparation failed: "+str(exc))
+    else:
+        try:
+            from .inochi_bridge import export_inp
+            native=export_inp(art["puppet_spec"],source.output_dir)
+            result=BuildResult("inochi2d","complete",native["inp"],
+                               native.get("editable") or art["layers"]["psd"],source.output_dir)
+        except Exception as exc:
+            # Successfully generated real PSD/ORA/mesh/keyforms. A missing or
+            # incompatible native INP exporter is PREPARED, never COMPLETE.
+            result=BuildResult("inochi2d","prepared",art["layers"]["psd"],
+                               art["layers"]["ora"],source.output_dir,
+                               "Native INP2 export unavailable: "+str(exc))
     result.write(source.output_dir)
     return result
 
