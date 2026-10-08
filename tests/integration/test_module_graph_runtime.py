@@ -14,6 +14,8 @@ import importlib.util
 import pathlib
 import pkgutil
 
+import pytest
+
 from click.testing import CliRunner
 
 
