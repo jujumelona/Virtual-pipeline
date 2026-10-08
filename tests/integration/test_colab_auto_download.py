@@ -170,9 +170,7 @@ def test_stable_avatar_vrm_path_is_atomically_copied_and_sha_verified(tmp_path):
     assert target.read_bytes() == first.read_bytes()
     assert first.exists()
     route = gradio_file_route(first, root)
-    assert route.startswith("/gradio_api/file=/")
-    assert route.endswith("/avatar.vrm")
-    assert str(first) in route
+    assert route == "/vtuber-download/avatar-123/avatar.vrm"
 
     second = root / "avatar-456" / "avatar.vrm"
     second.parent.mkdir()
