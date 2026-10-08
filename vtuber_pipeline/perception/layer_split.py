@@ -1,45 +1,84 @@
-"""Maintain original-canvas RGBA part pixels and explicitly label unknown occlusions."""
+"""Separate observed full-canvas RGBA parts and identify genuine overlay occlusions.
+
+Unknown pixels are never silently invented. Hidden-fill masks are proposals
+restricted to a higher-z foreground part; ordinary outer silhouettes are not
+occlusions and must not trigger an expensive FLUX editing pass.
+"""
 from pathlib import Path
-from PIL import Image, ImageFilter
 import json
+
 import numpy as np
-from vtuber_pipeline.common.schemas import PartsDocument, Part
+from PIL import Image, ImageFilter
+
+from vtuber_pipeline.common.schemas import Part, PartsDocument
 from vtuber_pipeline.common.part_taxonomy import z_order
+
 
 def split_semantic_layers(original_rgba: str, masks_json: str,
                           landmarks_json: str, output_dir: str) -> PartsDocument:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     base = Image.open(original_rgba).convert("RGBA")
-    w, h = base.size
+    width, height = base.size
     masks = json.loads(Path(masks_json).read_text(encoding="utf-8"))
     if not masks.get("parts"):
         raise ValueError("SAM produced no semantic part masks")
-    entries = sorted(masks["parts"], key=lambda d: z_order(d["semantic_id"]))
-    parts = []
-    for index, entry in enumerate(entries):
+
+    observed = []
+    for entry in masks["parts"]:
         identity = entry["semantic_id"]
-        mask = Image.open(entry["mask_png"]).convert("L")
-        if mask.size != (w, h):
+        alpha = Image.open(entry["mask_png"]).convert("L")
+        if alpha.size != (width, height):
             raise ValueError("mask not in original image coordinates: " + identity)
-        mask_np = np.asarray(mask)
-        if not np.any(mask_np):
+        raw = np.asarray(alpha)
+        if not np.any(raw):
             continue
-        ys, xs = np.nonzero(mask_np > 0)
-        px = np.array(base, copy=True)
-        px[:, :, 3] = np.minimum(px[:, :, 3], mask_np)
-        path = out / ("part_%03d.png" % index)
-        Image.fromarray(px, "RGBA").save(path)
-        # An edge-expansion band is a proposal for hidden artwork, not observed source.
-        grown = mask.filter(ImageFilter.MaxFilter(15))
-        hidden = np.maximum(0, np.asarray(grown, dtype=np.int16) - mask_np.astype(np.int16)).astype("uint8")
-        hidden_path = out / ("hidden_%03d.png" % index)
-        Image.fromarray(hidden, "L").save(hidden_path)
-        parts.append(Part(identity, str(path), entry["mask_png"], str(hidden_path),
-                          [int(xs.min()), int(ys.min()), int(xs.max()+1), int(ys.max()+1)],
-                          z_order(identity), [], "sam2.1"))
-    if not parts:
+        observed.append((identity, z_order(identity), entry["mask_png"], alpha, raw))
+
+    if not observed:
         raise ValueError("empty segmented character")
-    doc = PartsDocument(w, h, parts, None, "")
-    doc.write(str(out / "parts.json"))
-    return doc
+
+    # Process highest depth first. A part has only the masks of STRICTLY
+    # higher-depth parts as possible occluders; same-depth features cannot
+    # incorrectly invent missing regions in one another.
+    observed.sort(key=lambda item: (item[1], item[0]), reverse=True)
+    higher_priority_union = np.zeros((height, width), dtype=bool)
+    parts = []
+    index = 0
+    position = 0
+    while position < len(observed):
+        depth = observed[position][1]
+        following = position
+        while following < len(observed) and observed[following][1] == depth:
+            following += 1
+
+        for identity, _, mask_path, alpha, raw in observed[position:following]:
+            ys, xs = np.nonzero(raw > 0)
+            rgba = np.asarray(base).copy()
+            rgba[:, :, 3] = np.minimum(rgba[:, :, 3], raw)
+            rgba_path = out / f"part_{index:03d}.png"
+            Image.fromarray(rgba, "RGBA").save(rgba_path)
+
+            expanded = np.asarray(alpha.filter(ImageFilter.MaxFilter(15))) > 0
+            hidden = expanded & (raw == 0) & higher_priority_union
+            hidden_path = None
+            if np.any(hidden):
+                target = out / f"hidden_{index:03d}.png"
+                Image.fromarray((hidden * 255).astype(np.uint8), "L").save(target)
+                hidden_path = str(target)
+
+            parts.append(Part(
+                identity, str(rgba_path), mask_path, hidden_path,
+                [int(xs.min()), int(ys.min()), int(xs.max() + 1), int(ys.max() + 1)],
+                depth, [], "sam2.1",
+            ))
+            index += 1
+
+        for _identity, _depth, _path, _image, raw in observed[position:following]:
+            higher_priority_union |= raw > 0
+        position = following
+
+    parts.sort(key=lambda part: (part.z_order, part.semantic_id))
+    result = PartsDocument(width, height, parts, None, "")
+    result.write(str(out / "parts.json"))
+    return result
