@@ -1521,8 +1521,9 @@ def launch() -> None:
     # Notebook cells share one Python kernel even after a fresh git reset.
     # Old imported package modules can have incompatible stage contracts.
     _reload_pipeline_modules()
-    # Do not show a usable-looking UI before the model assets are verified.
-    require_runtime_ready()
+    # The 2D artwork-preparation route must not depend on 3D model assets.
+    # build_avatar_ui and build_accessories_ui check 3D readiness at their
+    # execution boundary, so they remain fail-closed without TripoSR.
     WORK_ROOT.mkdir(parents=True, exist_ok=True)
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 
