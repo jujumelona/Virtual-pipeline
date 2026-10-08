@@ -564,11 +564,11 @@ def _setup_stage(label: str, callback):
     try:
         outcome = callback()
     except Exception:
-        detail = f"[setup] {label}: FAILED\\n{traceback.format_exc()}"
+        detail = f"[setup] {label}: FAILED\n{traceback.format_exc()}"
         log_path = WORK_ROOT / "logs" / "runtime_setup.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("a", encoding="utf-8") as log:
-            log.write(detail + "\\n")
+            log.write(detail + "\n")
         print(detail, flush=True)
         raise
     print(f"[setup] {label}: complete", flush=True)
