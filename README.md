@@ -84,7 +84,7 @@ export TRIPOSR_DIR="$PWD/TripoSR"
 
 ## Google Colab
 
-상단 **Open In Colab** 버튼으로 열고 **① 환경 준비 → ② 생성 UI 실행** 순서대로 실행합니다.
+상단 **Open In Colab** 버튼으로 열고 **① 환경 설치 → ② 모델 다운로드·검증 → ③ 생성 UI** 순서대로 실행합니다.
 
 ### ① 캐릭터 / 얼굴 만들기
 
