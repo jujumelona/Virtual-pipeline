@@ -665,8 +665,8 @@ def _gpu_snapshot() -> str:
 
 def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
     """Bridge synchronous pipeline stages to live Gradio progress and log outputs."""
-    from vtuber_pipeline.core.stage_progress import stage_reporter
-
+    # Import inside worker's try block. If any native package import fails,
+    # report the traceback in Gradio instead of crashing its queue handler.
     events: queue.Queue = queue.Queue()
     run_id = uuid.uuid4().hex[:10]
     log_file = WORK_ROOT / "logs" / f"generation-{run_id}.log"
@@ -694,6 +694,7 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
         pipeline_logger.addHandler(logging_sink)
         pipeline_logger.setLevel(logging.INFO)
         try:
+            from vtuber_pipeline.core.stage_progress import stage_reporter
             events.put(("stage", "pipeline", "running", "입력 검사"))
             with stage_reporter(lambda name, status, detail: events.put(
                 ("stage", name, status, detail)
