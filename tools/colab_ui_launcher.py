@@ -14,6 +14,7 @@ import socket
 import subprocess
 import sys
 import time
+import uuid
 import urllib.error
 import urllib.request
 
@@ -90,7 +91,9 @@ def _wait_for_http(port: int, process: subprocess.Popen, timeout: int) -> None:
     )
 
 
-def _follow_server(process: subprocess.Popen) -> None:
+def _follow_server(
+    process: subprocess.Popen, *, download_dir: pathlib.Path | None = None,
+) -> None:
     """Keep Colab's third cell active for the ENTIRE Gradio server lifetime.
 
     Colab's iframe helper returns immediately. Previously the cell completed
@@ -105,6 +108,30 @@ def _follow_server(process: subprocess.Popen) -> None:
     next_heartbeat = time.monotonic() + 60
     try:
         while True:
+            if download_dir is not None:
+                # This runs IN the Colab notebook kernel, not inside Gradio.
+                # The kernel is the owner of the authenticated browser download.
+                from tools.colab_download_contract import consume_avatar_downloads
+                from google.colab import files
+
+                outcomes = consume_avatar_downloads(
+                    download_dir, WORK / "output", files.download,
+                )
+                for outcome in outcomes:
+                    if outcome["status"] == "requested":
+                        print(
+                            "[VRM] avatar.vrm 브라우저 자동 다운로드 요청 완료. "
+                            "실제 저장 여부는 브라우저 다운로드 목록에서 확인하세요. "
+                            "UI의 VRM 파일에서도 다시 받을 수 있습니다.",
+                            flush=True,
+                        )
+                    else:
+                        print(
+                            "[VRM] 자동 다운로드 실패: "
+                            + outcome["detail"]
+                            + " · UI의 VRM 파일에서 직접 다운로드하세요.",
+                            flush=True,
+                        )
             code = process.poll()
             if code is not None:
                 PID_PATH.unlink(missing_ok=True)
@@ -145,10 +172,15 @@ def main() -> None:
     _fresh_python_abi_check()
     _stop_prior_ui()
     port = _open_unused_port()
+    # Per-UI-run event directory prevents old avatar artifacts from launching
+    # an unexpected download in a newly started notebook session.
+    download_dir = WORK / "download_events" / uuid.uuid4().hex
+    download_dir.mkdir(parents=True, exist_ok=False)
     environment = os.environ.copy()
     environment.pop("VTUBER_SETUP_ONLY", None)
     environment["VTUBER_COLAB_EXTERNAL_IFRAME"] = "1"
     environment["VTUBER_COLAB_SERVER_PORT"] = str(port)
+    environment["VTUBER_COLAB_AUTODOWNLOAD_DIR"] = str(download_dir)
     environment["PYTHONUNBUFFERED"] = "1"
     with LOG_PATH.open("w", encoding="utf-8") as logfile:
         process = subprocess.Popen(
@@ -175,7 +207,8 @@ def main() -> None:
     output.serve_kernel_port_as_iframe(port, height="1100")
     # serve_kernel_port_as_iframe() returns immediately. Do NOT let the
     # notebook finish while the server or its model inference is still alive.
-    _follow_server(process)
+    print("[VRM] avatar.vrm 생성 성공 시 Colab 자동 다운로드 활성화", flush=True)
+    _follow_server(process, download_dir=download_dir)
 
 
 if __name__ == "__main__":
