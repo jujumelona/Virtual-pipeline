@@ -7,6 +7,8 @@ from typing import Dict, Any
 
 from vtuber_pipeline.core.stage_progress import report_stage
 
+INPUT_GATE_CONTRACT = "scored-28-landmarks-v2"
+
 
 def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
     """Validate image geometry and real anime-face detector output.
