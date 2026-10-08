@@ -860,7 +860,9 @@ def build_accessories_ui(
                 None,
             )
 
+        from vtuber_pipeline.core.stage_progress import report_stage
         progress(0.30, desc="악세사리 3D 재구성")
+        report_stage("accessory_reconstruction", "running", f"{len(slots)}개")
         source_paths = [slot["image"] for slot in slots]
         recon_dir = OUTPUT_ROOT / f"accessory-recon-{uuid.uuid4().hex[:10]}"
         reconstructed = reconstruct_accessories(
@@ -868,6 +870,9 @@ def build_accessories_ui(
             str(recon_dir),
             profile="commercial",
         )
+        report_stage("accessory_reconstruction", "complete" if all(
+            item.get("status") == "complete" for item in reconstructed
+        ) else "error", f"{len(reconstructed)}개")
         if len(reconstructed) != len(slots):
             raise RuntimeError(
                 f"Accessory reconstruction count mismatch: {len(reconstructed)} != {len(slots)}"
@@ -892,6 +897,7 @@ def build_accessories_ui(
                 0.35 + 0.55 * (index - 1) / max(total, 1),
                 desc=f"악세사리 {index}/{total} 적용",
             )
+            report_stage(f"accessory_{index}_bake", "running", f"{anchor}")
             logs.append(
                 f"[{index}/{total}] {pathlib.Path(source_path).name} → {anchor}"
             )
@@ -921,6 +927,7 @@ def build_accessories_ui(
                     f"{result.get('failed_stages') or result.get('failed_reason') or result.get('status')}"
                 )
             current_vrm = result["output_vrm"]
+            report_stage(f"accessory_{index}_bake", "complete", str(current_vrm))
 
         final_path = pathlib.Path(current_vrm)
         if not final_path.is_file():
@@ -984,7 +991,7 @@ def build_app() -> gr.Blocks:
             <div id="hero">
               <div style="font-size:30px;font-weight:800">VTuber Builder</div>
               <div style="color:#5f6368;margin-top:4px">
-                만들 작업을 선택하고 파일을 올린 뒤 실행하세요.
+                ① 환경 준비 셀 완료 → ② UI 실행 → 이미지 업로드 → 생성. 생성 버튼에서 설치하지 않습니다.
               </div>
             </div>
             """
@@ -995,7 +1002,7 @@ def build_app() -> gr.Blocks:
                 gr.Markdown(
                     """
                     ### 캐릭터 이미지 → VTuber VRM
-                    얼굴·머리·상체 fitting, 표정·립싱크·눈동자·헤어 물리까지 포함한 VRM을 만듭니다.
+                    제작 10단계 실시간 표시: 입력 검증 → TripoSR → 피팅 → 텍스처 → 리깅 → 표정 → 시선 → 헤어 물리 → VRM 출력 → 검증.
                     """,
                     elem_classes=["section-note"],
                 )
@@ -1029,20 +1036,26 @@ def build_app() -> gr.Blocks:
                         )
 
                 avatar_log = gr.Textbox(
-                    label="진행 로그",
-                    lines=14,
-                    max_lines=24,
+                    label="실시간 제작 단계 · GPU 상태 · 작업 로그",
+                    lines=18,
+                    max_lines=28,
+                    interactive=False,
+                    autoscroll=True,
+                )
+                avatar_log_file = gr.File(
+                    label="전체 제작 로그 다운로드",
                     interactive=False,
                 )
 
                 avatar_run.click(
-                    fn=build_avatar_ui,
+                    fn=stream_avatar_ui,
                     inputs=[avatar_image, usage, latest_avatar],
                     outputs=[
                         avatar_status,
                         avatar_log,
                         avatar_result,
                         latest_avatar,
+                        avatar_log_file,
                     ],
                     show_progress="full",
                     concurrency_id="vtuber_gpu_pipeline",
@@ -1053,7 +1066,7 @@ def build_app() -> gr.Blocks:
                 gr.Markdown(
                     """
                     ### 기존 VRM + 악세사리 이미지 → 악세사리 적용 VRM
-                    각 악세사리를 개별적으로 3D 재구성하고 원하는 위치에 붙입니다.
+                    악세사리 재구성 → 정규화·본 앵커·피팅·충돌 처리 → VRM 합성/검증. 단계와 GPU 상태를 실시간 표시합니다.
                     """,
                     elem_classes=["section-note"],
                 )
@@ -1133,14 +1146,19 @@ def build_app() -> gr.Blocks:
                     interactive=False,
                 )
                 accessory_log = gr.Textbox(
-                    label="진행 로그",
-                    lines=14,
-                    max_lines=24,
+                    label="실시간 제작 단계 · GPU 상태 · 작업 로그",
+                    lines=18,
+                    max_lines=28,
+                    interactive=False,
+                    autoscroll=True,
+                )
+                accessory_log_file = gr.File(
+                    label="전체 제작 로그 다운로드",
                     interactive=False,
                 )
 
                 accessory_run.click(
-                    fn=build_accessories_ui,
+                    fn=stream_accessories_ui,
                     inputs=[
                         use_latest,
                         base_vrm,
@@ -1151,6 +1169,7 @@ def build_app() -> gr.Blocks:
                         accessory_status,
                         accessory_log,
                         accessory_result,
+                        accessory_log_file,
                     ],
                     show_progress="full",
                     concurrency_id="vtuber_gpu_pipeline",
