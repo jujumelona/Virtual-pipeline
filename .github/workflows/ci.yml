@@ -52,7 +52,7 @@ jobs:
       - name: Install CPU model-contract dependencies
         run: >-
           python -m pip install --disable-pip-version-check
-          pytest packaging numpy scipy pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
+          pytest packaging numpy scipy scikit-image==0.26.0 pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
       - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - name: Verify model/backend option, I/O, and runtime locks
         run: >-
@@ -60,6 +60,7 @@ jobs:
           tests/integration/test_model_io_contracts.py
           tests/integration/test_runtime_lock_contracts.py
           tests/integration/test_config_contracts.py
+          tests/integration/test_marching_cubes_bridge.py
 
   unit:
     name: Unit / Python ${{ matrix.python-version }}
@@ -97,12 +98,13 @@ jobs:
       - name: Install CPU CI dependencies
         run: >-
           python -m pip install --disable-pip-version-check
-          pytest numpy scipy pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
+          pytest numpy scipy scikit-image==0.26.0 pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
       - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - run: >-
           python -m pytest -q
           tests/integration/test_e2e_pipeline.py
           tests/integration/test_reconstruction.py
+          tests/integration/test_marching_cubes_bridge.py
           tests/integration/test_accessory_real_cpu.py
           tests/integration/test_avatar_real_cpu.py
           --maxfail=1
@@ -122,7 +124,7 @@ jobs:
       - name: Install complete CPU test dependencies
         run: >-
           python -m pip install --disable-pip-version-check
-          pytest packaging numpy scipy pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
+          pytest packaging numpy scipy scikit-image==0.26.0 pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
       - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - name: Discover and run every CPU-safe test
         run: |
