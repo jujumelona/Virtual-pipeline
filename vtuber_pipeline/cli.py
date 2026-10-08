@@ -288,3 +288,45 @@ def accessory(base_vrm, images, anchors, custom_anchors, output, profile):
 
 if __name__ == "__main__":
     cli()
+
+
+@cli.command("inochi2d")
+@click.option("--image", required=True, type=click.Path(exists=True))
+@click.option("--layers-zip", type=click.Path(exists=True), default=None)
+@click.option("--output", required=True, type=click.Path())
+@click.option("--commercial-usage", type=click.Choice(["personalNonProfit","personalProfit","corporation"]), default="corporation")
+def inochi2d_full(image, layers_zip, output, commercial_usage):
+    """Build a native Inochi2D puppet; reject unsupported native exporters."""
+    from vtuber_pipeline.common.schemas import SourceSet
+    from vtuber_pipeline.two_d.build import build_inochi2d
+    result=build_inochi2d(SourceSet("inochi2d",image,user_layers_zip=layers_zip,
+                                   output_dir=output,commercial_usage=commercial_usage))
+    click.echo(__import__("json").dumps(result.__dict__,ensure_ascii=False))
+    if result.status!="complete":
+        raise click.ClickException(result.error or "No verified INP2 puppet was produced")
+
+
+@cli.command("live2d")
+@click.option("--image", required=True, type=click.Path(exists=True))
+@click.option("--layers-zip", type=click.Path(exists=True), default=None)
+@click.option("--output", required=True, type=click.Path())
+@click.option("--commercial-usage", type=click.Choice(["personalNonProfit","personalProfit","corporation"]), default="corporation")
+def live2d_full(image, layers_zip, output, commercial_usage):
+    """Prepare layered art and rig data for the official Cubism editor."""
+    from vtuber_pipeline.common.schemas import SourceSet
+    from vtuber_pipeline.two_d.build import build_live2d
+    result=build_live2d(SourceSet("live2d",image,user_layers_zip=layers_zip,
+                                 output_dir=output,commercial_usage=commercial_usage))
+    click.echo(__import__("json").dumps(result.__dict__,ensure_ascii=False))
+    if result.status=="failed":
+        raise click.ClickException(result.error or "Live2D art preparation failed")
+
+
+@cli.command("live2d-import-export")
+@click.option("--official-export-dir", required=True, type=click.Path(exists=True,file_okay=False))
+@click.option("--output", required=True, type=click.Path())
+def live2d_import_export(official_export_dir, output):
+    """Collect real MOC3 and all referenced textures/physics from Cubism Editor."""
+    from vtuber_pipeline.two_d.cubism_handoff import collect_official_export
+    result=collect_official_export(official_export_dir,output)
+    click.echo(__import__("json").dumps(result.__dict__,ensure_ascii=False))
