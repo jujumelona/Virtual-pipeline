@@ -899,9 +899,22 @@ def test_anime_face_detector_uses_only_preverified_local_weights(
 
     detector_module.hf_hub_download = forbidden_network
 
+    face_module = types.ModuleType("anime_face_detector._face")
+    landmark_module = types.ModuleType("anime_face_detector._landmark")
+    old_loader = lambda path: None
+    face_module.load_state_dict_from_path = old_loader
+    landmark_module.load_state_dict_from_path = old_loader
+    safetensors_package = types.ModuleType("safetensors")
+    safetensors_package.__path__ = []
+    safetensors_torch = types.ModuleType("safetensors.torch")
+    safetensors_torch.load_file = lambda path, device="cpu": {"path": path}
+    safetensors_package.torch = safetensors_torch
+
     package = types.ModuleType("anime_face_detector")
     package.__path__ = []
     package.detector = detector_module
+    package._face = face_module
+    package._landmark = landmark_module
     sentinel = object()
 
     def fake_create_detector(name):
@@ -918,6 +931,12 @@ def test_anime_face_detector_uses_only_preverified_local_weights(
                 "model.safetensors",
             )
         )
+        assert landmark_module.load_state_dict_from_path(str(hrnet)) == {
+            "path": str(hrnet)
+        }
+        assert face_module.load_state_dict_from_path(str(yolo)) == {
+            "path": str(yolo)
+        }
         return sentinel
 
     package.create_detector = fake_create_detector
@@ -927,12 +946,18 @@ def test_anime_face_detector_uses_only_preverified_local_weights(
         "anime_face_detector.detector",
         detector_module,
     )
+    monkeypatch.setitem(sys.modules, "anime_face_detector._face", face_module)
+    monkeypatch.setitem(sys.modules, "anime_face_detector._landmark", landmark_module)
+    monkeypatch.setitem(sys.modules, "safetensors", safetensors_package)
+    monkeypatch.setitem(sys.modules, "safetensors.torch", safetensors_torch)
 
     result = module._create_pinned_anime_face_detector()
 
     assert result is sentinel
     assert calls == [str(hrnet), str(yolo)]
     assert detector_module.hf_hub_download is forbidden_network
+    assert face_module.load_state_dict_from_path is old_loader
+    assert landmark_module.load_state_dict_from_path is old_loader
 
 
 def test_anime_face_model_resolver_rejects_weight_hash_mismatch(
