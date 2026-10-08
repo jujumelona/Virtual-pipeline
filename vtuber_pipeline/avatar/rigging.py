@@ -140,6 +140,56 @@ def create_humanoid_skeleton(mesh_bounds: np.ndarray) -> Dict[str, Any]:
 
 
 
+def _combine_supplied_hair_geometry(
+    mesh: Any, uv: np.ndarray, hair_mesh_path: str,
+) -> Tuple[Any, np.ndarray, int]:
+    """Attach actual independently authored ribbon triangles to the skinned mesh.
+
+    Preserve the full canonical body vertex and face prefixes so facial morphs
+    keep their indices. New vertices are restricted to the secondary
+    head/hair joint chain by compute_skin_weights().
+    """
+    from scipy.spatial import cKDTree
+
+    if uv.shape != (len(mesh.vertices), 2) or not np.isfinite(uv).all():
+        raise ValueError("Canonical UV map must cover each finite body vertex")
+    source = trimesh.load(hair_mesh_path, force="mesh", process=False)
+    if (not isinstance(source, trimesh.Trimesh)
+            or len(source.vertices) < 3 or len(source.faces) < 1):
+        raise ValueError("Separate hair geometry must contain real triangles")
+    vertices = np.asarray(source.vertices, dtype=np.float64)
+    faces = np.asarray(source.faces, dtype=np.int64)
+    if not np.isfinite(vertices).all() or np.min(faces) < 0 or np.max(faces) >= len(vertices):
+        raise ValueError("Invalid hair geometry coordinates or triangle indices")
+
+    body = np.asarray(mesh.vertices, dtype=np.float64)
+    bottom, top = float(body[:, 1].min()), float(body[:, 1].max())
+    height = max(top - bottom, 1e-8)
+    # The independently authored ribbons must be near the actual head.
+    if (np.min(vertices[:, 1]) < bottom + height * 0.52
+            or np.max(vertices[:, 1]) > top + height * 0.09):
+        raise ValueError("Separate hair is not registered to the canonical head")
+    scalp_indices = np.flatnonzero(body[:, 1] > bottom + height * 0.72)
+    if len(scalp_indices) < 16:
+        raise ValueError("Canonical head does not have sufficient source UV anchors")
+    distances, nearest = cKDTree(body[scalp_indices]).query(vertices)
+    if not np.isfinite(distances).all() or np.percentile(distances, 95) > height * 0.24:
+        raise ValueError("Separate hair is too far from the observed head surface")
+
+    # Surface-derived ribbons have independent triangles but no observed UVs.
+    # The nearest measured head UV is only a stable, conservative transfer.
+    # Avoid inventing colors for unobserved strands.
+    ribbon_uv = uv[scalp_indices[nearest]]
+    start = len(body)
+    merged = trimesh.Trimesh(
+        vertices=np.concatenate((body, vertices), axis=0),
+        faces=np.concatenate((np.asarray(mesh.faces, dtype=np.int64),
+                              faces + start), axis=0),
+        process=False, validate=False,
+    )
+    return merged, np.vstack((uv, ribbon_uv)).astype(np.float32), start
+
+
 def _build_secondary_hair_shell(
     mesh: Any,
     uv: np.ndarray,
@@ -443,6 +493,7 @@ def rig_avatar(
     output_path: str,
     texture_path: str | None = None,
     uv_path: str | None = None,
+    hair_mesh_path: str | None = None,
 ) -> str:
     """
     메시에 기본 휴머노이드 리그를 추가합니다.
@@ -482,11 +533,16 @@ def rig_avatar(
             f"Texture UV shape {source_uv.shape} does not match source mesh"
         )
 
-    # Build a distinct secondary shell so SpringBone never deforms the skull.
-    mesh, rig_uv, hair_vertex_start = _build_secondary_hair_shell(
-        mesh,
-        source_uv,
-    )
+    # Full-body builds provide actual head-derived strand ribbons. Attach
+    # those meshes instead of discarding them and silently inventing a shell.
+    if hair_mesh_path is not None:
+        mesh, rig_uv, hair_vertex_start = _combine_supplied_hair_geometry(
+            mesh, source_uv, hair_mesh_path,
+        )
+    else:
+        mesh, rig_uv, hair_vertex_start = _build_secondary_hair_shell(
+            mesh, source_uv,
+        )
     rig_uv_path = str(pathlib.Path(output_path).with_suffix(".uv.npy"))
     np.save(rig_uv_path, rig_uv)
 
