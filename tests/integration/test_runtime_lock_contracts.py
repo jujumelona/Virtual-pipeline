@@ -255,11 +255,16 @@ def test_colab_notebook_is_only_a_fresh_main_bootstrap():
     ]
     code = "\n".join(code_cells)
 
-    assert len(code_cells) == 1
-    assert '"fetch", "--prune", "origin", "main"' in code
-    assert '"reset", "--hard", "origin/main"' in code
-    assert 'REPO_DIR / "tools" / "colab_app.py"' in code
-    assert 'run_name="__main__"' in code
+    assert len(code_cells) == 2
+    setup, launch = code_cells
+    assert '"fetch", "--prune", "origin", "main"' in setup
+    assert '"reset", "--hard", "origin/main"' in setup
+    assert 'REPO_DIR / "tools" / "colab_app.py"' in setup
+    assert 'app["ensure_runtime"]()' in setup
+    assert "runpy.run_path" in launch
+    assert 'run_name="__main__"' in launch
+    assert "ensure_runtime" not in launch
+    assert "pip" not in launch
 
     # The notebook must not carry a stale second implementation of the app.
     for forbidden in (
