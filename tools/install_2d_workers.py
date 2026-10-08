@@ -167,6 +167,79 @@ def install_2d_environment() -> dict:
             "anime_source": str(sources["anime"]), "fingerprint": fingerprint}
 
 
+def install_alpha_environment() -> dict:
+    """Install only the image-matting worker required by 3D VRM.
+
+    In particular the 3D workflow does not install SAM2 or FLUX, and does not
+    download the large 2D checkpoints just to remove a reference background.
+    """
+    import torch
+    import torchvision
+
+    lock = json.loads((ROOT / "third_party.lock.json").read_text(encoding="utf-8"))
+    torch_version = torch.__version__.split("+")[0]
+    vision_version = torchvision.__version__.split("+")[0]
+    packages = ("pytorch-lightning==2.5.6", "timm==1.0.20",
+                "kornia==0.8.2", "huggingface-hub>=0.25,<2")
+    fingerprint = hashlib.sha256(json.dumps({
+        "torch": torch_version, "torchvision": vision_version,
+        "packages": packages, "source": _pinned_source("anime", lock),
+    }, sort_keys=True).encode()).hexdigest()
+    python = WORK / "venv_alpha" / "bin" / "python"
+    source = WORK / "upstream" / "anime"
+    marker = WORK / "alpha.ready.json"
+    env = os.environ.copy()
+    env["ANIME_SEGMENTATION_REPO"] = str(source)
+    env["PYTHONPATH"] = str(source) + os.pathsep + str(ROOT)
+    env["VTUBER_EXPECT_TORCH"] = torch_version
+    env["VTUBER_EXPECT_VISION"] = vision_version
+    smoke = (
+        "import os,torch,torchvision; "
+        "assert torch.__version__.split('+')[0]==os.environ['VTUBER_EXPECT_TORCH']; "
+        "assert torchvision.__version__.split('+')[0]==os.environ['VTUBER_EXPECT_VISION']; "
+        "from train import AnimeSegmentation; "
+        "print('[alpha-env] source-and-cuda-abi-ok',flush=True)"
+    )
+    if python.is_file() and (source / "train.py").is_file() and marker.is_file():
+        try:
+            ready = json.loads(marker.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            ready = {}
+        if ready.get("fingerprint") == fingerprint:
+            _exec([str(python), "-c", smoke], env=env, timeout=180)
+            return {"python": str(python), "anime_source": str(source),
+                    "fingerprint": fingerprint}
+    WORK.mkdir(parents=True, exist_ok=True)
+    if not python.is_file():
+        venv.EnvBuilder(with_pip=True, system_site_packages=True).create(str(WORK / "venv_alpha"))
+    constraints = WORK / "alpha_cuda_constraints.txt"
+    constraints.write_text(f"torch=={torch_version}\ntorchvision=={vision_version}\n",
+                           encoding="utf-8")
+    install_env = dict(env, PIP_CONSTRAINT=str(constraints),
+                       PIP_DISABLE_PIP_VERSION_CHECK="1")
+    # Never allow a model package to replace Colab's CUDA-enabled torch.
+    _exec([str(python), "-m", "pip", "install", "--prefer-binary",
+           "--only-binary=:all:", *packages], env=install_env, timeout=1800)
+    source = _checkout_source("anime", lock)
+    if not (source / "train.py").is_file():
+        raise RuntimeError("Pinned anime-segmentation source is missing train.py")
+    _exec([str(python), "-c", smoke], env=env, timeout=180)
+    marker.write_text(json.dumps({
+        "fingerprint": fingerprint, "source": str(source),
+        "base_cuda_preserved": True, "model_scope": "alpha_only",
+    }, indent=2), encoding="utf-8")
+    return {"python": str(python), "anime_source": str(source),
+            "fingerprint": fingerprint}
+
+
+def activate_alpha_environment() -> dict:
+    """Make the 3D image-matting stage executable without loading 2D AI stacks."""
+    info = install_alpha_environment()
+    os.environ["VTUBER_WORKER_ANIME_ALPHA"] = info["python"]
+    os.environ["ANIME_SEGMENTATION_REPO"] = info["anime_source"]
+    return info
+
+
 def activate_2d_environment() -> dict:
     """Called by the UI server, not an inference process."""
     info = install_2d_environment()
