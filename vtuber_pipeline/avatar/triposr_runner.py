@@ -36,14 +36,23 @@ def _install_hf_revision_guard() -> None:
         *args: Any,
         **kwargs: Any,
     ):
-        if repo_id == DINO_MODEL_ID:
-            requested = kwargs.get("revision")
-            if requested not in (None, DINO_MODEL_REVISION):
-                raise RuntimeError(
-                    "TripoSR DINO revision override rejected: "
-                    f"{requested!r} != {DINO_MODEL_REVISION}"
-                )
-            kwargs["revision"] = DINO_MODEL_REVISION
+        if repo_id != DINO_MODEL_ID:
+            raise RuntimeError(
+                "Unexpected Hugging Face repository requested by pinned "
+                f"TripoSR runtime: {repo_id!r}"
+            )
+        if filename != "config.json":
+            raise RuntimeError(
+                "Unexpected DINO artifact requested by pinned TripoSR runtime: "
+                f"{filename!r}"
+            )
+        requested = kwargs.get("revision")
+        if requested not in (None, DINO_MODEL_REVISION):
+            raise RuntimeError(
+                "TripoSR DINO revision override rejected: "
+                f"{requested!r} != {DINO_MODEL_REVISION}"
+            )
+        kwargs["revision"] = DINO_MODEL_REVISION
         return original(repo_id, filename, *args, **kwargs)
 
     huggingface_hub.hf_hub_download = pinned_hf_hub_download
