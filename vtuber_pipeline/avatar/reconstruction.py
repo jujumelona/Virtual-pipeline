@@ -163,7 +163,7 @@ def verify_triposr_revision(run_script: str, profile: str) -> None:
                 str(repo_dir),
                 "status",
                 "--porcelain",
-                "--untracked-files=no",
+                "--untracked-files=all",
             ],
             capture_output=True,
             text=True,
@@ -178,11 +178,24 @@ def verify_triposr_revision(run_script: str, profile: str) -> None:
             "Commercial profile could not inspect TripoSR working tree: "
             + status.stderr.strip()
         )
-    dirty = status.stdout.strip()
-    if dirty:
+    dirty_lines = []
+    for raw in status.stdout.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        path_text = line[3:] if len(line) > 3 else line
+        normalized = path_text.replace("\\", "/")
+        if (
+            "/__pycache__/" in f"/{normalized}"
+            or normalized.endswith(".pyc")
+        ):
+            continue
+        dirty_lines.append(line)
+    if dirty_lines:
         raise RuntimeError(
-            "Commercial profile requires an unmodified pinned TripoSR checkout; "
-            f"tracked changes detected: {dirty}"
+            "Commercial profile requires an exact pinned TripoSR checkout; "
+            "tracked or executable untracked changes detected: "
+            + "; ".join(dirty_lines)
         )
 
 
