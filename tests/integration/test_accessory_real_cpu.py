@@ -54,6 +54,7 @@ def _write_accessory(path: pathlib.Path):
 def test_real_cpu_accessory_geometry_chain_and_bake(tmp_path):
     from pygltflib import GLTF2
     from pygltflib.validator import validate as validate_gltf
+    from vtuber_pipeline.core.gltf import load_gltf
 
     from vtuber_pipeline.accessory.anchors import generate_anchor_manifest
     from vtuber_pipeline.accessory.artifacts import (
@@ -73,7 +74,7 @@ def test_real_cpu_accessory_geometry_chain_and_bake(tmp_path):
     base_head = _write_base_vrm(base_vrm)
     _write_accessory(source_glb)
 
-    base_before = GLTF2().load(str(base_vrm))
+    base_before = load_gltf(base_vrm)
     validate_gltf(base_before)
 
     normalized = normalize_glb(str(source_glb), str(normalized_glb))
@@ -147,7 +148,7 @@ def test_real_cpu_accessory_geometry_chain_and_bake(tmp_path):
     assert pathlib.Path(preview["output_path"]).is_file()
     assert preview["rendered_face_count"] > 0
 
-    accessory_before = GLTF2().load(str(fitted_path))
+    accessory_before = load_gltf(fitted_path)
     validate_gltf(accessory_before)
     base_node_count = len(base_before.nodes or [])
     base_mesh_count = len(base_before.meshes or [])
@@ -168,7 +169,7 @@ def test_real_cpu_accessory_geometry_chain_and_bake(tmp_path):
     assert bake["status"] == "complete", bake
     assert output_vrm.is_file() and output_vrm.stat().st_size > 0
 
-    merged = GLTF2().load(str(output_vrm))
+    merged = load_gltf(output_vrm)
     validate_gltf(merged)
 
     assert len(merged.nodes or []) == (
