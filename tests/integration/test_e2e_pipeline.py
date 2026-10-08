@@ -93,6 +93,22 @@ def test_commercial_usage_option():
         assert vrm_ext["meta"]["commercialUsage"] == usage
 
 
+def test_auto_bone_mapping_prefers_canonical_hips_over_root_alias():
+    from pygltflib import GLTF2, Node
+    from vtuber_pipeline.avatar.vrm_builder import create_vrm_extension
+
+    gltf = GLTF2()
+    gltf.nodes = [
+        Node(name="hips", children=[1]),
+        Node(name="spine"),
+        Node(name="root", children=[0]),
+    ]
+
+    extension = create_vrm_extension(gltf)
+    assert extension["humanoid"]["humanBones"]["hips"]["node"] == 0
+    assert extension["humanoid"]["humanBones"]["spine"]["node"] == 1
+
+
 def test_springbone_extension_schema():
     """VRMC_springBone uses current joints schema and omits empty optional arrays."""
     from pygltflib import GLTF2, Node
