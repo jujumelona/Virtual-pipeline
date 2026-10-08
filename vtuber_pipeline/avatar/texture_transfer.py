@@ -56,7 +56,7 @@ def transfer_texture(
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
     
     try:
-        from PIL import Image, ImageDraw, ImageFilter
+        from PIL import Image
         import numpy as np
         
         # Load source image
@@ -231,55 +231,20 @@ def transfer_texture(
                     mesh_height * back_height*.91,
                 ])
 
-            fallback_color = tuple(
-                np.median(src_pixels.reshape(-1, 4), axis=0)
-                .astype(np.uint8)
-                .tolist()
+            # Every occupied UV texel is projected independently (not a
+            # triangle-center color fill). Unobserved areas stay transparent.
+            from vtuber_pipeline.avatar.uv_projection import rasterize_multiview_texture
+            texels, visibility = rasterize_multiview_texture(
+                vertices, faces, uv_coords, src_pixels, projected_image_xy,
+                texture_size, face_pixels=face_pixels,
+                face_xy=face_projected_xy, back_pixels=back_pixels,
+                back_xy=back_projected_xy,
             )
-            
-            # Create texture atlas (1024x1024)
-            texture = Image.new('RGBA', (texture_size, texture_size), (255, 255, 255, 255))
-            draw = ImageDraw.Draw(texture)
-            
-            # Rasterize each triangle using barycentric coordinates
-            for face in faces:
-                # Get UV triangle coordinates
-                uv_tri = uv_coords[face]
-                
-                # Scale UV coordinates to texture size
-                uv_scaled = uv_tri * (texture_size - 1)
+            if visibility["painted_texels"] == 0:
+                raise RuntimeError("No visible source image pixels project onto the UV atlas")
+            result["visibility"] = visibility
+            texture = Image.fromarray(texels, mode="RGBA")
 
-                tri = vertices[face]
-                normal = np.cross(tri[1] - tri[0], tri[2] - tri[0])
-                normal_len = np.linalg.norm(normal)
-                facing = float(normal[2] / normal_len) if normal_len > 1e-10 else 0.
-                head_region = float(np.mean(tri[:, 1])) >= (
-                    pmin[1] + .72 * mesh_height)
-                if back_projected_xy is not None and facing < -.12:
-                    coords, pixels = back_projected_xy[face], back_pixels
-                elif face_projected_xy is not None and facing > .12 and head_region:
-                    coords, pixels = face_projected_xy[face], face_pixels
-                else:
-                    coords, pixels = projected_image_xy[face], src_pixels
-                center = coords.mean(axis=0)
-                h, w = pixels.shape[:2]
-                if 0 <= center[0] < w and 0 <= center[1] < h:
-                    u = min(max(int(round(center[0])), 0), w - 1)
-                    v = min(max(int(round(center[1])), 0), h - 1)
-                    color_tuple = tuple(pixels[v, u].tolist())
-                    if color_tuple[3] < 32:
-                        color_tuple = fallback_color
-                else:
-                    color_tuple = fallback_color
-                
-                # Draw filled triangle in texture atlas
-                points = [(float(u), float(v)) for u, v in uv_scaled]
-                if len(points) >= 3:
-                    draw.polygon(points, fill=color_tuple)
-            
-            # Apply slight blur to smooth edges
-            texture = texture.filter(ImageFilter.GaussianBlur(radius=0.5))
-            
             # Save texture atlas
             texture_path = pathlib.Path(output_dir) / "texture_atlas.png"
             texture.save(texture_path)
