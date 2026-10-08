@@ -241,3 +241,55 @@ def test_commercial_dirty_triposr_checkout_is_rejected(
             str(run_script),
             "commercial",
         )
+
+
+@pytest.mark.parametrize("remove_background", [True, False])
+def test_relative_paths_are_absolute_for_triposr_subprocess(
+    tmp_path, monkeypatch, remove_background,
+):
+    """Subprocess cwd is the third-party checkout, not the CLI caller's cwd."""
+    import trimesh
+    import vtuber_pipeline.avatar.reconstruction as module
+
+    monkeypatch.chdir(tmp_path)
+    image = tmp_path / "character.png"
+    image.write_bytes(b"fake-image")
+    run_script = tmp_path / "TripoSR" / "run.py"
+    run_script.parent.mkdir()
+    run_script.write_text("# fake runner", encoding="utf-8")
+
+    monkeypatch.setattr(module, "find_triposr_installation", lambda: str(run_script))
+    monkeypatch.setattr(
+        module, "verify_triposr_revision", lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        module, "resolve_triposr_model", lambda: str(tmp_path / "model"),
+    )
+    monkeypatch.setattr(
+        trimesh,
+        "load",
+        lambda *_args, **_kwargs: types.SimpleNamespace(
+            vertices=list(range(16)), faces=list(range(8)),
+        ),
+    )
+
+    def fake_run(cmd, *, cwd, **kwargs):
+        assert pathlib.Path(cwd) == run_script.parent
+        assert pathlib.Path(cmd[3]) == image
+        output_dir = pathlib.Path(cmd[cmd.index("--output-dir") + 1])
+        assert output_dir == tmp_path / "output"
+        assert output_dir.is_absolute()
+        assert ("--no-remove-bg" in cmd) is (not remove_background)
+        mesh_path = output_dir / "0" / "mesh.obj"
+        mesh_path.parent.mkdir(parents=True, exist_ok=True)
+        mesh_path.write_bytes(b"mesh")
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    mesh = module.reconstruct_avatar(
+        "character.png",
+        "output",
+        profile="development",
+        remove_background=remove_background,
+    )
+    assert pathlib.Path(mesh) == tmp_path / "output" / "0" / "mesh.obj"
