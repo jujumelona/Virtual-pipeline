@@ -22,6 +22,8 @@ def parse_boxes(parsed, semantic, image_size):
     return parts
 
 def infer(req):
+    from vtuber_pipeline.common.model_assets import resolve_snapshot
+    snapshot = resolve_snapshot('florence2_base')
     import json
     import torch
     from PIL import Image
@@ -29,7 +31,7 @@ def infer(req):
     from vtuber_pipeline.common.part_taxonomy import SEMANTIC_PROMPTS
     image=Image.open(req["image_path"]).convert("RGB")
     device="cuda" if torch.cuda.is_available() else "cpu"
-    name="microsoft/Florence-2-base"
+    name=snapshot
     processor=AutoProcessor.from_pretrained(name, trust_remote_code=True)
     model=AutoModelForCausalLM.from_pretrained(name, trust_remote_code=True).to(device).eval()
     parts=[]

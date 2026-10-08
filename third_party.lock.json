@@ -148,57 +148,125 @@
       "model_id": "skytnt/anime-seg",
       "code_license": "Apache-2.0",
       "weights_license": "Apache-2.0",
-      "model_revision": null,
+      "model_revision": "493cb60893f47441b26ec4fb9a306bce9e342982",
       "model_weight_sha256": null,
       "source": "https://github.com/SkyTNT/anime-segmentation",
       "commercial_safe": true,
-      "license": "Apache-2.0"
+      "license": "Apache-2.0",
+      "download_allow_patterns": [
+        "config.json",
+        "model.safetensors",
+        "README.md"
+      ],
+      "cache_path": "~/.cache/huggingface/hub/models--skytnt--anime-seg",
+      "model_url": "https://huggingface.co/skytnt/anime-seg/tree/493cb60893f47441b26ec4fb9a306bce9e342982",
+      "source_commit": "55d874013a2811cdf59c365059174c7823acf5b4",
+      "source_url": "https://github.com/SkyTNT/anime-segmentation",
+      "license_url": "https://huggingface.co/skytnt/anime-seg/blob/493cb60893f47441b26ec4fb9a306bce9e342982/README.md"
     },
     "florence2_base": {
       "model_id": "microsoft/Florence-2-base",
       "code_license": "MIT",
       "weights_license": "MIT",
-      "model_revision": null,
+      "model_revision": "5ca5edf5bd017b9919c05d08aebef5e4c7ac3bac",
       "model_weight_sha256": null,
       "commercial_safe": true,
-      "license": "MIT"
+      "license": "MIT",
+      "download_allow_patterns": [
+        "*.json",
+        "*.py",
+        "*.safetensors",
+        "LICENSE",
+        "README.md"
+      ],
+      "cache_path": "~/.cache/huggingface/hub/models--microsoft--Florence-2-base",
+      "model_url": "https://huggingface.co/microsoft/Florence-2-base/tree/5ca5edf5bd017b9919c05d08aebef5e4c7ac3bac",
+      "source_commit": "5ca5edf5bd017b9919c05d08aebef5e4c7ac3bac",
+      "source_url": "https://huggingface.co/microsoft/Florence-2-base/tree/5ca5edf5bd017b9919c05d08aebef5e4c7ac3bac",
+      "license_url": "https://huggingface.co/microsoft/Florence-2-base/blob/5ca5edf5bd017b9919c05d08aebef5e4c7ac3bac/README.md"
     },
     "sam2_1_hiera_tiny": {
       "model_id": "facebook/sam2.1-hiera-tiny",
       "code_license": "Apache-2.0",
       "weights_license": "Apache-2.0",
-      "model_revision": null,
+      "model_revision": "de431c4043854a71d8101e17995dfe596bf101a5",
       "model_weight_sha256": null,
       "commercial_safe": true,
-      "license": "Apache-2.0"
+      "license": "Apache-2.0",
+      "download_allow_patterns": [
+        "sam2.1_hiera_tiny.pt",
+        "sam2.1_hiera_t.yaml",
+        "README.md"
+      ],
+      "cache_path": "~/.cache/huggingface/hub/models--facebook--sam2.1-hiera-tiny",
+      "model_url": "https://huggingface.co/facebook/sam2.1-hiera-tiny/tree/de431c4043854a71d8101e17995dfe596bf101a5",
+      "source_commit": "2b90b9f5ceec907a1c18123530e92e794ad901a4",
+      "source_url": "https://github.com/facebookresearch/sam2",
+      "license_url": "https://huggingface.co/facebook/sam2.1-hiera-tiny/blob/de431c4043854a71d8101e17995dfe596bf101a5/README.md"
     },
     "flux2_klein_4b": {
       "model_id": "black-forest-labs/FLUX.2-klein-4B",
       "code_license": "Apache-2.0",
       "weights_license": "Apache-2.0",
-      "model_revision": null,
+      "model_revision": "e7b7dc27f91deacad38e78976d1f2b499d76a294",
       "model_weight_sha256": null,
       "commercial_safe": true,
-      "license": "Apache-2.0"
+      "license": "Apache-2.0",
+      "download_allow_patterns": [
+        "model_index.json",
+        "scheduler/*",
+        "text_encoder/*",
+        "tokenizer/*",
+        "transformer/*",
+        "vae/*",
+        "LICENSE.md",
+        "README.md"
+      ],
+      "cache_path": "~/.cache/huggingface/hub/models--black-forest-labs--FLUX.2-klein-4B",
+      "model_url": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B/tree/e7b7dc27f91deacad38e78976d1f2b499d76a294",
+      "source_commit": "d961a388fd02e4db38d17350c8dd9b8abe642e05",
+      "source_url": "https://github.com/huggingface/diffusers",
+      "license_url": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B/blob/e7b7dc27f91deacad38e78976d1f2b499d76a294/README.md"
     },
     "instantmesh_large": {
       "model_id": "TencentARC/InstantMesh",
       "checkpoint": "instant_mesh_large.ckpt",
       "code_license": "Apache-2.0",
       "weights_license": "Apache-2.0",
-      "model_revision": null,
+      "model_revision": "b785b4ecfb6636ef34a08c748f96f6a5686244d0",
       "model_weight_sha256": null,
       "commercial_safe": true,
-      "license": "Apache-2.0"
+      "license": "Apache-2.0",
+      "download_allow_patterns": [
+        "instant_mesh_large.ckpt",
+        "diffusion_pytorch_model.bin",
+        "README.md"
+      ],
+      "cache_path": "~/.cache/huggingface/hub/models--TencentARC--InstantMesh",
+      "model_url": "https://huggingface.co/TencentARC/InstantMesh/tree/b785b4ecfb6636ef34a08c748f96f6a5686244d0",
+      "source_commit": "08822c52fdc399b93ea00e4fa9e596344ed52ccc",
+      "source_url": "https://github.com/TencentARC/InstantMesh",
+      "license_url": "https://huggingface.co/TencentARC/InstantMesh/blob/b785b4ecfb6636ef34a08c748f96f6a5686244d0/README.md"
     },
     "depth_anything_v2_small": {
       "model_id": "depth-anything/Depth-Anything-V2-Small-hf",
       "code_license": "Apache-2.0",
       "weights_license": "Apache-2.0",
-      "model_revision": null,
+      "model_revision": "5426e4f0f36572d16453bbda7a8389317b1bef99",
       "model_weight_sha256": null,
       "commercial_safe": true,
-      "license": "Apache-2.0"
+      "license": "Apache-2.0",
+      "download_allow_patterns": [
+        "config.json",
+        "preprocessor_config.json",
+        "model.safetensors",
+        "README.md"
+      ],
+      "cache_path": "~/.cache/huggingface/hub/models--depth-anything--Depth-Anything-V2-Small-hf",
+      "model_url": "https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf/tree/5426e4f0f36572d16453bbda7a8389317b1bef99",
+      "source_commit": "a561b849ebae10a6f5ef49e26c83cbbcd36c71bf",
+      "source_url": "https://github.com/DepthAnything/Depth-Anything-V2",
+      "license_url": "https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf/blob/5426e4f0f36572d16453bbda7a8389317b1bef99/README.md"
     }
   },
   "notes": {
@@ -214,6 +282,6 @@
     "rembg_model_integrity": "rembg 2.0.85 verifies u2net.onnx with the locked MD5; the pipeline removes MODEL_CHECKSUM_DISABLED from the TripoSR subprocess environment.",
     "makehuman_integrity": "The pinned base.obj is accepted only when its Git blob SHA1 matches the blob at the locked MakeHuman commit; generated template.glb caches are SHA256-bound to that source/version.",
     "marching_cubes_usage": "TripoSR's pinned isosurface.py imports only marching_cubes from torchmcubes. The isolated TripoSR runner supplies a scoped API adapter backed by exact-pinned scikit-image 0.26.0 and returns torch tensors on the original device. No torchmcubes source build is performed.",
-    "model_provenance": "New weights have null hashes until actual download; never fabricate digests. Verified downloads write artifact-provenance manifests. Pin resolved model revisions before treating a runtime as reproducible."
+    "model_provenance": "Immutable upstream revisions are pinned. Actual downloaded bytes are SHA256-recorded by resolve_snapshot; absent weight hashes remain null."
   }
 }

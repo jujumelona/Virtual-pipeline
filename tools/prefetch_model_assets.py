@@ -135,14 +135,8 @@ def prefetch_mode(mode: str, *, cache_dir: str | None = None, timeout: int = 240
         elif name == "triposr":
             code = "from vtuber_pipeline.avatar.reconstruction import resolve_triposr_model; resolve_triposr_model()"
         else:
-            model_id = MODELS[name][0]
             code = (
-                "from huggingface_hub import snapshot_download; "
-                "from pathlib import Path; "
-                "from vtuber_pipeline.common.model_assets import record_artifacts; "
-                f"p=snapshot_download(repo_id={model_id!r}, cache_dir={cache_dir!r}); "
-                "files=[str(x) for x in Path(p).rglob('*') if x.is_file()]; "
-                f"record_artifacts({name!r}, files, str(Path(p)/'download-provenance.json'), "
-                "revision=Path(p).name)"
+                "from vtuber_pipeline.common.model_assets import resolve_snapshot; "
+                f"print(resolve_snapshot({name!r}, cache_dir={cache_dir!r}), flush=True)"
             )
         run_model_task(name, code, timeout=timeout)

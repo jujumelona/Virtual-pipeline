@@ -5,6 +5,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _entry import execute
 
 def infer(req):
+    from vtuber_pipeline.common.model_assets import resolve_snapshot
+    snapshot = resolve_snapshot('skytnt_anime_seg_isnet_is')
     import numpy as np
     from PIL import Image
     import torch
@@ -24,7 +26,7 @@ def infer(req):
     offset = ((side-size[0])//2, (side-size[1])//2)
     padded.paste(small, offset)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    net = AnimeSegmentation.from_pretrained("skytnt/anime-seg").to(device).eval()
+    net = AnimeSegmentation.from_pretrained(snapshot).to(device).eval()
     tensor = torch.from_numpy(np.asarray(padded).copy()).permute(2,0,1).unsqueeze(0).float().div(255).to(device)
     with torch.inference_mode():
         alpha = net(tensor).float().detach().cpu().numpy().squeeze()

@@ -4,6 +4,9 @@ from pathlib import Path
 import sys
 import traceback
 
+# Direct script invocation also works in an isolated, non-editable worker venv.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 def execute(fn):
     if len(sys.argv) != 3:
         raise SystemExit("usage: worker.py request.json result.json")

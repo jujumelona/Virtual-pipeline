@@ -8,6 +8,7 @@ PROMPT = ("Restore only the missing pixels of the specified original anime chara
           "Extend occluded anatomy naturally. Do not change the visible pixels. No text or background.")
 
 def infer(req):
+    from vtuber_pipeline.common.model_assets import resolve_snapshot
     import torch
     import numpy as np
     from PIL import Image
@@ -27,8 +28,9 @@ def infer(req):
     if not planned:
         saved=doc.write(str(out/"repaired_parts.json"))
         return {"parts_json":saved}
+    snapshot = resolve_snapshot("flux2_klein_4b")
     from diffusers import Flux2KleinPipeline
-    pipe=Flux2KleinPipeline.from_pretrained("black-forest-labs/FLUX.2-klein-4B",torch_dtype=(torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16))
+    pipe=Flux2KleinPipeline.from_pretrained(snapshot,torch_dtype=(torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16))
     pipe.enable_model_cpu_offload()
     for i,(part,mask) in enumerate(planned):
         # Edit reference, then combine ONLY masked pixels into this part.

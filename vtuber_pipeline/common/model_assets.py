@@ -46,3 +46,31 @@ def record_artifacts(model_key: str, files: list[str], output_json: str, *, revi
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return payload
+
+
+def model_pin(model_key: str) -> dict:
+    """Read the same immutable pin for downloads and inference."""
+    import re
+    key = 'anime_segmentation' if model_key == 'skytnt_anime_seg_isnet_is' else model_key
+    lock = json.loads((Path(__file__).resolve().parents[2] / 'third_party.lock.json').read_text())
+    item = lock['tools'][key]
+    revision = item.get('model_revision')
+    if not isinstance(revision, str) or not re.fullmatch('[0-9a-f]{40}', revision):
+        raise RuntimeError(f'{model_key}: no immutable model revision')
+    return {'model_id': item['model_id'], 'revision': revision,
+            'allow_patterns': item['download_allow_patterns']}
+
+
+def resolve_snapshot(model_key: str, cache_dir: str | None = None) -> str:
+    """Resolve only the selected model files and record actual byte hashes."""
+    import os
+    from huggingface_hub import snapshot_download
+    pin = model_pin(model_key)
+    folder = Path(snapshot_download(repo_id=pin['model_id'], revision=pin['revision'],
+                                   allow_patterns=pin['allow_patterns'], cache_dir=cache_dir))
+    # Keep generated provenance OUTSIDE the immutable upstream snapshot.
+    manifest_root = Path(os.environ.get('VTUBER_MODEL_PROVENANCE',
+                                        str(Path.home()/'.cache/vtuber-pipeline/provenance')))
+    files = [str(p) for p in folder.rglob('*') if p.is_file()]
+    record_artifacts(model_key, files, str(manifest_root/(model_key+'.json')), revision=pin['revision'])
+    return str(folder)
