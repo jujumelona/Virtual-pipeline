@@ -8,6 +8,8 @@ still execute the current UI and pipeline code.
 from __future__ import annotations
 
 import hashlib
+import logging
+import time
 import queue
 import shlex
 import threading
@@ -646,7 +648,21 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
     current_stage = "대기 중"
 
     def worker() -> None:
+        pipeline_logger = logging.getLogger("vtuber_pipeline")
+        old_level = pipeline_logger.level
+        worker_id = threading.get_ident()
+
+        class PipelineLogHandler(logging.Handler):
+            def emit(self, record):
+                if record.thread == worker_id:
+                    events.put(("python_log", record.name, self.format(record)))
+
+        logging_sink = PipelineLogHandler()
+        logging_sink.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
+        pipeline_logger.addHandler(logging_sink)
+        pipeline_logger.setLevel(logging.INFO)
         try:
+            events.put(("stage", "pipeline", "running", "입력 검사"))
             with stage_reporter(lambda name, status, detail: events.put(
                 ("stage", name, status, detail)
             )):
@@ -659,6 +675,9 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
             events.put(("done", result))
         except Exception:
             events.put(("crash", traceback.format_exc()))
+        finally:
+            pipeline_logger.removeHandler(logging_sink)
+            pipeline_logger.setLevel(old_level)
 
     def append(message: str) -> str:
         timestamp = datetime.now(timezone.utc).astimezone().strftime("%H:%M:%S")
@@ -674,20 +693,29 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
             return (message, logs, download, avatar_state, str(log_file))
         return (message, logs, download, str(log_file))
 
-    append(f"생성 시작. 환경 설치는 별도 단계. {_gpu_snapshot()}")
+    append(f"작업 시작 · {_gpu_snapshot()}")
     thread = threading.Thread(target=worker, daemon=True)
     thread.start()
     yield show("⏳ 생성 실행 중 · " + current_stage, "\n".join(transcript), avatar_state=preserve_avatar)
+    last_gpu_sample = time.monotonic()
     while True:
         try:
-            event = events.get(timeout=6)
+            event = events.get(timeout=2)
         except queue.Empty:
-            logs = append(f"진행 중: {current_stage} · {_gpu_snapshot()}")
-            yield show("⏳ 생성 실행 중 · " + current_stage, logs, avatar_state=preserve_avatar)
+            event = None
+        if time.monotonic() - last_gpu_sample >= 2:
+            logs = append(f"[GPU] {current_stage} · {_gpu_snapshot()}")
+            last_gpu_sample = time.monotonic()
+            yield show("⏳ " + current_stage, logs, avatar_state=preserve_avatar)
+        if event is None:
             continue
 
         kind = event[0]
-        if kind == "stage":
+        if kind == "python_log":
+            _, name, detail = event
+            logs = append(f"[{name}] {detail}")
+            yield show("⏳ " + current_stage, logs, avatar_state=preserve_avatar)
+        elif kind == "stage":
             _, name, status, detail = event
             current_stage = f"{name} / {status}"
             info = f" [{detail}]" if detail else ""
