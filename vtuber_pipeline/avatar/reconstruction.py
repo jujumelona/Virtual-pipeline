@@ -9,7 +9,7 @@ import os
 import sys
 import threading
 
-from vtuber_pipeline.core.stage_progress import current_reporter
+from vtuber_pipeline.core.stage_progress import current_reporter, report_stage
 
 from vtuber_pipeline.avatar.triposr_runner import REMBG_U2NET_MD5
 
@@ -290,7 +290,9 @@ def _run_triposr_with_diagnostics(
             cmd, capture_output=True, text=True,
             timeout=timeout, cwd=cwd, env=env,
         )
-    env = {**env, "PYTHONUNBUFFERED": "1"}
+    env = {**env, "PYTHONUNBUFFERED": "1", "VTUBER_REQUIRE_CUDA": "1"}
+    report_stage("gpu_inference", "running", "TripoSR CUDA 프로세스 시작")
+    sink("triposr_output", "log", "TripoSR 시작: CUDA 필수, CPU 폴백 금지")
     process = subprocess.Popen(
         cmd, cwd=cwd, env=env, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, text=True, bufsize=1,
@@ -316,6 +318,8 @@ def _run_triposr_with_diagnostics(
         raise subprocess.TimeoutExpired(cmd, timeout)
     reader.join(timeout=10)
     combined = "".join(output)
+    report_stage("gpu_inference", "complete" if code == 0 else "error",
+                 f"TripoSR 종료 코드 {code}")
     return subprocess.CompletedProcess(
         cmd, code, stdout=combined, stderr=combined,
     )
