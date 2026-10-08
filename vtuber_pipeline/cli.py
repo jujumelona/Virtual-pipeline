@@ -14,6 +14,10 @@ def cli():
 @cli.command()
 @click.option("--image", required=True, type=click.Path(exists=True), help="Input character image")
 @click.option("--output", required=True, type=click.Path(), help="Output directory")
+@click.option("--face-image", type=click.Path(exists=True), help="External close-up face reference")
+@click.option("--back-image", type=click.Path(exists=True), help="External full-body rear reference")
+@click.option("--full-body/--bust-up", default=False, help="Enable full-body input and diagnostics")
+@click.option("--texture-size", type=click.Choice(["1024", "2048"]), default="2048")
 @click.option(
     "--profile",
     type=click.Choice(["commercial", "production", "development"]),
@@ -26,16 +30,26 @@ def cli():
     default="corporation",
     show_default=True,
 )
-def avatar(image, output, profile, commercial_usage):
+def avatar(image, output, face_image, back_image, full_body, texture_size, profile, commercial_usage):
     """Build one VTuber avatar VRM from an external source image."""
     from vtuber_pipeline.avatar.build import build_avatar
 
     result = build_avatar(
         image, output,
-        {"profile": profile, "commercial_usage": commercial_usage},
+        {
+            "profile": profile,
+            "commercial_usage": commercial_usage,
+            "references": {
+                "full_body": full_body,
+                "face_image": face_image,
+                "back_image": back_image,
+                "texture_size": int(texture_size),
+            },
+        },
     )
     stages = result.get("stages", {})
     stage_names = [
+        ("reference_quality", "external reference diagnostics"),
         ("input_gate", "input validation + landmarks"),
         ("reference_reconstruction", "TripoSR reconstruction"),
         ("template_fitting", "canonical template fitting"),
