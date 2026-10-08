@@ -148,6 +148,26 @@ def _show_direct_download(port: int, file_path: str) -> None:
     display(Javascript(script))
 
 
+def _latest_existing_avatar(output_root: pathlib.Path) -> pathlib.Path | None:
+    """Recover an already-produced avatar after replacing a stuck Colab UI."""
+    from tools.colab_download_contract import checked_avatar
+
+    if not output_root.is_dir():
+        return None
+    matches = sorted(
+        output_root.glob("avatar-*/avatar.vrm"),
+        key=lambda path: path.stat().st_mtime if path.is_file() else 0,
+        reverse=True,
+    )
+    for path in matches:
+        try:
+            checked_avatar(path, output_root)
+            return path
+        except (OSError, ValueError):
+            continue
+    return None
+
+
 def _follow_server(
     process: subprocess.Popen, *, download_dir: pathlib.Path | None = None,
     server_port: int | None = None,
@@ -269,6 +289,16 @@ def main() -> None:
     # serve_kernel_port_as_iframe() returns immediately. Do NOT let the
     # notebook finish while the server or its model inference is still alive.
     print("[VRM] 생성 성공 시 직접 HTTP 다운로드 링크와 고정 파일 경로를 표시합니다.", flush=True)
+    # Existing generated VRMs survive Git notebook/UI restarts. Immediately
+    # offer the previous file too, so users are not forced to rerun expensive
+    # T4 inference just to download an already completed artifact.
+    previous = _latest_existing_avatar(WORK / "output")
+    if previous is not None:
+        print("[VRM] 기존 생성 파일 발견 — 다시 생성할 필요 없이 다운로드할 수 있습니다.", flush=True)
+        try:
+            _show_direct_download(port, str(previous))
+        except Exception as exc:
+            print(f"[VRM] 기존 파일 링크 제공 실패: {type(exc).__name__}: {exc}", flush=True)
     _follow_server(process, download_dir=download_dir, server_port=port)
 
 
