@@ -558,6 +558,23 @@ def _reload_pipeline_modules() -> None:
             del sys.modules[name]
 
 
+def _setup_stage(label: str, callback):
+    """Expose failures even to legacy notebook wrappers with bare check=True."""
+    print(f"[setup] {label}: start", flush=True)
+    try:
+        outcome = callback()
+    except Exception:
+        detail = f"[setup] {label}: FAILED\\n{traceback.format_exc()}"
+        log_path = WORK_ROOT / "logs" / "runtime_setup.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as log:
+            log.write(detail + "\\n")
+        print(detail, flush=True)
+        raise
+    print(f"[setup] {label}: complete", flush=True)
+    return outcome
+
+
 def ensure_runtime(
     progress: Optional[gr.Progress] = None,
 ) -> Tuple[str, List[str]]:
@@ -567,7 +584,7 @@ def ensure_runtime(
 
     if progress:
         progress(0.04, desc="최신 main 확인")
-    head = _sync_repo()
+    head = _setup_stage("main 동기화", _sync_repo)
     logs.append(f"최신 main: {head[:12]}")
 
     if _RUNTIME_READY_HEAD == head:
@@ -576,12 +593,12 @@ def ensure_runtime(
 
     if progress:
         progress(0.12, desc="TripoSR 준비")
-    _sync_triposr()
+    _setup_stage("TripoSR checkout", _sync_triposr)
     logs.append(f"TripoSR: {TRIPOSR_COMMIT[:12]}")
 
     if progress:
         progress(0.20, desc="필요 패키지 준비")
-    _install_runtime(head)
+    _setup_stage("Python dependency installation", lambda: _install_runtime(head))
     logs.append("Python 환경 준비 완료")
 
     _reload_pipeline_modules()
