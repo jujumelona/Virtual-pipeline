@@ -283,6 +283,9 @@ def test_launch_clears_stale_pipeline_modules_before_runtime_check(ui, tmp_path,
 
     monkeypatch.setattr(ui, "WORK_ROOT", tmp_path / "root")
     monkeypatch.setattr(ui, "OUTPUT_ROOT", tmp_path / "root" / "outputs")
+    monkeypatch.setattr(
+        ui.gr, "themes", types.SimpleNamespace(Soft=lambda: object()), raising=False,
+    )
     monkeypatch.setattr(ui, "_reload_pipeline_modules", lambda: events.append("reload"))
     monkeypatch.setattr(
         ui, "require_runtime_ready",
