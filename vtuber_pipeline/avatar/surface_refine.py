@@ -111,6 +111,17 @@ def refine_anatomy(fitted_mesh: str, constraints_json: str,
     mesh.vertices = smoothed_vertices + proposed
     if not np.isfinite(mesh.vertices).all():
         raise RuntimeError("nonfinite refined geometry")
+
+    # Depth Anything Small is relative, not metric. Apply only a bounded
+    # similarity-invariant correction to genuinely observed front texels.
+    # Preserve x/y projection and all canonical topology during this step.
+    from vtuber_pipeline.avatar.relative_depth_constraint import correct_relative_front_depth
+    corrected, depth_evidence = correct_relative_front_depth(
+        np.asarray(mesh.vertices, dtype=float),
+        np.asarray(mesh.vertex_normals, dtype=float),
+        constraints, references,
+    )
+    mesh.vertices = corrected
     # Preserve template face connectivity and vertex indices for humanoid skinning.
     if len(mesh.vertices)!=count or len(mesh.faces)<100:raise RuntimeError("lost template topology")
     hair=_ribbons(mesh)
@@ -123,6 +134,7 @@ def refine_anatomy(fitted_mesh: str, constraints_json: str,
     report={"topology_preserved":True,"reference_image_roles":list(references.get("images",{})),
             "ribbon_count":7,"ribbons_are_approximate":True,
             "registered_multiview_confidence":confidence,
+            "front_depth_evidence":depth_evidence,
             "multiview_constrained_vertex_count":int(np.count_nonzero(selected)),
             "mean_multiview_correction_mesh_units":float(np.mean(np.linalg.norm(proposed, axis=1))),
             "maximum_surface_displacement_mesh_units":float(np.max(np.linalg.norm(mesh.vertices-verts,axis=1))),
