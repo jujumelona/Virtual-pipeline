@@ -79,6 +79,35 @@ def avatar(image, output, face_image, back_image, full_body, texture_size, profi
     click.echo(f"VRM: {result['vrm_path']}")
 
 
+@cli.command("live2d-prep")
+@click.option("--image", required=True, type=click.Path(exists=True))
+@click.option("--layers-zip", type=click.Path(exists=True), default=None)
+@click.option("--output", required=True, type=click.Path())
+@click.option(
+    "--commercial-usage",
+    type=click.Choice(["personalNonProfit", "personalProfit", "corporation"]),
+    default="corporation",
+)
+def live2d_prep(image, layers_zip, output, commercial_usage):
+    """Package external artwork for later Live2D Cubism editing; no .moc3 export."""
+    from vtuber_pipeline.two_d import prepare_live2d_artwork
+
+    try:
+        result = prepare_live2d_artwork(
+            image, output, layers_zip=layers_zip,
+            commercial_usage=commercial_usage,
+        )
+    except (OSError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    click.echo(f"2D artwork package: {result['package_path']}")
+    if result["status"] == "needs_layering":
+        click.echo("Only flattened art supplied: split layers before Cubism rigging.")
+    else:
+        click.echo("Transparent layers prepared for external Cubism rigging.")
+    click.echo("NOT a finished Live2D .moc3 model. NOT ready for VTube Studio.")
+
+
 @cli.command()
 @click.option("--base-vrm", required=True, type=click.Path(exists=True), help="Completed avatar VRM")
 @click.option("--images", required=True, multiple=True, type=click.Path(exists=True), help="Accessory source images")
