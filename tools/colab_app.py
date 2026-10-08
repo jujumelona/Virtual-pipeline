@@ -390,20 +390,30 @@ def _install_runtime(head: str) -> None:
         timeout=600,
     )
 
-    print("[setup 7/8] TripoSR/얼굴 모델 가중치 다운로드 및 해시 검증", flush=True)
-    # Resolve the exact Hugging Face snapshot and verify model.ckpt before the
-    # UI can start. reconstruct_avatar() reuses the same cached snapshot.
+    print("[setup 7/8] TripoSR/얼굴/u2net/DINO 모델 및 MakeHuman 템플릿 준비", flush=True)
+    # Resolve every immutable model and the canonical topology during stage ①.
+    # This avoids network/model downloads being silently deferred to generate.
     _run(
         [
             sys.executable,
+            "-u",
             "-c",
             (
                 "from vtuber_pipeline.avatar.reconstruction "
                 "import resolve_triposr_model; "
                 "from vtuber_pipeline.avatar.face_detector "
                 "import resolve_anime_face_model_paths; "
-                "print('triposr-model', resolve_triposr_model()); "
-                "print('anime-face-models', resolve_anime_face_model_paths())"
+                "from vtuber_pipeline.avatar.triposr_runner "
+                "import _verify_rembg_u2net, DINO_MODEL_ID, DINO_MODEL_REVISION; "
+                "from vtuber_pipeline.avatar.template_mesh import get_template_path; "
+                "from huggingface_hub import hf_hub_download; "
+                "print('triposr-model', resolve_triposr_model(), flush=True); "
+                "print('anime-face-models', resolve_anime_face_model_paths(), flush=True); "
+                "print('rembg-u2net', _verify_rembg_u2net(), flush=True); "
+                "print('dino-config', hf_hub_download("
+                "repo_id=DINO_MODEL_ID, filename='config.json', "
+                "revision=DINO_MODEL_REVISION), flush=True); "
+                "print('makehuman-template', get_template_path(), flush=True)"
             ),
         ],
         timeout=2400,
