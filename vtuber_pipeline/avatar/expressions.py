@@ -8,6 +8,8 @@ import json
 import pathlib
 from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
+
+from vtuber_pipeline.core.gltf import load_gltf
 import trimesh
 
 
@@ -55,9 +57,9 @@ def _load_mesh_vertices(mesh_path: str) -> Tuple[np.ndarray, Dict[str, Any]]:
     suffix = path.suffix.lower()
 
     if suffix in {".glb", ".gltf", ".vrm"}:
-        from pygltflib import GLTF2, FLOAT
+        from pygltflib import FLOAT
 
-        gltf = GLTF2().load(str(path))
+        gltf = load_gltf(path)
         blob = gltf.binary_blob()
         if blob is None:
             raise ValueError(
