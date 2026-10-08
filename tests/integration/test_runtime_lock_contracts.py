@@ -75,6 +75,10 @@ def test_all_source_and_model_pins_agree():
         TRIPOSR_PINNED_COMMIT,
     )
     from vtuber_pipeline.avatar.template_mesh import MAKEHUMAN_CC0_COMMIT
+    from vtuber_pipeline.avatar.triposr_runner import (
+        DINO_MODEL_ID,
+        DINO_MODEL_REVISION,
+    )
 
     lock = json.loads(_read("third_party.lock.json"))
     tools = lock["tools"]
@@ -96,6 +100,14 @@ def test_all_source_and_model_pins_agree():
     assert MAKEHUMAN_CC0_COMMIT in readme
 
     assert tools["torchmcubes"]["source_commit"] == colab["TORCHMCUBES_COMMIT"]
+
+    assert tools["dino_vitb16"]["model_id"] == DINO_MODEL_ID
+    assert tools["dino_vitb16"]["source_commit"] == DINO_MODEL_REVISION
+
+    from vtuber_pipeline.avatar.reconstruction import REMBG_U2NET_MD5
+    assert tools["rembg"]["model_name"] == "u2net"
+    assert tools["rembg"]["model_md5"] == REMBG_U2NET_MD5
+    assert re.fullmatch(r"[0-9a-f]{32}", REMBG_U2NET_MD5)
 
     for value in (
         TRIPOSR_MODEL_WEIGHT_SHA256,
