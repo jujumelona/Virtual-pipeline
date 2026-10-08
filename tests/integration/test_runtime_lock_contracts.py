@@ -250,7 +250,7 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
 def test_readme_open_in_colab_badge_targets_canonical_three_step_notebook():
     """Keep README's primary Colab launch button wired to the updated file."""
     readme = _read("README.md")
-    notebook_file = "notebooks/VTuber_Commercial_Pipeline_Colab_v4.ipynb"
+    notebook_file = "notebooks/VTuber_Commercial_Pipeline_Colab_v5.ipynb"
     badge = (
         "[![Open In Colab]"
         "(https://colab.research.google.com/assets/colab-badge.svg)]"
@@ -274,6 +274,7 @@ def test_readme_open_in_colab_badge_targets_canonical_three_step_notebook():
     assert "subprocess.Popen(" in code_cells[1]
     assert "colab_ui_launcher.py" in code_cells[2]
     assert 'run_name="__main__"' in code_cells[2]
+    assert "del _launcher_globals" in code_cells[2]
 
 
 def test_colab_notebook_has_separate_environment_models_and_ui_cells():
