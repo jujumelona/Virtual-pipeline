@@ -105,7 +105,10 @@
       "description": "Background removal used by TripoSR",
       "commercial_safe": true,
       "model_name": "u2net",
-      "model_md5": "60024c5c889badc19c04ad937298a77b"
+      "model_md5": "60024c5c889badc19c04ad937298a77b",
+      "model_license": "Apache-2.0",
+      "model_license_url": "https://github.com/xuebinqin/U-2-Net/blob/master/LICENSE",
+      "model_source": "https://github.com/xuebinqin/U-2-Net"
     },
     "gradio": {
       "package": "gradio",
