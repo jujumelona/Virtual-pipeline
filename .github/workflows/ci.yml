@@ -298,7 +298,20 @@ jobs:
               for name, item in tools.items()
               if not isinstance(item, dict) or item.get("commercial_safe") is not True
           ]
-          assert not blocked, f"non-commercial or unresolved tools: {blocked}"
+          # A known restricted renderer must stay recorded as unsafe and
+          # fail closed at inference. Do not relabel it commercial merely
+          # to make CI green. Any new unapproved restriction fails review.
+          assert blocked == ["instantmesh_large"], (
+              f"unexpected commercial licensing quarantine: {blocked}"
+          )
+          from pathlib import Path
+          worker = Path("tools/model_workers/instantmesh_worker.py").read_text(encoding="utf-8")
+          guard = Path("vtuber_pipeline/avatar/commercial_dependency_guard.py")
+          prefetch = Path("tools/prefetch_model_assets.py").read_text(encoding="utf-8")
+          assert guard.is_file(), "missing commercial dependency guard"
+          assert "require_commercial_compatible_upstream(upstream)" in worker
+          assert 'name == "instantmesh_large"' in prefetch
+          assert "continue" in prefetch, "restricted checkpoint was not deferred"
           blocked_patterns = [
               re.compile(r"\\bAGPL\\b", re.I),
               re.compile(r"GNU Affero General Public License", re.I),
@@ -331,7 +344,7 @@ jobs:
           assert not blocked_licenses, (
               f"blocked license families in commercial lock: {blocked_licenses}"
           )
-          print("commercial-lock-ok")
+          print("commercial-lock-quarantine-ok: InstantMesh remains unavailable for commercial inference")
           PY
 
   gradio-ui:
