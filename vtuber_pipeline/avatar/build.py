@@ -16,7 +16,7 @@ class AvatarPipeline:
     expressions → gaze → SpringBone → VRM export → strict validation.
     """
 
-    CACHE_SCHEMA = "avatar-pipeline-v7-multiview"
+    CACHE_SCHEMA = "avatar-pipeline-v8-licensed-observed-multiview"
 
     def __init__(self, output_dir: str, config: Optional[Dict[str, Any]] = None):
         self.output_dir = pathlib.Path(output_dir)
@@ -431,7 +431,7 @@ class AvatarPipeline:
         from vtuber_pipeline.avatar.template_fitting import fit_template
         from vtuber_pipeline.perception.anime_alpha import create_person_alpha
         from vtuber_pipeline.avatar.depth_runner import estimate_depth
-        from vtuber_pipeline.avatar.instantmesh_runner import reconstruct_multiview
+        from vtuber_pipeline.avatar.licensed_multiview import reconstruct_licensed_multiview
         from vtuber_pipeline.avatar.multiview_fitting import align_sources
         from vtuber_pipeline.avatar.texture_transfer import transfer_texture
         from vtuber_pipeline.avatar.rigging import rig_avatar
@@ -546,38 +546,54 @@ class AvatarPipeline:
 
         constraints_path = None
         if full_body:
+            # The commercial path must never require Zero123++, nvdiffrast,
+            # Nvidia-proprietary LRM code, or CC-BY-NC model weights.
+            # Reconstruct true user-supplied views serially using MIT TripoSR.
+            supplied_views = {
+                "back": back_image, "left": left_image, "right": right_image,
+            }
             try:
                 multiview = self._run_stage(
-                    "instantmesh",
-                    (reconstruction_image, reference_mesh, commercial_usage),
-                    lambda: reconstruct_multiview(
-                        reconstruction_image,
-                        str(pathlib.Path(output_dir) / "instantmesh"),
-                        commercial_usage=commercial_usage,
-                        coarse_obj=reference_mesh,
+                    "licensed_multiview",
+                    (reference_mesh, reference_digests, profile),
+                    lambda: reconstruct_licensed_multiview(
+                        reference_mesh, supplied_views,
+                        str(pathlib.Path(output_dir) / "licensed_multiview"),
+                        profile=profile,
                     ),
                 )
             except Exception as exc:
-                return self._fail(results, "instantmesh", str(exc))
-            results["stages"]["instantmesh"] = multiview
-            if multiview.get("status") != "complete" or not pathlib.Path(multiview.get("mesh_obj") or "").is_file():
-                return self._fail(results, "instantmesh", multiview.get("error", "InstantMesh OBJ missing"))
-
+                return self._fail(results, "licensed_multiview", str(exc))
+            results["stages"]["licensed_multiview"] = multiview
+            if (multiview.get("status") != "complete"
+                    or not pathlib.Path(multiview.get("mesh_obj") or "").is_file()
+                    or not pathlib.Path(multiview.get("provenance_json") or "").is_file()):
+                return self._fail(
+                    results, "licensed_multiview",
+                    multiview.get("error", "licensed view mesh/provenance missing"),
+                )
             try:
                 aligned = self._run_stage(
                     "multiview_alignment",
-                    (reference_mesh, multiview["mesh_obj"], depth["depth_manifest"], references["report_path"]),
+                    (reference_mesh, multiview["mesh_obj"],
+                     multiview["provenance_json"], depth["depth_manifest"],
+                     references["report_path"]),
                     lambda: align_sources(
                         reference_mesh, multiview["mesh_obj"],
                         depth["depth_manifest"], references["report_path"],
                         str(pathlib.Path(output_dir) / "alignment"),
+                        source_metadata=multiview["provenance_json"],
                     ),
                 )
             except Exception as exc:
                 return self._fail(results, "multiview_alignment", str(exc))
             results["stages"]["multiview_alignment"] = aligned
-            if aligned.get("status") != "complete" or not pathlib.Path(aligned.get("constraints_json") or "").is_file():
-                return self._fail(results, "multiview_alignment", aligned.get("error", "registered geometry missing"))
+            if (aligned.get("status") != "complete"
+                    or not pathlib.Path(aligned.get("constraints_json") or "").is_file()):
+                return self._fail(
+                    results, "multiview_alignment",
+                    aligned.get("error", "registered licensed geometry missing"),
+                )
             constraints_path = aligned["constraints_json"]
 
         # 3. Fit one stable CC0-derived canonical topology to the reference.
