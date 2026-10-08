@@ -123,9 +123,16 @@ def test_live_colab_server_watcher_calls_browser_download_while_ui_is_alive(
     publish_avatar_download(file, root, queue)
 
     calls = []
+    monkeypatch.setattr(
+        launcher, "_show_direct_download",
+        lambda port, path: calls.append((port, path)),
+    )
+    # A blocked google.colab.files.download call must never be reached.
     colab = types.ModuleType("google.colab")
     files = types.ModuleType("google.colab.files")
-    files.download = lambda path: calls.append(path)
+    files.download = lambda path: (_ for _ in ()).throw(
+        AssertionError("Colab files.download is no longer supported")
+    )
     colab.files = files
     google = types.ModuleType("google")
     google.colab = colab
@@ -145,7 +152,70 @@ def test_live_colab_server_watcher_calls_browser_download_while_ui_is_alive(
             return None if self.count <= 2 else 0
 
     with pytest.raises(RuntimeError, match="exit=0"):
-        launcher._follow_server(AliveThenExit(), download_dir=queue)
-    assert calls == [str(file)]
-    assert "avatar.vrm 브라우저 자동 다운로드 요청 완료" in capsys.readouterr().out
+        launcher._follow_server(AliveThenExit(), download_dir=queue, server_port=19876)
+    assert calls == [(19876, str(file))]
+    assert "파일 직접 다운로드 링크 표시됨" in capsys.readouterr().out
     assert len(list(queue.glob("receipt-*.json"))) == 1
+
+
+def test_stable_avatar_vrm_path_is_atomically_copied_and_sha_verified(tmp_path):
+    from tools.colab_download_contract import save_latest_avatar, gradio_file_route
+
+    root = tmp_path / "output"
+    root.mkdir()
+    first = avatar_fixture(root, b"glTF" + b"A" * 80)
+    target = tmp_path / "avatar.vrm"
+    saved = save_latest_avatar(first, root, target)
+    assert saved == target
+    assert target.read_bytes() == first.read_bytes()
+    assert first.exists()
+    route = gradio_file_route(first, root)
+    assert route.startswith("/gradio_api/file=/")
+    assert route.endswith("/avatar.vrm")
+    assert str(first) in route
+
+    second = root / "avatar-456" / "avatar.vrm"
+    second.parent.mkdir()
+    second.write_bytes(b"glTF" + b"B" * 125)
+    save_latest_avatar(second, root, target)
+    assert target.read_bytes() == second.read_bytes()
+    assert not list(tmp_path.glob("*.pending"))
+    assert first.exists()
+
+
+def test_notebook_direct_download_renders_authenticated_link_not_blocking_colab_call(
+    tmp_path, monkeypatch, capsys,
+):
+    from tools.colab_download_contract import gradio_file_route
+    from pathlib import Path
+    import importlib.util
+
+    module_path = Path(__file__).resolve().parents[2] / "tools" / "colab_ui_launcher.py"
+    spec = importlib.util.spec_from_file_location("direct_http_launcher", module_path)
+    assert spec is not None and spec.loader is not None
+    launcher = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(launcher)
+    launcher.WORK = tmp_path
+    root = tmp_path / "output"
+    root.mkdir()
+    source = avatar_fixture(root)
+    displayed = []
+    class Javascript:
+        def __init__(self, source):
+            displayed.append(source)
+    fake = types.ModuleType("IPython.display")
+    fake.Javascript = Javascript
+    fake.display = lambda value: None
+    monkeypatch.setitem(sys.modules, "IPython", types.ModuleType("IPython"))
+    monkeypatch.setitem(sys.modules, "IPython.display", fake)
+
+    launcher._show_direct_download(19876, str(source))
+    assert len(displayed) == 1
+    assert "google.colab.kernel.proxyPort(port)" in displayed[0]
+    assert gradio_file_route(source, root) in displayed[0]
+    assert "link.click()" in displayed[0]
+    assert "files.download" not in displayed[0]
+    assert (tmp_path / "avatar.vrm").read_bytes() == source.read_bytes()
+    text = capsys.readouterr().out
+    assert str(source) in text
+    assert str(tmp_path / "avatar.vrm") in text
