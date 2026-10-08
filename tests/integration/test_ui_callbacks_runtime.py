@@ -28,6 +28,7 @@ def ui(tmp_path, monkeypatch):
     gradio_stub = types.ModuleType("gradio")
     gradio_stub.Progress = FakeProgress
     gradio_stub.Blocks = object
+    gradio_stub.update = lambda **kwargs: kwargs
     monkeypatch.setitem(sys.modules, "gradio", gradio_stub)
 
     spec = importlib.util.spec_from_file_location(
@@ -236,3 +237,34 @@ def test_generation_requires_explicit_prepared_runtime_without_install(ui, tmp_p
     )
     with pytest.raises(RuntimeError, match="① 환경 준비"):
         ui._real_require_runtime_ready()
+
+
+def test_start_routes_to_exact_mode_with_selected_scope(ui):
+    hidden, avatar, accessory, usage = ui.choose_workflow(
+        "avatar", "personalProfit",
+    )
+    assert hidden["visible"] is False
+    assert avatar["visible"] is True
+    assert accessory["visible"] is False
+    assert usage == "personalProfit"
+
+    hidden, avatar, accessory, usage = ui.choose_workflow(
+        "accessory", "corporation",
+    )
+    assert hidden["visible"] is False
+    assert avatar["visible"] is False
+    assert accessory["visible"] is True
+    assert usage == "corporation"
+
+    assert [v["visible"] for v in ui.return_to_workflow_choice()] == [
+        True, False, False,
+    ]
+
+
+@pytest.mark.parametrize(
+    "mode,usage",
+    [("garbage", "corporation"), ("avatar", "GPL"), ("accessory", "")],
+)
+def test_workflow_selection_rejects_invalid_mode_or_usage(ui, mode, usage):
+    with pytest.raises(ValueError):
+        ui.choose_workflow(mode, usage)
