@@ -2,7 +2,10 @@
 
 import hashlib
 import pathlib
+import traceback
 from typing import Dict, Any
+
+from vtuber_pipeline.core.stage_progress import report_stage
 
 
 def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
@@ -12,8 +15,10 @@ def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
     fallback is permitted.
     """
     result: Dict[str, Any] = {
-        "image_path": image_path, "valid": False, "checks": {}, "errors": []
+        "image_path": image_path, "valid": False, "checks": {}, "errors": [],
+        "landmarks": [], "landmark_count": 0,
     }
+    report_stage("input_diagnostics", "log", f"validate_input source={__file__}")
     try:
         from PIL import Image
         import numpy as np
@@ -25,13 +30,26 @@ def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
             width, height = img.size
 
         result.update({"width": width, "height": height})
+        report_stage("input_diagnostics", "log", f"image={width}x{height} file={pathlib.Path(image_path).name}")
         result["checks"]["image_decodes"] = True
         result["checks"]["min_resolution"] = width >= 256 and height >= 256
         aspect = width / max(height, 1)
         result["aspect_ratio"] = aspect
         result["checks"]["aspect_ratio"] = 0.5 <= aspect <= 2.0
 
-        face = AnimeFaceDetector().detect(image_path)
+        detector = AnimeFaceDetector()
+        report_stage(
+            "input_diagnostics", "log",
+            f"face detector={type(detector).__module__}.{type(detector).__name__}",
+        )
+        face = detector.detect(image_path)
+        report_stage(
+            "input_diagnostics", "log",
+            f"detector result keys={sorted(face)} bbox={face.get('bbox')} "
+            f"landmarks={len(face.get('landmarks') or [])} "
+            f"scores={len(face.get('landmark_scores') or [])} "
+            f"confidence={face.get('score')}",
+        )
         bbox = np.asarray(face["bbox"], dtype=float)
         landmarks = np.asarray(face.get("landmarks", []), dtype=float)
         landmark_scores = np.asarray(
@@ -52,7 +70,14 @@ def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
         face_area = max(bbox[2] - bbox[0], 0) * max(bbox[3] - bbox[1], 0)
         face_area_ratio = float(face_area / max(width * height, 1))
         result["face_area_ratio"] = face_area_ratio
-        result["checks"]["face_area_ratio"] = 0.05 <= face_area_ratio <= 0.8
+        # VTuber half-body/torso portraits often place a valid face at 2–5%
+        # of the whole frame. The detector still must return a confident,
+        # finite face box and all 28 scored landmarks.
+        result["checks"]["face_area_ratio"] = 0.015 <= face_area_ratio <= 0.8
+        report_stage(
+            "input_diagnostics", "log",
+            f"face_area_ratio={face_area_ratio:.4f} required=[0.015,0.8]",
+        )
 
         valid_landmarks = (
             landmarks.shape == (28, 2)
@@ -77,6 +102,12 @@ def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
         result["landmark_count"] = int(len(landmarks)) if landmarks.ndim else 0
         result["bbox"] = bbox.tolist()
         result["landmarks"] = landmarks.tolist() if valid_landmarks else []
+        report_stage(
+            "input_diagnostics", "log",
+            f"parsed landmarks={result['landmark_count']}/28 "
+            f"shape={landmarks.shape} score_shape={landmark_scores.shape} "
+            f"median={landmark_median:.3f} min={landmark_min:.3f}",
+        )
 
         if valid_landmarks:
             xy = landmarks[:28, :2]
@@ -106,8 +137,9 @@ def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
         result["checks"]["head_bbox_frame_contact"] = not bool(touches)
 
     except Exception as exc:
-        result["checks"].setdefault("image_decodes", False)
-        result["errors"].append(str(exc))
+        result["checks"].setdefault("input_exception", False)
+        result["errors"].append(f"{type(exc).__name__}: {exc}")
+        report_stage("input_diagnostics", "error", traceback.format_exc())
 
     result["pass"] = bool(result["checks"]) and all(result["checks"].values())
     if not result["pass"] and not result["errors"]:
@@ -120,8 +152,21 @@ def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
             + f" (landmarks={result.get('landmark_count', 0)}/28, "
             + f"median_confidence={result.get('landmark_score_median', 0.0):.3f})"
         )
+    # Success cannot be based on checkbox booleans alone. A valid gate must
+    # export the actual 28 points consumed by template fitting.
+    if result["pass"] and len(result["landmarks"]) != 28:
+        result["pass"] = False
+        result["errors"].append(
+            f"input output contract violation: {len(result['landmarks'])}/28 landmarks"
+        )
     result["valid"] = result["pass"]
     result["status"] = "complete" if result["pass"] else "error"
+    failed = [name for name, ok in result["checks"].items() if not ok]
+    report_stage(
+        "input_diagnostics", "log",
+        f"gate status={result['status']} keys={sorted(result)} "
+        f"checks={result['checks']} failed={failed} errors={result['errors']}",
+    )
     result["input_hash"] = _compute_file_hash(image_path) if pathlib.Path(image_path).is_file() else None
     _write_quality_json(output_dir, result)
     return result
