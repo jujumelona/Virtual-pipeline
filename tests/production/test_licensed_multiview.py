@@ -82,3 +82,30 @@ def test_product_mainline_uses_only_permissive_reconstructor():
     assert "reconstruct_licensed_multiview" in source
     assert '"instantmesh"' not in source
     assert "reconstruct_multiview(" not in source
+
+
+def test_inferred_colors_cover_unobserved_uv_only():
+    # Two separate triangle islands: front is measured; back is unobserved.
+    vertices = np.array([
+        [0, 0, 0], [1, 0, 0], [0, 1, 0],
+        [0, 0, 1], [0, 1, 1], [1, 0, 1],
+    ], float)
+    faces = np.array([[0, 1, 2], [3, 4, 5]])
+    uv = np.array([
+        [.1, .1], [.45, .1], [.1, .45],
+        [.6, .6], [.9, .6], [.6, .9],
+    ])
+    front = np.zeros((64, 64, 4), dtype=np.uint8)
+    front[..., 0] = 130
+    front[..., 3] = 255
+    xy = np.array([[10, 10], [50, 10], [10, 50],
+                   [10, 10], [10, 50], [50, 10]], float)
+    texture, stats = rasterize_multiview_texture(
+        vertices, faces, uv, front, xy, 64, fill_unobserved=True
+    )
+    assert stats["painted_texels"] > 0
+    assert stats["inferred_fill_texels"] > 0
+    assert stats["inferred_colors_are_observed"] is False
+    assert stats["surface_coverage_observed"] < 1
+    assert texture[45, 45, 3] == 255
+    assert texture[0, 0, 3] == 0
