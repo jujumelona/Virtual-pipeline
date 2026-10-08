@@ -147,6 +147,12 @@ def _sync_triposr() -> None:
         ["git", "-C", str(TRIPOSR_DIR), "checkout", "--detach", TRIPOSR_COMMIT],
         timeout=60,
     )
+    # A checkout can preserve tracked local edits when they do not conflict.
+    # Production must execute the exact pinned source bytes.
+    _run(
+        ["git", "-C", str(TRIPOSR_DIR), "reset", "--hard", TRIPOSR_COMMIT],
+        timeout=60,
+    )
     actual = _run(
         ["git", "-C", str(TRIPOSR_DIR), "rev-parse", "HEAD"],
         timeout=30,
