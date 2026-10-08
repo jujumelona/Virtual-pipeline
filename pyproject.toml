@@ -11,11 +11,11 @@ license = { text = "MIT" }
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "anime-face-detector==0.1.0",
-    "trimesh[easy]",
-    "pyyaml",
-    "pillow",
+    "trimesh[easy]==4.12.2",
+    "pyyaml>=6.0",
+    "pillow==12.3.0",
     "numpy",
-    "scipy",
+    "scipy>=1.13",
     "click>=8.0",
     "pygltflib==1.16.5",
 ]
