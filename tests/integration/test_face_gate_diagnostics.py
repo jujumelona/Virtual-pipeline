@@ -167,3 +167,77 @@ def test_model_preparation_must_instantiate_face_detector_before_cache_marker():
     probe = (root / "tools" / "runtime_abi_probe.py").read_text(encoding="utf-8")
     assert "from anime_face_detector import create_detector" in probe
     assert "anime_face_detector.detector" in probe
+
+
+def test_pinned_safetensors_loader_replaces_both_legacy_vendor_aliases(
+    tmp_path, monkeypatch,
+):
+    """Reproduce 0.1.0's broken loader without requiring torch in CPU CI."""
+    import vtuber_pipeline.avatar.face_detector as module
+
+    yolo = tmp_path / "23bbc708146bcbc1c910f00fe152adbc70d7658d875a0121eaf4ee61d978b2c4"
+    hrnet = tmp_path / "e71271376406a743c01528a0460637fcc06e72aeeea583f85007cc72dc8b7a4a"
+    yolo.write_bytes(b"model-a")
+    hrnet.write_bytes(b"model-b")
+    mapping = {
+        "hysts/anime-face-detector-yolov3": str(yolo),
+        "hysts/anime-face-detector-hrnetv2": str(hrnet),
+    }
+    monkeypatch.setattr(module, "resolve_anime_face_model_paths", lambda: mapping)
+
+    loaded = []
+
+    def fake_safetensors_load(path, device="cpu"):
+        loaded.append((path, device))
+        assert path in mapping.values()
+        return {"checkpoint_from": path}
+
+    safetensors = types.ModuleType("safetensors")
+    safetensors.__path__ = []
+    tensor_submodule = types.ModuleType("safetensors.torch")
+    tensor_submodule.load_file = fake_safetensors_load
+    safetensors.torch = tensor_submodule
+    monkeypatch.setitem(sys.modules, "safetensors", safetensors)
+    monkeypatch.setitem(sys.modules, "safetensors.torch", tensor_submodule)
+
+    vendor = types.ModuleType("anime_face_detector")
+    vendor.__path__ = []
+    detector_module = types.ModuleType("anime_face_detector.detector")
+    landmark_module = types.ModuleType("anime_face_detector._landmark")
+    face_module = types.ModuleType("anime_face_detector._face")
+
+    def broken_legacy_loader(path):
+        raise AssertionError("legacy torch.load was invoked")
+
+    detector_module.hf_hub_download = lambda *a, **kw: "unverified"
+    face_module.load_state_dict_from_path = broken_legacy_loader
+    landmark_module.load_state_dict_from_path = broken_legacy_loader
+    results = []
+
+    def create_detector(name):
+        assert name == "yolov3"
+        face_path = detector_module.hf_hub_download(
+            "hysts/anime-face-detector-yolov3", "model.safetensors",
+        )
+        landmark_path = detector_module.hf_hub_download(
+            "hysts/anime-face-detector-hrnetv2", "model.safetensors",
+        )
+        results.append(face_module.load_state_dict_from_path(face_path))
+        results.append(landmark_module.load_state_dict_from_path(landmark_path))
+        return "model-ready"
+
+    vendor.create_detector = create_detector
+    vendor.detector = detector_module
+    vendor._face = face_module
+    vendor._landmark = landmark_module
+    for item in (vendor, detector_module, landmark_module, face_module):
+        monkeypatch.setitem(sys.modules, item.__name__, item)
+
+    assert module._create_pinned_anime_face_detector() == "model-ready"
+    assert [path for path, device in loaded] == [str(yolo), str(hrnet)]
+    assert all(device == "cpu" for path, device in loaded)
+    assert face_module.load_state_dict_from_path is broken_legacy_loader
+    assert landmark_module.load_state_dict_from_path is broken_legacy_loader
+    assert results == [
+        {"checkpoint_from": str(yolo)}, {"checkpoint_from": str(hrnet)}
+    ]
