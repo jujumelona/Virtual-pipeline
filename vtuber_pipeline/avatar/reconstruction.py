@@ -16,6 +16,46 @@ TRIPOSR_PINNED_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
 TRIPOSR_MODEL_ID = "stabilityai/TripoSR"
 TRIPOSR_MODEL_REVISION = "c1cf7716aed5aa6c1c5e174657791ef0e1327bde"
 TRIPOSR_MODEL_WEIGHT_SHA256 = "429e2c6b22a0923967459de24d67f05962b235f79cde6b032aa7ed2ffcd970ee"
+TRIPOSR_MODEL_CONFIG = {
+    "cond_image_size": 512,
+    "image_tokenizer_cls": "tsr.models.tokenizers.image.DINOSingleImageTokenizer",
+    "image_tokenizer": {
+        "pretrained_model_name_or_path": "facebook/dino-vitb16",
+    },
+    "tokenizer_cls": "tsr.models.tokenizers.triplane.Triplane1DTokenizer",
+    "tokenizer": {
+        "plane_size": 32,
+        "num_channels": 1024,
+    },
+    "backbone_cls": "tsr.models.transformer.transformer_1d.Transformer1D",
+    "backbone": {
+        "in_channels": "${tokenizer.num_channels}",
+        "num_attention_heads": 16,
+        "attention_head_dim": 64,
+        "num_layers": 16,
+        "cross_attention_dim": 768,
+    },
+    "post_processor_cls": "tsr.models.network_utils.TriplaneUpsampleNetwork",
+    "post_processor": {
+        "in_channels": 1024,
+        "out_channels": 40,
+    },
+    "decoder_cls": "tsr.models.network_utils.NeRFMLP",
+    "decoder": {
+        "in_channels": 120,
+        "n_neurons": 64,
+        "n_hidden_layers": 9,
+        "activation": "silu",
+    },
+    "renderer_cls": "tsr.models.nerf_renderer.TriplaneNeRFRenderer",
+    "renderer": {
+        "radius": 0.87,
+        "feature_reduction": "concat",
+        "density_activation": "exp",
+        "density_bias": -1.0,
+        "num_samples_per_ray": 128,
+    },
+}
 TRIPOSR_DEFAULT_TIMEOUT_SECONDS = 1200
 
 
@@ -190,6 +230,25 @@ def resolve_triposr_model() -> str:
         raise RuntimeError(f"Pinned TripoSR config is missing: {config_path}")
     if not weight_path.is_file() or weight_path.stat().st_size == 0:
         raise RuntimeError(f"Pinned TripoSR weights are missing: {weight_path}")
+
+    try:
+        import yaml
+    except ImportError as exc:
+        raise RuntimeError(
+            "PyYAML is required to verify the pinned TripoSR config"
+        ) from exc
+
+    try:
+        actual_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError(
+            f"Pinned TripoSR config cannot be parsed: {config_path}"
+        ) from exc
+    if actual_config != TRIPOSR_MODEL_CONFIG:
+        raise RuntimeError(
+            "TripoSR model config mismatch: the resolved config.yaml "
+            "does not match the pinned semantic contract"
+        )
 
     actual_sha256 = _sha256(weight_path)
     if actual_sha256 != TRIPOSR_MODEL_WEIGHT_SHA256:
