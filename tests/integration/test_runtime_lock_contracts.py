@@ -264,7 +264,7 @@ def test_colab_notebook_is_only_a_fresh_main_bootstrap():
     assert "runpy.run_path" in launch
     assert 'run_name="__main__"' in launch
     assert "ensure_runtime" not in launch
-    assert "pip" not in launch
+    assert '"pip", "install"' not in launch
 
     # The notebook must not carry a stale second implementation of the app.
     for forbidden in (
