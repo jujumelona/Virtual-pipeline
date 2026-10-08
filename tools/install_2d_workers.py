@@ -69,6 +69,11 @@ def _python() -> Path:
     return WORK / "venv" / "bin" / "python"
 
 
+def _flux_python() -> Path:
+    # Diffusers has a different and faster-moving dependency tree than SAM2.
+    return WORK / "venv_flux" / "bin" / "python"
+
+
 def _smoke(python: Path, anime_source: Path, torch_version: str,
            torchvision_version: str) -> None:
     probe = (
@@ -78,7 +83,6 @@ def _smoke(python: Path, anime_source: Path, torch_version: str,
         "from train import AnimeSegmentation; "
         "from sam2.build_sam import build_sam2; "
         "from sam2.sam2_image_predictor import SAM2ImagePredictor; "
-        "from diffusers import Flux2KleinPipeline; "
         "import pytorch_lightning,kornia,timm,accelerate,hydra; "
         "print('[2d-env] worker-import-smoke-ok',flush=True)"
     )
@@ -106,19 +110,25 @@ def install_2d_environment() -> dict:
     fingerprint = hashlib.sha256(json.dumps(stamp_inputs, sort_keys=True).encode()).hexdigest()
     marker = WORK / "environment.ready.json"
     python = _python()
+    flux_python = _flux_python()
     source = WORK / "upstream" / "anime"
-    if python.is_file() and source.joinpath("train.py").is_file() and marker.is_file():
+    if (python.is_file() and flux_python.is_file()
+            and source.joinpath("train.py").is_file() and marker.is_file()):
         try:
             saved = json.loads(marker.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             saved = {}
         if saved.get("fingerprint") == fingerprint:
             _smoke(python, source, torch_version, vision_version)
-            return {"python": str(python), "anime_source": str(source), "fingerprint": fingerprint}
+            _exec([str(flux_python), "-c", "from diffusers import Flux2KleinPipeline"], timeout=120)
+            return {"python": str(python), "flux_python": str(flux_python),
+                    "anime_source": str(source), "fingerprint": fingerprint}
 
     WORK.mkdir(parents=True, exist_ok=True)
     if not python.is_file():
         venv.EnvBuilder(with_pip=True, system_site_packages=True).create(str(WORK / "venv"))
+    if not flux_python.is_file():
+        venv.EnvBuilder(with_pip=True, system_site_packages=True).create(str(WORK / "venv_flux"))
     # Pin the *existing* system-provided CUDA ABI in the worker pip resolver.
     constraints = WORK / "cuda_constraints.txt"
     constraints.write_text(
@@ -135,27 +145,34 @@ def install_2d_environment() -> dict:
     # Install source packages with dependencies explicitly disabled. The
     # standalone pip above already resolved Python libraries; never let an
     # external pyproject replace torch/torchvision.
-    for kind in ("sam", "diffusers"):
-        # SAM2's pyproject declares torch as a build dependency. Disabling
-        # build isolation is essential: installing build dependencies into an
-        # isolated environment could download a second CUDA PyTorch build.
-        _exec([str(python), "-m", "pip", "install", "--no-deps",
-               "--no-build-isolation", "--editable", str(sources[kind])],
-              env=env, timeout=1800)
+    # SAM2 and Diffusers must never share the mutable package environment.
+    # In particular FLUX packages must not downgrade SAM2 dependencies.
+    _exec([str(python), "-m", "pip", "install", "--no-deps",
+           "--no-build-isolation", "--editable", str(sources["sam"])],
+          env=env, timeout=1800)
+    _exec([str(flux_python), "-m", "pip", "install", "--prefer-binary",
+           "--only-binary=:all:", "accelerate==1.10.1",
+           "sentencepiece>=0.2.0", "protobuf>=5,<7"],
+          env=env, timeout=1200)
+    _exec([str(flux_python), "-m", "pip", "install", "--no-deps",
+           "--no-build-isolation", "--editable", str(sources["diffusers"])],
+          env=env, timeout=1800)
     if not (sources["anime"] / "train.py").is_file():
         raise RuntimeError("pinned Anime Segmentation train.py is missing")
     _smoke(python, sources["anime"], torch_version, vision_version)
+    _exec([str(flux_python), "-c", "from diffusers import Flux2KleinPipeline"], timeout=120)
     marker.write_text(json.dumps({"fingerprint": fingerprint, "base_cuda_preserved": True},
                                  indent=2), encoding="utf-8")
-    return {"python": str(python), "anime_source": str(sources["anime"]),
-            "fingerprint": fingerprint}
+    return {"python": str(python), "flux_python": str(flux_python),
+            "anime_source": str(sources["anime"]), "fingerprint": fingerprint}
 
 
 def activate_2d_environment() -> dict:
     """Called by the UI server, not an inference process."""
     info = install_2d_environment()
-    for worker in WORKERS:
+    for worker in ("ANIME_ALPHA", "FLORENCE", "SAM"):
         os.environ["VTUBER_WORKER_" + worker] = info["python"]
+    os.environ["VTUBER_WORKER_FLUX"] = info["flux_python"]
     os.environ["ANIME_SEGMENTATION_REPO"] = info["anime_source"]
     return info
 
