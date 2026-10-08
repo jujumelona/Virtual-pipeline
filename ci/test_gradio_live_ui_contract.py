@@ -48,19 +48,25 @@ def test_gradio_6_builds_initial_chooser_and_two_hidden_workflows():
     assert ui.return_to_workflow_choice in handlers
     assert ui.stream_avatar_ui in handlers
     assert ui.stream_accessories_ui in handlers
+    assert ui.build_2d_ui in handlers
+    assert ui.show_3d_accessory in handlers
+    assert ui.show_3d_avatar in handlers
 
 
 def test_gradio_real_update_routes_without_refreshing_installed_packages():
     ui = _app()
-    selection = ui.choose_workflow("avatar", "personalNonProfit")
+    selection = ui.choose_workflow("3d", "personalNonProfit")
     assert selection[0]["visible"] is False
-    assert selection[1]["visible"] is True
-    assert selection[2]["visible"] is False
-    assert selection[3] == "personalNonProfit"
-
-    selection = ui.choose_workflow("accessory", "corporation")
     assert selection[1]["visible"] is False
     assert selection[2]["visible"] is True
+    assert selection[3]["visible"] is False
+    assert selection[4] == "personalNonProfit"
+
+    selection = ui.choose_workflow("2d", "corporation")
+    assert selection[1]["visible"] is True
+    assert selection[2]["visible"] is False
+    assert selection[3]["visible"] is False
+    assert selection[4] == "corporation"
 
 
 def test_both_streaming_handlers_keep_progress_and_log_file_outputs():
