@@ -104,13 +104,16 @@ def rasterize_multiview_texture(
         norm = float(np.linalg.norm(normal))
         facing = float(normal[2] / norm) if norm > eps else 0
         head = float(np.mean(tri[:, 1])) >= y_min + .72 * body_height
-        selected = "front"
-        if facing < -.12 and "back" in views:
-            selected = "back"
-        elif facing > .12 and head and "face" in views:
-            selected = "face"
-        # Try preferred observed view first; front view handles valid holes.
-        ordered = [selected] + (["front"] if selected != "front" else [])
+        # An orthographic front source does not observe back-facing/side
+        # triangles. Never paint those texels from a projected front image.
+        # A real rear reference is the only admissible rear observation.
+        if facing < -0.12:
+            ordered = ["back"] if "back" in views else []
+        elif facing > 0.12:
+            ordered = (["face", "front"] if head and "face" in views
+                       else ["front"])
+        else:
+            ordered = []
         remaining = np.ones(len(coords_x), dtype=bool)
         for name in ordered:
             if not remaining.any():
