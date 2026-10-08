@@ -10,23 +10,23 @@
 
 | UI 모드 | 오픈소스 기반 준비 도구 | 현재 실제 출력 | 완성 방송 모델의 포맷 | 구현 상태 |
 |---|---|---|---|---|
-| **Inochi2D** | [Krita](https://krita.org), [Inochi Creator](https://github.com/Inochi2D/inochi-creator), [Inochi Session](https://github.com/Inochi2D/inochi-session) | `inochi2d_artwork_prep.zip` (OpenRaster + 투명 파츠) | `.inp` | 파츠 편집용 패키지 연결. **자동 리깅·INP 생성 미구현** |
-| **Live2D** | [Krita](https://krita.org) 및 라이선스 확인된 이미지 전처리 도구 | `live2d_artwork_prep.zip` (OpenRaster + 투명 파츠) | `.moc3` + `.model3.json` + 텍스처/물리 | 파츠 편집용 패키지 연결. **자동 Cubism 리깅·MOC3 생성 미구현** |
-| **3D VRM** | TripoSR, MakeHuman CC0, rembg 등 고정된 모델·소스 | `.vrm` 및 품질 검증 정보 | `.vrm` | 기존 3D 본선 유지. 추가 고품질 전신 개선 필요 |
+| **Inochi2D** | Florence-2 / SAM2 / FLUX + Inochi2D SDK | 실제 레이어 PSD/ORA, 메시·키폼·물리 JSON | `.inp` | **prepared**: 2D 중간 결과는 작성. 실제 SDK의 변형/물리 직렬화 어댑터 미검증이므로 `.inp` 완성 불가 |
+| **Live2D** | 동일 2D 레이어·리깅 중간 표현 + 정식 Cubism Editor | `avatar.psd`, `cubism_handoff.zip` | `.moc3` + `.model3.json` + 텍스처/물리 | **needs_editor_export**: 공식 Editor에서 출력한 폴더만 검증·수집. 자동 MOC3 인코더 없음 |
+| **3D VRM** | TripoSR, Depth Anything V2 Small, MakeHuman, Blender VRM Add-on | 피팅/텍스처/리깅 자료 및 검증 시 `avatar.vrm` + `avatar_rigged.blend` | `.vrm` | **상업용 전신 경로 제한**: InstantMesh 내부 Nvidia 비상업/전용 코드 사용권 미확보. 검증 없이 complete 표시 금지 |
 
 **2D의 준비 ZIP은 최종 모델이 아닙니다.** `.ora` 파일을 Krita에서 열어 가려진 면을 포함하여 파츠를 완성하고, 레이어를 PSD로 내보내 해당 리깅 도구에서 작업해야 합니다.
 
 ### Inochi2D
 
 - 입력: 외부 AI 캐릭터 원본 1장 + 사용자가 제작한 투명 PNG 파츠 ZIP(선택). 프롬프트는 Inochi2D용으로 분리합니다.
-- 출력: `inochi2d_artwork_prep.zip`, 내부의 `artwork.ora`, `manifest.json`, 파츠, 단계별 안내.
+- 현재 출력: `avatar.psd`, `avatar.ora`, `meshes2d.json`, `keyforms.json`, `physics2d.json`, `puppet_spec.json`. SDK 네이티브 출력에 성공한 경우에만 `avatar.inp`를 `complete`로 보고합니다.
 - 목표: **오픈소스 Inochi Creator에서 리깅 후 `.inp` 출력**, Inochi Session에서 방송 사용.
 - [Inochi2D 공식 문서](https://docs.inochi2d.com/en/latest/): PSD import, 메시·파라미터·물리 리깅은 오픈소스 도구로 가능하지만 **이 저장소가 자동으로 .inp를 생성하는 단계는 아직 구현되지 않았습니다.**
 
 ### Live2D
 
 - 입력: 외부 AI 캐릭터 원본 + 사용자 파츠 ZIP. Live2D용 파츠 보완 프롬프트를 따로 제공합니다.
-- 출력: `live2d_artwork_prep.zip`, OpenRaster/PNG/manifest 및 Cubism 안내.
+- 현재 출력: `avatar.psd`, `avatar.ora`, `cubism_handoff.zip`, `cubism_spec.json`. 공식 Editor 내보내기 결과의 MOC3·텍스처·physics·model3 참조는 별도 `live2d-import-export`에서 확인합니다.
 - 목표: **Live2D Cubism Editor에서 리깅 후 `.moc3`, `.model3.json`, 텍스처/물리 출력**, VTube Studio에서 로드.
 - **Live2D Cubism Editor는 비오픈소스**입니다. 공식 모델 바이너리 생성은 [Cubism 내보내기 문서](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/)에 기술돼 있습니다. 검증된 상업용 오픈소스 MOC3 인코더가 없어 이 프로젝트는 완성된 Live2D 모델을 자동 생성한다고 주장하지 않습니다.
 - Inochi2D의 `.inp`는 Live2D의 `.moc3`로 자동 호환되지 않습니다.
@@ -34,8 +34,9 @@
 ### 2D CLI
 
 ```bash
-vtuber-pipeline inochi2d-prep --image character.png --layers-zip layers.zip --output output/inochi2d
-vtuber-pipeline live2d-prep --image character.png --layers-zip layers.zip --output output/live2d
+vtuber-pipeline inochi2d --image character.png --layers-zip layers.zip --output output/inochi2d
+vtuber-pipeline live2d --image character.png --output output/live2d
+vtuber-pipeline live2d-import-export --official-export-dir ./cubism-output --output output/live2d
 ```
 
 사용자 원본 이미지 자체의 상업적 사용 권한은 별도로 확보해야 합니다. 앱·프레임워크의 소스 라이선스와 모델 가중치·데이터 라이선스도 개별 확인해야 합니다.
@@ -81,6 +82,16 @@ completed avatar.vrm
 
 Accessory Mode는 검증된 **static bone-parented bake** 경로만 제공합니다.
 
+## 3D 상업용 실행 사용권 차단 (2026-10-09)
+
+**즉시 확인할 제약:** 고정된 InstantMesh 소스의 `run.py`는 `sudo-ai/zero123plus-v1.2`를 내려받아 실행합니다. 이 멀티뷰 가중치는 **CC BY-NC 4.0**입니다. 해당 확산 생성 단계를 사용하지 않더라도 InstantMesh LRM 내부에는 Nvidia의 전용 고지와 `nvdiffrast` 런타임 종속성이 있습니다. nvdiffrast의 Nvidia Source Code License는 제3자 사용을 연구·평가 목적의 비상업적 사용으로 제한합니다. `third_party.lock.json`의 InstantMesh **체크포인트 가중치 자체**는 Apache 2.0이어도, **전체 실행 경로**를 상업용으로 승인한다는 뜻이 아닙니다.
+
+- 현재 상업용 경로는 원본 Zero123++ 로딩을 차단하고 TripoSR에서 만든 6개 추정 뷰를 InstantMesh LRM에 전달하는 어댑터를 준비했습니다. **이것만으로는 Nvidia 렌더러 사용권 문제가 해결되지 않습니다.**
+- `commercial_dependency_guard.py`는 상업적 실행 전에 제한 소스·패키지를 검사하고 **실패 시 완성 결과를 가장하지 않습니다.**
+- 상업용 무인 완성의 조건은 관련 Nvidia 코드·런타임 사용권의 명시적 확보 또는 사용권이 확보된 대체 렌더러/형상 복원 기술의 **실제 통합·검증**입니다. 아직 그 단계가 끝나지 않았습니다.
+
+검증에 사용한 upstream: [Zero123++ License](https://github.com/SUDO-AI-3D/zero123plus#license), [nvdiffrast LICENSE](https://github.com/NVlabs/nvdiffrast/blob/main/LICENSE.txt), [InstantMesh 소스](https://github.com/TencentARC/InstantMesh).
+
 ## Commercial source policy
 
 | Component | Pin | License |
@@ -120,7 +131,7 @@ export TRIPOSR_DIR="$PWD/TripoSR"
 
 ## Google Colab
 
-상단 **Open In Colab** 버튼으로 열고 **① 환경 설치 → ② 모델 다운로드·검증 → ③ 생성 UI** 순서대로 실행합니다.
+상단 **Open In Colab** 버튼으로 열고 **① 환경 설치 → ② 모드별 다운로드 안내 → ③ 생성 UI** 순서대로 실행합니다. 체크포인트는 ③ 화면에서 **Inochi2D / Live2D / 3D VRM 중 하나를 선택한 후** 해당 모드에 필요한 목록만 다운로드합니다.
 
 ### ① 캐릭터 / 얼굴 만들기
 
