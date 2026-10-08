@@ -15,12 +15,34 @@ PARAMS={
 def build_keyforms(meshes_json: str, parts_json: str,
                    face_landmarks_json: str, output_dir: str) -> dict:
     src=json.loads(Path(meshes_json).read_text(encoding="utf-8"))
+    # Source landmarks are measured on the same original full-canvas image
+    # as the triangulated part. A separate face crop is never projected here.
+    part_landmarks = {}
+    if Path(parts_json).is_file():
+        part_doc = json.loads(Path(parts_json).read_text(encoding="utf-8"))
+        part_landmarks = {
+            part["semantic_id"]: part.get("landmarks_xy", [])
+            for part in part_doc.get("parts", [])
+        }
     entries=[]
     for m in src["meshes"]:
         verts=np.asarray(m["vertices_xy"],dtype=float)
-        center=verts.mean(axis=0)
-        span=np.maximum(verts.max(axis=0)-verts.min(axis=0),1)
         part=m["semantic_id"]
+        center=verts.mean(axis=0)
+        observed = np.asarray(part_landmarks.get(part, []), dtype=float)
+        pivot_source = "mesh_centroid"
+        if observed.size:
+            if observed.ndim != 2 or observed.shape[1] != 2 or not np.isfinite(observed).all():
+                raise ValueError(f"{part}: nonfinite or invalid aligned source landmarks")
+            lower, upper = verts.min(axis=0), verts.max(axis=0)
+            # The SAM part boundary need not contain every corner of an eyelid,
+            # but an unrelated face crop would be far outside this region.
+            margin = np.maximum(6.0, 0.35 * (upper - lower))
+            pivot = observed.mean(axis=0)
+            if np.all(pivot >= lower - margin) and np.all(pivot <= upper + margin):
+                center = np.clip(pivot, lower, upper)
+                pivot_source = "observed_hrnet"
+        span=np.maximum(verts.max(axis=0)-verts.min(axis=0),1)
         deltas={}
         for p,(low,mid,hi) in PARAMS.items():
             if p.startswith("head.") and not any(n in part for n in ("hair","eye","face","mouth","brow","neck")):
@@ -62,7 +84,8 @@ def build_keyforms(meshes_json: str, parts_json: str,
             plus=np.column_stack((dx,dy))*high_amount
             minus=np.column_stack((dx,dy))*low_amount
             deltas[p]={"min":minus.tolist(),"default":np.zeros_like(plus).tolist(),"max":plus.tolist()}
-        entries.append({"semantic_id":part,"deltas":deltas})
+        entries.append({"semantic_id":part,"deltas":deltas,
+                        "pivot_xy":center.tolist(),"pivot_source":pivot_source})
     out=Path(output_dir)/"keyforms.json";out.parent.mkdir(parents=True,exist_ok=True)
     out.write_text(json.dumps({"parameters":{k:list(v) for k,v in PARAMS.items()},
                                "keyforms":entries},indent=2),encoding="utf-8")
