@@ -2,6 +2,8 @@
 
 import pathlib
 from typing import Dict, Any, List
+
+from vtuber_pipeline.core.gltf import load_gltf
 from dataclasses import dataclass, field
 
 
@@ -57,7 +59,7 @@ def compute_eye_bones(mesh_path: str) -> Dict[str, Any]:
     path = pathlib.Path(mesh_path)
     if not path.is_file():
         raise FileNotFoundError(f"Rigged mesh not found: {mesh_path}")
-    gltf = GLTF2().load(str(path))
+    gltf = load_gltf(path)
     nodes = gltf.nodes or []
     by_name = {node.name: i for i, node in enumerate(nodes) if node.name}
     missing = [name for name in ("head", "leftEye", "rightEye") if name not in by_name]
