@@ -30,9 +30,21 @@ class AvatarPipeline:
         """Hash current avatar pipeline source so code changes invalidate caches."""
         digest = hashlib.sha256()
         avatar_dir = pathlib.Path(__file__).resolve().parent
-        for path in sorted(avatar_dir.glob("*.py")):
-            digest.update(path.name.encode("utf-8"))
-            digest.update(path.read_bytes())
+        repo_root = avatar_dir.parent.parent
+        # The orchestrator also calls Python outside avatar/. Changes to model
+        # workers, perception, or shared stage contracts must invalidate the
+        # cached successful stages before their Python call is bypassed.
+        for directory in (
+            avatar_dir,
+            repo_root / "vtuber_pipeline" / "common",
+            repo_root / "vtuber_pipeline" / "perception",
+            repo_root / "tools" / "model_workers",
+        ):
+            if not directory.is_dir():
+                continue
+            for path in sorted(directory.glob("*.py")):
+                digest.update(path.relative_to(repo_root).as_posix().encode("utf-8"))
+                digest.update(path.read_bytes())
         core_manifest = avatar_dir.parent / "core" / "manifest.py"
         if core_manifest.is_file():
             digest.update(core_manifest.name.encode("utf-8"))
