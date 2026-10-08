@@ -260,7 +260,7 @@ def test_readme_open_in_colab_badge_targets_the_canonical_two_step_notebook():
         "jujumelona/Virtual-pipeline/blob/main/" + notebook_file
     )
     assert badge + "(" + launch_url + ")" in readme
-    assert "[`" + notebook_file + "`](" + notebook_file + ")" in readme
+    assert readme.count(launch_url) == 1
     notebook = json.loads(_read(notebook_file))
     code_cells = [
         "".join(cell.get("source", []))
