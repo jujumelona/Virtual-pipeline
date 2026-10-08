@@ -246,26 +246,17 @@ def test_generation_requires_explicit_prepared_runtime_without_install(ui, tmp_p
 
 
 def test_start_routes_to_exact_mode_with_selected_scope(ui):
-    hidden, two_d, avatar, accessory, usage = ui.choose_workflow(
-        "3d", "personalProfit",
-    )
-    assert hidden["visible"] is False
-    assert two_d["visible"] is False
-    assert avatar["visible"] is True
-    assert accessory["visible"] is False
-    assert usage == "personalProfit"
-
-    hidden, two_d, avatar, accessory, usage = ui.choose_workflow(
-        "2d", "corporation",
-    )
-    assert hidden["visible"] is False
-    assert two_d["visible"] is True
-    assert avatar["visible"] is False
-    assert accessory["visible"] is False
-    assert usage == "corporation"
+    for requested, expected in (
+        ("inochi2d", [False, True, False, False, False]),
+        ("live2d", [False, False, True, False, False]),
+        ("3d", [False, False, False, True, False]),
+    ):
+        selected = ui.choose_workflow(requested, "personalProfit")
+        assert [part["visible"] for part in selected[:-1]] == expected
+        assert selected[-1] == "personalProfit"
 
     assert [v["visible"] for v in ui.return_to_workflow_choice()] == [
-        True, False, False, False,
+        True, False, False, False, False,
     ]
     assert ui.show_3d_accessory() == (
         {"visible": False}, {"visible": True},
@@ -277,14 +268,23 @@ def test_start_routes_to_exact_mode_with_selected_scope(ui):
 
 @pytest.mark.parametrize(
     "mode,usage",
-    [("garbage", "corporation"), ("3d", "GPL"), ("2d", "")],
+    [("garbage", "corporation"), ("3d", "GPL"), ("inochi2d", ""), ("2d", "corporation")],
 )
 def test_workflow_selection_rejects_invalid_mode_or_usage(ui, mode, usage):
     with pytest.raises(ValueError):
         ui.choose_workflow(mode, usage)
 
 
-def test_2d_ui_prepare_does_not_require_3d_gpu_runtime(ui, tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "target,filename",
+    [
+        ("inochi2d", "inochi2d_artwork_prep.zip"),
+        ("live2d", "live2d_artwork_prep.zip"),
+    ],
+)
+def test_both_2d_modes_do_not_require_3d_gpu_runtime(
+    ui, tmp_path, monkeypatch, target, filename,
+):
     from PIL import Image
     artwork = tmp_path / "artwork.png"
     Image.new("RGBA", (512, 768), (20, 40, 60, 255)).save(artwork)
@@ -292,20 +292,21 @@ def test_2d_ui_prepare_does_not_require_3d_gpu_runtime(ui, tmp_path, monkeypatch
         ui, "require_runtime_ready",
         lambda *args: (_ for _ in ()).throw(AssertionError("3D runtime called")),
     )
-    status, report, path = ui.build_2d_ui(str(artwork), None, "personalProfit")
+    handler = ui.build_inochi2d_ui if target == "inochi2d" else ui.build_live2d_ui
+    status, report, path = handler(str(artwork), None, "personalProfit")
     assert "단일 그림" in status
-    assert "Cubism" in report
     assert pathlib.Path(path).is_file()
-    assert pathlib.Path(path).suffix == ".zip"
+    assert pathlib.Path(path).name == filename
     import json
     import zipfile
     with zipfile.ZipFile(path) as archive:
         manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["mode"] == target
+        assert manifest["rig_generated"] is False
         assert manifest["vtube_studio_ready"] is False
-        assert manifest["is_live2d_model"] is False
+        assert manifest["inochi_session_ready"] is False
         assert "artwork.ora" in archive.namelist()
-        assert all(not name.endswith(".moc3") for name in archive.namelist())
-
+        assert all(not name.endswith((".inp", ".moc3")) for name in archive.namelist())
 
 
 def test_launch_clears_stale_pipeline_modules_before_runtime_check(ui, tmp_path, monkeypatch):
