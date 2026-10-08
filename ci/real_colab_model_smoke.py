@@ -294,6 +294,47 @@ def main() -> None:
                         flush=True,
                     )
 
+                    # Downstream rigid fit used to fail in Colab AFTER a
+                    # successful real TripoSR mesh. Exercise the actual
+                    # pinned MakeHuman template against this actual OBJ with
+                    # 28 deterministic pixel landmarks. This verifies the
+                    # numeric fitting graph, not facial-semantic correctness.
+                    from vtuber_pipeline.avatar.template_fitting import fit_template
+                    from PIL import Image as PILImage
+
+                    width, height = PILImage.open(sample).size
+                    pixel_landmarks = [
+                        [
+                            0.5 * width + 0.055 * width * float(np.cos(i * 2 * np.pi / 28)),
+                            0.30 * height + 0.065 * height * float(np.sin(i * 2 * np.pi / 28)),
+                        ]
+                        for i in range(28)
+                    ]
+                    fitting = report(
+                        "real MakeHuman to TripoSR OBJ rigid/nonrigid template fitting",
+                        lambda: fit_template(
+                            str(template), pixel_landmarks,
+                            str(out / "template_fit"),
+                            reference_mesh_path=str(mesh),
+                        ),
+                    )
+                    if fitting["status"] != "complete":
+                        raise RuntimeError(f"Real production template fitting failed: {fitting}")
+                    fitted = pathlib.Path(fitting["fitted_mesh"])
+                    assert fitted.is_file() and fitted.stat().st_size > 0
+                    fitted_mesh = trimesh.load(fitted, force="mesh")
+                    assert len(fitted_mesh.vertices) > 0
+                    assert np.isfinite(fitted_mesh.vertices).all()
+                    assert fitting.get("sparse_solve_success") is True
+                    assert fitting["rigid_selected_energy"] <= fitting["rigid_initial_energy"] + 1e-10
+                    print(
+                        "[REAL-MODEL] Fitted canonical GLB "
+                        f"vertices={len(fitted_mesh.vertices)} "
+                        f"rigid_converged={fitting['converged']} "
+                        f"mesh_bytes={fitted.stat().st_size}",
+                        flush=True,
+                    )
+
             report(
                 "real production TripoSR subprocess full mesh extraction/export",
                 run_actual_cli_mesh,
