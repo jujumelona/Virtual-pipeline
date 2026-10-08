@@ -65,7 +65,7 @@ def test_avatar_stage_dag_is_complete_and_ordered():
         "input_gate",
         "relative_depth",
         "reference_reconstruction",
-        "instantmesh",
+        "licensed_multiview",
         "multiview_alignment",
         "template_fitting",
         "surface_refine",
