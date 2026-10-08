@@ -66,26 +66,72 @@ PERMISSIVE_LICENSE_PATTERNS = [
 ]
 
 
-def _license_text(dist: metadata.Distribution) -> str:
-    values: List[str] = []
-    for key in ("License-Expression", "License"):
-        value = dist.metadata.get(key)
-        if value:
-            values.append(str(value))
-    values.extend(
-        value
-        for value in dist.metadata.get_all("Classifier", [])
-        if value.startswith("License ::")
-    )
-    return " | ".join(values).strip()
+# PyPI metadata's legacy License field may contain an entire license file,
+# including examples, comparisons with other licenses, and Apache's appendix.
+# Those paragraphs are NOT the declared license of the distribution.
+_LICENSE_HEADER = re.compile(
+    r"^(?:(?:THE )?GNU (?:AFFERO )?GENERAL PUBLIC LICENSE"
+    r"|APACHE LICENSE|MIT LICENSE|BSD(?:-\\d-CLAUSE| \\d-CLAUSE)? LICENSE"
+    r"|MOZILLA PUBLIC LICENSE|ISC LICENSE|PYTHON SOFTWARE FOUNDATION LICENSE"
+    r"|CREATIVE COMMONS ZERO|UNLICENSE)(?:\\s|$)",
+    re.I,
+)
 
 
-def _classify_license(text: str) -> str:
-    if not text:
-        return "unknown"
-    if any(pattern.search(text) for pattern in BLOCKED_LICENSE_PATTERNS):
+def _license_declarations(dist: metadata.Distribution) -> List[tuple[str, str]]:
+    """Read license *declarations*, not incidental text in license bodies.
+
+    Classifiers and PEP 639 License-Expression are structured declarations.
+    For legacy License values containing entire license texts, use only an
+    actual opening license heading, never the legal prose/appendices.
+    Conflicting explicit declarations still fail closed when any is blocked.
+    """
+    declared: List[tuple[str, str]] = []
+    expression = str(dist.metadata.get("License-Expression") or "").strip()
+    if expression:
+        declared.append(("License-Expression", expression))
+
+    legacy = str(dist.metadata.get("License") or "").strip()
+    if legacy:
+        if len(legacy) <= 512:
+            declared.append(("License", legacy))
+        else:
+            # An entire Apache-2.0 license mentions other license families in
+            # its boilerplate. Match only the first visible license heading.
+            lines = [line.strip() for line in legacy.splitlines() if line.strip()]
+            header = next(
+                (line for line in lines[:8] if _LICENSE_HEADER.match(line)),
+                None,
+            )
+            if header:
+                if header.casefold() == "apache license":
+                    # "Apache License" on one line and "Version 2.0" on next.
+                    header += " " + next(
+                        (line for line in lines[1:5] if re.match(r"^Version\\s+2(?:\\.0)?\\b", line, re.I)),
+                        "",
+                    )
+                declared.append(("License (document heading)", header))
+
+    for classifier in dist.metadata.get_all("Classifier", []) or []:
+        if classifier.startswith("License ::"):
+            declared.append(("Classifier", classifier))
+    return declared
+
+
+def _classify_license_declarations(
+    declarations: List[tuple[str, str]],
+) -> str:
+    if any(
+        pattern.search(value)
+        for _, value in declarations
+        for pattern in BLOCKED_LICENSE_PATTERNS
+    ):
         return "blocked"
-    if any(pattern.search(text) for pattern in PERMISSIVE_LICENSE_PATTERNS):
+    if any(
+        pattern.search(value)
+        for _, value in declarations
+        for pattern in PERMISSIVE_LICENSE_PATTERNS
+    ):
         return "permissive"
     return "unknown"
 
@@ -126,14 +172,15 @@ def audit_runtime() -> Dict[str, Any]:
 
         name = dist.metadata.get("Name") or requested
         canonical_dist = canonicalize_name(name)
-        license_text = _license_text(dist)
-        status = _classify_license(license_text)
+        license_declarations = _license_declarations(dist)
+        status = _classify_license_declarations(license_declarations)
         name_block = BLOCKED_NAMES.get(canonical_dist)
 
         item = {
             "name": name,
             "version": dist.version,
-            "license": license_text or None,
+            "license": " | ".join(value for _, value in license_declarations) or None,
+            "license_source": [source for source, _ in license_declarations],
             "license_status": "blocked" if name_block else status,
             "blocked_reason": name_block,
         }
