@@ -190,10 +190,13 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
     def fake_texture(
         image_path, mesh_path, output_dir, face_bbox=None, *,
         face_image_path=None, back_image_path=None,
+        left_image_path=None, right_image_path=None,
         full_body=False, texture_size=1024,
     ):
         assert face_image_path is None
         assert back_image_path is None
+        assert left_image_path is None
+        assert right_image_path is None
         assert full_body is False
         assert texture_size == 1024
         calls.append("texture_transfer")
