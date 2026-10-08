@@ -60,10 +60,49 @@ def save_latest_avatar(path: str | Path, output_root: str | Path, destination: s
 
 def gradio_file_route(path: str | Path, output_root: str | Path) -> str:
     """URL path for the current Gradio server's directly downloadable file."""
-    from urllib.parse import quote
+    import re
 
     metadata = checked_avatar(path, output_root)
-    return "/gradio_api/file=" + quote(metadata["path"], safe="/")
+    folder = Path(metadata["path"]).parent.name
+    if not re.fullmatch(r"avatar-[A-Za-z0-9_-]{1,32}", folder):
+        raise ValueError(f"Unexpected avatar output folder: {folder}")
+    return f"/vtuber-download/{folder}/avatar.vrm"
+
+
+def install_direct_download_route(app, output_root: str | Path) -> None:
+    """FastAPI attachment route on the EXISTING Gradio server and Colab port.
+
+    Gradio 6.3's own /gradio_api/file= endpoint responds with
+    Content-Disposition: inline for .vrm (MIME model/vrml). This endpoint
+    deliberately forces attachment so Chrome actually saves avatar.vrm.
+    """
+    import re
+    from fastapi import HTTPException
+    from starlette.responses import FileResponse
+
+    root = Path(output_root).expanduser().resolve(strict=True)
+
+    def download_avatar(folder: str):
+        if not re.fullmatch(r"avatar-[A-Za-z0-9_-]{1,32}", folder):
+            raise HTTPException(status_code=404, detail="Invalid avatar path")
+        try:
+            path = root / folder / "avatar.vrm"
+            checked_avatar(path, root)
+        except (OSError, ValueError):
+            raise HTTPException(status_code=404, detail="Valid avatar.vrm not found")
+        return FileResponse(
+            path,
+            media_type="application/octet-stream",
+            filename="avatar.vrm",
+            content_disposition_type="attachment",
+        )
+
+    app.add_api_route(
+        "/vtuber-download/{folder}/avatar.vrm",
+        download_avatar,
+        methods=["GET"],
+        include_in_schema=False,
+    )
 
 
 def publish_avatar_download(
