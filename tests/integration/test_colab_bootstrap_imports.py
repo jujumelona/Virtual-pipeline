@@ -89,3 +89,84 @@ def test_gradio_6_theme_and_css_are_only_set_during_launch():
     assert 'css=CSS' not in build_code
     assert 'theme=gr.themes.Soft()' in launch_code
     assert 'css=CSS' in launch_code
+
+
+def test_preparation_import_never_requires_gradio(tmp_path):
+    """The package installer can start even if Gradio cannot import yet."""
+    checkout = tmp_path / "checkout"
+    (checkout / "tools").mkdir(parents=True)
+    shutil.copy2(ROOT / "tools" / "colab_app.py", checkout / "tools" / "colab_app.py")
+    probe = """
+import os, pathlib, runpy, sys
+os.environ['VTUBER_SETUP_ONLY'] = '1'
+sys.modules['gradio'] = None
+checkout = pathlib.Path(sys.argv[1])
+app = runpy.run_path(str(checkout / 'tools' / 'colab_app.py'), run_name='vtuber_prepare')
+assert callable(app['ensure_runtime'])
+assert callable(app['prepare_models'])
+print('setup-import-without-gradio-ok')
+"""
+    proc = subprocess.run(
+        [sys.executable, "-I", "-c", probe, str(checkout)],
+        cwd=tmp_path, text=True, capture_output=True, timeout=20,
+    )
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    assert "setup-import-without-gradio-ok" in proc.stdout
+
+
+def test_notebook_setup_captures_child_traceback_and_writes_full_log(tmp_path):
+    """A subprocess crash cannot produce only an unexplained CalledProcessError."""
+    import ast
+    import collections
+    import threading
+
+    notebook = json.loads(
+        (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab.ipynb").read_text(
+            encoding="utf-8"
+        )
+    )
+    code = "".join(
+        c["source"] for c in notebook["cells"] if c["cell_type"] == "code"
+    )[0:]
+    # Use only the first code cell, never execute git/pip in the test.
+    first = next(c for c in notebook["cells"] if c["cell_type"] == "code")
+    source = "".join(first["source"])
+    tree = ast.parse(source)
+    runner = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "run"
+    )
+    definition = ast.Module(body=[runner], type_ignores=[])
+    namespace = {
+        "SETUP_LOG": tmp_path / "logs" / "setup.log",
+        "subprocess": subprocess,
+        "collections": collections,
+        "threading": threading,
+    }
+    exec(compile(definition, "<notebook-runner>", "exec"), namespace)
+    import pytest
+    with pytest.raises(RuntimeError, match="child-crash-diagnostic"):
+        namespace["run"](
+            [
+                sys.executable, "-u", "-c",
+                "import sys; print('child-crash-diagnostic', file=sys.stderr); sys.exit(3)",
+            ],
+            15,
+        )
+    log = namespace["SETUP_LOG"].read_text(encoding="utf-8")
+    assert "child-crash-diagnostic" in log
+    assert "sys.exit(3)" in log
+
+
+def test_two_prepare_cells_bypass_gradio_but_ui_imports_real_package():
+    notebook = json.loads(
+        (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab.ipynb").read_text(
+            encoding="utf-8"
+        )
+    )
+    cells = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
+    assert len(cells) == 3
+    assert all("VTUBER_SETUP_ONLY" in code for code in cells[:2])
+    assert "VTUBER_SETUP_ONLY" not in cells[2]
+    for code in cells:
+        compile(code, "<colab-cell>", "exec")
