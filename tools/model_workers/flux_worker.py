@@ -12,6 +12,7 @@ def infer(req):
     import numpy as np
     from PIL import Image
     from vtuber_pipeline.common.schemas import PartsDocument
+    from vtuber_pipeline.perception.compose import masked_repair
     doc = PartsDocument.read(req["parts_json"])
     original=Image.open(req["image_path"]).convert("RGB")
     out=Path(req["output_dir"])
@@ -27,7 +28,7 @@ def infer(req):
         saved=doc.write(str(out/"repaired_parts.json"))
         return {"parts_json":saved}
     from diffusers import Flux2KleinPipeline
-    pipe=Flux2KleinPipeline.from_pretrained("black-forest-labs/FLUX.2-klein-4B",torch_dtype=torch.bfloat16)
+    pipe=Flux2KleinPipeline.from_pretrained("black-forest-labs/FLUX.2-klein-4B",torch_dtype=(torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16))
     pipe.enable_model_cpu_offload()
     for i,(part,mask) in enumerate(planned):
         # Edit reference, then combine ONLY masked pixels into this part.
@@ -36,8 +37,7 @@ def infer(req):
         source=np.asarray(Image.open(part.rgba_png).convert("RGBA")).copy()
         generated=np.asarray(edited.resize(original.size))
         m=np.asarray(mask)>0
-        source[m,:3]=generated[m]
-        source[m,3]=255
+        source=masked_repair(source, generated, np.asarray(mask))
         dest=out/("repaired_%03d.png"%i)
         Image.fromarray(source,"RGBA").save(dest)
         part.rgba_png=str(dest)

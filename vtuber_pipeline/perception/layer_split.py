@@ -26,7 +26,7 @@ def split_semantic_layers(original_rgba: str, masks_json: str,
         if not np.any(mask_np):
             continue
         ys, xs = np.nonzero(mask_np > 0)
-        px = np.asarray(base.copy())
+        px = np.array(base, copy=True)
         px[:, :, 3] = np.minimum(px[:, :, 3], mask_np)
         path = out / ("part_%03d.png" % index)
         Image.fromarray(px, "RGBA").save(path)
