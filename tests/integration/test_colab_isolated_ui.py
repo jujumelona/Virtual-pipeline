@@ -73,6 +73,10 @@ def test_main_spawns_fresh_python_with_live_colab_iframe(tmp_path, monkeypatch):
         "_wait_for_http",
         lambda port, process, timeout: events.append(("ready", port, timeout)),
     )
+    monkeypatch.setattr(
+        launcher, "_follow_server",
+        lambda process: events.append(("follow", process.pid)),
+    )
 
     output = types.ModuleType("google.colab.output")
     output.serve_kernel_port_as_iframe = (
@@ -100,6 +104,7 @@ def test_main_spawns_fresh_python_with_live_colab_iframe(tmp_path, monkeypatch):
     assert kwargs["stderr"] == launcher.subprocess.STDOUT
     assert events[3] == ("ready", 19876, launcher.STARTUP_TIMEOUT_SECONDS)
     assert events[4] == ("iframe", 19876, {"height": "1100"})
+    assert events[5] == ("follow", 12345)
     assert launcher.PID_PATH.read_text(encoding="utf-8").strip() == "12345"
 
 
@@ -133,3 +138,59 @@ def test_abi_probe_uses_fresh_subprocess_with_timeout(monkeypatch):
     assert args[0][-1].endswith("tools/runtime_abi_probe.py")
     assert kwargs["check"] is True
     assert kwargs["timeout"] == 120
+
+
+def test_follow_server_keeps_cell_running_until_process_really_exits(
+    tmp_path, monkeypatch, capsys,
+):
+    launcher = _launcher()
+    launcher.PID_PATH = tmp_path / "ui.pid"
+    launcher.PID_PATH.write_text("4321", encoding="utf-8")
+    launcher.LOG_PATH = tmp_path / "ui.log"
+    launcher.LOG_PATH.write_text(
+        "model inference started\nModuleNotFoundError: No module named 'tsr'\n",
+        encoding="utf-8",
+    )
+    states = [None, None, None, 1]
+
+    class Server:
+        pid = 4321
+
+        def poll(self):
+            return states.pop(0)
+
+    sleeps = []
+    monkeypatch.setattr(launcher.time, "sleep", lambda seconds: sleeps.append(seconds))
+    with pytest.raises(RuntimeError, match="No module named 'tsr'") as exc:
+        launcher._follow_server(Server())
+
+    assert "exit=1" in str(exc.value)
+    assert "Full server log:" in str(exc.value)
+    assert sleeps == [2, 2, 2]  # The cell did NOT return while server was live
+    assert not launcher.PID_PATH.exists()
+    assert "서버 실행 중" in capsys.readouterr().out
+
+
+def test_follow_server_cell_interrupt_terminates_server_cleanly(
+    tmp_path, monkeypatch,
+):
+    launcher = _launcher()
+    launcher.PID_PATH = tmp_path / "ui.pid"
+    launcher.PID_PATH.write_text("4321", encoding="utf-8")
+    events = []
+
+    class Server:
+        pid = 4321
+
+        def poll(self):
+            raise KeyboardInterrupt()
+
+        def terminate(self):
+            events.append("terminate")
+
+        def wait(self, timeout):
+            events.append(("wait", timeout))
+
+    launcher._follow_server(Server())
+    assert events == ["terminate", ("wait", 10)]
+    assert not launcher.PID_PATH.exists()
