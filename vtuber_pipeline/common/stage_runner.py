@@ -7,6 +7,10 @@ from pathlib import Path
 import signal
 import subprocess
 import threading
+import tempfile
+import time
+from contextlib import contextmanager
+import fcntl
 def write_json(path, value):
     path = Path(path)
     temporary = path.with_suffix(path.suffix + '.tmp')
@@ -14,6 +18,36 @@ def write_json(path, value):
     temporary.replace(path)
 
 _GPU_LOCK = threading.Lock()
+
+
+@contextmanager
+def _process_gpu_lock(timeout_sec: int):
+    """Serialize GPU workers across independent Colab/Python processes.
+
+    A thread lock alone cannot prevent two concurrently launched notebook
+    kernels from loading full-sized model weights onto the same T4.
+    """
+    lock_file = Path(os.environ.get(
+        "VTUBER_GPU_STAGE_LOCK",
+        str(Path(tempfile.gettempdir()) / "vtuber_pipeline_gpu_stage.lock"),
+    )).expanduser()
+    lock_file.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + timeout_sec
+    with lock_file.open("a+") as handle:
+        while True:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError(
+                        f"model worker GPU lock timed out after {timeout_sec}s: {lock_file}"
+                    )
+                time.sleep(0.25)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def sha256(path):
@@ -90,7 +124,7 @@ def run_stage(*, worker: str, request_json: str, result_json: str,
                 'executable': str(Path(executable).resolve()), 'cwd': str(Path(cwd).resolve())}
     fingerprint = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     result_path.parent.mkdir(parents=True, exist_ok=True)
-    with _GPU_LOCK:
+    with _GPU_LOCK, _process_gpu_lock(timeout_sec):
         if provenance.is_file() and result_path.is_file():
             try:
                 old = json.loads(provenance.read_text())
