@@ -16,6 +16,8 @@ def cli():
 @click.option("--output", required=True, type=click.Path(), help="Output directory")
 @click.option("--face-image", type=click.Path(exists=True), help="External close-up face reference")
 @click.option("--back-image", type=click.Path(exists=True), help="External full-body rear reference")
+@click.option("--left-image", type=click.Path(exists=True), help="Optional observed left reference")
+@click.option("--right-image", type=click.Path(exists=True), help="Optional observed right reference")
 @click.option("--full-body/--bust-up", default=False, help="Enable full-body input and diagnostics")
 @click.option("--texture-size", type=click.Choice(["1024", "2048"]), default="2048")
 @click.option(
@@ -30,7 +32,7 @@ def cli():
     default="corporation",
     show_default=True,
 )
-def avatar(image, output, face_image, back_image, full_body, texture_size, profile, commercial_usage):
+def avatar(image, output, face_image, back_image, left_image, right_image, full_body, texture_size, profile, commercial_usage):
     """Build one VTuber avatar VRM from an external source image."""
     from vtuber_pipeline.avatar.build import build_avatar
 
@@ -43,6 +45,8 @@ def avatar(image, output, face_image, back_image, full_body, texture_size, profi
                 "full_body": full_body,
                 "face_image": face_image,
                 "back_image": back_image,
+                "left_image": left_image,
+                "right_image": right_image,
                 "texture_size": int(texture_size),
             },
         },
@@ -51,6 +55,12 @@ def avatar(image, output, face_image, back_image, full_body, texture_size, profi
     stage_names = [
         ("reference_quality", "external reference diagnostics"),
         ("input_gate", "input validation + landmarks"),
+        ("person_alpha", "ISNet-IS foreground cutout"),
+        ("relative_depth", "per-observed-view relative depth"),
+        ("instantmesh", "InstantMesh geometry"),
+        ("multiview_alignment", "3D frame registration"),
+        ("surface_refine", "topology-preserving surface refinement"),
+        ("blender_vrm", "Blender native VRM 1.0 export"),
         ("reference_reconstruction", "TripoSR reconstruction"),
         ("template_fitting", "canonical template fitting"),
         ("texture_transfer", "texture transfer"),
@@ -286,10 +296,6 @@ def accessory(base_vrm, images, anchors, custom_anchors, output, profile):
     click.echo(f"VRM: {current_vrm}")
 
 
-if __name__ == "__main__":
-    cli()
-
-
 @cli.command("inochi2d")
 @click.option("--image", required=True, type=click.Path(exists=True))
 @click.option("--layers-zip", type=click.Path(exists=True), default=None)
@@ -330,3 +336,7 @@ def live2d_import_export(official_export_dir, output):
     from vtuber_pipeline.two_d.cubism_handoff import collect_official_export
     result=collect_official_export(official_export_dir,output)
     click.echo(__import__("json").dumps(result.__dict__,ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    cli()
