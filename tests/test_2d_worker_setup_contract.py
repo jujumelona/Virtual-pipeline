@@ -67,6 +67,10 @@ def test_worker_activation_uses_distinct_flux_executable(monkeypatch):
         "anime_source": "/isolated/anime",
     }
     monkeypatch.setattr(installer, "install_2d_environment", lambda: payload)
+    for key in ("VTUBER_WORKER_ANIME_ALPHA", "VTUBER_WORKER_FLORENCE",
+                "VTUBER_WORKER_SAM", "VTUBER_WORKER_FLUX",
+                "ANIME_SEGMENTATION_REPO"):
+        monkeypatch.setenv(key, "previous-value")
     result=installer.activate_2d_environment()
     assert result is payload
     assert installer.os.environ["VTUBER_WORKER_ANIME_ALPHA"] == payload["python"]
