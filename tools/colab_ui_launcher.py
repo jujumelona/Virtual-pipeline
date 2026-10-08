@@ -19,6 +19,10 @@ import urllib.error
 import urllib.request
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
+# The notebook invokes this file via runpy rather than importing a package.
+# Ensure the standard-library-only delivery module resolves in that kernel.
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
 WORK = pathlib.Path("/content/vtuber_builder")
 PID_PATH = WORK / "ui_server.pid"
 LOG_PATH = WORK / "logs" / "gradio_server.log"
