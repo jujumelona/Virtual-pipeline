@@ -114,3 +114,35 @@ def prefetch_assets(
 
 if __name__ == "__main__":
     prefetch_assets()
+
+
+# Explicit per-mode opt-in; legacy prefetch_assets() still verifies existing 3D pins.
+from vtuber_pipeline.common.model_assets import MODE_ASSETS, MODELS, record_artifacts
+MODEL_ASSETS = MODE_ASSETS
+
+def prefetch_mode(mode: str, *, cache_dir: str | None = None, timeout: int = 2400) -> None:
+    """Download only requested mode checkpoints using a separate, short-lived process.
+
+    The active model process will subsequently import/verify its own code dependencies.
+    A network error raises, without writing a success marker or treating a partial file as ready.
+    """
+    if mode not in ("common_2d", "3d"):
+        raise ValueError("unsupported prefetch mode")
+    import json
+    for name in MODE_ASSETS[mode]:
+        if name in ("anime_face_yolov3", "anime_face_hrnetv2"):
+            code = "from vtuber_pipeline.avatar.face_detector import resolve_anime_face_model_paths; resolve_anime_face_model_paths()"
+        elif name == "triposr":
+            code = "from vtuber_pipeline.avatar.reconstruction import resolve_triposr_model; resolve_triposr_model()"
+        else:
+            model_id = MODELS[name][0]
+            code = (
+                "from huggingface_hub import snapshot_download; "
+                "from pathlib import Path; "
+                "from vtuber_pipeline.common.model_assets import record_artifacts; "
+                f"p=snapshot_download(repo_id={model_id!r}, cache_dir={cache_dir!r}); "
+                "files=[str(x) for x in Path(p).rglob('*') if x.is_file()]; "
+                f"record_artifacts({name!r}, files, str(Path(p)/'download-provenance.json'), "
+                "revision=Path(p).name)"
+            )
+        run_model_task(name, code, timeout=timeout)
