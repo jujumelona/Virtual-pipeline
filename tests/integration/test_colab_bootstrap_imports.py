@@ -241,3 +241,80 @@ def test_readme_canonical_notebook_uses_fresh_cell_source():
     assert 'run_name="__main__"' in cells[2]
     assert "colab_ui_launcher.py" in cells[2]
     assert "import gradio" not in cells[2]
+
+
+def test_model_step_preserves_real_subprocess_failure_in_notebook_log(
+    tmp_path, monkeypatch, capsys,
+):
+    """The second cell must not produce an opaque CalledProcessError."""
+    import pytest
+
+    notebook = json.loads(
+        (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v4.ipynb").read_text(
+            encoding="utf-8"
+        )
+    )
+    cells = [
+        "".join(c["source"])
+        for c in notebook["cells"]
+        if c["cell_type"] == "code"
+    ]
+    cell = cells[1]
+    cell = cell.replace(
+        '"/content/Virtual-pipeline"', repr(str(tmp_path))
+    ).replace(
+        '"/content/vtuber_builder/logs/colab_model_setup.log"',
+        repr(str(tmp_path / "models.log")),
+    )
+    original_popen = subprocess.Popen
+
+    def failed_model_process(_cmd, **kwargs):
+        return original_popen(
+            [
+                sys.executable, "-u", "-c",
+                "import sys; print('exact-model-failure-trace', file=sys.stderr); "
+                "sys.exit(17)",
+            ],
+            cwd=tmp_path,
+            stdout=kwargs["stdout"],
+            stderr=kwargs["stderr"],
+            text=kwargs["text"],
+            bufsize=kwargs["bufsize"],
+        )
+
+    monkeypatch.setattr(subprocess, "Popen", failed_model_process)
+    with pytest.raises(RuntimeError, match="exit=17") as info:
+        exec(compile(cell, "<colab-model-cell>", "exec"), {})
+    assert "exact-model-failure-trace" in str(info.value)
+    assert "CalledProcessError" not in str(info.value)
+    log = (tmp_path / "models.log").read_text(encoding="utf-8")
+    assert "exact-model-failure-trace" in log
+    assert "exact-model-failure-trace" in capsys.readouterr().out
+
+
+def test_model_prepare_entrypoint_dumps_unmodified_traceback(tmp_path, capsys):
+    """Old Colab cells also receive an actual traceback without wrapper edits."""
+    import os
+    from unittest.mock import patch
+
+    with patch.dict(os.environ, {"VTUBER_SETUP_ONLY": "1"}):
+        module = runpy.run_path(
+            str(ROOT / "tools" / "colab_app.py"), run_name="prepare",
+        )
+    prepare = module["prepare_models"]
+    prepare.__globals__["WORK_ROOT"] = tmp_path
+
+    def fail():
+        raise RuntimeError("pin-verification-failed-unique-code")
+
+    prepare.__globals__["_prepare_models_checked"] = fail
+
+    import pytest
+    with pytest.raises(RuntimeError, match="pin-verification-failed-unique-code"):
+        prepare()
+    output = capsys.readouterr().out
+    assert "pin-verification-failed-unique-code" in output
+    assert "Traceback (most recent call last)" in output
+    assert "pin-verification-failed-unique-code" in (
+        tmp_path / "logs" / "model_setup.log"
+    ).read_text(encoding="utf-8")
