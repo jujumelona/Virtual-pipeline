@@ -772,12 +772,11 @@ def test_triposr_runner_forces_commercial_safe_rembg_model(monkeypatch):
         fake_rembg.new_session("bria-rmbg")
 
 
-def test_anime_face_model_guard_pins_and_hashes_both_weights(
+def test_anime_face_model_resolver_pins_and_hashes_both_weights(
     tmp_path,
     monkeypatch,
 ):
     import hashlib
-    import importlib
     import vtuber_pipeline.avatar.face_detector as module
 
     yolo = tmp_path / "yolo.safetensors"
@@ -800,28 +799,76 @@ def test_anime_face_model_guard_pins_and_hashes_both_weights(
     monkeypatch.setattr(module, "ANIME_FACE_MODEL_PINS", pins)
 
     calls = []
+
+    def fake_download(*, repo_id, filename, revision):
+        calls.append((repo_id, filename, revision))
+        return str(yolo if repo_id == yolo_repo else hrnet)
+
+    fake_hub = types.ModuleType("huggingface_hub")
+    fake_hub.hf_hub_download = fake_download
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hub)
+
+    resolved = module.resolve_anime_face_model_paths()
+
+    assert resolved == {
+        yolo_repo: str(yolo.resolve()),
+        hrnet_repo: str(hrnet.resolve()),
+    }
+    assert calls == [
+        (yolo_repo, "model.safetensors", "yolo-revision"),
+        (hrnet_repo, "model.safetensors", "hrnet-revision"),
+    ]
+
+
+def test_anime_face_detector_uses_only_preverified_local_weights(
+    tmp_path,
+    monkeypatch,
+):
+    import vtuber_pipeline.avatar.face_detector as module
+
+    yolo_repo = "hysts/anime-face-detector-yolov3"
+    hrnet_repo = "hysts/anime-face-detector-hrnetv2"
+    yolo = tmp_path / "yolo.safetensors"
+    hrnet = tmp_path / "hrnet.safetensors"
+    yolo.write_bytes(b"yolo")
+    hrnet.write_bytes(b"hrnet")
+
+    monkeypatch.setattr(
+        module,
+        "resolve_anime_face_model_paths",
+        lambda: {
+            yolo_repo: str(yolo),
+            hrnet_repo: str(hrnet),
+        },
+    )
+
+    calls = []
     detector_module = types.ModuleType("anime_face_detector.detector")
 
-    def fake_download(repo_id, filename, *args, **kwargs):
-        calls.append((repo_id, filename, dict(kwargs)))
-        if repo_id == yolo_repo:
-            return str(yolo)
-        if repo_id == hrnet_repo:
-            return str(hrnet)
-        raise AssertionError(repo_id)
+    def forbidden_network(*args, **kwargs):
+        raise AssertionError("network downloader must be replaced during detector creation")
 
-    detector_module.hf_hub_download = fake_download
+    detector_module.hf_hub_download = forbidden_network
 
     package = types.ModuleType("anime_face_detector")
     package.__path__ = []
     package.detector = detector_module
-
     sentinel = object()
 
     def fake_create_detector(name):
         assert name == "yolov3"
-        detector_module.hf_hub_download(hrnet_repo, "model.safetensors")
-        detector_module.hf_hub_download(yolo_repo, "model.safetensors")
+        calls.append(
+            detector_module.hf_hub_download(
+                hrnet_repo,
+                "model.safetensors",
+            )
+        )
+        calls.append(
+            detector_module.hf_hub_download(
+                yolo_repo,
+                "model.safetensors",
+            )
+        )
         return sentinel
 
     package.create_detector = fake_create_detector
@@ -835,22 +882,11 @@ def test_anime_face_model_guard_pins_and_hashes_both_weights(
     result = module._create_pinned_anime_face_detector()
 
     assert result is sentinel
-    assert calls == [
-        (
-            hrnet_repo,
-            "model.safetensors",
-            {"revision": "hrnet-revision"},
-        ),
-        (
-            yolo_repo,
-            "model.safetensors",
-            {"revision": "yolo-revision"},
-        ),
-    ]
-    assert detector_module.hf_hub_download is fake_download
+    assert calls == [str(hrnet), str(yolo)]
+    assert detector_module.hf_hub_download is forbidden_network
 
 
-def test_anime_face_model_guard_rejects_weight_hash_mismatch(
+def test_anime_face_model_resolver_rejects_weight_hash_mismatch(
     tmp_path,
     monkeypatch,
 ):
@@ -858,8 +894,8 @@ def test_anime_face_model_guard_rejects_weight_hash_mismatch(
 
     model = tmp_path / "model.safetensors"
     model.write_bytes(b"tampered")
-
     repo_id = "hysts/anime-face-detector-yolov3"
+
     monkeypatch.setattr(
         module,
         "ANIME_FACE_MODEL_PINS",
@@ -871,23 +907,11 @@ def test_anime_face_model_guard_rejects_weight_hash_mismatch(
         },
     )
 
-    detector_module = types.ModuleType("anime_face_detector.detector")
-    detector_module.hf_hub_download = (
-        lambda repo_id, filename, *args, **kwargs: str(model)
+    fake_hub = types.ModuleType("huggingface_hub")
+    fake_hub.hf_hub_download = (
+        lambda **kwargs: str(model)
     )
-    package = types.ModuleType("anime_face_detector")
-    package.__path__ = []
-    package.detector = detector_module
-    package.create_detector = lambda name: detector_module.hf_hub_download(
-        repo_id,
-        "model.safetensors",
-    )
-    monkeypatch.setitem(sys.modules, "anime_face_detector", package)
-    monkeypatch.setitem(
-        sys.modules,
-        "anime_face_detector.detector",
-        detector_module,
-    )
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hub)
 
     with pytest.raises(RuntimeError, match="SHA256 mismatch"):
-        module._create_pinned_anime_face_detector()
+        module.resolve_anime_face_model_paths()
