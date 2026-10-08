@@ -509,6 +509,178 @@ def ensure_runtime(
     return head, logs
 
 
+
+def require_runtime_ready() -> Tuple[str, List[str]]:
+    """Generation MUST NOT install dependencies, sync Git or download models."""
+    revision = subprocess.run(
+        ["git", "-C", str(REPO_DIR), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    if revision.returncode != 0:
+        raise RuntimeError("저장소가 준비되지 않았습니다. 노트북 ① 환경 준비 셀부터 실행하세요.")
+    head = revision.stdout.strip()
+    fingerprint = _runtime_contract_fingerprint()
+    tag = f"py{sys.version_info.major}{sys.version_info.minor}"
+    marker = WORK_ROOT / (
+        f".runtime-{RUNTIME_CONTRACT}-{tag}-{fingerprint[:16]}.ready"
+    )
+    if not marker.is_file():
+        raise RuntimeError(
+            "환경 설치/모델 준비가 끝나지 않았습니다. 노트북 ① 환경 준비 "
+            "셀을 먼저 실행하고 성공 로그를 확인하세요. 생성 버튼은 설치하지 않습니다."
+        )
+    details = marker.read_text(encoding="utf-8")
+    if f"installed_from_main={head}" not in details.splitlines():
+        raise RuntimeError(
+            "현재 코드와 설치 캐시가 다릅니다. 노트북 ① 환경 준비 셀을 다시 실행하세요."
+        )
+    os.environ["TRIPOSR_DIR"] = str(TRIPOSR_DIR)
+    if str(REPO_DIR) not in sys.path:
+        sys.path.insert(0, str(REPO_DIR))
+    return head, [f"환경 준비 확인: main {head[:12]} (패키지 재설치 없음)"]
+
+
+def _gpu_snapshot() -> str:
+    """Measure actual GPU utilization, including separate TripoSR subprocesses."""
+    try:
+        check = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=memory.used,memory.total,utilization.gpu",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=4,
+        )
+        if check.returncode != 0:
+            return "GPU 계측 불가 (nvidia-smi 오류)"
+        line = next((x.strip() for x in check.stdout.splitlines() if x.strip()), "")
+        used, total, util = (item.strip() for item in line.split(",")[:3])
+        return f"GPU VRAM {used}/{total} MiB, 사용률 {util}%"
+    except (ValueError, OSError, subprocess.TimeoutExpired, StopIteration):
+        return "GPU 계측 불가 (GPU 런타임 연결 확인)"
+
+
+def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
+    """Bridge synchronous pipeline stages to live Gradio progress and log outputs."""
+    from vtuber_pipeline.core.stage_progress import stage_reporter
+
+    events: queue.Queue = queue.Queue()
+    run_id = uuid.uuid4().hex[:10]
+    log_file = WORK_ROOT / "logs" / f"generation-{run_id}.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    transcript: List[str] = []
+    stage_names = [
+        "input_gate", "reference_reconstruction", "template_fitting",
+        "texture_transfer", "rig", "expressions", "gaze", "springbone",
+        "vrm_export", "validator",
+    ]
+    current_stage = "대기 중"
+
+    def worker() -> None:
+        try:
+            with stage_reporter(lambda name, status, detail: events.put(
+                ("stage", name, status, detail)
+            )):
+                result = handler(
+                    *args,
+                    progress=lambda fraction, desc="": events.put(
+                        ("progress", float(fraction), str(desc))
+                    ),
+                )
+            events.put(("done", result))
+        except Exception:
+            events.put(("crash", traceback.format_exc()))
+
+    def append(message: str) -> str:
+        timestamp = datetime.now(timezone.utc).astimezone().strftime("%H:%M:%S")
+        entry = f"[{timestamp}] {message}"
+        transcript.append(entry)
+        with log_file.open("a", encoding="utf-8") as out:
+            out.write(entry + "\n")
+        print(entry, flush=True)
+        return "\n".join(transcript[-250:])
+
+    def show(message, logs, download=None, avatar_state=None):
+        if count == 5:
+            return (message, logs, download, avatar_state, str(log_file))
+        return (message, logs, download, str(log_file))
+
+    append(f"생성 시작. 환경 설치는 별도 단계. {_gpu_snapshot()}")
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+    yield show("⏳ 생성 실행 중 · " + current_stage, "\n".join(transcript), avatar_state=preserve_avatar)
+    while True:
+        try:
+            event = events.get(timeout=6)
+        except queue.Empty:
+            logs = append(f"진행 중: {current_stage} · {_gpu_snapshot()}")
+            yield show("⏳ 생성 실행 중 · " + current_stage, logs, avatar_state=preserve_avatar)
+            continue
+
+        kind = event[0]
+        if kind == "stage":
+            _, name, status, detail = event
+            current_stage = f"{name} / {status}"
+            info = f" [{detail}]" if detail else ""
+            gpu = f" · {_gpu_snapshot()}" if status == "running" and (
+                name == "reference_reconstruction" or name.startswith("accessory")
+            ) else ""
+            logs = append(f"[{name}] {status}{info}{gpu}")
+            if name in stage_names and status == "running":
+                progress((stage_names.index(name) + 1) / (len(stage_names) + 1),
+                         desc=f"{name} 실행 중")
+            yield show("⏳ 생성 실행 중 · " + current_stage, logs, avatar_state=preserve_avatar)
+        elif kind == "progress":
+            _, fraction, desc = event
+            current_stage = desc or current_stage
+            logs = append(f"[단계] {current_stage}")
+            yield show("⏳ 생성 실행 중 · " + current_stage, logs, avatar_state=preserve_avatar)
+        elif kind == "done":
+            result = event[1]
+            append(f"종료: {result[0]} · {_gpu_snapshot()}")
+            if count == 5:
+                status, existing_log, output, new_avatar = result
+                if existing_log:
+                    append(existing_log[-4000:])
+                yield show(status, "\n".join(transcript[-250:]), output, new_avatar)
+            else:
+                status, existing_log, output = result
+                if existing_log:
+                    append(existing_log[-4000:])
+                yield show(status, "\n".join(transcript[-250:]), output)
+            break
+        else:
+            append("실행 예외: " + event[1])
+            yield show("❌ 생성 중 예외 발생", "\n".join(transcript[-250:]), avatar_state=preserve_avatar)
+            break
+
+
+def stream_avatar_ui(
+    image_path, commercial_usage, latest_avatar,
+    progress: gr.Progress = gr.Progress(),
+):
+    previous = latest_avatar if latest_avatar and pathlib.Path(latest_avatar).is_file() else None
+    yield from _stream_ui_task(
+        build_avatar_ui, (image_path, commercial_usage, latest_avatar),
+        5, progress, preserve_avatar=previous,
+    )
+
+
+def stream_accessories_ui(
+    use_latest_avatar, base_vrm, latest_avatar, *slot_values,
+    progress: gr.Progress = gr.Progress(),
+):
+    yield from _stream_ui_task(
+        build_accessories_ui,
+        (use_latest_avatar, base_vrm, latest_avatar, *slot_values),
+        4, progress,
+    )
+
+
 def _pipeline_imports():
     from vtuber_pipeline.avatar import build_avatar
     from vtuber_pipeline.accessory import reconstruct_accessories, AccessoryPipeline
@@ -548,7 +720,7 @@ def build_avatar_ui(
         if not image_path:
             return "❌ 캐릭터 이미지를 선택하세요.", "", None, previous_avatar
 
-        head, setup_logs = ensure_runtime(progress)
+        head, setup_logs = require_runtime_ready()
         logs.extend(setup_logs)
 
         progress(0.30, desc="Avatar 생성 시작")
@@ -622,7 +794,7 @@ def build_accessories_ui(
     logs: List[str] = []
 
     try:
-        head, setup_logs = ensure_runtime(progress)
+        head, setup_logs = require_runtime_ready()
         logs.extend(setup_logs)
         _, reconstruct_accessories, AccessoryPipeline = _pipeline_imports()
 
