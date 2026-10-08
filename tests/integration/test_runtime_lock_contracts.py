@@ -68,6 +68,7 @@ def test_requirements_and_pyproject_direct_dependencies_match():
 
 
 def test_all_source_and_model_pins_agree():
+    from vtuber_pipeline.avatar.face_detector import ANIME_FACE_MODEL_PINS
     from vtuber_pipeline.avatar.reconstruction import (
         TRIPOSR_MODEL_ID,
         TRIPOSR_MODEL_REVISION,
@@ -138,7 +139,32 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
 
     project_deps = pyproject["project"]["dependencies"]
 
-    anime = lock["tools"]["anime_face_detector"]["package_version"]
+    anime_entry = lock["tools"]["anime_face_detector"]
+    anime = anime_entry["package_version"]
+    assert anime_entry["models"]["yolov3"] == {
+        "model_id": "hysts/anime-face-detector-yolov3",
+        "revision": ANIME_FACE_MODEL_PINS[
+            "hysts/anime-face-detector-yolov3"
+        ]["revision"],
+        "weight_sha256": ANIME_FACE_MODEL_PINS[
+            "hysts/anime-face-detector-yolov3"
+        ]["sha256"],
+        "license": "MIT",
+    }
+    assert anime_entry["models"]["hrnetv2"] == {
+        "model_id": "hysts/anime-face-detector-hrnetv2",
+        "revision": ANIME_FACE_MODEL_PINS[
+            "hysts/anime-face-detector-hrnetv2"
+        ]["revision"],
+        "weight_sha256": ANIME_FACE_MODEL_PINS[
+            "hysts/anime-face-detector-hrnetv2"
+        ]["sha256"],
+        "license": "MIT",
+    }
+    for pin in ANIME_FACE_MODEL_PINS.values():
+        assert re.fullmatch(r"[0-9a-f]{40}", pin["revision"])
+        assert re.fullmatch(r"[0-9a-f]{64}", pin["sha256"])
+
     assert f"anime-face-detector=={anime}" in project_deps
     assert f"anime-face-detector=={anime}" in requirements
     assert f"anime-face-detector=={anime}" in colab_source
