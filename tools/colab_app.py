@@ -1237,7 +1237,7 @@ def build_app() -> gr.Blocks:
                     gr.update(
                         value=(
                             f"**[↓ avatar.vrm 다운로드 (브라우저 저장)]({route})**"
-                            f"  \\nColab 파일: \`{path}\\`"
+                            f"  \nColab 파일: `{path}`"
                         ),
                         visible=True,
                     ),
