@@ -7,6 +7,8 @@ test fixture helper and is never selected by the production resolver.
 
 from dataclasses import dataclass
 from typing import Dict, List, Any, Optional, Tuple
+import hashlib
+import json
 import os
 import pathlib
 import urllib.request
@@ -836,11 +838,85 @@ def create_canonical_template_from_makehuman(base_obj_path: str, output_path: st
 
 
 MAKEHUMAN_CC0_COMMIT = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
-CANONICAL_TEMPLATE_VERSION = "makehuman-a8bc2d54-body-tpose-v2"
+MAKEHUMAN_BASE_GIT_BLOB_SHA1 = "d26635e9326e3cca30778fd7b9c00062b03cce09"
+CANONICAL_TEMPLATE_VERSION = "makehuman-a8bc2d54-body-tpose-v3"
 MAKEHUMAN_BASE_URL = (
     "https://raw.githubusercontent.com/makehumancommunity/makehuman/"
     f"{MAKEHUMAN_CC0_COMMIT}/makehuman/data/3dobjs/base.obj"
 )
+
+
+def _git_blob_sha1(path: pathlib.Path) -> str:
+    size = path.stat().st_size
+    digest = hashlib.sha1()
+    digest.update(f"blob {size}\\0".encode("ascii"))
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _file_sha256(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _require_pinned_makehuman_base(path: pathlib.Path) -> pathlib.Path:
+    resolved = path.expanduser().resolve()
+    if not resolved.is_file() or resolved.stat().st_size <= 0:
+        raise FileNotFoundError(f"MakeHuman base.obj is missing or empty: {resolved}")
+    actual = _git_blob_sha1(resolved)
+    if actual != MAKEHUMAN_BASE_GIT_BLOB_SHA1:
+        raise RuntimeError(
+            "MakeHuman base.obj blob mismatch: "
+            f"expected {MAKEHUMAN_BASE_GIT_BLOB_SHA1}, got {actual}"
+        )
+    return resolved
+
+
+def _template_metadata_path(template_path: pathlib.Path) -> pathlib.Path:
+    return template_path.with_name("template.meta.json")
+
+
+def _cached_template_valid(template_path: pathlib.Path) -> bool:
+    if not template_path.is_file() or template_path.stat().st_size <= 0:
+        return False
+    metadata_path = _template_metadata_path(template_path)
+    if not metadata_path.is_file():
+        return False
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    expected = {
+        "canonical_template_version": CANONICAL_TEMPLATE_VERSION,
+        "makehuman_commit": MAKEHUMAN_CC0_COMMIT,
+        "makehuman_blob_sha1": MAKEHUMAN_BASE_GIT_BLOB_SHA1,
+    }
+    if any(metadata.get(key) != value for key, value in expected.items()):
+        return False
+    recorded = metadata.get("template_sha256")
+    return (
+        isinstance(recorded, str)
+        and bool(recorded)
+        and _file_sha256(template_path) == recorded
+    )
+
+
+def _write_template_metadata(template_path: pathlib.Path) -> None:
+    metadata = {
+        "canonical_template_version": CANONICAL_TEMPLATE_VERSION,
+        "makehuman_commit": MAKEHUMAN_CC0_COMMIT,
+        "makehuman_blob_sha1": MAKEHUMAN_BASE_GIT_BLOB_SHA1,
+        "template_sha256": _file_sha256(template_path),
+    }
+    _template_metadata_path(template_path).write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2) + "\\n",
+        encoding="utf-8",
+    )
 
 
 def _cache_root() -> pathlib.Path:
@@ -852,18 +928,27 @@ def _cache_root() -> pathlib.Path:
 
 
 def _find_local_makehuman_base() -> Optional[pathlib.Path]:
-    """Find a previously fetched pinned MakeHuman CC0 base mesh."""
+    """Find a byte-identical copy of the pinned MakeHuman CC0 base mesh."""
     repo_root = pathlib.Path(__file__).resolve().parents[2]
+    env_path = os.environ.get("MAKEHUMAN_BASE_OBJ")
+    if env_path:
+        return _require_pinned_makehuman_base(
+            pathlib.Path(env_path).expanduser()
+        )
+
     candidates = [
         repo_root / "assets" / "makehuman_cc0" / "base.obj",
         _cache_root() / "makehuman_cc0" / "base.obj",
     ]
-    env_path = os.environ.get("MAKEHUMAN_BASE_OBJ")
-    if env_path:
-        candidates.insert(0, pathlib.Path(env_path).expanduser())
     for candidate in candidates:
-        if candidate.is_file():
-            return candidate.resolve()
+        if not candidate.is_file():
+            continue
+        try:
+            return _require_pinned_makehuman_base(candidate)
+        except (FileNotFoundError, RuntimeError):
+            # A stale/corrupt implicit cache is not trusted; fetch the pinned
+            # upstream bytes again instead.
+            continue
     return None
 
 
@@ -882,6 +967,7 @@ def _download_pinned_makehuman_base() -> pathlib.Path:
                     handle.write(chunk)
         if not tmp.is_file() or tmp.stat().st_size == 0:
             raise RuntimeError("Downloaded MakeHuman base.obj is empty")
+        _require_pinned_makehuman_base(tmp)
         tmp.replace(target)
     finally:
         if tmp.exists():
@@ -917,7 +1003,7 @@ def ensure_template_exists() -> pathlib.Path:
         / CANONICAL_TEMPLATE_VERSION
         / "template.glb"
     )
-    if cached_template.is_file():
+    if _cached_template_valid(cached_template):
         return cached_template.resolve()
 
     base_obj = _find_local_makehuman_base()
@@ -940,6 +1026,9 @@ def ensure_template_exists() -> pathlib.Path:
             "Failed to generate MakeHuman-CC0 canonical template: "
             f"{result.get('error', 'unknown error')}"
         )
+    _write_template_metadata(cached_template)
+    if not _cached_template_valid(cached_template):
+        raise RuntimeError("Canonical template cache integrity check failed")
     return cached_template.resolve()
 
 
