@@ -1,105 +1,194 @@
-"""Align independent TripoSR and InstantMesh meshes as uncertain shape constraints."""
+"""Register InstantMesh geometry to TripoSR without pretending inferred views were observed.
+
+Registration is a geometry-only constraint. The absolute camera orientation is
+not recoverable from two arbitrary mesh exports; it is reported as unverified.
+"""
 from __future__ import annotations
-from pathlib import Path
-import itertools
+
 import json
-import math
-import numpy as np
+from pathlib import Path
+from typing import Any
 
-def _mesh(path):
+
+def _mesh(path: str):
+    import numpy as np
     import trimesh
-    model=trimesh.load(path,force="mesh",process=False)
-    if not isinstance(model,trimesh.Trimesh) or len(model.faces)<32 or len(model.vertices)<64:
-        raise ValueError("no valid 3D triangle mesh: "+str(path))
-    if not np.isfinite(model.vertices).all():
-        raise ValueError("nonfinite mesh vertices")
-    return model
 
-def _basis_rotations():
-    # Enumerate proper signed axis permutations (no parity/reflection inversions).
-    for axes in itertools.permutations(range(3)):
-        matrix=np.zeros((3,3),dtype=float)
-        for flips in itertools.product((-1.0,1.0),repeat=3):
-            for i,ax in enumerate(axes):matrix[i,ax]=flips[i]
-            if np.linalg.det(matrix)>0.99:
-                yield matrix.copy()
-            matrix.fill(0)
+    loaded = trimesh.load(str(path), process=False)
+    if isinstance(loaded, trimesh.Scene):
+        meshes = [item for item in loaded.geometry.values() if isinstance(item, trimesh.Trimesh)]
+        if not meshes:
+            raise ValueError(f"no triangle mesh in {path}")
+        loaded = trimesh.util.concatenate(meshes)
+    vertices = np.asarray(loaded.vertices, dtype=np.float64)
+    if len(vertices) < 16 or len(loaded.faces) < 8 or not np.isfinite(vertices).all():
+        raise ValueError(f"invalid non-empty finite mesh required: {path}")
+    if np.ptp(vertices, axis=0).max() < 1e-6:
+        raise ValueError(f"degenerate mesh: {path}")
+    return loaded
 
-def _fit_candidate(source, target, rotation):
+
+def _points(vertices, count=3500):
+    import numpy as np
+
+    return vertices[np.linspace(0, len(vertices) - 1, min(count, len(vertices)), dtype=np.intp)]
+
+
+def _best_similarity(source, target):
+    """Trimmed nearest-neighbor ICP with explicit scale, yaw hypotheses and diagnostics."""
+    import numpy as np
     from scipy.spatial import cKDTree
-    rotated=source @ rotation.T
-    bbox=np.ptp(rotated,axis=0)
-    target_bbox=np.ptp(target,axis=0)
-    # Height dominates normalization to preserve proportions and remove unknown model units.
-    ratios=target_bbox / np.maximum(bbox,1e-8)
-    scale=float(np.median(ratios))
-    estimate=(rotated-rotated.mean(axis=0))*scale+target.mean(axis=0)
-    tree=cKDTree(target)
-    distances=tree.query(estimate,k=1,workers=-1)[0]
-    penalty=np.percentile(distances,80)+np.median(distances)
-    return scale, estimate, distances, float(penalty)
 
-def align_sources(coarse_obj: str, multiview_obj: str,
-                  depth_manifest: str, reference_manifest: str,
-                  output_dir: str) -> dict:
-    """Strict geometry/coordinate normalization; never call rendered views observed."""
-    import trimesh
-    for file in (coarse_obj,multiview_obj,depth_manifest,reference_manifest):
-        if not Path(file).is_file():raise FileNotFoundError(file)
-    coarse=_mesh(coarse_obj)
-    alternative=_mesh(multiview_obj)
-    depth=json.loads(Path(depth_manifest).read_text(encoding="utf-8"))
-    refs=json.loads(Path(reference_manifest).read_text(encoding="utf-8"))
-    if depth.get("units")!="relative/no-metric-scale":
-        raise ValueError("unrecognized relative depth coordinate contract")
-    if "front" not in depth.get("views",{}):
-        raise ValueError("measured front-view depth is mandatory")
-    coarse_samples=np.asarray(coarse.vertices,dtype=float)
-    other_samples=np.asarray(alternative.vertices,dtype=float)
-    rng=np.random.default_rng(0)
-    if len(other_samples)>8000:
-        sample=other_samples[rng.choice(len(other_samples),size=8000,replace=False)]
-    else:sample=other_samples
-    if len(coarse_samples)>12000:
-        targets=coarse_samples[rng.choice(len(coarse_samples),size=12000,replace=False)]
-    else:targets=coarse_samples
-    best=None
-    for rot in _basis_rotations():
-        scale, transformed, distances, score=_fit_candidate(sample,targets,rot)
-        if not 0.01 < scale < 100:
-            continue
-        if best is None or score<best[0]:
-            best=(score,rot,scale)
-    if best is None:raise RuntimeError("could not normalize TripoSR/InstantMesh coordinate systems")
-    score,rot,scale=best
-    center_src=other_samples.mean(axis=0)
-    center_dest=coarse_samples.mean(axis=0)
-    alternative.vertices=((other_samples-center_src)@rot.T)*scale+center_dest
-    out=Path(output_dir)
-    out.mkdir(parents=True,exist_ok=True)
-    aligned=out/"aligned_multiview.glb"
-    alternative.export(str(aligned),file_type="glb")
-    from scipy.spatial import cKDTree
-    distances=cKDTree(np.asarray(alternative.vertices)).query(coarse_samples,k=1)[0]
-    median=float(np.median(distances))
-    p95=float(np.percentile(distances,95))
-    if not math.isfinite(p95):raise RuntimeError("invalid model alignment residuals")
-    box=np.ptp(coarse_samples,axis=0)
-    height=max(float(np.max(box)),1e-6)
-    # Region conf is an uncertainty prior; it is not a semantic classifier.
-    conf=np.exp(-np.clip(distances/height,0,10)*8)
-    metrics={"median_distance":median,"p95_distance":p95,"normalized_p95":p95/height,
-             "confidence_mean":float(conf.mean())}
-    manifest=out/"constraints.json"
-    manifest.write_text(json.dumps({"schema":"aligned-multiview-v1",
-         "target_geometry":str(Path(coarse_obj).resolve()),
-         "aligned_multiview":str(aligned),"axis_rotation":rot.tolist(),
-         "scale_to_coarse":scale,"center_to_coarse":center_dest.tolist(),
-         "depth_manifest":str(Path(depth_manifest).resolve()),
-         "reference_manifest":str(Path(reference_manifest).resolve()),
-         "observed_views":sorted(k for k,v in depth["views"].items() if v.get("observed_view")),
-         "generated_views_are_observed":False,"metric_depth_available":False,
-         "alignment_metrics":metrics,"per_vertex_confidence":conf.astype("float32").tolist()},
-         ensure_ascii=False,indent=2),encoding="utf-8")
-    return {"constraints_json":str(manifest),"aligned_multiview_glb":str(aligned),
-            "alignment_metrics":metrics}
+    a = _points(source)
+    b = _points(target)
+    tree = cKDTree(b)
+    height_a = np.ptp(a[:, 1])
+    height_b = np.ptp(b[:, 1])
+    if min(height_a, height_b) < 1e-7:
+        raise ValueError("cannot register a mesh with zero vertical extent")
+    initial_scale = float(height_b / height_a)
+    if not 0.01 <= initial_scale <= 100.0:
+        raise ValueError("unreasonable initial mesh scale ratio")
+    best = None
+    for yaw in (0.0, 0.5 * np.pi, np.pi, 1.5 * np.pi):
+        co, si = np.cos(yaw), np.sin(yaw)
+        rotation = np.array([[co, 0.0, -si], [0.0, 1.0, 0.0], [si, 0.0, co]])
+        scale = initial_scale
+        offset = b.mean(axis=0) - (a.mean(axis=0) @ rotation) * scale
+        for _ in range(18):
+            transformed = scale * (a @ rotation) + offset
+            distances, indices = tree.query(transformed)
+            keep = distances <= np.quantile(distances, 0.75)
+            if keep.sum() < 16:
+                raise ValueError("insufficient geometry overlap for registration")
+            src = a[keep]
+            dst = b[indices[keep]]
+            src_center, dst_center = src.mean(axis=0), dst.mean(axis=0)
+            src0, dst0 = src - src_center, dst - dst_center
+            u, _, vt = np.linalg.svd(src0.T @ dst0)
+            correction = np.eye(3)
+            correction[-1, -1] = np.sign(np.linalg.det(u @ vt))
+            new_rotation = u @ correction @ vt
+            denominator = float(np.sum(src0 * src0))
+            if denominator < 1e-12:
+                raise ValueError("degenerate ICP correspondences")
+            new_scale = float(np.sum((src0 @ new_rotation) * dst0) / denominator)
+            if not np.isfinite(new_scale) or new_scale <= 0.0:
+                raise ValueError("invalid ICP scale")
+            new_offset = dst_center - new_scale * (src_center @ new_rotation)
+            movement = abs(new_scale - scale) + np.linalg.norm(new_offset - offset)
+            rotation, scale, offset = new_rotation, new_scale, new_offset
+            if movement < 1e-8:
+                break
+        distances, _ = tree.query(scale * (a @ rotation) + offset)
+        error = float(np.mean(np.sort(distances)[:max(16, int(0.75 * len(distances)))]))
+        if not np.isfinite(error):
+            raise ValueError("registration has nonfinite residual")
+        if best is None or error < best["trimmed_error"]:
+            best = {
+                "scale": scale, "rotation": rotation, "translation": offset,
+                "trimmed_error": error, "yaw_initial_radians": float(yaw),
+            }
+    return best
+
+
+def _document(value: str | dict, label: str) -> dict[str, Any]:
+    document = json.loads(Path(value).read_text(encoding="utf-8")) if isinstance(value, str) else value
+    if not isinstance(document, dict):
+        raise ValueError(f"{label} must be a JSON object")
+    return document
+
+
+def align_sources(
+    coarse_obj: str,
+    multiview_obj: str,
+    depth_manifest: str,
+    reference_manifest: str | dict,
+    output_dir: str,
+) -> dict[str, Any]:
+    """Return a registered GLB and explicit observation/uncertainty contract.
+
+    The observed front/side/back images remain separate from model-predicted
+    multi-view views. No relative-depth value is interpreted as meters.
+    """
+    import numpy as np
+
+    coarse = _mesh(coarse_obj)
+    generated = _mesh(multiview_obj)
+    depths = _document(depth_manifest, "depth manifest")
+    references = _document(reference_manifest, "reference manifest")
+    if depths.get("units") != "relative/no-metric-scale":
+        raise ValueError("Depth Anything values must be explicitly labelled relative")
+    views = depths.get("views")
+    if not isinstance(views, dict) or "front" not in views:
+        raise ValueError("a real front depth view is required")
+    reference_images = references.get("images")
+    if not isinstance(reference_images, dict) or "front" not in reference_images:
+        raise ValueError("front source-reference metadata is required")
+    observations = {}
+    for role, item in views.items():
+        if role not in {"front", "face", "back", "left", "right"}:
+            raise ValueError(f"unexpected depth view role: {role}")
+        if item.get("observed_view") is not True or item.get("relative_depth") is not True:
+            raise ValueError(f"{role}: generated data cannot claim observed depth")
+        observed_image = reference_images.get(role)
+        if not observed_image:
+            raise ValueError(f"{role}: depth references an unregistered source image")
+        depth_path = Path(item["depth_npy"])
+        if not depth_path.is_file():
+            raise FileNotFoundError(depth_path)
+        values = np.load(depth_path, allow_pickle=False)
+        if values.ndim != 2 or values.size == 0 or not np.isfinite(values).all():
+            raise ValueError(f"{role}: invalid relative depth map")
+        if list(values.shape[::-1]) != list(item["image_size"]):
+            raise ValueError(f"{role}: depth map and source image dimensions differ")
+        observations[role] = {
+            "observed_view": True,
+            "depth_npy": str(depth_path.resolve()),
+            "source_image": observed_image["path"],
+            "relative_depth_only": True,
+        }
+
+    registration = _best_similarity(np.asarray(generated.vertices), np.asarray(coarse.vertices))
+    rotation = registration["rotation"]
+    scale = registration["scale"]
+    translation = registration["translation"]
+    aligned = generated.copy()
+    aligned.vertices = np.asarray(generated.vertices) @ rotation * scale + translation
+    extent = max(float(np.ptp(np.asarray(coarse.vertices), axis=0).max()), 1e-8)
+    normalized_error = registration["trimmed_error"] / extent
+    if not np.isfinite(normalized_error) or normalized_error > 0.65:
+        raise ValueError(f"multiview geometry could not be registered: normalized error={normalized_error:.3f}")
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    aligned_path = out / "aligned_multiview.glb"
+    aligned.export(aligned_path)
+    diagnostics = {
+        "contract": "vtuber-multiview-constraints-v1",
+        "reference_frame": "TripoSR mesh local coordinates (not metrically calibrated)",
+        "aligned_multiview_glb": str(aligned_path.resolve()),
+        "coarse_mesh": str(Path(coarse_obj).resolve()),
+        "transform": {
+            "scale": float(scale),
+            "rotation_row_vector": rotation.tolist(),
+            "translation": translation.tolist(),
+        },
+        "registration": {
+            "trimmed_mean_distance": registration["trimmed_error"],
+            "normalized_residual": normalized_error,
+            "initial_yaw_radians": registration["yaw_initial_radians"],
+            "orientation_verified_by_calibrated_camera": False,
+            "observed_camera_alignment": False,
+            "confidence": float(np.clip(1.0 - normalized_error / 0.65, 0.0, 1.0)),
+        },
+        "observed_views": observations,
+        "inferred_views_are_observed": False,
+    }
+    constraints_path = out / "constraints.json"
+    constraints_path.write_text(json.dumps(diagnostics, indent=2, allow_nan=False), encoding="utf-8")
+    return {
+        "status": "complete",
+        "constraints_json": str(constraints_path),
+        "aligned_multiview_glb": str(aligned_path),
+        "output_path": str(aligned_path),
+    }
