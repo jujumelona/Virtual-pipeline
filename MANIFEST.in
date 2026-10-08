@@ -1,0 +1,5 @@
+include README.md
+include LICENSE
+include requirements.txt
+include third_party.lock.json
+recursive-include notebooks *.ipynb
