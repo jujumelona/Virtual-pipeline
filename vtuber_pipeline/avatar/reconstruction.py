@@ -301,11 +301,29 @@ def _run_triposr_with_diagnostics(
 
     def forward() -> None:
         assert process.stdout is not None
-        for line in process.stdout:
-            output.append(line)
-            detail = line.rstrip()
-            if detail:
-                sink("triposr_output", "log", detail[-1200:])
+        pending: list[str] = []
+
+        def emit() -> None:
+            if pending:
+                detail = "".join(pending).strip()
+                pending.clear()
+                if detail:
+                    sink("triposr_output", "log", detail[-1200:])
+
+        # Progress bars use carriage returns without newline. Iterating over
+        # text lines would otherwise hide these messages until subprocess exit.
+        while True:
+            char = process.stdout.read(1)
+            if not char:
+                emit()
+                break
+            output.append(char)
+            if char in "\r\n":
+                emit()
+            else:
+                pending.append(char)
+                if len(pending) >= 1000:
+                    emit()
 
     reader = threading.Thread(target=forward, daemon=True)
     reader.start()
