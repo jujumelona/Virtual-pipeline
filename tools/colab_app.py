@@ -1289,24 +1289,11 @@ def build_app() -> gr.Blocks:
             with gr.Accordion("외부 이미지 AI용 Inochi2D 프롬프트", open=False):
                 gr.Textbox(
                     label="Inochi2D 기본 캐릭터",
-                    value=(
-                        "Original anime VTuber character, centered orthographic front "
-                        "portrait, neutral symmetrical head with both eyes open, "
-                        "clear separation of facial features, visible torso and arms, "
-                        "clean bangs/back hair/clothing silhouette, consistent soft "
-                        "lighting, high-resolution clean line art, no text, no watermark."
-                    ), lines=5,
+                    value="Original high-resolution anime VTuber half-body character illustration, centered perfectly front-facing neutral pose, both eyes open, mouth closed, clean silhouette, clearly separated foreground and background hair, visible neck and upper torso, detailed eye iris and eyelids, separated clothing details, no props obscuring the face, consistent soft light, no typography, no watermark. Preserve enough margin around hair for head rotation and 2D deformation.", lines=5,
                 )
                 gr.Textbox(
                     label="Inochi2D 투명 파츠 보완",
-                    value=(
-                        "The exact same character, preserve pixel alignment and "
-                        "original full-size canvas: supply separate transparent "
-                        "PNG layers for hair_back, body, face, hair_front, eyes, "
-                        "irises, eyelids, eyebrows, mouth_open, mouth_closed, "
-                        "including painted occluded regions for deformations. "
-                        "Do not change identity or proportions."
-                    ), lines=5,
+                    value="Same exact character and design, prepare expression references for closed eyes, smiling eyes, open mouth, smiling mouth and surprised mouth without changing hairstyle, clothing, colors or canvas alignment. Include realistic-looking hidden artwork behind bangs and moving hair where possible.", lines=5,
                 )
             inochi_run = gr.Button("Inochi2D 네이티브 퍼펫 제작", variant="primary")
             inochi_status = gr.Markdown("대기 중")
@@ -1345,27 +1332,11 @@ def build_app() -> gr.Blocks:
             with gr.Accordion("외부 대형 AI에 넣을 2D 제작 프롬프트", open=False):
                 gr.Textbox(
                     label="2D 전면 캐릭터 일러스트",
-                    value=(
-                        "Original high-resolution anime VTuber portrait, "
-                        "front-facing camera, neutral expression, both eyes open, "
-                        "clear eyelids and iris, mouth closed, symmetrical face, "
-                        "clean separation of front/back hair, bangs, brows, "
-                        "neck, shoulders and clothing, consistent light, "
-                        "no text or watermark, plain background"
-                    ), lines=5,
+                    value="High-resolution original anime VTuber bust-up illustration designed for Live2D Cubism rigging, exact frontal orthographic view, relaxed neutral face, fully visible shoulders and neck, both eyes open, separate bangs, side locks, back hair, eyebrows, eyelids, eyeballs, mouth, ears, body and clothing, balanced clean line art with sharp edges, plain background, no text, no watermark. Maintain head and neck proportions for yaw and pitch deformation.", lines=5,
                 )
                 gr.Textbox(
                     label="파츠 분리 보완 프롬프트",
-                    value=(
-                        "Create individual aligned transparent RGBA layers of "
-                        "the SAME original character: hair_back, body, face, "
-                        "eye_left_white, eye_left_iris, eye_left_lid, "
-                        "eye_right_white, eye_right_iris, eye_right_lid, "
-                        "brow_left, brow_right, mouth_closed, mouth_open, hair_front. "
-                        "Preserve identical canvas coordinates and proportions. "
-                        "Draw hidden/occluded details behind separate moving parts. "
-                        "No new hairstyle or outfit."
-                    ), lines=6,
+                    value="Produce aligned expression and hair-reference views for the exact same original character, including smiling, blinking, mouth open and closed, and approximate three-quarter head view. Preserve character identity and coloring. Add visually plausible hidden hairline, cheeks, mouth interior and behind-ear detail for deformable layered rigging.", lines=6,
                 )
             two_d_run = gr.Button("Live2D Cubism 제작 자료 생성", variant="primary")
             two_d_status = gr.Markdown("대기 중")
@@ -1434,34 +1405,15 @@ def build_app() -> gr.Blocks:
                         gr.Markdown("이 프롬프트를 외부 대형 이미지 AI에 복사해 이미지를 만든 다음 위에 업로드하세요. **AI 이미지 생성 기능은 이 프로그램에 포함되지 않습니다.**")
                         gr.Textbox(
                             label="전신 정면 원본",
-                            value=(
-                                "One original anime VTuber character, full body head-to-toe,"
-                                " symmetrical standing neutral A-pose, front orthographic view,"
-                                " full arms hands fingers legs shoes visible, no cropped limbs,"
-                                " separated clean silhouette, matching costume and hair,"
-                                " studio even lighting, plain background, original design,"
-                                " no objects, no text, no watermark, portrait 2:3 or 3:4"
-                            ), lines=5,
+                            value="One original anime VTuber character, strict full-body FRONT orthographic turnaround reference, head-to-toe visible, neutral symmetrical A-pose with arms separated from torso, individual hands and fingers visible, no clipped feet, shoes fully visible, clear clothing layers and hair silhouette, character centered on clean plain background, flat neutral studio lighting, no perspective distortion, no props, no text, no watermark, portrait 2:3 or 3:4.", lines=5,
                         )
                         gr.Textbox(
                             label="같은 캐릭터 얼굴 확대 (필수 권장)",
-                            value=(
-                                "The exact same original VTuber character and outfit as reference,"
-                                " clean close-up face, straight-on front orthographic view,"
-                                " neutral mouth closed, both eyes open, detailed eyelashes eyebrows"
-                                " eye colors and hairline, same color palette and hair, soft studio light,"
-                                " uncluttered background, no watermark, no occlusion"
-                            ), lines=5,
+                            value="Exact same character, straight-on face close-up, both eyes open, neutral mouth closed, crisp eyelashes, iris color, eyebrow and hairline detail, no occlusion, same lighting, exact outfit and hair colors, neutral expression, clean background, no perspective distortion.", lines=5,
                         )
                         gr.Textbox(
                             label="같은 캐릭터 전신 후면 (선택)",
-                            value=(
-                                "The exact same original character and outfit as front reference,"
-                                " full body from head to feet, strict back orthographic view,"
-                                " neutral A-pose, coherent hair length and clothing seams,"
-                                " shoes visible, same scale silhouette and lighting,"
-                                " no pose change, no props, no text, no watermark"
-                            ), lines=5,
+                            value="Exact same character, full-body REAR orthographic turnaround, identical posture and proportions as front reference, clearly visible back hair, costume back seams and shoes, neutral A-pose, same studio lighting, no cropped limbs, no text, no watermark.", lines=5,
                         )
                     avatar_run = gr.Button("전신 VRM 변환", variant="primary")
                     avatar_result = gr.File(
