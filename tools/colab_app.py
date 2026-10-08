@@ -27,7 +27,7 @@ TRIPOSR_MODEL_REVISION = "c1cf7716aed5aa6c1c5e174657791ef0e1327bde"
 TRIPOSR_MODEL_WEIGHT_SHA256 = "429e2c6b22a0923967459de24d67f05962b235f79cde6b032aa7ed2ffcd970ee"
 TORCHMCUBES_COMMIT = "879926d0ef58e6ce0ac2630fdecb5e53af7ed3ff"
 GRADIO_VERSION = "6.3.0"
-RUNTIME_CONTRACT = "colab-runtime-v6"
+RUNTIME_CONTRACT = "colab-runtime-v7"
 WORK_ROOT = pathlib.Path("/content/vtuber_builder")
 OUTPUT_ROOT = WORK_ROOT / "output"
 
@@ -332,7 +332,10 @@ def _install_runtime(head: str) -> None:
             (
                 "from vtuber_pipeline.avatar.reconstruction "
                 "import resolve_triposr_model; "
-                "print('triposr-model', resolve_triposr_model())"
+                "from vtuber_pipeline.avatar.face_detector "
+                "import resolve_anime_face_model_paths; "
+                "print('triposr-model', resolve_triposr_model()); "
+                "print('anime-face-models', resolve_anime_face_model_paths())"
             ),
         ],
         timeout=2400,
