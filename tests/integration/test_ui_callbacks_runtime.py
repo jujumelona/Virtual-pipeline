@@ -1,0 +1,152 @@
+"""CPU-only Gradio callback contract tests with the heavy runtime mocked out.
+
+The actual Colab handler functions are imported from their source module,
+so these tests exercise Python option routing and artifact handoffs rather
+than checking for specific lines of text.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import pathlib
+import sys
+import types
+
+import pytest
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+
+class FakeProgress:
+    def __call__(self, *_args, **_kwargs):
+        pass
+
+
+@pytest.fixture
+def ui(tmp_path, monkeypatch):
+    gradio_stub = types.ModuleType("gradio")
+    gradio_stub.Progress = FakeProgress
+    gradio_stub.Blocks = object
+    monkeypatch.setitem(sys.modules, "gradio", gradio_stub)
+
+    spec = importlib.util.spec_from_file_location(
+        "vtuber_colab_app_contract_test",
+        ROOT / "tools" / "colab_app.py",
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setattr(module, "OUTPUT_ROOT", tmp_path / "outputs")
+    monkeypatch.setattr(
+        module,
+        "ensure_runtime",
+        lambda _progress=None: ("a" * 40, ["runtime-ready"]),
+    )
+    return module
+
+
+def test_avatar_ui_passes_usage_to_avatar_and_exposes_vrm(ui, tmp_path, monkeypatch):
+    image = tmp_path / "character.png"
+    image.write_bytes(b"input")
+    calls = []
+
+    def fake_avatar(*, image_path, output_dir, config):
+        calls.append((image_path, config))
+        vrm = pathlib.Path(output_dir) / "avatar.vrm"
+        vrm.write_bytes(b"vrm")
+        return {
+            "status": "complete",
+            "vrm_path": str(vrm),
+            "stages": {"validator": {"status": "complete"}},
+        }
+
+    monkeypatch.setattr(
+        ui, "_pipeline_imports", lambda: (fake_avatar, None, None),
+    )
+    status, logs, download, state = ui.build_avatar_ui(
+        str(image), "personalProfit", None,
+    )
+    assert status.startswith("✅")
+    assert "validator" in logs
+    assert pathlib.Path(download).is_file()
+    assert state == download
+    assert calls == [(str(image), {
+        "profile": "commercial",
+        "commercial_usage": "personalProfit",
+    })]
+
+
+def test_accessory_ui_forwards_each_slot_and_chains_combined_vrm(
+    ui, tmp_path, monkeypatch,
+):
+    latest_avatar = tmp_path / "latest.vrm"
+    latest_avatar.write_bytes(b"vrm")
+    image_a = tmp_path / "crown.png"
+    image_b = tmp_path / "ribbon.png"
+    mesh_a = tmp_path / "crown.glb"
+    mesh_b = tmp_path / "ribbon.glb"
+    for path in (image_a, image_b, mesh_a, mesh_b):
+        path.write_bytes(b"payload")
+
+    seen = {"builds": []}
+
+    def fake_reconstruct(images, output_dir, *, profile):
+        seen["images"] = images
+        seen["profile"] = profile
+        return [
+            {"status": "complete", "image": images[0], "mesh": str(mesh_a)},
+            {"status": "complete", "image": images[1], "mesh": str(mesh_b)},
+        ]
+
+    class FakeAccessoryPipeline:
+        def __init__(self, output_dir):
+            self.output_dir = pathlib.Path(output_dir)
+
+        def build(self, *, base_vrm, accessory_glb, config):
+            seen["builds"].append((base_vrm, accessory_glb, config))
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            result = self.output_dir / "combined.vrm"
+            result.write_bytes(b"combined")
+            return {
+                "status": "complete",
+                "output_vrm": str(result),
+                "stages": {"bake": {"status": "complete"}},
+            }
+
+    monkeypatch.setattr(
+        ui,
+        "_pipeline_imports",
+        lambda: (None, fake_reconstruct, FakeAccessoryPipeline),
+    )
+    slot_values = [
+        str(image_a), "CUSTOM", "head", 0.01, 0.02, 0.03, 0.14,
+        str(image_b), "HEAD_TOP", "head", 0.0, 0.0, 0.0, 0.12,
+        *([None] * (6 * 7)),
+    ]
+    status, logs, download = ui.build_accessories_ui(
+        True, None, str(latest_avatar), *slot_values,
+    )
+    assert status.startswith("✅"), (status, logs)
+    assert seen["images"] == [str(image_a), str(image_b)]
+    assert seen["profile"] == "commercial"
+    first, second = seen["builds"]
+    assert first[0] == str(latest_avatar)
+    assert first[1] == str(mesh_a)
+    assert first[2] == {
+        "anchor_name": "CUSTOM",
+        "custom_anchor": {
+            "parent_bone": "head",
+            "offset": [0.01, 0.02, 0.03],
+            "target_size": 0.14,
+        },
+        "bake": True,
+    }
+    assert second[0] != str(latest_avatar)
+    assert pathlib.Path(second[0]).is_file()
+    assert second[1] == str(mesh_b)
+    assert second[2]["anchor_name"] == "HEAD_TOP"
+    assert second[2]["custom_anchor"] is None
+    assert download == str(ui_path := pathlib.Path(download))
+    assert ui_path.is_file()
+    assert "bake" in logs
