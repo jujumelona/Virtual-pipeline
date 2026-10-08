@@ -605,3 +605,55 @@ def test_cli_multi_accessory_runtime_chain(tmp_path, monkeypatch):
     first_output = output_dir / "accessory_001" / "combined.vrm"
     assert seen_bases == [str(base), str(first_output)]
     assert "VRM:" in result.output
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (["--anchor", "HEAD_TOP"], "exactly once"),
+        (["--anchor", "CUSTOM", "--anchor", "HEAD_TOP"], "--custom-anchor must"),
+        (
+            ["--anchor", "CUSTOM", "--anchor", "HEAD_TOP",
+             "--custom-anchor", "head,nan,0,0,0.2"],
+            "finite numbers",
+        ),
+        (
+            ["--anchor", "CUSTOM", "--anchor", "HEAD_TOP",
+             "--custom-anchor", "head,0,0,0,nan"],
+            "finite numbers",
+        ),
+    ],
+)
+def test_cli_accessory_preflight_rejects_invalid_slots_before_gpu(
+    tmp_path, monkeypatch, args, expected,
+):
+    import vtuber_pipeline.accessory.reconstruction as reconstruction_module
+    from vtuber_pipeline.cli import cli
+
+    base = tmp_path / "base.vrm"
+    first = tmp_path / "first.png"
+    second = tmp_path / "second.png"
+    for path in (base, first, second):
+        path.write_bytes(b"input")
+
+    def should_not_reconstruct(*_args, **_kwargs):
+        pytest.fail("Invalid CLI options must never trigger GPU reconstruction")
+
+    monkeypatch.setattr(
+        reconstruction_module, "reconstruct_accessories", should_not_reconstruct,
+    )
+    output_dir = tmp_path / "should-not-be-created"
+    result = CliRunner().invoke(
+        cli,
+        [
+            "accessory",
+            "--base-vrm", str(base),
+            "--images", str(first),
+            "--images", str(second),
+            *args,
+            "--output", str(output_dir),
+        ],
+    )
+    assert result.exit_code != 0
+    assert expected in result.output
+    assert not output_dir.exists()
