@@ -150,3 +150,39 @@ def test_accessory_ui_forwards_each_slot_and_chains_combined_vrm(
     assert download == str(ui_path := pathlib.Path(download))
     assert ui_path.is_file()
     assert "bake" in logs
+
+
+def test_avatar_ui_keeps_previous_success_on_new_generation_failure(
+    ui, tmp_path, monkeypatch,
+):
+    prior = tmp_path / "previous.vrm"
+    prior.write_bytes(b"prior-valid-vrm")
+
+    status, logs, download, state = ui.build_avatar_ui(
+        None, "corporation", str(prior),
+    )
+    assert status.startswith("❌")
+    assert download is None
+    assert state == str(prior)
+
+    image = tmp_path / "invalid-character.png"
+    image.write_bytes(b"new-input")
+
+    def failed_avatar(**_kwargs):
+        return {
+            "status": "failed",
+            "failed_stages": ["input_gate"],
+            "failed_reason": "invalid face",
+            "stages": {"input_gate": {"status": "error", "error": "invalid face"}},
+        }
+
+    monkeypatch.setattr(
+        ui, "_pipeline_imports", lambda: (failed_avatar, None, None),
+    )
+    status, logs, download, state = ui.build_avatar_ui(
+        str(image), "corporation", str(prior),
+    )
+    assert "invalid face" in status
+    assert download is None
+    assert state == str(prior)
+    assert prior.is_file()
