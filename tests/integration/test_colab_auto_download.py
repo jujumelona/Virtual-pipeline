@@ -217,3 +217,28 @@ def test_notebook_direct_download_renders_authenticated_link_not_blocking_colab_
     text = capsys.readouterr().out
     assert str(source) in text
     assert str(tmp_path / "avatar.vrm") in text
+
+
+def test_restart_offers_latest_completed_vrm_without_rebuilding(tmp_path):
+    import importlib.util
+    module_path = Path(__file__).resolve().parents[2] / "tools" / "colab_ui_launcher.py"
+    spec = importlib.util.spec_from_file_location("colab_resume_vrm", module_path)
+    assert spec and spec.loader
+    launcher = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(launcher)
+
+    root = tmp_path / "output"
+    root.mkdir()
+    first = avatar_fixture(root, b"glTF" + b"1" * 40)
+    second = root / "avatar-456" / "avatar.vrm"
+    second.parent.mkdir()
+    second.write_bytes(b"glTF" + b"2" * 56)
+    bad = root / "avatar-789" / "avatar.vrm"
+    bad.parent.mkdir()
+    bad.write_bytes(b"not-a-vrm")
+    import os
+    os.utime(first, (10, 10))
+    os.utime(second, (20, 20))
+    os.utime(bad, (30, 30))
+    assert launcher._latest_existing_avatar(root) == second
+    assert launcher._latest_existing_avatar(tmp_path / "no-such-output") is None
