@@ -268,3 +268,26 @@ def test_start_routes_to_exact_mode_with_selected_scope(ui):
 def test_workflow_selection_rejects_invalid_mode_or_usage(ui, mode, usage):
     with pytest.raises(ValueError):
         ui.choose_workflow(mode, usage)
+
+
+
+def test_launch_clears_stale_pipeline_modules_before_runtime_check(ui, tmp_path, monkeypatch):
+    events = []
+
+    class FakeDemo:
+        def queue(self, **kwargs):
+            events.append("queue")
+
+        def launch(self, **kwargs):
+            events.append("launch")
+
+    monkeypatch.setattr(ui, "WORK_ROOT", tmp_path / "root")
+    monkeypatch.setattr(ui, "OUTPUT_ROOT", tmp_path / "root" / "outputs")
+    monkeypatch.setattr(ui, "_reload_pipeline_modules", lambda: events.append("reload"))
+    monkeypatch.setattr(
+        ui, "require_runtime_ready",
+        lambda: (events.append("runtime") or ("a" * 40, [])),
+    )
+    monkeypatch.setattr(ui, "build_app", lambda: (events.append("build") or FakeDemo()))
+    ui.launch()
+    assert events == ["reload", "runtime", "build", "queue", "launch"]
