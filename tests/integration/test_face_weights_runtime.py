@@ -10,8 +10,13 @@ import sys
 import types
 
 import pytest
-import torch
-from safetensors.torch import save_file
+
+# The full CPU discovery suite intentionally excludes the 2+ GB PyTorch
+# runtime. These actual-tensor tests run wherever torch+safetensors are
+# available; the separate stdlib integration test checks alias rewiring.
+torch = pytest.importorskip("torch")
+safetensors_torch = pytest.importorskip("safetensors.torch")
+save_file = safetensors_torch.save_file
 
 import vtuber_pipeline.avatar.face_detector as face_detector
 
