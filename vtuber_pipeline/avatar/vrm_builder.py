@@ -13,6 +13,8 @@ import pathlib
 from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 
+from vtuber_pipeline.core.gltf import load_gltf
+
 # pygltflib for glTF manipulation
 try:
     from pygltflib import (
@@ -96,7 +98,7 @@ def create_gltf_from_mesh(
         raise ImportError("pygltflib이 설치되지 않았습니다. pip install pygltflib")
     
     # Load the existing rigged GLB
-    gltf = GLTF2().load(rigged_glb_path)
+    gltf = load_gltf(rigged_glb_path)
     
     # Get the binary buffer
     buffer_data = bytearray(gltf.binary_blob())
