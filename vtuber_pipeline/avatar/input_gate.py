@@ -110,6 +110,16 @@ def validate_input(image_path: str, output_dir: str) -> Dict[str, Any]:
         result["errors"].append(str(exc))
 
     result["pass"] = bool(result["checks"]) and all(result["checks"].values())
+    if not result["pass"] and not result["errors"]:
+        failed = sorted(
+            name for name, passed in result["checks"].items() if not passed
+        )
+        result["errors"].append(
+            "Input quality checks failed: "
+            + ", ".join(failed)
+            + f" (landmarks={result.get('landmark_count', 0)}/28, "
+            + f"median_confidence={result.get('landmark_score_median', 0.0):.3f})"
+        )
     result["valid"] = result["pass"]
     result["status"] = "complete" if result["pass"] else "error"
     result["input_hash"] = _compute_file_hash(image_path) if pathlib.Path(image_path).is_file() else None
