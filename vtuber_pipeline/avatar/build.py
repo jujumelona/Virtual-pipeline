@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 import pathlib
 from typing import Dict, Any, Optional, Callable
 from vtuber_pipeline.core.stage_progress import report_stage
@@ -68,6 +69,30 @@ class AvatarPipeline:
         payload.extend(self._fingerprint(value) for value in inputs)
         return hashlib.sha256("\n".join(payload).encode("utf-8")).hexdigest()[:24]
 
+    @staticmethod
+    def _gate_landmark_contract_error(gate: Dict[str, Any]) -> Optional[str]:
+        """A successful face gate MUST contain 28 finite 2D landmarks."""
+        points = gate.get("landmarks")
+        count = len(points) if isinstance(points, list) else 0
+        if count != 28:
+            return (
+                f"input gate landmark contract mismatch: got {count}/28 "
+                f"landmarks (reported landmark_count={gate.get('landmark_count')!r})"
+            )
+        if any(
+            not isinstance(point, (list, tuple))
+            or len(point) != 2
+            or any(
+                not isinstance(coordinate, (float, int))
+                or isinstance(coordinate, bool)
+                or not math.isfinite(coordinate)
+                for coordinate in point
+            )
+            for point in points
+        ):
+            return "input gate landmark contract mismatch: invalid 2D coordinates"
+        return None
+
     def _run_stage(
         self,
         name: str,
@@ -80,10 +105,18 @@ class AvatarPipeline:
             cached = self.manifest.get_stage(key)
             if cached:
                 restored = dict(cached)
-                restored["cache_hit"] = True
-                restored["stage_key"] = key
-                report_stage(name, "cached")
-                return restored
+                if name == "input_gate" and self._gate_landmark_contract_error(restored):
+                    report_stage(
+                        name, "invalid_cache",
+                        self._gate_landmark_contract_error(restored),
+                    )
+                    # Never restore a semantically incomplete face gate, even
+                    # when the manifest says complete. Re-run detection.
+                else:
+                    restored["cache_hit"] = True
+                    restored["stage_key"] = key
+                    report_stage(name, "cached")
+                    return restored
 
         try:
             result = fn()
@@ -92,6 +125,22 @@ class AvatarPipeline:
             raise
         if not isinstance(result, dict):
             result = {"status": "error", "error": f"{name} returned a non-dict result"}
+        if name == "input_gate":
+            count = len(result.get("landmarks", [])) if isinstance(
+                result.get("landmarks"), list
+            ) else 0
+            report_stage(
+                "face_landmarks", "checked",
+                f"count={count}/28 median={result.get('landmark_score_median', 'unknown')} "
+                f"valid={result.get('valid')}",
+            )
+            if result.get("status") == "complete":
+                error = self._gate_landmark_contract_error(result)
+                if error:
+                    result["status"] = "error"
+                    result["valid"] = False
+                    result["error"] = error
+                    result["errors"] = [error]
         result.setdefault("stage_name", name)
         result["stage_key"] = key
 
@@ -281,10 +330,11 @@ class AvatarPipeline:
         )
         results["stages"]["input_gate"] = gate
         if gate.get("status") != "complete" or not gate.get("valid"):
-            return self._fail(results, "input_gate", gate.get("errors") or gate.get("error") or "input rejected")
-        landmarks = gate.get("landmarks", [])
-        if len(landmarks) < 28:
-            return self._fail(results, "input_gate", "fewer than 28 facial landmarks")
+            reasons = gate.get("errors") or gate.get("error") or "input rejected"
+            if isinstance(reasons, list):
+                reasons = "; ".join(str(reason) for reason in reasons)
+            return self._fail(results, "input_gate", str(reasons))
+        landmarks = gate["landmarks"]
 
         # 2. Real input reconstruction. No canonical fallback is permitted.
         reconstruction_dir = str(pathlib.Path(output_dir) / "reconstruction")
