@@ -294,3 +294,24 @@ def test_launch_clears_stale_pipeline_modules_before_runtime_check(ui, tmp_path,
     monkeypatch.setattr(ui, "build_app", lambda: (events.append("build") or FakeDemo()))
     ui.launch()
     assert events == ["reload", "runtime", "build", "queue", "launch"]
+
+
+def test_native_import_failure_is_written_to_ui_log_instead_of_gradio_traceback(
+    ui, tmp_path, monkeypatch,
+):
+    """A broken NumPy/SciPy import must return a log file, not crash Gradio."""
+    image = tmp_path / "image.png"
+    image.write_bytes(b"image")
+    monkeypatch.setattr(ui, "WORK_ROOT", tmp_path / "work")
+    monkeypatch.setattr(ui, "_gpu_snapshot", lambda: "GPU VRAM 0/15360 MiB")
+    monkeypatch.setitem(sys.modules, "vtuber_pipeline.core.stage_progress", None)
+
+    updates = list(ui.stream_avatar_ui(
+        str(image), "corporation", None, progress=FakeProgress(),
+    ))
+    assert updates[-1][0].startswith("❌")
+    assert "ModuleNotFoundError" in updates[-1][1]
+    assert "stage_progress" in updates[-1][1]
+    log = pathlib.Path(updates[-1][-1])
+    assert log.is_file()
+    assert "ModuleNotFoundError" in log.read_text(encoding="utf-8")
