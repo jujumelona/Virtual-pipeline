@@ -12,8 +12,16 @@ def infer(req):
     from transformers import pipeline
     out=Path(req["output_dir"])
     out.mkdir(parents=True,exist_ok=True)
-    model="depth-anything/Depth-Anything-V2-Small-hf"
-    estimator=pipeline(task="depth-estimation",model=model,device=0 if torch.cuda.is_available() else -1)
+    from vtuber_pipeline.common.model_assets import resolve_snapshot, model_pin
+    model_id = "depth-anything/Depth-Anything-V2-Small-hf"
+    pin = model_pin("depth_anything_v2_small")
+    if pin["model_id"] != model_id:
+        raise RuntimeError("Depth Anything V2 Small source pin does not match worker")
+    checkpoint_dir = resolve_snapshot("depth_anything_v2_small")
+    estimator = pipeline(
+        task="depth-estimation", model=checkpoint_dir,
+        device=0 if torch.cuda.is_available() else -1,
+    )
     views={}
     for role,path in req["images"].items():
         if not path:
@@ -36,7 +44,8 @@ def infer(req):
         views[role]={"depth_npy":str(saved),"relative_depth":True,"observed_view":True,
                      "source_image":str(Path(path).resolve()),"image_size":[img.width,img.height]}
     manifest=out/"depth_manifest.json"
-    manifest.write_text(json.dumps({"model":model,"units":"relative/no-metric-scale","views":views},
+    manifest.write_text(json.dumps({"model":model_id,"model_revision":pin["revision"],
+                                    "units":"relative/no-metric-scale","views":views},
                                     ensure_ascii=False,indent=2),encoding="utf-8")
     return {
         "depth_manifest": str(manifest),
