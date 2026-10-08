@@ -201,8 +201,6 @@ text, labels, price tag, logo, signature, watermark
 - 이 모드는 이미 생성한 `avatar.vrm` 또는 외부에서 만든 기준 VRM이 필요합니다. **정적 bone-parented 액세서리**만 지원하며, 독립적으로 흔들리는 동적 물리·스키닝 액세서리는 지원하지 않습니다.
 - TripoSR는 단일 뷰에서 보이지 않는 뒷면과 두께를 추정하므로, **복잡한 장신구·가느다란 연결 부위·투명 재질·반대편과 대칭이어야 하는 물체**는 재구성과 부착 후 검토가 필요합니다. 프롬프트만으로 실제 형상이나 위치의 정확도를 보장하지 않습니다.
 
-Colab UI는 `ipywidgets`가 아니라 Gradio 웹 UI를 사용합니다. 노트북 bootstrap은 Colab에서 동작이 확인된 `gradio==6.3.0`을 고정하고, UI server를 blocking mode로 실행하므로 셀이 끝나면서 UI가 사라지는 구조가 아닙니다.
-
 ## CLI
 
 ### Avatar
