@@ -9,6 +9,19 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 from _entry import execute
 
 def infer(req):
+    # Pinned official run.py always invokes sudo-ai/zero123plus-v1.2.
+    # Its weights are CC-BY-NC-4.0 despite InstantMesh itself being Apache-2.0.
+    # Do not silently download a noncommercial dependency in a commercial path.
+    usage = req.get("commercial_usage", "corporation")
+    if usage not in {"corporation", "personalProfit", "personalNonProfit"}:
+        raise ValueError("Unrecognized commercial usage scope")
+    if usage != "personalNonProfit":
+        raise RuntimeError(
+            "Commercial InstantMesh run.py blocked: the pinned upstream runner "
+            "loads sudo-ai/zero123plus-v1.2 (CC-BY-NC-4.0 weights). "
+            "An independently licensed multiview provider or a compatible "
+            "commercial grant is required. TripoSR remains independently MIT."
+        )
     upstream=Path(os.environ.get("INSTANTMESH_DIR","")).expanduser().resolve()
     runner=upstream/"run.py"
     config=upstream/"configs/instant-mesh-large.yaml"
