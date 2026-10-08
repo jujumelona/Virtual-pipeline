@@ -1,10 +1,6 @@
 # VTuber Commercial Pipeline
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
-[**최신 2단계 Colab 노트북 열기 — ① 환경·모델 준비 → ② 생성 UI**](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab.ipynb)
-
-> **공식 Colab 실행 파일:** [`notebooks/VTuber_Commercial_Pipeline_Colab.ipynb`](notebooks/VTuber_Commercial_Pipeline_Colab.ipynb) — 위의 **Open In Colab 버튼과 같은 파일**입니다. 별도 구형 노트북은 사용하지 않습니다. 기존 Colab 탭을 열어둔 경우 다시 열어 최신 2개 코드 셀을 확인하세요. ①에서 설치·다운로드·검증 로그를 확인한 후 ②를 실행합니다.
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
@@ -65,13 +61,11 @@ Accessory Mode는 검증된 **static bone-parented bake** 경로만 제공합니
 | MakeHuman base mesh | `a8bc2d54ff0ac92e78ff71431b1023eda42bf482` | CC0 |
 | VRM writer | local `pygltflib` path | project dependency |
 
-TripoSR의 고정된 isosurface 코드는 Marching Cubes 함수 하나만 사용합니다. Colab에서는 `torchmcubes`의 C++/CUDA wheel을 실시간 컴파일하지 않고, `scikit-image==0.26.0`의 바이너리 wheel을 통해 동일한 텐서 API와 좌표축 계약을 제공하도록 변경했습니다. GPU 추론은 PyTorch로 실행되고, 메쉬 표면 추출만 CPU에서 수행합니다.\n\nCommercial/production avatar reconstruction verifies the TripoSR git revision before running. The local deterministic TripoSR wrapper also pins the nested DINO config revision and overrides rembg's no-argument default so background removal always uses the Apache-2.0 `u2net` model rather than a changing rembg default. Cached/downloaded `u2net.onnx` bytes are checksum-verified before inference. The anime face path likewise resolves the exact YOLOv3 and HRNetV2 Hugging Face revisions and verifies both safetensors SHA256 values before constructing the detector.
+Commercial/production avatar reconstruction verifies the TripoSR git revision before running. The local deterministic TripoSR wrapper also pins the nested DINO config revision and overrides rembg's no-argument default so background removal always uses the Apache-2.0 `u2net` model rather than a changing rembg default. Cached/downloaded `u2net.onnx` bytes are checksum-verified before inference. The anime face path likewise resolves the exact YOLOv3 and HRNetV2 Hugging Face revisions and verifies both safetensors SHA256 values before constructing the detector.
 
 `third_party.lock.json` separates source revisions from binary integrity hashes. `artifact_sha256` is never filled with a git SHA or package version. It is reserved for a real SHA256 of downloaded artifact bytes.
 
 ## Installation
-
-Google Colab에서는 위 **Open In Colab** 경로를 사용하세요. 노트북 launcher가 최신 main과 pinned TripoSR를 동기화하고, 현재 Python 3.12/3.13용 wheel-safe runtime을 설치합니다.
 
 로컬에서 설치할 경우 TripoSR의 오래된 `requirements.txt`를 그대로 설치하지 마세요. Colab launcher와 동일한 호환성 세트를 사용하는 것이 기준입니다.
 
@@ -90,15 +84,7 @@ export TRIPOSR_DIR="$PWD/TripoSR"
 
 ## Google Colab
 
-위 **Open In Colab** 버튼으로 연 다음, **두 개의 코드 셀을 순서대로** 실행하세요. 첫 실행의 패키지/가중치 다운로드는 CPU/네트워크/디스크 단계이므로 **GPU RAM이 0이어도 설치가 진행 중일 수 있습니다.**
-
-1. **① 환경 준비:** 최신 `origin/main` 동기화 → Gradio/런타임 패키지 설치 → TripoSR/얼굴 검출 모델 다운로드 및 해시 확인 → 메시 추출 스모크 테스트 → 상업용 라이선스 감사. 각 단계와 명령 stdout/stderr를 **Colab 셀 출력에 실시간 표시**하고 `/content/vtuber_builder/logs/runtime_setup.log`에 모두 저장합니다. `✅ ① 준비 완료`를 확인한 후 다음 셀을 실행하세요.
-2. **② UI 실행:** Gradio 웹 UI만 실행합니다. **캐릭터 생성/액세서리 적용 버튼은 패키지를 설치하거나 모델을 다시 다운로드하지 않으며**, 준비되지 않았다면 ①을 먼저 실행하라는 오류를 즉시 출력합니다.
-3. **③ 실제 생성:** 각 모드에서 **실시간 단계 로그, 상태 변화, GPU 사용률/메모리 관측값**을 확인합니다. 각 실행의 전체 로그는 UI의 **전체 제작 로그 다운로드**에서 받을 수 있습니다. GPU 사용률 값은 `nvidia-smi`의 관측값이며 정확한 GPU 추론 시작 시각을 보장하는 지표는 아닙니다.
-
-노트북은 자체 UI를 들고 있지 않습니다. 첫 셀이 최신 `origin/main`을 받고 `tools/colab_app.py`로 준비하며, 둘째 셀이 해당 모듈의 웹 UI를 실행합니다. 기존의 단일 셀 Colab 사본을 사용 중이라면 GitHub의 최신 노트북을 다시 여세요.
-
-UI는 처음부터 두 작업으로 명확하게 분리됩니다.
+상단 **Open In Colab** 버튼으로 열고 **① 환경 준비 → ② 생성 UI 실행** 순서대로 실행합니다.
 
 ### ① 캐릭터 / 얼굴 만들기
 
