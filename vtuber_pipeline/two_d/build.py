@@ -88,7 +88,8 @@ def prepare_common_2d(source: SourceSet) -> dict:
     meshes=generate_meshes(parts_json,str(work))
     keys=build_keyforms(meshes["meshes_json"],parts_json,
                         landmarks["landmarks_json"],str(work))
-    physics=build_physics(keys["keyforms_json"],parts_json,str(work))
+    physics=build_physics(keys["keyforms_json"],parts_json,str(work),
+                          meshes_json=meshes["meshes_json"])
     spec=build_puppet_spec(parts_json,meshes["meshes_json"],keys["keyforms_json"],
                            physics["physics_json"],str(root),str(root/"puppet_spec.json"))
     return {"parts":parts_json,"layers":layers,"meshes":meshes["meshes_json"],
