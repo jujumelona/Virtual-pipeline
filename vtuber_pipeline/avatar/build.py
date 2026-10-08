@@ -549,9 +549,11 @@ class AvatarPipeline:
             try:
                 multiview = self._run_stage(
                     "instantmesh",
-                    (reconstruction_image,),
+                    (reconstruction_image, commercial_usage),
                     lambda: reconstruct_multiview(
-                        reconstruction_image, str(pathlib.Path(output_dir) / "instantmesh"),
+                        reconstruction_image,
+                        str(pathlib.Path(output_dir) / "instantmesh"),
+                        commercial_usage=commercial_usage,
                     ),
                 )
             except Exception as exc:
