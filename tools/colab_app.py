@@ -39,7 +39,7 @@ TRIPOSR_COMMIT = "107cefdc244c39106fa830359024f6a2f1c78871"
 TRIPOSR_MODEL_REVISION = "c1cf7716aed5aa6c1c5e174657791ef0e1327bde"
 TRIPOSR_MODEL_WEIGHT_SHA256 = "429e2c6b22a0923967459de24d67f05962b235f79cde6b032aa7ed2ffcd970ee"
 GRADIO_VERSION = "6.3.0"
-RUNTIME_CONTRACT = "colab-runtime-v9"
+RUNTIME_CONTRACT = "colab-runtime-v10"
 WORK_ROOT = pathlib.Path("/content/vtuber_builder")
 OUTPUT_ROOT = WORK_ROOT / "output"
 
@@ -251,11 +251,11 @@ def _install_runtime(head: str) -> None:
     python_tag = f"py{sys.version_info.major}{sys.version_info.minor}"
     runtime_fingerprint = _runtime_contract_fingerprint()
     marker = WORK_ROOT / (
-        f".runtime-{RUNTIME_CONTRACT}-{python_tag}-"
+        f".environment-{RUNTIME_CONTRACT}-{python_tag}-"
         f"{runtime_fingerprint[:16]}.ready"
     )
     if marker.is_file():
-        print(f"[setup] 기존 패키지/모델 캐시 재사용: {marker.name}", flush=True)
+        print(f"[setup] 설치된 환경 사용: {marker.name}", flush=True)
         # The dependency fingerprint is identical, but Python/UI source may
         # have changed. Record the synchronized head without reinstalling.
         lines = marker.read_text(encoding="utf-8").splitlines()
@@ -277,7 +277,7 @@ def _install_runtime(head: str) -> None:
 
     WORK_ROOT.mkdir(parents=True, exist_ok=True)
 
-    print("[setup 1/8] pip/setuptools/wheel 준비 (GPU 사용 전)", flush=True)
+    print("[환경 1/7] pip/setuptools/wheel 준비 (GPU 사용 전)", flush=True)
     _run(
         [
             sys.executable,
@@ -292,7 +292,7 @@ def _install_runtime(head: str) -> None:
         timeout=600,
     )
 
-    print("[setup 2/8] PyTorch/CUDA 환경 점검 (GPU 추론 아님)", flush=True)
+    print("[환경 2/7] PyTorch/CUDA 환경 점검 (GPU 추론 아님)", flush=True)
     # Colab already provides CUDA-enabled torch/torchvision. Never let the
     # resolver replace them with a different build.
     _run(
@@ -312,7 +312,7 @@ def _install_runtime(head: str) -> None:
         timeout=60,
     )
 
-    print("[setup 3/8] 사전 빌드된 이미지/메시 라이브러리 설치", flush=True)
+    print("[환경 3/7] 사전 빌드된 이미지/메시 라이브러리 설치", flush=True)
     # Native packages: wheel-only. This deliberately prevents silent source
     # builds such as Pillow==10.1.0 on newer Colab Python runtimes.
     _run(
@@ -335,7 +335,7 @@ def _install_runtime(head: str) -> None:
 
     # TripoSR + local pipeline runtime. These versions retain TripoSR's used
     # APIs while supporting the current 3.12/3.13 Colab runtime.
-    print("[setup 4/8] TripoSR 의존성 설치 (GPU 추론 아님)", flush=True)
+    print("[환경 4/7] TripoSR 의존성 설치 (GPU 추론 아님)", flush=True)
     runtime_packages = [
         "omegaconf==2.3.0",
         "einops==0.7.0",
@@ -362,7 +362,7 @@ def _install_runtime(head: str) -> None:
         timeout=1800,
     )
 
-    print("[setup 5/8] 얼굴 검출 라이브러리 설치", flush=True)
+    print("[환경 5/7] 얼굴 검출 라이브러리 설치", flush=True)
     # anime-face-detector depends on the existing torch/torchvision pair.
     # Install its package without dependency resolution so pip cannot replace
     # Colab's CUDA-enabled PyTorch.
@@ -381,7 +381,7 @@ def _install_runtime(head: str) -> None:
     # Pinned TripoSR only needs marching_cubes, supplied by our scikit-image
     # bridge in the isolated TripoSR subprocess. No native CUDA extension
     # is built at Colab startup.
-    print("[setup 6/8] VTuber Pipeline 설치", flush=True)
+    print("[환경 6/7] VTuber Pipeline 설치", flush=True)
     # Install the freshly synchronized repository without re-running the
     # dependency resolver and undoing the compatibility set above.
     _run(
@@ -397,15 +397,7 @@ def _install_runtime(head: str) -> None:
         timeout=600,
     )
 
-    print("[setup 7/8] 필수 모델·템플릿 병렬 준비", flush=True)
-    # Package installs remain serialized; independent verified model downloads
-    # run as up to three CPU/network subprocesses with labeled live output.
-    _run(
-        [sys.executable, "-u", str(REPO_DIR / "tools" / "prefetch_model_assets.py")],
-        timeout=3000,
-    )
-
-    print("[setup 8/8] 메시 추출 테스트 · 의존성 라이선스 감사", flush=True)
+    print("[환경 7/7] 메시 추출 테스트 · 의존성 라이선스 감사", flush=True)
     # End-to-end import smoke test for every external runtime edge used before
     # the first model inference.
     _run(
@@ -476,6 +468,73 @@ def _install_runtime(head: str) -> None:
     )
 
 
+def _model_fingerprint() -> str:
+    """Model cache stamp changes with dependency contract and model code."""
+    digest = hashlib.sha256(_runtime_contract_fingerprint().encode("utf-8"))
+    for relative in (
+        "tools/prefetch_model_assets.py",
+        "vtuber_pipeline/avatar/reconstruction.py",
+        "vtuber_pipeline/avatar/face_detector.py",
+        "vtuber_pipeline/avatar/triposr_runner.py",
+        "vtuber_pipeline/avatar/template_mesh.py",
+    ):
+        path = REPO_DIR / relative
+        if not path.is_file():
+            raise RuntimeError(f"Model contract file missing: {relative}")
+        digest.update(relative.encode("utf-8"))
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def _model_marker() -> pathlib.Path:
+    tag = f"py{sys.version_info.major}{sys.version_info.minor}"
+    return WORK_ROOT / (
+        f".models-{RUNTIME_CONTRACT}-{tag}-{_model_fingerprint()[:16]}.ready"
+    )
+
+
+def prepare_models() -> None:
+    """Separate prerequisite: download/verify every model before opening UI."""
+    revision = subprocess.run(
+        ["git", "-C", str(REPO_DIR), "rev-parse", "HEAD"],
+        text=True, capture_output=True, timeout=15,
+    )
+    if revision.returncode:
+        raise RuntimeError("① 환경 설치를 먼저 실행하세요.")
+    head = revision.stdout.strip()
+    fingerprint = _runtime_contract_fingerprint()
+    tag = f"py{sys.version_info.major}{sys.version_info.minor}"
+    environment = WORK_ROOT / (
+        f".environment-{RUNTIME_CONTRACT}-{tag}-{fingerprint[:16]}.ready"
+    )
+    if not environment.is_file() or (
+        f"installed_from_main={head}" not in environment.read_text(encoding="utf-8").splitlines()
+    ):
+        raise RuntimeError("① 환경 설치를 먼저 완료하세요.")
+    marker = _model_marker()
+    if marker.is_file():
+        lines = marker.read_text(encoding="utf-8").splitlines()
+        if f"model_fingerprint={_model_fingerprint()}" in lines:
+            if f"installed_from_main={head}" not in lines:
+                lines = [line for line in lines if not line.startswith("installed_from_main=")]
+                lines.append(f"installed_from_main={head}")
+                marker.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            print("[models] 검증된 모델 캐시 사용", flush=True)
+            return
+    print("[models] TripoSR / YOLO / HRNet / u2net / DINO / MakeHuman", flush=True)
+    _run(
+        [sys.executable, "-u", str(REPO_DIR / "tools" / "prefetch_model_assets.py")],
+        timeout=3000,
+    )
+    # A success marker must only exist after all parallel workers finish.
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(
+        f"model_fingerprint={_model_fingerprint()}\n"
+        f"installed_from_main={head}\n",
+        encoding="utf-8",
+    )
+
+
 def _reload_pipeline_modules() -> None:
     for name in list(sys.modules):
         if name == "vtuber_pipeline" or name.startswith("vtuber_pipeline."):
@@ -528,18 +587,20 @@ def require_runtime_ready() -> Tuple[str, List[str]]:
     fingerprint = _runtime_contract_fingerprint()
     tag = f"py{sys.version_info.major}{sys.version_info.minor}"
     marker = WORK_ROOT / (
-        f".runtime-{RUNTIME_CONTRACT}-{tag}-{fingerprint[:16]}.ready"
+        f".environment-{RUNTIME_CONTRACT}-{tag}-{fingerprint[:16]}.ready"
     )
     if not marker.is_file():
         raise RuntimeError(
-            "환경 설치/모델 준비가 끝나지 않았습니다. 노트북 ① 환경 준비 "
-            "셀을 먼저 실행하고 성공 로그를 확인하세요. 생성 버튼은 설치하지 않습니다."
+            "① 환경 설치를 먼저 완료하세요."
         )
     details = marker.read_text(encoding="utf-8")
     if f"installed_from_main={head}" not in details.splitlines():
-        raise RuntimeError(
-            "현재 코드와 설치 캐시가 다릅니다. 노트북 ① 환경 준비 셀을 다시 실행하세요."
-        )
+        raise RuntimeError("① 환경 설치를 다시 실행하세요.")
+    model_marker = _model_marker()
+    if not model_marker.is_file() or (
+        f"installed_from_main={head}" not in model_marker.read_text(encoding="utf-8").splitlines()
+    ):
+        raise RuntimeError("② 모델 다운로드·검증을 먼저 완료하세요.")
     os.environ["TRIPOSR_DIR"] = str(TRIPOSR_DIR)
     if str(REPO_DIR) not in sys.path:
         sys.path.insert(0, str(REPO_DIR))
