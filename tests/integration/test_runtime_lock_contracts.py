@@ -126,6 +126,8 @@ def test_all_source_and_model_pins_agree():
 
 
 def test_pinned_package_versions_agree_with_runtime_surfaces():
+    from vtuber_pipeline.avatar.face_detector import ANIME_FACE_MODEL_PINS
+
     lock = json.loads(_read("third_party.lock.json"))
     pyproject = tomllib.loads(_read("pyproject.toml"))
     requirements = _read("requirements.txt")
