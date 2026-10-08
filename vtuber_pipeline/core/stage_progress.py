@@ -30,3 +30,8 @@ def report_stage(name: str, status: str, detail: str = "") -> None:
     callback = _SINK.get()
     if callback is not None:
         callback(name, status, detail)
+
+
+def current_reporter() -> Optional[Callable[[str, str, str], None]]:
+    """Return the active sink for forwarding output from child reader threads."""
+    return _SINK.get()
