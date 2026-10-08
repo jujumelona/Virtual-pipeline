@@ -7,6 +7,9 @@ import pathlib
 import logging
 import os
 import sys
+import threading
+
+from vtuber_pipeline.core.stage_progress import current_reporter
 
 from vtuber_pipeline.avatar.triposr_runner import REMBG_U2NET_MD5
 
@@ -273,6 +276,51 @@ def resolve_triposr_model() -> str:
     return str(model_dir)
 
 
+def _run_triposr_with_diagnostics(
+    cmd: list[str], *, timeout: int, cwd: str, env: dict,
+) -> subprocess.CompletedProcess:
+    """Stream actual model subprocess output when a live UI reporter exists.
+
+    CLI/API calls without a reporter retain their normal subprocess.run path.
+    Timeout and nonzero exit behavior remains fail-closed.
+    """
+    sink = current_reporter()
+    if sink is None:
+        return subprocess.run(
+            cmd, capture_output=True, text=True,
+            timeout=timeout, cwd=cwd, env=env,
+        )
+    env = {**env, "PYTHONUNBUFFERED": "1"}
+    process = subprocess.Popen(
+        cmd, cwd=cwd, env=env, stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True, bufsize=1,
+    )
+    output: list[str] = []
+
+    def forward() -> None:
+        assert process.stdout is not None
+        for line in process.stdout:
+            output.append(line)
+            detail = line.rstrip()
+            if detail:
+                sink("triposr_output", "log", detail[-1200:])
+
+    reader = threading.Thread(target=forward, daemon=True)
+    reader.start()
+    try:
+        code = process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=10)
+        reader.join(timeout=10)
+        raise subprocess.TimeoutExpired(cmd, timeout)
+    reader.join(timeout=10)
+    combined = "".join(output)
+    return subprocess.CompletedProcess(
+        cmd, code, stdout=combined, stderr=combined,
+    )
+
+
 def reconstruct_avatar(
     image_path: str,
     output_dir: str,
@@ -378,11 +426,8 @@ def reconstruct_avatar(
         # Never allow a parent environment to silently disable that check.
         child_env.pop("MODEL_CHECKSUM_DISABLED", None)
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
+        result = _run_triposr_with_diagnostics(
+            cmd, timeout=timeout_seconds,
             cwd=str(pathlib.Path(run_script).resolve().parent),
             env=child_env,
         )
