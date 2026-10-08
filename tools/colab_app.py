@@ -821,11 +821,13 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
 def stream_avatar_ui(
     image_path, commercial_usage, latest_avatar,
     face_image=None, back_image=None, full_body=True, texture_size=2048,
+    left_image=None, right_image=None,
     progress: gr.Progress = gr.Progress(),
 ):
     previous = latest_avatar if latest_avatar and pathlib.Path(latest_avatar).is_file() else None
     yield from _stream_ui_task(
-        build_avatar_ui, (image_path, commercial_usage, latest_avatar, face_image, back_image, full_body, texture_size),
+        build_avatar_ui, (image_path, commercial_usage, latest_avatar, face_image, back_image,
+                          full_body, texture_size, left_image, right_image),
         5, progress, preserve_avatar=previous,
     )
 
@@ -871,6 +873,8 @@ def build_avatar_ui(
     back_image: Optional[str] = None,
     full_body: bool = False,
     texture_size: int = 2048,
+    left_image: Optional[str] = None,
+    right_image: Optional[str] = None,
     progress: gr.Progress = gr.Progress(),
 ):
     previous_avatar = (
@@ -891,7 +895,7 @@ def build_avatar_ui(
         build_avatar, _, _ = _pipeline_imports()
 
         run_id = uuid.uuid4().hex[:10]
-        output_dir = OUTPUT_ROOT / f"avatar-{run_id}"
+        output_dir = OUTPUT_ROOT / run_id / "3d"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         result = build_avatar(
@@ -904,6 +908,8 @@ def build_avatar_ui(
                     "full_body": bool(full_body),
                     "face_image": str(face_image) if face_image else None,
                     "back_image": str(back_image) if back_image else None,
+                    "left_image": str(left_image) if left_image else None,
+                    "right_image": str(right_image) if right_image else None,
                     "texture_size": int(texture_size),
                 },
             },
@@ -1158,7 +1164,7 @@ def build_2d_ui(image_path, layers_zip, commercial_usage, target="live2d"):
     try:
         from vtuber_pipeline.common.schemas import SourceSet
         from vtuber_pipeline.two_d.build import build_inochi2d, build_live2d
-        output = OUTPUT_ROOT / f"{target}-{uuid.uuid4().hex[:10]}"
+        output = OUTPUT_ROOT / uuid.uuid4().hex[:10] / target
         source = SourceSet(mode=target, front_image=str(image_path),
                            user_layers_zip=str(layers_zip) if layers_zip else None,
                            commercial_usage=commercial_usage, output_dir=str(output))
@@ -1276,7 +1282,7 @@ def build_app() -> gr.Blocks:
                 "## Inochi2D\n"
                 "외부에서 제작한 캐릭터 원본/투명 파츠를 업로드합니다. "
                 "**오픈소스 Inochi Creator / Inochi Session**을 목표로 합니다. "
-                "지금은 그림 레이어를 준비하며 .inp 자동 리깅·내보내기는 아직 없습니다."
+                "네이티브 SDK가 실제 .inp를 출력해야만 complete입니다."
             )
             inochi_back = gr.Button("← 모드 선택", size="sm", variant="secondary")
             inochi_image = gr.Image(
@@ -1318,7 +1324,7 @@ def build_app() -> gr.Blocks:
                 "## Live2D\n"
                 "외부 AI/일러스트 프로그램으로 제작한 이미지를 올리세요. "
                 "레이어 패키지를 생성하며, Cubism 리깅과 .moc3 출력은 별도로 필요합니다. "
-                "**VRM을 생성하거나 완성된 Live2D 모델을 출력하지 않습니다.**"
+                "공식 Cubism Editor 내보내기 전에는 needs_editor_export입니다."
             )
             live2d_back = gr.Button("← 모드 선택", size="sm", variant="secondary")
             two_d_image = gr.Image(
@@ -1392,6 +1398,14 @@ def build_app() -> gr.Blocks:
                         type="filepath",
                         height=320,
                     )
+                    avatar_left_image = gr.Image(
+                        label="왼쪽 측면 참조 (선택)", sources=["upload"],
+                        type="filepath", height=220,
+                    )
+                    avatar_right_image = gr.Image(
+                        label="오른쪽 측면 참조 (선택)", sources=["upload"],
+                        type="filepath", height=220,
+                    )
                     avatar_full_body = gr.Checkbox(
                         label="전신 고품질 모드 (얼굴 확대 입력 필요)",
                         value=True,
@@ -1415,6 +1429,11 @@ def build_app() -> gr.Blocks:
                             label="같은 캐릭터 전신 후면 (선택)",
                             value="Exact same character, full-body REAR orthographic turnaround, identical posture and proportions as front reference, clearly visible back hair, costume back seams and shoes, neutral A-pose, same studio lighting, no cropped limbs, no text, no watermark.", lines=5,
                         )
+                        gr.Textbox(
+                            label="같은 캐릭터 측면 (선택)",
+                            value="Exact same character, full-body LEFT or RIGHT orthographic turnaround, identical pose and proportions to front/back reference, clear side profile and hair thickness, no cropped limbs, no perspective distortion, same flat studio lighting.",
+                            lines=5,
+                        )
                     avatar_run = gr.Button("전신 VRM 변환", variant="primary")
                     avatar_result = gr.File(
                         label="완성 VRM (다운로드 가능한 원본 파일)",
@@ -1437,7 +1456,8 @@ def build_app() -> gr.Blocks:
 
             avatar_generation_event = avatar_run.click(
                 fn=stream_avatar_ui,
-                inputs=[avatar_image, selected_usage, latest_avatar, avatar_face_image, avatar_back_image, avatar_full_body, avatar_texture_size],
+                inputs=[avatar_image, selected_usage, latest_avatar, avatar_face_image, avatar_back_image,
+                        avatar_full_body, avatar_texture_size, avatar_left_image, avatar_right_image],
                 outputs=[
                     avatar_status, avatar_log, avatar_result,
                     latest_avatar, avatar_log_file,
