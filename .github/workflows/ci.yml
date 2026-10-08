@@ -61,6 +61,7 @@ jobs:
           tests/integration/test_runtime_lock_contracts.py
           tests/integration/test_config_contracts.py
           tests/integration/test_marching_cubes_bridge.py
+          tests/integration/test_runtime_license_audit.py
 
   unit:
     name: Unit / Python ${{ matrix.python-version }}
