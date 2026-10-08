@@ -1,5 +1,6 @@
 """Click CLI for the fail-closed VTuber pipeline."""
 
+import math
 import pathlib
 import click
 
@@ -102,11 +103,8 @@ def accessory(base_vrm, images, anchors, custom_anchors, output, profile):
     from vtuber_pipeline.accessory.reconstruction import reconstruct_accessories
     from vtuber_pipeline.accessory.build import AccessoryPipeline
 
-    out = pathlib.Path(output)
-    out.mkdir(parents=True, exist_ok=True)
-    recon_dir = out / "reconstruction"
-    reconstructed = reconstruct_accessories(list(images), str(recon_dir), profile=profile)
-
+    # Validate every slot before invoking expensive GPU reconstruction.
+    # Invalid CLI options must fail without downloading or loading models.
     image_list = list(images)
     anchor_list = list(anchors)
     if anchor_list and len(anchor_list) != len(image_list):
@@ -137,6 +135,10 @@ def accessory(base_vrm, images, anchors, custom_anchors, output, profile):
             raise click.ClickException(
                 "--custom-anchor X,Y,Z,TARGET_SIZE must be numbers"
             ) from exc
+        if not all(math.isfinite(value) for value in (*offset, target_size)):
+            raise click.ClickException(
+                "--custom-anchor X,Y,Z,TARGET_SIZE must be finite numbers"
+            )
         if target_size <= 0.0:
             raise click.ClickException(
                 "--custom-anchor TARGET_SIZE must be > 0"
@@ -146,6 +148,16 @@ def accessory(base_vrm, images, anchors, custom_anchors, output, profile):
             "offset": offset,
             "target_size": target_size,
         })
+
+    out = pathlib.Path(output)
+    out.mkdir(parents=True, exist_ok=True)
+    recon_dir = out / "reconstruction"
+    reconstructed = reconstruct_accessories(image_list, str(recon_dir), profile=profile)
+    if len(reconstructed) != len(image_list):
+        raise click.ClickException(
+            "Accessory reconstruction returned the wrong number of results: "
+            f"{len(reconstructed)} != {len(image_list)}"
+        )
 
     failures = []
     current_vrm = base_vrm
