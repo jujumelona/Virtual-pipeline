@@ -510,8 +510,8 @@ def _model_marker() -> pathlib.Path:
     )
 
 
-def prepare_models() -> None:
-    """Separate prerequisite: download/verify every model before opening UI."""
+def _prepare_models_checked() -> None:
+    """Download and initialize models; never mark an incomplete cache ready."""
     revision = subprocess.run(
         ["git", "-C", str(REPO_DIR), "rev-parse", "HEAD"],
         text=True, capture_output=True, timeout=15,
@@ -531,7 +531,8 @@ def prepare_models() -> None:
     marker = _model_marker()
     if marker.is_file():
         lines = marker.read_text(encoding="utf-8").splitlines()
-        if f"model_fingerprint={_model_fingerprint()}" in lines:
+        if (f"model_fingerprint={_model_fingerprint()}" in lines
+                and "face_detector_initialized=true" in lines):
             if f"installed_from_main={head}" not in lines:
                 lines = [line for line in lines if not line.startswith("installed_from_main=")]
                 lines.append(f"installed_from_main={head}")
@@ -561,9 +562,26 @@ def prepare_models() -> None:
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text(
         f"model_fingerprint={_model_fingerprint()}\n"
-        f"installed_from_main={head}\n",
+        f"installed_from_main={head}\n"
+        "face_detector_initialized=true\n",
         encoding="utf-8",
     )
+
+
+def prepare_models() -> None:
+    """Surface every model-stage failure in Colab, including legacy notebooks."""
+    log_file = WORK_ROOT / "logs" / "model_setup.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    print(f"[models] 모델 준비 시작 · 전체 오류 로그: {log_file}", flush=True)
+    try:
+        _prepare_models_checked()
+    except Exception:
+        detail = "[models] 준비 실패\n" + traceback.format_exc()
+        with log_file.open("a", encoding="utf-8") as output:
+            output.write(detail + "\n")
+        print(detail, flush=True)
+        raise
+    print("[models] 준비·초기화 검증 완료", flush=True)
 
 
 def _reload_pipeline_modules() -> None:
