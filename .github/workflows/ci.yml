@@ -27,7 +27,7 @@ jobs:
       - name: Install CPU wiring dependencies
         run: >-
           python -m pip install --disable-pip-version-check
-          pytest ruff numpy scipy pyyaml pillow trimesh click pygltflib==1.16.5
+          pytest ruff numpy scipy pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
       - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - name: Compile every Python module
         run: python -m compileall -q vtuber_pipeline tools tests
@@ -52,7 +52,7 @@ jobs:
       - name: Install CPU model-contract dependencies
         run: >-
           python -m pip install --disable-pip-version-check
-          pytest packaging numpy scipy pyyaml pillow trimesh click pygltflib==1.16.5
+          pytest packaging numpy scipy pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
       - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - name: Verify model/backend option, I/O, and runtime locks
         run: >-
@@ -78,7 +78,7 @@ jobs:
       - name: Install CPU CI dependencies
         run: >-
           python -m pip install --disable-pip-version-check
-          pytest numpy scipy pyyaml pillow trimesh click pygltflib==1.16.5
+          pytest numpy scipy pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
       - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - run: python -m pytest -q tests/unit
 
@@ -97,7 +97,7 @@ jobs:
       - name: Install CPU CI dependencies
         run: >-
           python -m pip install --disable-pip-version-check
-          pytest numpy scipy pyyaml pillow trimesh click pygltflib==1.16.5
+          pytest numpy scipy pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
       - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - run: >-
           python -m pytest -q
@@ -120,7 +120,7 @@ jobs:
       - name: Install complete CPU test dependencies
         run: >-
           python -m pip install --disable-pip-version-check
-          pytest packaging numpy scipy pyyaml pillow trimesh click pygltflib==1.16.5
+          pytest packaging numpy scipy pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
       - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - name: Discover and run every CPU-safe test
         run: python -m pytest -q tests
@@ -138,7 +138,7 @@ jobs:
       - name: Install CPU CI dependencies
         run: >-
           python -m pip install --disable-pip-version-check
-          pytest numpy scipy pyyaml pillow trimesh click pygltflib==1.16.5
+          pytest numpy scipy pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
       - run: python -m pip install --disable-pip-version-check -e . --no-deps
       - name: Import public API
         run: >-
@@ -192,7 +192,7 @@ jobs:
         run: |
           python -m venv /tmp/vtuber-wheel-smoke
           /tmp/vtuber-wheel-smoke/bin/python -m pip install --disable-pip-version-check -U pip
-          /tmp/vtuber-wheel-smoke/bin/python -m pip install --disable-pip-version-check             numpy scipy pyyaml pillow trimesh click pygltflib==1.16.5
+          /tmp/vtuber-wheel-smoke/bin/python -m pip install --disable-pip-version-check             numpy scipy pyyaml pillow==12.3.0 trimesh==4.12.2 click pygltflib==1.16.5
           /tmp/vtuber-wheel-smoke/bin/python -m pip install --disable-pip-version-check             --no-deps dist/*.whl
           cd /tmp
           /tmp/vtuber-wheel-smoke/bin/python -c "import vtuber_pipeline; from vtuber_pipeline.avatar import build_avatar; from vtuber_pipeline.accessory import AccessoryPipeline; print('wheel-import-ok')"
