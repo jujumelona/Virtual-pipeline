@@ -15,6 +15,7 @@ TRIPOSR_MODEL_ID = "stabilityai/TripoSR"
 TRIPOSR_MODEL_REVISION = "c1cf7716aed5aa6c1c5e174657791ef0e1327bde"
 TRIPOSR_MODEL_WEIGHT_SHA256 = "429e2c6b22a0923967459de24d67f05962b235f79cde6b032aa7ed2ffcd970ee"
 TRIPOSR_DEFAULT_TIMEOUT_SECONDS = 1200
+REMBG_U2NET_MD5 = "60024c5c889badc19c04ad937298a77b"
 
 
 def find_triposr_installation() -> str:
@@ -230,8 +231,17 @@ def reconstruct_avatar(
     # User uploads are ordinary images, so use TripoSR's normal background
     # removal/foreground resize path by default. --no-remove-bg is only valid
     # for preprocessed gray-background images.
+    runner_script = pathlib.Path(__file__).with_name(
+        "triposr_runner.py"
+    ).resolve()
+    if not runner_script.is_file():
+        raise RuntimeError(
+            f"Pinned TripoSR runner is missing: {runner_script}"
+        )
+
     cmd = [
         sys.executable,
+        str(runner_script),
         str(run_script),
         image_path,
         "--output-dir", output_dir,
@@ -257,12 +267,18 @@ def reconstruct_avatar(
     timeout_seconds = min(max(timeout_seconds, 60), 3600)
 
     try:
+        child_env = os.environ.copy()
+        # rembg 2.0.85 normally verifies its pinned u2net model with MD5.
+        # Never allow a parent environment to silently disable that check.
+        child_env.pop("MODEL_CHECKSUM_DISABLED", None)
+
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=timeout_seconds,
             cwd=str(pathlib.Path(run_script).resolve().parent),
+            env=child_env,
         )
     except FileNotFoundError as e:
         raise RuntimeError(f"TripoSR CLI not found at {run_script}. Please clone TripoSR repository: git clone https://github.com/VAST-AI-Research/TripoSR.git") from e
