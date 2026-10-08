@@ -98,6 +98,7 @@ def test_public_all_exports_exist():
 def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
     from vtuber_pipeline.avatar.build import AvatarPipeline
     from vtuber_pipeline.avatar.reconstruction import TRIPOSR_MODEL_REVISION
+    import vtuber_pipeline.avatar.blender_bridge as blender_module
     import vtuber_pipeline.avatar.expressions as expressions_module
     import vtuber_pipeline.avatar.gaze as gaze_module
     import vtuber_pipeline.avatar.input_gate as input_gate_module
@@ -124,6 +125,7 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
             "uv.npy",
             "rigged.glb",
             "avatar.vrm",
+            "avatar_rigged.blend",
         )
     }
     for path in artifacts.values():
@@ -259,6 +261,15 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
             "vrm_path": str(artifacts["avatar.vrm"]),
         }
 
+    def fake_blender(vrm_path, output_dir):
+        calls.append("blender_vrm_export")
+        assert vrm_path == str(artifacts["avatar.vrm"])
+        return {
+            "status": "complete",
+            "vrm_path": vrm_path,
+            "blend": str(artifacts["avatar_rigged.blend"]),
+        }
+
     def fake_validate(vrm_path, output_dir, **kwargs):
         calls.append("validator")
         assert vrm_path == str(artifacts["avatar.vrm"])
@@ -293,6 +304,7 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
         fake_springbone,
     )
     monkeypatch.setattr(export_module, "export_vrm", fake_export)
+    monkeypatch.setattr(blender_module, "export_blender_from_vrm", fake_blender)
     monkeypatch.setattr(validator_module, "validate_vrm", fake_validate)
 
     result = AvatarPipeline(
@@ -333,6 +345,7 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
         "gaze",
         "springbone",
         "vrm_export",
+        "blender_vrm_export",
         "validator",
     ]
 
