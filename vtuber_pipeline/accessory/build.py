@@ -178,6 +178,19 @@ class AccessoryPipeline:
                 "custom_anchor is only valid when anchor_name is 'CUSTOM'"
             )
         
+        if physics_enabled:
+            results["status"] = "failed"
+            results["failed_stages"] = ["physics"]
+            results["failed_reason"] = (
+                "Dynamic accessory physics is not supported by the static "
+                "accessory baker; skinned bone/skin merging is required"
+            )
+            results["stages"]["physics"] = {
+                "status": "error",
+                "error": results["failed_reason"],
+            }
+            return results
+
         # Stage 1: Normalize
         normalized_path = str(pathlib.Path(output_dir) / "normalized.glb")
         results["stages"]["normalize"] = normalize.normalize_glb(
@@ -252,19 +265,6 @@ class AccessoryPipeline:
                 base_translation + local_push
             ).astype(float).tolist()
         
-        if physics_enabled:
-            results["status"] = "failed"
-            results["failed_stages"] = ["physics"]
-            results["failed_reason"] = (
-                "Dynamic accessory physics is not supported by the static "
-                "accessory baker; skinned bone/skin merging is required"
-            )
-            results["stages"]["physics"] = {
-                "status": "error",
-                "error": results["failed_reason"],
-            }
-            return results
-
         # Stage 5: Portable prepared artifacts. This is the core API default.
         results["stages"]["attachment"] = artifacts.write_attachment_manifest(
             fitted_path,
