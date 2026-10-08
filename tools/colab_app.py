@@ -937,6 +937,7 @@ def build_avatar_ui(
 
         progress(1.0, desc="완료")
         logs.append(f"완료: {vrm_path.name}")
+        logs.append(f"완성 VRM 경로: {vrm_path.resolve()}")
         return (
             f"✅ 캐릭터 VRM 생성 완료 · main {head[:12]}{delivery}",
             "\n".join(logs),
