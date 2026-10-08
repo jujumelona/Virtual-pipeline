@@ -103,6 +103,10 @@ def install_direct_download_route(app, output_root: str | Path) -> None:
         methods=["GET"],
         include_in_schema=False,
     )
+    # Gradio installs a SPA catch-all path. Our route must match BEFORE it,
+    # even when registered after demo.launch created the FastAPI app.
+    route = app.router.routes.pop()
+    app.router.routes.insert(0, route)
 
 
 def publish_avatar_download(
