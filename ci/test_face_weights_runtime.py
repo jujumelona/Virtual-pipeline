@@ -126,8 +126,16 @@ def test_real_checkpoint_code_never_allows_unsafe_pickle_fallback():
         / "vtuber_pipeline/avatar/face_detector.py"
     ).read_text(encoding="utf-8")
     assert 'from safetensors.torch import load_file' in source
-    assert "weights_only=False" not in source.replace(
-        "do not use unsafe weights_only=False", ""
+    # Inspect executable syntax, not explanatory docstrings/comments.
+    import ast
+
+    parsed = ast.parse(source)
+    assert not any(
+        isinstance(node, ast.keyword)
+        and node.arg == "weights_only"
+        and isinstance(node.value, ast.Constant)
+        and node.value.value is False
+        for node in ast.walk(parsed)
     )
     assert 'patch.object(face_module, "load_state_dict_from_path"' in source
     assert 'patch.object(landmark_module, "load_state_dict_from_path"' in source
