@@ -4,33 +4,41 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
-외부에서 만든 캐릭터 이미지를 입력으로 받아 **2D 일러스트 준비** 또는 **3D 전신 VRM 변환**을 선택하는 파이프라인입니다. 이 프로그램은 프롬프트를 제공하지만 **이미지를 생성하지 않습니다.** 상업적 사용 권한은 업로드한 원본 이미지에도 별도로 필요합니다.
+외부 AI가 만든 캐릭터 이미지를 사용자가 업로드합니다. **Inochi2D**, **Live2D**, **3D VRM**의 세 가지 모드를 제공합니다. 이미지 생성 AI는 파이프라인에 포함하지 않고, 모드별 복사 가능한 제작 프롬프트를 UI에 제공합니다.
 
-## 제작 모드 (2D / 3D)
+## 작업 모드
 
-| 모드 | 입력 | 실제 구현 출력 | 아직 구현하지 않은 작업 |
-|---|---|---|---|
-| **2D — Live2D 그림 준비** | 외부에서 제작한 원본 이미지와 선택적 투명 PNG 레이어 ZIP | 레이어가 보존된 OpenRaster `.ora`, PNG, manifest, 안내문을 묶은 ZIP | 자동 얼굴/눈/입/머리카락 분리, 숨겨진 부분 AI 복원, 자동 Cubism 리깅, `.moc3` 내보내기 |
-| **3D — VRM 전신 제작** | 사용자가 업로드한 정면 전신 이미지 + 얼굴 확대(전신 모드 필수) + 선택적 후면 이미지 | VRM 1.0 (`.vrm`) 및 검증 리포트 | 고품질 전신을 보증하는 멀티뷰 3D 최적화, AI 자동 품질 반복 개선 |
-| **3D — 액세서리** | 3D VRM + 별도 액세서리 이미지 | 정적 액세서리가 결합된 VRM | 2D Live2D 파츠에 액세서리를 자동 리깅하는 기능 |
+| UI 모드 | 오픈소스 기반 준비 도구 | 현재 실제 출력 | 완성 방송 모델의 포맷 | 구현 상태 |
+|---|---|---|---|---|
+| **Inochi2D** | [Krita](https://krita.org), [Inochi Creator](https://github.com/Inochi2D/inochi-creator), [Inochi Session](https://github.com/Inochi2D/inochi-session) | `inochi2d_artwork_prep.zip` (OpenRaster + 투명 파츠) | `.inp` | 파츠 편집용 패키지 연결. **자동 리깅·INP 생성 미구현** |
+| **Live2D** | [Krita](https://krita.org) 및 라이선스 확인된 이미지 전처리 도구 | `live2d_artwork_prep.zip` (OpenRaster + 투명 파츠) | `.moc3` + `.model3.json` + 텍스처/물리 | 파츠 편집용 패키지 연결. **자동 Cubism 리깅·MOC3 생성 미구현** |
+| **3D VRM** | TripoSR, MakeHuman CC0, rembg 등 고정된 모델·소스 | `.vrm` 및 품질 검증 정보 | `.vrm` | 기존 3D 본선 유지. 추가 고품질 전신 개선 필요 |
 
-3D 액세서리는 **3D 모드 안에서만** 접근합니다. 2D와 3D 결과물을 혼용하지 않습니다.
+**2D의 준비 ZIP은 최종 모델이 아닙니다.** `.ora` 파일을 Krita에서 열어 가려진 면을 포함하여 파츠를 완성하고, 레이어를 PSD로 내보내 해당 리깅 도구에서 작업해야 합니다.
 
-### 2D 출력의 정확한 의미
+### Inochi2D
 
-- 사용자가 **이미 분리한** 투명 PNG 레이어가 있으면 레이어 위치와 순서를 유지해 OpenRaster 포맷으로 묶습니다. ZIP 안의 PNG는 반드시 원본 이미지와 같은 캔버스 크기를 사용하세요.
-- **원본 이미지 한 장만 있으면** `needs_layering`으로 표시합니다. 이 경우 산출물은 평면 원본을 담은 편집용 자료이며, 애니메이션 리깅 모델이 **아닙니다**.
-- `.ora` 파일은 Krita에서 열어 파츠 분리·가려진 면 보완을 진행하고 레이어 PSD로 저장할 수 있습니다. 그 다음 Live2D Cubism Editor로 가져와 파라미터·메시·변형·표정·물리 리깅을 수행하고 `.moc3`, `.model3.json` 및 텍스처를 내보내야 **VTube Studio**에서 사용할 수 있습니다.
-- Live2D Cubism Editor는 오픈소스가 아닙니다. [Live2D 공식 Export 가이드](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/)를 확인하세요. 완전히 오픈소스인 별도 제작·방송 환경을 원하는 경우 [Inochi Creator/Session](https://inochi2d.com/download/)을 사용할 수 있지만, **Inochi2D 결과물을 VTube Studio용 Live2D 파일이라고 부르면 안 됩니다.**
+- 입력: 외부 AI 캐릭터 원본 1장 + 사용자가 제작한 투명 PNG 파츠 ZIP(선택). 프롬프트는 Inochi2D용으로 분리합니다.
+- 출력: `inochi2d_artwork_prep.zip`, 내부의 `artwork.ora`, `manifest.json`, 파츠, 단계별 안내.
+- 목표: **오픈소스 Inochi Creator에서 리깅 후 `.inp` 출력**, Inochi Session에서 방송 사용.
+- [Inochi2D 공식 문서](https://docs.inochi2d.com/en/latest/): PSD import, 메시·파라미터·물리 리깅은 오픈소스 도구로 가능하지만 **이 저장소가 자동으로 .inp를 생성하는 단계는 아직 구현되지 않았습니다.**
+
+### Live2D
+
+- 입력: 외부 AI 캐릭터 원본 + 사용자 파츠 ZIP. Live2D용 파츠 보완 프롬프트를 따로 제공합니다.
+- 출력: `live2d_artwork_prep.zip`, OpenRaster/PNG/manifest 및 Cubism 안내.
+- 목표: **Live2D Cubism Editor에서 리깅 후 `.moc3`, `.model3.json`, 텍스처/물리 출력**, VTube Studio에서 로드.
+- **Live2D Cubism Editor는 비오픈소스**입니다. 공식 모델 바이너리 생성은 [Cubism 내보내기 문서](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/)에 기술돼 있습니다. 검증된 상업용 오픈소스 MOC3 인코더가 없어 이 프로젝트는 완성된 Live2D 모델을 자동 생성한다고 주장하지 않습니다.
+- Inochi2D의 `.inp`는 Live2D의 `.moc3`로 자동 호환되지 않습니다.
 
 ### 2D CLI
 
 ```bash
-vtuber-pipeline live2d-prep --image character.png --output output/2d
-vtuber-pipeline live2d-prep --image character.png --layers-zip my_layers.zip --output output/2d
+vtuber-pipeline inochi2d-prep --image character.png --layers-zip layers.zip --output output/inochi2d
+vtuber-pipeline live2d-prep --image character.png --layers-zip layers.zip --output output/live2d
 ```
 
-산출물 `live2d_artwork_prep.zip`에는 `artwork.ora`, 이미지 레이어, `manifest.json` 및 `README_NEXT_STEPS.txt`가 들어 있습니다. 이 ZIP은 **Live2D Cubism 런타임 패키지가 아닙니다.**
+사용자 원본 이미지 자체의 상업적 사용 권한은 별도로 확보해야 합니다. 앱·프레임워크의 소스 라이선스와 모델 가중치·데이터 라이선스도 개별 확인해야 합니다.
 
 3D VRM 및 액세서리의 기존 실행·검증 기능은 아래와 같습니다.
 
