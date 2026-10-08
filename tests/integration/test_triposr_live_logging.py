@@ -91,3 +91,76 @@ def test_carriage_return_only_gpu_progress_is_forwarded_before_process_exit(monk
     assert result.returncode == 0
     messages = [detail for name, status, detail in observed if name == "triposr_output"]
     assert messages[-3:] == ["load 10%", "load 65%", "load 100%"]
+
+
+def test_production_runner_uses_namespace_tsr_source_in_real_runpy(
+    tmp_path, monkeypatch,
+):
+    """Replicate actual Colab CLI wrapper + run.py instead of direct import."""
+    import sys
+    import pathlib
+    import vtuber_pipeline.avatar.triposr_runner as runner
+
+    root = tmp_path / "PinnedTripoSR"
+    (root / "tsr").mkdir(parents=True)
+    # Official pinned repo has NO tsr/__init__.py (namespace package).
+    (root / "tsr" / "system.py").write_text(
+        "CHECKPOINT_MARKER = 'system-imported'\n",
+        encoding="utf-8",
+    )
+    result_path = tmp_path / "resolved"
+    (root / "run.py").write_text(
+        "from tsr.system import CHECKPOINT_MARKER\n"
+        f"from pathlib import Path; Path({str(result_path)!r}).write_text(CHECKPOINT_MARKER)\n",
+        encoding="utf-8",
+    )
+    import vtuber_pipeline.avatar.marching_cubes_backend as marching
+    monkeypatch.setattr(marching, "install_triposr_marching_cubes", lambda: None)
+    monkeypatch.setattr(runner, "_install_hf_revision_guard", lambda: None)
+    monkeypatch.setattr(
+        sys, "argv", ["triposr_runner.py", str(root / "run.py"), "--no-remove-bg"]
+    )
+    # Validate actual runpy semantics with no root on sys.path in advance.
+    assert str(root) not in sys.path
+    original = list(sys.path)
+    try:
+        runner.main()
+        assert result_path.read_text() == "system-imported"
+        assert sys.path[0] == str(root)
+    finally:
+        sys.path[:] = original
+        for name in ("tsr", "tsr.system"):
+            sys.modules.pop(name, None)
+
+
+def test_runtime_error_text_does_not_blame_gpu_for_module_not_found():
+    import subprocess
+    from vtuber_pipeline.avatar.reconstruction import (
+        _describe_triposr_process_failure,
+    )
+
+    output = (
+        "[GPU] CUDA 사용 가능: True\n[GPU] 장치: Tesla T4\n"
+        "Traceback (most recent call last):\n"
+        "ModuleNotFoundError: No module named 'tsr'\n"
+    )
+    error = _describe_triposr_process_failure(
+        subprocess.CompletedProcess(["python", "run.py"], 1, "", output)
+    )
+    assert "Python dependency/import error" in error
+    assert "No module named 'tsr'" in error
+    assert "GPU unavailability" not in error
+    assert "CUDA inference error" not in error
+
+
+def test_actual_cuda_out_of_memory_still_classified_as_gpu_failure():
+    import subprocess
+    from vtuber_pipeline.avatar.reconstruction import (
+        _describe_triposr_process_failure,
+    )
+
+    output = "[GPU] CUDA 사용 가능: True\ntorch.OutOfMemoryError: CUDA out of memory\n"
+    error = _describe_triposr_process_failure(
+        subprocess.CompletedProcess(["python", "run.py"], 1, "", output)
+    )
+    assert "CUDA inference error" in error
