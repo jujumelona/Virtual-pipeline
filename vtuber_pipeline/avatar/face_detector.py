@@ -122,20 +122,47 @@ class AnimeFaceDetector:
     """anime-face-detector 래퍼. bbox와 28개 랜드마크를 반환합니다."""
 
     def __init__(self):
-        # anime-face-detector가 설치된 경우에만 임포트
+        # Never convert errors in a transitive import or model initialization
+        # into "package not installed". The caller must see the real exception
+        # (missing dependency, incompatible wheel, CUDA error, or model issue).
         try:
             import anime_face_detector  # noqa: F401
+        except ModuleNotFoundError as exc:
+            if exc.name == "anime_face_detector":
+                report_stage(
+                    "face_model", "error",
+                    "anime-face-detector distribution cannot be imported",
+                )
+                raise RuntimeError(
+                    "anime-face-detector 패키지를 찾을 수 없습니다."
+                ) from exc
+            report_stage(
+                "face_model", "error",
+                f"anime-face-detector dependency import failed: {exc}",
+            )
+            raise
+        except Exception as exc:
+            report_stage(
+                "face_model", "error",
+                f"anime-face-detector import failed: {type(exc).__name__}: {exc}",
+            )
+            raise
+
+        try:
             self._detector = _create_pinned_anime_face_detector()
-        except ImportError:
-            self._detector = None
+        except Exception as exc:
+            report_stage(
+                "face_model", "error",
+                f"anime-face-detector model initialization failed: "
+                f"{type(exc).__name__}: {exc}",
+            )
+            raise
 
     def detect(self, image_path: str) -> Dict[str, Any]:
         """
         이미지에서 애니메이션 얼굴을 감지합니다.
         Returns: {"bbox": [x1,y1,x2,y2], "landmarks": [[x,y]*28], "score": float}
         """
-        if self._detector is None:
-            raise ImportError("anime-face-detector가 설치되지 않았습니다. pip install anime-face-detector")
         if not NUMPY_AVAILABLE:
             raise ImportError("numpy가 설치되지 않았습니다. pip install numpy")
         if not PIL_AVAILABLE:
