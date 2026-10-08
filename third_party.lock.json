@@ -103,7 +103,9 @@
       "artifact_sha256": null,
       "license": "MIT",
       "description": "Background removal used by TripoSR",
-      "commercial_safe": true
+      "commercial_safe": true,
+      "model_name": "u2net",
+      "model_md5": "60024c5c889badc19c04ad937298a77b"
     },
     "gradio": {
       "package": "gradio",
@@ -113,6 +115,14 @@
       "license": "Apache-2.0",
       "license_url": "https://github.com/gradio-app/gradio/blob/main/LICENSE",
       "description": "Pinned Colab web UI runtime",
+      "commercial_safe": true
+    },
+    "dino_vitb16": {
+      "source_commit": "f205d5d8e640a89a2b8ef0369670dfc37cc07fc2",
+      "model_id": "facebook/dino-vitb16",
+      "license": "Apache-2.0",
+      "license_url": "https://huggingface.co/facebook/dino-vitb16",
+      "description": "Nested TripoSR image-tokenizer config revision forced by triposr_runner.py",
       "commercial_safe": true
     }
   },
@@ -125,6 +135,8 @@
     "runtime_contract": "Colab runtime v4 pins the direct compatibility packages recorded here. artifact_sha256 stays null unless exact installed wheel bytes are captured and trusted.",
     "transitive_scope": "commercial_safe flags cover the direct locked components; installed transitive distributions must still be audited from the resolved environment.",
     "triposr_model_integrity": "The Hugging Face model revision is pinned separately from the TripoSR source revision; model.ckpt bytes are verified against model_weight_sha256 before inference.",
-    "gradio_usage": "Colab notebook pins Gradio exactly; the published wheel SHA256 is recorded separately from observed artifact_sha256."
+    "gradio_usage": "Colab notebook pins Gradio exactly; the published wheel SHA256 is recorded separately from observed artifact_sha256.",
+    "dino_runtime_pin": "Upstream TripoSR requests facebook/dino-vitb16 config.json without revision; the local deterministic runner forces this immutable revision.",
+    "rembg_model_integrity": "rembg 2.0.85 verifies u2net.onnx with the locked MD5; the pipeline removes MODEL_CHECKSUM_DISABLED from the TripoSR subprocess environment."
   }
 }
