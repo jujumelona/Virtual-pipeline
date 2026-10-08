@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | **Inochi2D** | Florence-2 / SAM2 / FLUX + Inochi2D SDK | 실제 레이어 PSD/ORA, 메시·키폼·물리 JSON | `.inp` | **prepared**: 2D 중간 결과는 작성. 실제 SDK의 변형/물리 직렬화 어댑터 미검증이므로 `.inp` 완성 불가 |
 | **Live2D** | 동일 2D 레이어·리깅 중간 표현 + 정식 Cubism Editor | `avatar.psd`, `cubism_handoff.zip` | `.moc3` + `.model3.json` + 텍스처/물리 | **needs_editor_export**: 공식 Editor에서 출력한 폴더만 검증·수집. 자동 MOC3 인코더 없음 |
-| **3D VRM** | TripoSR, Depth Anything V2 Small, MakeHuman, Blender VRM Add-on | 피팅/텍스처/리깅 자료 및 검증 시 `avatar.vrm` + `avatar_rigged.blend` | `.vrm` | **상업용 전신 경로 제한**: InstantMesh 내부 Nvidia 비상업/전용 코드 사용권 미확보. 검증 없이 complete 표시 금지 |
+| **3D VRM** | TripoSR, Depth Anything V2 Small, MakeHuman, Blender VRM Add-on | 피팅/텍스처/리깅 자료 및 검증 시 `avatar.vrm` + `avatar_rigged.blend` | `.vrm` | **상업용 모델 교체 반영**: InstantMesh 제외, MIT TripoSR 정면·후면·좌우 독립 복원으로 대체. 실제 Colab T4 E2E 검증은 별도 |
 
 **2D의 준비 ZIP은 최종 모델이 아닙니다.** `.ora` 파일을 Krita에서 열어 가려진 면을 포함하여 파츠를 완성하고, 레이어를 PSD로 내보내 해당 리깅 도구에서 작업해야 합니다.
 
@@ -48,19 +48,21 @@ vtuber-pipeline live2d-import-export --official-export-dir ./cubism-output --out
 ### Avatar Mode
 
 ```text
-character image
-→ input quality gate + anime face landmarks
-→ pinned TripoSR reconstruction
-→ pinned MakeHuman CC0 canonical topology
-→ rigid + sparse non-rigid fitting
-→ source-image texture transfer
-→ humanoid skin + eye bones + secondary hair chain
-→ blink / visemes / emotions
-→ look-at
-→ VRMC_springBone
-→ VRM 1.0 export
-→ strict product validator
-→ avatar.vrm
+front full-body image + independent face reference
++ optional real back / left / right reference images
+→ reference quality and 28-point facial landmark validation
+→ ISNet foreground segmentation + Depth Anything V2 relative depth
+→ pinned MIT TripoSR reconstruction for front and each observed extra view
+→ fixed camera-role yaw registration + rejection of inconsistent views
+→ evidence-aware multiview alignment (front-only remains inferred geometry)
+→ pinned MakeHuman CC0 canonical topology fitting and limited surface refinement
+→ 2048-texel multiview atlas (front/face/back/left/right)
+→ explicitly identified inferred appearance only for unobserved UV polygons
+→ humanoid skin + eye bones + skinned independent hair geometry
+→ blink / visemes / emotions / eye-bone gaze / VRMC_springBone
+→ initial VRM 1.0 → native Blender VRM Add-on round-trip and .blend project
+→ strict VRM product validator
+→ avatar.vrm + avatar_rigged.blend
 ```
 
 필수 stage가 실패하거나 필수 artifact가 없으면 최종 상태는 `failed`입니다. canonical template이나 placeholder 결과로 조용히 대체하지 않습니다.
@@ -82,15 +84,18 @@ completed avatar.vrm
 
 Accessory Mode는 검증된 **static bone-parented bake** 경로만 제공합니다.
 
-## 3D 상업용 실행 사용권 차단 (2026-10-09)
+## 3D 상업용 경로: 사용권이 제한된 모델의 실제 교체 (2026-10-09)
 
-**즉시 확인할 제약:** 고정된 InstantMesh 소스의 `run.py`는 `sudo-ai/zero123plus-v1.2`를 내려받아 실행합니다. 이 멀티뷰 가중치는 **CC BY-NC 4.0**입니다. 해당 확산 생성 단계를 사용하지 않더라도 InstantMesh LRM 내부에는 Nvidia의 전용 고지와 `nvdiffrast` 런타임 종속성이 있습니다. nvdiffrast의 Nvidia Source Code License는 제3자 사용을 연구·평가 목적의 비상업적 사용으로 제한합니다. `third_party.lock.json`의 InstantMesh **체크포인트 가중치 자체**는 Apache 2.0이어도, **전체 실행 경로**를 상업용으로 승인한다는 뜻이 아닙니다.
+이 저장소의 **활성 3D 본선에는 이제 InstantMesh와 Zero123++가 포함되지 않습니다.** 사용자에게 없는 상업용 사용권을 요구하지 않도록, 이미 상업적 이용이 가능한 소스/가중치가 확인된 **TripoSR(MIT)** 로 각 실제 입력 시점을 따로 재구성한 뒤, Depth Anything V2 Small 및 canonical MakeHuman 피팅에 연결했습니다.
 
-- 현재 상업용 경로는 원본 Zero123++ 로딩을 차단하고 TripoSR에서 만든 6개 추정 뷰를 InstantMesh LRM에 전달하는 어댑터를 준비했습니다. **이것만으로는 Nvidia 렌더러 사용권 문제가 해결되지 않습니다.**
-- `commercial_dependency_guard.py`는 상업적 실행 전에 제한 소스·패키지를 검사하고 **실패 시 완성 결과를 가장하지 않습니다.**
-- 상업용 무인 완성의 조건은 관련 Nvidia 코드·런타임 사용권의 명시적 확보 또는 사용권이 확보된 대체 렌더러/형상 복원 기술의 **실제 통합·검증**입니다. 아직 그 단계가 끝나지 않았습니다.
+- 필수: 정면 전신 이미지와 얼굴 확대 이미지. 정면만 있어도 배경 제거·정면 메시·상대 깊이·표면 정합을 실행합니다.
+- 품질 향상: 실제 후면·좌/우 측면 사진을 올리면 각 입력으로 **독립 TripoSR 메시**를 만들고, 고정 카메라 방향과 오차 임계값으로 등록 가능한 메시만 결합합니다. 세 측면 전부가 필수는 아닙니다.
+- 색상: 정면·얼굴·후면·측면 참조로 각 UV 텍셀을 투영합니다. 입력에서 보이지 않는 표면은 투명하게 방치하지 않고 **추정 색상**으로 보완하며, 관측/추정 픽셀 통계를 별도로 보관합니다.
+- 본: MakeHuman topology, 얼굴 Shape Keys, 시선 및 SpringBone, 별도 스킨 적용 머리카락 메시, Blender 네이티브 검증을 유지합니다.
+- **정확도 한계:** 서로 다른 그림의 카메라는 실제로 보정되지 않았습니다. 추가 참조가 있어도 3D 형태 및 의상 뒤쪽이 측정되었다고 주장하지 않습니다. 이미지 일관성이 나쁘면 보조 메시를 거절합니다.
+- **실행 검증:** CPU 계약 CI와 별개로 Colab T4에서 전체 모델·Blender 실행을 최종 통과해야 방송 품질을 확정할 수 있습니다.
 
-검증에 사용한 upstream: [Zero123++ License](https://github.com/SUDO-AI-3D/zero123plus#license), [nvdiffrast LICENSE](https://github.com/NVlabs/nvdiffrast/blob/main/LICENSE.txt), [InstantMesh 소스](https://github.com/TencentARC/InstantMesh).
+기존 `tools/model_workers/instantmesh_worker.py` 및 연구용 원본 어댑터는 상업용 본선에서 제외하고 사용권 감사 목적으로만 유지합니다. Zero123++ 공개 가중치는 [CC BY-NC 4.0](https://github.com/SUDO-AI-3D/zero123plus#license)이며 Nvidia 코드의 별도 사용 제한도 [nvdiffrast 라이선스](https://github.com/NVlabs/nvdiffrast/blob/main/LICENSE.txt)에 명시되어 있습니다. 우회 추정 뷰를 넣는 것만으로 Nvidia 코드 사용권이 해결되는 것은 아니므로 해당 접근은 본선에 채택하지 않았습니다.
 
 ## Commercial source policy
 
