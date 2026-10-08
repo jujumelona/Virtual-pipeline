@@ -1,7 +1,13 @@
-"""VTuber Commercial Pipeline - A pipeline for creating VTuber avatars and accessories."""
+"""VTuber pipeline. Heavy mode-specific dependencies load on demand."""
+from importlib import import_module
 
-__version__ = "0.1.0"
+__version__ = '0.1.0'
+__all__ = ['avatar', 'accessory', 'core']
 
-from vtuber_pipeline import avatar, accessory, core
 
-__all__ = ["avatar", "accessory", "core", "__version__"]
+def __getattr__(name):
+    if name in __all__:
+        module = import_module(f'{__name__}.{name}')
+        globals()[name] = module
+        return module
+    raise AttributeError(name)
