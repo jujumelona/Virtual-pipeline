@@ -1225,6 +1225,9 @@ def build_app() -> gr.Blocks:
 
 
 def launch() -> None:
+    # Notebook cells share one Python kernel even after a fresh git reset.
+    # Old imported package modules can have incompatible stage contracts.
+    _reload_pipeline_modules()
     # Do not show a usable-looking UI before the model assets are verified.
     require_runtime_ready()
     WORK_ROOT.mkdir(parents=True, exist_ok=True)
