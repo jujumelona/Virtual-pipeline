@@ -14,7 +14,7 @@ def infer(req):
     sys.path.insert(0, upstream)
     from train import AnimeSegmentation
     img = Image.open(req["image_path"]).convert("RGBA")
-    source = np.asarray(img)
+    source = np.asarray(img).copy()
     rgb = Image.fromarray(source[:, :, :3], "RGB")
     side = 1024
     scale = min(side / rgb.width, side / rgb.height)

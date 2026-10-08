@@ -151,7 +151,8 @@
       "model_revision": null,
       "model_weight_sha256": null,
       "source": "https://github.com/SkyTNT/anime-segmentation",
-      "commercial_safe": true
+      "commercial_safe": true,
+      "license": "Apache-2.0"
     },
     "florence2_base": {
       "model_id": "microsoft/Florence-2-base",
@@ -159,7 +160,8 @@
       "weights_license": "MIT",
       "model_revision": null,
       "model_weight_sha256": null,
-      "commercial_safe": true
+      "commercial_safe": true,
+      "license": "MIT"
     },
     "sam2_1_hiera_tiny": {
       "model_id": "facebook/sam2.1-hiera-tiny",
@@ -167,7 +169,8 @@
       "weights_license": "Apache-2.0",
       "model_revision": null,
       "model_weight_sha256": null,
-      "commercial_safe": true
+      "commercial_safe": true,
+      "license": "Apache-2.0"
     },
     "flux2_klein_4b": {
       "model_id": "black-forest-labs/FLUX.2-klein-4B",
@@ -175,7 +178,8 @@
       "weights_license": "Apache-2.0",
       "model_revision": null,
       "model_weight_sha256": null,
-      "commercial_safe": true
+      "commercial_safe": true,
+      "license": "Apache-2.0"
     },
     "instantmesh_large": {
       "model_id": "TencentARC/InstantMesh",
@@ -184,7 +188,8 @@
       "weights_license": "Apache-2.0",
       "model_revision": null,
       "model_weight_sha256": null,
-      "commercial_safe": true
+      "commercial_safe": true,
+      "license": "Apache-2.0"
     },
     "depth_anything_v2_small": {
       "model_id": "depth-anything/Depth-Anything-V2-Small-hf",
@@ -192,7 +197,8 @@
       "weights_license": "Apache-2.0",
       "model_revision": null,
       "model_weight_sha256": null,
-      "commercial_safe": true
+      "commercial_safe": true,
+      "license": "Apache-2.0"
     }
   },
   "notes": {
