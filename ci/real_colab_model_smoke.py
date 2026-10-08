@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
+import os
 import pathlib
+import subprocess
 import sys
 import time
 
@@ -29,6 +31,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--device", choices=["cpu", "cuda:0"], required=True)
     parser.add_argument("--all-assets", action="store_true")
+    parser.add_argument("--triposr-load", action="store_true")
     args = parser.parse_args()
 
     import numpy as np
@@ -136,6 +139,67 @@ def main() -> None:
         template = pathlib.Path(report("MakeHuman template", get_template_path))
         scene = report("MakeHuman actual trimesh load", lambda: trimesh.load(template))
         assert scene is not None
+
+        if args.triposr_load:
+            # The official pinned TripoSR checkout is a mandatory prerequisite.
+            # Exercise actual OmegaConf, DINO ViT config, checkpoint loading,
+            # and model construction, not just downloaded model.sha256.
+            from vtuber_pipeline.avatar.reconstruction import TRIPOSR_PINNED_COMMIT
+            from vtuber_pipeline.avatar.triposr_runner import _install_hf_revision_guard
+            from vtuber_pipeline.avatar.marching_cubes_backend import (
+                install_triposr_marching_cubes,
+            )
+
+            repo = pathlib.Path(
+                os.environ.get("TRIPOSR_DIR", "/tmp/vtuber-ci-triposr")
+            ).resolve()
+            result = subprocess.run(
+                ["git", "-C", str(repo), "rev-parse", "HEAD"],
+                check=True, capture_output=True, text=True, timeout=20,
+            )
+            actual_commit = result.stdout.strip()
+            assert actual_commit == TRIPOSR_PINNED_COMMIT, (
+                actual_commit, TRIPOSR_PINNED_COMMIT
+            )
+            sys.path.insert(0, str(repo))
+            install_triposr_marching_cubes()
+            _install_hf_revision_guard()
+            from tsr.system import TSR
+
+            # Release the other large networks before allocating TSR's params.
+            import gc
+            del detector
+            gc.collect()
+
+            def load_actual_triposr():
+                model = TSR.from_pretrained(
+                    str(model_dir), config_name="config.yaml",
+                    weight_name="model.ckpt",
+                )
+                model.to(args.device)
+                assert model.backbone is not None
+                assert model.image_tokenizer is not None
+                assert model.decoder is not None
+                return model
+
+            triposr = report(
+                "real TripoSR backbone and checkpoint initialization",
+                load_actual_triposr,
+            )
+            print(
+                "[REAL-MODEL] TripoSR checkpoint strict loading PASS",
+                flush=True,
+            )
+            if args.device == "cuda:0":
+                rgb = Image.new("RGB", (128, 128), (160, 160, 160))
+                with torch.inference_mode():
+                    codes = report(
+                        "real TripoSR CUDA neural forward",
+                        lambda: triposr([rgb], device=args.device),
+                    )
+                assert codes.numel() > 0 and torch.isfinite(codes).all()
+            del triposr
+            gc.collect()
 
     if args.device == "cuda:0":
         assert torch.cuda.memory_allocated(0) > 0, "GPU smoke allocated no CUDA memory"
