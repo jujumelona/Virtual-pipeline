@@ -348,6 +348,33 @@ def _run_triposr_with_diagnostics(
     )
 
 
+def _describe_triposr_process_failure(result: subprocess.CompletedProcess) -> str:
+    """Classify the final exception, never informational [GPU] startup lines."""
+    detail = result.stderr or result.stdout or "(no process output)"
+    lines = [line.strip() for line in detail.splitlines() if line.strip()]
+    exception_line = next(
+        (line for line in reversed(lines) if line.startswith((
+            "ModuleNotFoundError:", "ImportError:", "RuntimeError:",
+            "OSError:", "ValueError:", "torch.OutOfMemoryError:",
+            "torch.cuda.OutOfMemoryError:",
+        ))),
+        lines[-1] if lines else "(unknown failure)",
+    )
+    lowered = exception_line.lower()
+    if exception_line.startswith(("ModuleNotFoundError:", "ImportError:")):
+        category = "Python dependency/import error"
+    elif ("out of memory" in lowered or "cuda error" in lowered
+          or "cuda driver" in lowered or "cuda unavailable" in lowered
+          or "no cuda" in lowered or "cuda gpu 없음" in lowered):
+        category = "CUDA inference error"
+    else:
+        category = "model execution error"
+    return (
+        f"TripoSR {category} (exit={result.returncode}): "
+        f"{exception_line}\\n{detail}"
+    )
+
+
 def reconstruct_avatar(
     image_path: str,
     output_dir: str,
@@ -466,32 +493,7 @@ def reconstruct_avatar(
         ) from e
     
     if result.returncode != 0:
-        detail = result.stderr or result.stdout or "(no process output)"
-        # Classify the *actual exception*, not harmless GPU status banners.
-        # A successful '[GPU] CUDA 사용 가능: True' previously caused even a
-        # ModuleNotFoundError to be falsely reported as GPU unavailability.
-        lines = [line.strip() for line in detail.splitlines() if line.strip()]
-        exception_line = next(
-            (line for line in reversed(lines) if line.startswith((
-                "ModuleNotFoundError:", "ImportError:", "RuntimeError:",
-                "OSError:", "ValueError:", "torch.OutOfMemoryError:",
-                "torch.cuda.OutOfMemoryError:",
-            ))),
-            lines[-1] if lines else "(unknown failure)",
-        )
-        lowered = exception_line.lower()
-        if exception_line.startswith(("ModuleNotFoundError:", "ImportError:")):
-            category = "Python dependency/import error"
-        elif ("out of memory" in lowered or "cuda error" in lowered
-              or "cuda driver" in lowered or "cuda unavailable" in lowered
-              or "no cuda" in lowered or "cuda gpu 없음" in lowered):
-            category = "CUDA inference error"
-        else:
-            category = "model execution error"
-        raise RuntimeError(
-            f"TripoSR {category} (exit={result.returncode}): "
-            f"{exception_line}\\n{detail}"
-        )
+        raise RuntimeError(_describe_triposr_process_failure(result))
     
     mesh_path = str(output_path / "0" / f"mesh.{model_save_format}")
     
