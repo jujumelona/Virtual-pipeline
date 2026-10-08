@@ -685,7 +685,8 @@ class AvatarPipeline:
                     rigged_path,
                     texture_path=texture_path,
                     uv_path=uv_path,
-                    hair_mesh_path=results.get("hair_geometry_glb") if full_body else None,
+                    **({"hair_mesh_path": results["hair_geometry_glb"]}
+                       if full_body else {}),
                 )
                 return {"status": "complete", "rigged_mesh": path, "output_path": path}
             except Exception as exc:
