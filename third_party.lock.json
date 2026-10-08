@@ -48,14 +48,6 @@
       "commercial_safe": true,
       "git_blob_sha1": "d26635e9326e3cca30778fd7b9c00062b03cce09"
     },
-    "torchmcubes": {
-      "source_commit": "879926d0ef58e6ce0ac2630fdecb5e53af7ed3ff",
-      "artifact_sha256": null,
-      "license": "MPL-2.0",
-      "license_url": "https://github.com/tatsy/torchmcubes/blob/master/LICENSE",
-      "description": "Marching Cubes extension compiled against the active Colab PyTorch with --no-build-isolation",
-      "commercial_safe": true
-    },
     "pygltflib": {
       "package": "pygltflib",
       "package_version": "1.16.5",
@@ -142,6 +134,15 @@
       "license_url": "https://huggingface.co/facebook/dino-vitb16",
       "description": "Nested TripoSR image-tokenizer config revision forced by triposr_runner.py",
       "commercial_safe": true
+    },
+    "scikit_image": {
+      "package": "scikit-image",
+      "package_version": "0.26.0",
+      "artifact_sha256": null,
+      "license": "BSD-3-Clause",
+      "license_url": "https://github.com/scikit-image/scikit-image/blob/v0.26.0/LICENSE.txt",
+      "description": "Prebuilt marching cubes backend for pinned TripoSR; no torchmcubes native extension",
+      "commercial_safe": true
     }
   },
   "notes": {
@@ -149,13 +150,13 @@
     "triposr_usage": "Commercial profile requires the pinned TripoSR source commit.",
     "anime_face_detector_usage": "Package version 0.1.0 is pinned exactly; YOLOv3 and HRNetV2 Hugging Face revisions and safetensors SHA256 values are independently pinned and verified before detector construction.",
     "vrm_export": "VRM 1.0 is emitted by the pure-Python pygltflib path; Blender/VRM Add-on is not a runtime dependency.",
-    "torchmcubes_usage": "Install after PyTorch and build dependencies with --no-build-isolation; native build parallelism is capped for Colab.",
-    "runtime_contract": "Colab runtime v7 pins the direct compatibility packages and pre-verifies TripoSR plus anime-face model snapshots recorded here. artifact_sha256 stays null unless exact installed wheel bytes are captured and trusted.",
+    "runtime_contract": "Colab runtime v8 uses prebuilt scikit-image for pinned TripoSR marching cubes rather than compiling torchmcubes. All direct compatibility dependencies and model checks are still verified; artifact SHA256 is only recorded for actual downloaded bytes.",
     "transitive_scope": "commercial_safe flags cover the direct locked components; installed transitive distributions must still be audited from the resolved environment.",
     "triposr_model_integrity": "The Hugging Face model revision is pinned separately from the TripoSR source revision; model.ckpt bytes are verified against model_weight_sha256 before inference.",
     "gradio_usage": "Colab notebook pins Gradio exactly; the published wheel SHA256 is recorded separately from observed artifact_sha256.",
     "dino_runtime_pin": "Upstream TripoSR requests facebook/dino-vitb16 config.json without revision; the local deterministic runner forces this immutable revision.",
     "rembg_model_integrity": "rembg 2.0.85 verifies u2net.onnx with the locked MD5; the pipeline removes MODEL_CHECKSUM_DISABLED from the TripoSR subprocess environment.",
-    "makehuman_integrity": "The pinned base.obj is accepted only when its Git blob SHA1 matches the blob at the locked MakeHuman commit; generated template.glb caches are SHA256-bound to that source/version."
+    "makehuman_integrity": "The pinned base.obj is accepted only when its Git blob SHA1 matches the blob at the locked MakeHuman commit; generated template.glb caches are SHA256-bound to that source/version.",
+    "marching_cubes_usage": "TripoSR's pinned isosurface.py imports only marching_cubes from torchmcubes. The isolated TripoSR runner supplies a scoped API adapter backed by exact-pinned scikit-image 0.26.0 and returns torch tensors on the original device. No torchmcubes source build is performed."
   }
 }
