@@ -9,6 +9,7 @@ def fit_accessory(
     anchor_name: str,
     anchor_manifest: Dict[str, Any],
     output_dir: str,
+    visual_alignment: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """Normalize and scale an accessory for a concrete avatar anchor.
 
@@ -56,7 +57,22 @@ def fit_accessory(
 
         # Canonicalize accessory around its own origin and bake the uniform
         # scale. Translation remains bone-relative in attachment metadata.
-        mesh.apply_translation(-center)
+        pivot = center.copy()
+        pivot_rule = "center_of_bounds"
+        if visual_alignment is not None:
+            if visual_alignment.get("status") != "complete":
+                raise ValueError("visual alignment is not complete")
+            if visual_alignment.get("anchor_name") != anchor_name:
+                raise ValueError("visual alignment anchor does not match fit anchor")
+            if pathlib.Path(visual_alignment.get("source_mesh", "")).resolve() != pathlib.Path(accessory_path).resolve():
+                raise ValueError("visual alignment source does not match normalized accessory")
+            pivot = np.asarray(visual_alignment.get("source_pivot"), dtype=float)
+            if pivot.shape != (3,) or not np.isfinite(pivot).all():
+                raise ValueError("visual alignment pivot must be a finite 3-vector")
+            if np.any(pivot < bounds_min - 1e-6) or np.any(pivot > bounds_max + 1e-6):
+                raise ValueError("visual alignment pivot is outside the actual accessory bounds")
+            pivot_rule = str(visual_alignment.get("pivot_rule"))
+        mesh.apply_translation(-pivot)
         mesh.apply_scale(uniform_scale)
 
         output_path = pathlib.Path(output_dir) / "fitted_accessory.glb"
@@ -102,6 +118,8 @@ def fit_accessory(
             "source_visual_kind": source_visual_kind,
             "output_visual_kind": output_visual_kind,
             "target_size": target_size,
+            "attachment_source_pivot": pivot.tolist(),
+            "attachment_pivot_rule": pivot_rule,
             "baked_uniform_scale": uniform_scale,
             "world_to_local_linear": anchor.get("world_to_local_linear"),
             "anchor_node_index": anchor.get("node_index"),

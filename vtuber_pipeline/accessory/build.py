@@ -169,6 +169,7 @@ class AccessoryPipeline:
         
         # Import stage modules
         from vtuber_pipeline.accessory import normalize, anchors, fitting
+        from vtuber_pipeline.accessory.visual_alignment import estimate_visual_alignment
         from vtuber_pipeline.accessory import collision, bake
         from vtuber_pipeline.accessory import artifacts
         from vtuber_pipeline.avatar.validator import validate_vrm
@@ -225,10 +226,26 @@ class AccessoryPipeline:
             results["failed_stages"] = ["anchors"]
             return results
         
-        # Stage 3: Fit
+        # Stage 3: estimate the accessory contact pivot from actual mesh bounds.
         anchor_manifest = results["stages"]["anchors"]
+        results["stages"]["visual_alignment"] = self._reported(
+            "visual_alignment",
+            lambda: estimate_visual_alignment(
+                normalized_path, anchor_name, anchor_manifest, output_dir,
+            ),
+        )
+        if results["stages"]["visual_alignment"].get("status") != "complete":
+            results["status"] = "failed"
+            results["failed_stages"] = ["visual_alignment"]
+            results["failed_reason"] = results["stages"]["visual_alignment"].get(
+                "error", "contact pivot alignment failed"
+            )
+            return results
+
+        # Stage 4: bake the contact point into source-mesh local coordinates.
         results["stages"]["fit"] = self._reported("fit", lambda: fitting.fit_accessory(
-            normalized_path, anchor_name, anchor_manifest, output_dir
+            normalized_path, anchor_name, anchor_manifest, output_dir,
+            visual_alignment=results["stages"]["visual_alignment"],
         ))
         
         # Stage 4: Collision against the avatar in world space.
@@ -311,6 +328,7 @@ class AccessoryPipeline:
 
         results["accessory_glb"] = fitted_path
         results["attachment_json"] = results["stages"]["attachment"]["output_path"]
+        results["visual_alignment_json"] = results["stages"]["visual_alignment"]["alignment_json"]
         results["preview_png"] = results["stages"]["preview"]["output_path"]
 
         if not bake_enabled:
