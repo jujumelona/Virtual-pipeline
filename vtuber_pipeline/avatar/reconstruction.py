@@ -230,7 +230,9 @@ def reconstruct_avatar(
     # TripoSR은 MIT 라이선스 - 모든 프로파일에서 안전하게 사용 가능
     # nvdiffrast 의존성 없음
     
-    input_path = pathlib.Path(image_path)
+    # TripoSR runs with cwd set to its own checkout. Normalize caller paths
+    # before crossing that subprocess boundary (CLI accepts relative paths).
+    input_path = pathlib.Path(image_path).expanduser().resolve()
     if not input_path.is_file() or input_path.stat().st_size <= 0:
         raise FileNotFoundError(
             f"TripoSR input image is missing or empty: {image_path}"
@@ -244,7 +246,8 @@ def reconstruct_avatar(
     if not isinstance(remove_background, bool):
         raise ValueError("remove_background must be boolean")
 
-    pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
+    output_path = pathlib.Path(output_dir).expanduser().resolve()
+    output_path.mkdir(parents=True, exist_ok=True)
 
     # Resolve code/model only after cheap caller validation so malformed API
     # requests cannot trigger heavyweight downloads or GPU setup.
@@ -274,15 +277,15 @@ def reconstruct_avatar(
         sys.executable,
         str(runner_script),
         str(run_script),
-        image_path,
-        "--output-dir", output_dir,
+        str(input_path),
+        "--output-dir", str(output_path),
         "--model-save-format", model_save_format,
         "--pretrained-model-name-or-path", model_dir,
     ]
     if not remove_background:
         # Upstream does not create output_dir/0 in this branch, so make it
         # explicitly before invoking run.py.
-        pathlib.Path(output_dir, "0").mkdir(parents=True, exist_ok=True)
+        (output_path / "0").mkdir(parents=True, exist_ok=True)
         cmd.append("--no-remove-bg")
     
     raw_timeout = os.environ.get(
@@ -325,7 +328,7 @@ def reconstruct_avatar(
             raise RuntimeError(f"TripoSR failed due to GPU unavailability: {result.stderr}")
         raise RuntimeError(f"TripoSR failed:\n{result.stderr}")
     
-    mesh_path = str(pathlib.Path(output_dir) / "0" / f"mesh.{model_save_format}")
+    mesh_path = str(output_path / "0" / f"mesh.{model_save_format}")
     
     mesh_file = pathlib.Path(mesh_path)
     if not mesh_file.is_file() or mesh_file.stat().st_size == 0:
