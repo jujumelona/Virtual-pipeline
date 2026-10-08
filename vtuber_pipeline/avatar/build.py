@@ -16,7 +16,7 @@ class AvatarPipeline:
     expressions → gaze → SpringBone → VRM export → strict validation.
     """
 
-    CACHE_SCHEMA = "avatar-pipeline-v6"
+    CACHE_SCHEMA = "avatar-pipeline-v7-multiview"
 
     def __init__(self, output_dir: str, config: Optional[Dict[str, Any]] = None):
         self.output_dir = pathlib.Path(output_dir)
@@ -156,6 +156,16 @@ class AvatarPipeline:
             "fit_npz",
             "face_png",
             "body_png",
+            "rgba_png",
+            "alpha_png",
+            "depth_manifest",
+            "depth_front",
+            "depth_back",
+            "depth_left",
+            "depth_right",
+            "mesh_obj",
+            "constraints_json",
+            "aligned_multiview_glb",
         )
         artifacts = []
         for artifact_key in artifact_keys:
@@ -302,7 +312,7 @@ class AvatarPipeline:
             return config_failure("references must be an object")
         unknown_references = sorted(
             set(reference_raw) -
-            {"full_body", "face_image", "back_image", "texture_size"}
+            {"full_body", "face_image", "back_image", "left_image", "right_image", "texture_size"}
         )
         if unknown_references:
             return config_failure(
@@ -313,7 +323,10 @@ class AvatarPipeline:
             return config_failure("references.full_body must be boolean")
         face_image = reference_raw.get("face_image")
         back_image = reference_raw.get("back_image")
-        for ref_name, ref_value in (("face_image", face_image), ("back_image", back_image)):
+        left_image = reference_raw.get("left_image")
+        right_image = reference_raw.get("right_image")
+        for ref_name, ref_value in (("face_image", face_image), ("back_image", back_image),
+                                    ("left_image", left_image), ("right_image", right_image)):
             if ref_value is not None and (
                 not isinstance(ref_value, str) or not ref_value.strip()
             ):
@@ -343,11 +356,15 @@ class AvatarPipeline:
             "front": input_digest(image_path),
             "face": input_digest(face_image),
             "back": input_digest(back_image),
+            "left": input_digest(left_image),
+            "right": input_digest(right_image),
         }
         reference_options = {
             "full_body": full_body,
             "face_image": face_image,
             "back_image": back_image,
+            "left_image": left_image,
+            "right_image": right_image,
             "texture_size": texture_size,
         }
 
@@ -393,6 +410,10 @@ class AvatarPipeline:
         from vtuber_pipeline.avatar.reconstruction import reconstruct_avatar
         from vtuber_pipeline.avatar.template_mesh import get_template_path
         from vtuber_pipeline.avatar.template_fitting import fit_template
+        from vtuber_pipeline.perception.anime_alpha import create_person_alpha
+        from vtuber_pipeline.avatar.depth_runner import estimate_depth
+        from vtuber_pipeline.avatar.instantmesh_runner import reconstruct_multiview
+        from vtuber_pipeline.avatar.multiview_fitting import align_sources
         from vtuber_pipeline.avatar.texture_transfer import transfer_texture
         from vtuber_pipeline.avatar.rigging import rig_avatar
         from vtuber_pipeline.avatar.expressions import generate_expressions, validate_expressions
@@ -408,6 +429,7 @@ class AvatarPipeline:
             (reference_digests, reference_options),
             lambda: inspect_references(
                 image_path, face_image=face_image, back_image=back_image,
+                left_image=left_image, right_image=right_image,
                 full_body=full_body, output_dir=output_dir,
             ),
         )
@@ -417,6 +439,26 @@ class AvatarPipeline:
                 results, "reference_quality",
                 "; ".join(references.get("errors") or ["Invalid source references"]),
             )
+
+        # Full-body reconstruction consumes the same alpha as InstantMesh.
+        # Do not reinterpret opaque backgrounds as geometry, and do not use
+        # a fabricated white silhouette if ISNet fails.
+        reconstruction_image = image_path
+        if full_body:
+            try:
+                alpha = self._run_stage(
+                    "person_alpha",
+                    (reference_digests["front"],),
+                    lambda: create_person_alpha(
+                        image_path, str(pathlib.Path(output_dir) / "person_alpha"),
+                    ),
+                )
+            except Exception as exc:
+                return self._fail(results, "person_alpha", str(exc))
+            results["stages"]["person_alpha"] = alpha
+            if alpha.get("status") != "complete" or not pathlib.Path(alpha.get("rgba_png") or "").is_file():
+                return self._fail(results, "person_alpha", alpha.get("error", "missing foreground RGBA"))
+            reconstruction_image = alpha["rgba_png"]
 
         # 1. Detect 28 facial landmarks from the dedicated face image.
         # The source for TripoSR remains the complete front-body image.
@@ -433,16 +475,34 @@ class AvatarPipeline:
             return self._fail(results, "input_gate", str(reasons))
         landmarks = gate["landmarks"]
 
+        # Separate single-model child processes; no concurrent GPU weights.
+        depth = None
+        if full_body:
+            try:
+                depth = self._run_stage(
+                    "relative_depth",
+                    (reference_digests,),
+                    lambda: estimate_depth(
+                        image_path, back_image, left_image, right_image,
+                        str(pathlib.Path(output_dir) / "depth"),
+                    ),
+                )
+            except Exception as exc:
+                return self._fail(results, "relative_depth", str(exc))
+            results["stages"]["relative_depth"] = depth
+            if depth.get("status") != "complete" or not pathlib.Path(depth.get("depth_manifest") or "").is_file():
+                return self._fail(results, "relative_depth", depth.get("error", "depth manifest missing"))
+
         # 2. Real input reconstruction. No canonical fallback is permitted.
         reconstruction_dir = str(pathlib.Path(output_dir) / "reconstruction")
         def reconstruct_stage() -> Dict[str, Any]:
             try:
                 mesh_path = reconstruct_avatar(
-                    image_path,
+                    reconstruction_image,
                     reconstruction_dir,
                     profile=profile,
                     model_save_format=model_save_format,
-                    remove_background=remove_background,
+                    remove_background=False if full_body else remove_background,
                 )
                 return {
                     "status": "complete",
@@ -456,13 +516,46 @@ class AvatarPipeline:
 
         reconstruction = self._run_stage(
             "reference_reconstruction",
-            (reference_digests["front"], reconstruction_options),
+            (reference_digests["front"], reconstruction_image, reconstruction_options),
             reconstruct_stage,
         )
         results["stages"]["reference_reconstruction"] = reconstruction
         if reconstruction.get("status") != "complete":
             return self._fail(results, "reference_reconstruction", reconstruction.get("error", "TripoSR failed"))
         reference_mesh = reconstruction["mesh_path"]
+
+        constraints_path = None
+        if full_body:
+            try:
+                multiview = self._run_stage(
+                    "instantmesh",
+                    (reconstruction_image,),
+                    lambda: reconstruct_multiview(
+                        reconstruction_image, str(pathlib.Path(output_dir) / "instantmesh"),
+                    ),
+                )
+            except Exception as exc:
+                return self._fail(results, "instantmesh", str(exc))
+            results["stages"]["instantmesh"] = multiview
+            if multiview.get("status") != "complete" or not pathlib.Path(multiview.get("mesh_obj") or "").is_file():
+                return self._fail(results, "instantmesh", multiview.get("error", "InstantMesh OBJ missing"))
+
+            try:
+                aligned = self._run_stage(
+                    "multiview_alignment",
+                    (reference_mesh, multiview["mesh_obj"], depth["depth_manifest"], references["report_path"]),
+                    lambda: align_sources(
+                        reference_mesh, multiview["mesh_obj"],
+                        depth["depth_manifest"], references["report_path"],
+                        str(pathlib.Path(output_dir) / "alignment"),
+                    ),
+                )
+            except Exception as exc:
+                return self._fail(results, "multiview_alignment", str(exc))
+            results["stages"]["multiview_alignment"] = aligned
+            if aligned.get("status") != "complete" or not pathlib.Path(aligned.get("constraints_json") or "").is_file():
+                return self._fail(results, "multiview_alignment", aligned.get("error", "registered geometry missing"))
+            constraints_path = aligned["constraints_json"]
 
         # 3. Fit one stable CC0-derived canonical topology to the reference.
         try:
@@ -472,13 +565,14 @@ class AvatarPipeline:
 
         fitting = self._run_stage(
             "template_fitting",
-            (template_path, reference_mesh, landmarks, fitting_cfg),
+            (template_path, reference_mesh, landmarks, fitting_cfg, constraints_path),
             lambda: fit_template(
                 template_path,
                 landmarks,
                 output_dir,
                 fitting_cfg,
                 reference_mesh_path=reference_mesh,
+                reference_constraints_json=constraints_path,
             ),
         )
         results["stages"]["template_fitting"] = fitting

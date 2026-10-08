@@ -15,13 +15,16 @@ def inspect_references(
     *,
     face_image: str | None = None,
     back_image: str | None = None,
+    left_image: str | None = None,
+    right_image: str | None = None,
     full_body: bool = False,
     output_dir: str,
 ) -> dict[str, Any]:
     from PIL import Image
     import numpy as np
 
-    paths = {"front": front_image, "face": face_image, "back": back_image}
+    paths = {"front": front_image, "face": face_image, "back": back_image,
+             "left": left_image, "right": right_image}
     report: dict[str, Any] = {
         "status": "error", "full_body": full_body,
         "images": {}, "errors": [], "warnings": [],
@@ -54,7 +57,7 @@ def inspect_references(
                     "path": str(path.resolve()), "size": [width, height],
                     "alpha_foreground_bbox": alpha_bounds,
                 }
-                if full_body and role in {"front", "back"}:
+                if full_body and role in {"front", "back", "left", "right"}:
                     aspect = width / max(height, 1)
                     if not (0.32 <= aspect <= 1.0 and height >= 768):
                         report["errors"].append(
