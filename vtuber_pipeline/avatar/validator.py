@@ -6,6 +6,8 @@ from typing import Dict, Any, Optional
 import numpy as np
 from pygltflib import GLTF2
 
+from vtuber_pipeline.core.gltf import load_gltf
+
 
 OFFICIAL_REQUIRED_BONES = [
     "hips", "spine", "head",
@@ -43,7 +45,7 @@ class VRMValidator:
     def parse_vrm(self) -> Dict[str, Any]:
         if self._gltf is not None:
             return self._vrm
-        self._gltf = GLTF2().load(str(self.vrm_path))
+        self._gltf = load_gltf(self.vrm_path)
         extensions = self._gltf.extensions or {}
         self._vrm = (
             extensions.get("VRMC_vrm", {})
