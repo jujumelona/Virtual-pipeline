@@ -125,9 +125,6 @@ def test_notebook_setup_captures_child_traceback_and_writes_full_log(tmp_path):
             encoding="utf-8"
         )
     )
-    code = "".join(
-        c["source"] for c in notebook["cells"] if c["cell_type"] == "code"
-    )[0:]
     # Use only the first code cell, never execute git/pip in the test.
     first = next(c for c in notebook["cells"] if c["cell_type"] == "code")
     source = "".join(first["source"])
