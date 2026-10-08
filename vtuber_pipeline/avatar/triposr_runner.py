@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import pathlib
 import runpy
+import os
 import sys
 from typing import Any
 
