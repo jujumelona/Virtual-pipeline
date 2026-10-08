@@ -140,6 +140,44 @@ def create_humanoid_skeleton(mesh_bounds: np.ndarray) -> Dict[str, Any]:
 
 
 
+def _hair_component_vertex_groups(mesh: Any, hair_vertex_start: int) -> list[np.ndarray]:
+    """Identify genuine disconnected ribbon components after body+hair merge."""
+    faces = np.asarray(mesh.faces, dtype=np.int64)
+    count = len(mesh.vertices)
+    if not 0 < hair_vertex_start < count:
+        raise ValueError("Invalid start offset for physical hair components")
+    hair_faces = faces[np.all(faces >= hair_vertex_start, axis=1)]
+    if len(hair_faces) < 1:
+        raise ValueError("Supplied hair contains no standalone triangles")
+    # Use a deterministic disjoint-set rather than a heuristic spatial cluster:
+    # touching strands stay connected, and each disconnected ribbon is separate.
+    parent = np.arange(count, dtype=np.int64)
+    def root(index):
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = int(parent[index])
+        return index
+    for a, b, c in hair_faces:
+        ra, rb, rc = root(int(a)), root(int(b)), root(int(c))
+        parent[rb] = ra
+        parent[rc] = ra
+    groups = {}
+    used = np.unique(hair_faces)
+    if len(used) != count - hair_vertex_start:
+        raise ValueError("Unreferenced supplied hair vertices cannot be rigged")
+    for vertex in used:
+        groups.setdefault(root(int(vertex)), []).append(int(vertex))
+    ordered = [
+        np.asarray(v, dtype=np.int64)
+        for v in groups.values() if len(v) >= 3
+    ]
+    if len(ordered) != len(groups) or len(ordered) > 32:
+        raise ValueError("Unexpected or degenerate physical hair components")
+    xyz = np.asarray(mesh.vertices, dtype=float)
+    ordered.sort(key=lambda group: float(np.mean(xyz[group, 0])))
+    return ordered
+
+
 def _combine_supplied_hair_geometry(
     mesh: Any, uv: np.ndarray, hair_mesh_path: str,
 ) -> Tuple[Any, np.ndarray, int]:
