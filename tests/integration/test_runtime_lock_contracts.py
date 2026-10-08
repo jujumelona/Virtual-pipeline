@@ -259,8 +259,9 @@ def test_colab_notebook_is_only_a_fresh_main_bootstrap():
     setup, launch = code_cells
     assert '"fetch", "--prune", "origin", "main"' in setup
     assert '"reset", "--hard", "origin/main"' in setup
-    assert 'REPO_DIR / "tools" / "colab_app.py"' in setup
-    assert 'app["ensure_runtime"]()' in setup
+    assert "REPO_DIR / 'tools' / 'colab_app.py'" in setup
+    assert "app['ensure_runtime']()" in setup
+    assert 'run([sys.executable, "-u", "-c", setup_python], 9000)' in setup
     assert "runpy.run_path" in launch
     assert 'run_name="__main__"' in launch
     assert "ensure_runtime" not in launch
