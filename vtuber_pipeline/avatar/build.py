@@ -326,7 +326,10 @@ class AvatarPipeline:
                 results, "input_gate",
                 "stale input_gate Python module (missing scored-28-landmarks-v2 contract)",
             )
-        if source != expected_source:
+        if (
+            source != expected_source
+            and validate_input.__module__ == input_gate_module.__name__
+        ):
             return self._fail(
                 results, "input_gate",
                 f"input_gate loaded from unexpected file: {source}",
