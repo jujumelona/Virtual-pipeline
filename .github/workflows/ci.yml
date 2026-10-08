@@ -177,6 +177,7 @@ jobs:
               required = {
                   "vtuber_pipeline/__init__.py",
                   "vtuber_pipeline/avatar/build.py",
+                  "vtuber_pipeline/avatar/triposr_runner.py",
                   "vtuber_pipeline/accessory/build.py",
                   "vtuber_pipeline/cli.py",
               }
