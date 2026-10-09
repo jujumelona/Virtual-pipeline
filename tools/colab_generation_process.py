@@ -119,19 +119,18 @@ def run_isolated(
         "mode": mode, "state": "running", "pid": process.pid,
     }), encoding="utf-8")
     deadline = time.monotonic() + timeout
-    cursor = 0
     tail = deque(maxlen=140)
-    pending_lines: list[str] = []
 
     def relay_line(line: str) -> None:
+        """Deliver every worker stdout/stderr line, including the first error."""
         tail.append(line)
-        if not on_event:
+        if on_event is None:
             return
         if line.startswith(EVENT_PREFIX):
             try:
                 payload = json.loads(line[len(EVENT_PREFIX):])
             except json.JSONDecodeError:
-                on_event(("log", line.rstrip()))
+                on_event(("log", line))
                 return
             if payload.get("kind") == "progress":
                 on_event(("progress", payload.get("fraction", 0),
@@ -140,16 +139,12 @@ def run_isolated(
                 on_event(("stage", payload.get("stage", ""), payload.get("status", ""),
                           payload.get("detail", "")))
             elif payload.get("kind") == "failed":
-                on_event(("log", payload.get("error", "")[-1500:]))
+                on_event(("log", str(payload.get("error", "")) + "\n"))
+            elif payload.get("kind") not in {"complete"}:
+                on_event(("log", line))
         else:
-            # Preserve every byte in generation.log, but send at most one
-            # compact transcript update per poll to Gradio's event queue.
-            pending_lines.append(line.rstrip())
+            on_event(("log", line))
 
-    def flush_pending() -> None:
-        if pending_lines and on_event:
-            on_event(("log", "\n".join(pending_lines[-12:])))
-        pending_lines.clear()
 
     # Colab's stop/interruption must terminate this exact process group.
     # start_new_session=True otherwise leaves an orphan model running after
@@ -157,7 +152,7 @@ def run_isolated(
     try:
         return _await_worker_completion(
             process, mode, folder, log_path, result_path, deadline,
-            tail, pending_lines, relay_line, flush_pending,
+            tail, relay_line,
         )
     except BaseException:
         # _await_worker_completion may already have recorded a regular
@@ -184,7 +179,7 @@ def run_isolated(
 
 def _await_worker_completion(
     process, mode, folder, log_path, result_path, deadline,
-    tail, pending_lines, relay_line, flush_pending,
+    tail, relay_line,
 ):
     cursor = 0
     # Do not hold a pipe open to the notebook kernel.
@@ -198,7 +193,6 @@ def _await_worker_completion(
                         break
                     relay_line(line)
                 cursor = stream.tell()
-        flush_pending()
         status = process.poll()
         if status is not None:
             # Drain late buffered output before checking result.json.
@@ -206,8 +200,7 @@ def _await_worker_completion(
                 stream.seek(cursor)
                 for line in stream:
                     relay_line(line)
-            flush_pending()
-            break
+                break
         if time.monotonic() > deadline:
             # Stop the whole worker session, including its child model stages.
             import signal
@@ -244,5 +237,7 @@ def _await_worker_completion(
                  if status in (-9, 137) else "Model subprocess failed")
     raise RuntimeError(
         f"{diagnosis}; mode={mode}; exit={status}; job={folder}; "
-        f"log={log_path}\n" + "".join(tail)[-8000:]
+        f"log={log_path}\n"
+        "Every subprocess output line was streamed to the notebook above; "
+        "the complete unfiltered transcript is in generation.log."
     )
