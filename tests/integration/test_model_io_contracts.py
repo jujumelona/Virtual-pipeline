@@ -467,6 +467,15 @@ def test_cli_avatar_options_reach_avatar_builder(
             "texture_size": 2048,
         },
     }
+    for provider in ("blender_heat", "skintokens"):
+        selected = runner.invoke(
+            cli,
+            ["avatar", "--image", str(image_path), "--output",
+             str(tmp_path / f"avatar-{provider}"),
+             "--rigging-provider", provider],
+        )
+        assert selected.exit_code == 0, selected.output
+        assert captured["config"]["rigging"] == {"provider": provider}
 
 
 def test_model_option_cache_inputs_are_explicit():
