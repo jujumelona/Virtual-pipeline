@@ -67,10 +67,15 @@ def test_readme_is_the_only_colab_prompt_source():
                            "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
     code = "\n".join("".join(c["source"]) for c in notebook["cells"]
                      if c["cell_type"] == "code")
-    assert "## 모드별 이미지 생성 프롬프트 — 고해상도 시트 방식" in readme
+    assert "## 고화질 시트 제작 — 배치도와 이미지 생성 프롬프트" in readme
     assert "front_master.png" in readme
     assert "sheet_hair.png" in readme
-    assert "sheet_body_views.png" in readme
+    assert "sheet_front_back.png" in readme
+    assert "sheet_side_views.png" in readme
+    assert "sheet_eye_left.png" in readme
+    assert "sheet_eye_right.png" in readme
+    assert "sheet_mouth.png" in readme
+    assert "sheet_arms_hands.png" in readme
     assert "character_2d_sheet_pack.zip" in readme
     assert "character_3d_sheet_pack.zip" in readme
     assert "build_prompts(" not in code
