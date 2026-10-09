@@ -177,8 +177,8 @@ def test_character_mode_rejects_accessory_only_mode_in_ui_dispatch():
              if cell["cell_type"] == "code"]
     assert 'TASK = "캐릭터 생성"' in cells[1]
     assert 'ACCESSORY_ANCHOR = "AUTO"' in cells[1]
-    assert 'elif TASK == "액세서리 제작":' in cells[3]
-    tree = ast.parse(cells[3])
+    assert 'elif TASK == "액세서리 제작":' in cells[4]
+    tree = ast.parse(cells[4])
     branches = [node for node in ast.walk(tree) if isinstance(node, ast.If)]
     work = next(node for node in branches if
                 ast.unparse(node.test) == "TASK == '캐릭터 생성'")
@@ -195,16 +195,20 @@ def test_v8_notebook_cells_are_independent_and_failure_is_not_success():
                            "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
     cells = ["".join(c["source"]) for c in notebook["cells"]
              if c["cell_type"] == "code"]
-    assert len(cells) == 7
+    assert len(cells) == 8
     for cell in cells:
         ast.parse(cell)
-    setup, selection, upload, build, download, diagnostics, last = cells
+    setup, selection, prefetch, upload, build, download, diagnostics, last = cells
+    assert "colab_mode_prepare.py" in prefetch
+    assert "--mode" in prefetch
+    assert "generate(" not in prefetch
     assert "files.upload" in upload
     assert "_stored_uploads" in upload
     assert "generate(" not in upload
     assert "generate(" in build
     assert "files.upload" not in build
     assert "files.download" not in build
+    assert 'VTUBER_NOTEBOOK_EXPLICIT_DOWNLOAD' in build
     assert "if not RESULT_FILE:" in build
     assert "raise RuntimeError(" in build
     assert "DOWNLOAD_NOW = False" in download
