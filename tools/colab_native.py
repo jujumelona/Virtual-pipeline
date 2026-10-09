@@ -208,7 +208,11 @@ def _build_arguments(mode, usage, upload, job_folder, *, image_path,
 
 
 def _event_printer(event):
-    """Show concise notebook progress; entire raw output is kept in job log."""
+    """Show EVERY worker log line in the Colab cell, unfiltered and uncut.
+
+    generation.log remains on disk. A fatal compiler/linker diagnostic is
+    usually before the final 'cc failed' line, so do not grep or take tails.
+    """
     kind = event[0]
     if kind == "stage":
         _, name, status, detail = event
@@ -217,37 +221,12 @@ def _event_printer(event):
         fraction, description = event[1:3]
         print(f"[진행] {100.0 * float(fraction):.0f}% {description}", flush=True)
     elif kind == "log":
-        # pip often prints a nonfatal "ERROR: pip's dependency resolver..."
-        # despite returning 0; git checkout HEAD notes may contain "error"
-        # inside commit titles. Neither is a model failure.
-        lines = []
-        for line in str(event[1]).splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith(
-                ("ERROR: pip's dependency resolver", "HEAD is now at",
-                 "Not uninstalling ", "Can't uninstall ")
-            ):
-                continue
-            meaningful = (
-                stripped.startswith(("Traceback (most recent call last):",
-                                     "Error:", "ERROR:", "RuntimeError:",
-                                     "ImportError:", "FileNotFoundError:",
-                                     "subprocess.CalledProcessError:",
-                                     "/usr/bin/ld:", "/usr/bin/ld.gold:",
-                                     "ld:", "ld.lld:", "collect2:"))
-                or any(phrase in stripped.casefold() for phrase in (
-                    "undefined reference", "cannot find -l", "cannot find library",
-                    "dso missing from command line", "file format not recognized",
-                    "linker command failed", "fatal error:", "linker error",
-                    "error: /usr/bin/cc failed", "native_build.log"))
-                or "[setup]" in stripped and "FAILED" in stripped
-                or "[inochi-sdk]" in stripped and "unavailable" in stripped
-                or re.search(r"(worker-import-smoke-ok|flux-transformers-hub-import-ok|실패|준비 완료)", stripped)
-            )
-            if meaningful:
-                lines.append(stripped)
-        for line in lines[-3:]:
-            print("[작업] " + line[:280], flush=True)
+        # Preserve original newlines, blank lines, long linker commands,
+        # stderr tracebacks, pip warnings, and compiler diagnostics.
+        message = str(event[1])
+        print(message, end="" if message.endswith("\n") else "\n", flush=True)
+    else:
+        print(repr(event), flush=True)
 
 
 def generate(
@@ -298,8 +277,9 @@ def generate(
         raise
     status, details, output = result[:3]
     print("결과:", status, flush=True)
-    if details and ("실패" in str(status) or "❌" in str(status)):
-        print(str(details)[-2200:], flush=True)
+    if details:
+        # Never hide the beginning of a traceback or the first linker error.
+        print(str(details), flush=True)
     if not output or not Path(str(output)).is_file():
         return None
     output = str(Path(output).resolve())
