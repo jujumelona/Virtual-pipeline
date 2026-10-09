@@ -1,0 +1,49 @@
+name: Florence native weights inference
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "ci/florence_native_e2e.py"
+      - "tools/model_workers/florence_worker.py"
+      - "vtuber_pipeline/common/model_assets.py"
+      - "third_party.lock.json"
+      - ".github/workflows/florence-native.yml"
+permissions:
+  contents: read
+jobs:
+  real-florence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU PyTorch without CUDA runtime
+        run: |
+          timeout 600 python -m pip install --only-binary=:all: \
+            "torch==2.6.0" --index-url https://download.pytorch.org/whl/cpu
+      - name: Install pinned Florence inference dependencies
+        run: |
+          timeout 360 python -m pip install --only-binary=:all: \
+            "transformers==4.57.6" "huggingface-hub>=0.34,<1" \
+            pillow accelerate safetensors numpy
+      - name: Verify real pinned Florence checkpoint inference and parsed boxes
+        env:
+          USE_TF: "0"
+          USE_FLAX: "0"
+          HF_HUB_DISABLE_TELEMETRY: "1"
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/florence-diagnostics"
+          timeout 900 python -u ci/florence_native_e2e.py 2>&1 | tee "$RUNNER_TEMP/florence-diagnostics/native_inference.log"
+      - name: Publish Florence loader diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: florence-native-cpu-evidence
+          path: ${{ runner.temp }}/florence-diagnostics/
+          if-no-files-found: warn
+          retention-days: 7
