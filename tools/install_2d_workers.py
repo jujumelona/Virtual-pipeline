@@ -178,10 +178,15 @@ def install_2d_environment() -> dict:
         except (json.JSONDecodeError, OSError):
             saved = {}
         if saved.get("fingerprint") == fingerprint:
-            _smoke(python, source, torch_version, vision_version)
-            _exec([str(flux_python), "-c", "from diffusers import Flux2KleinPipeline"], timeout=120)
-            return {"python": str(python), "flux_python": str(flux_python),
-                    "anime_source": str(source), "fingerprint": fingerprint}
+            try:
+                _smoke(python, source, torch_version, vision_version)
+                _exec([str(flux_python), "-c", "from diffusers import Flux2KleinPipeline"], timeout=120)
+            except Exception as exc:
+                print(f"[2d-env] stale worker cache failed smoke: {exc}; repairing", flush=True)
+                marker.unlink(missing_ok=True)
+            else:
+                return {"python": str(python), "flux_python": str(flux_python),
+                        "anime_source": str(source), "fingerprint": fingerprint}
 
     WORK.mkdir(parents=True, exist_ok=True)
     _prepare_venv("venv")
@@ -263,9 +268,14 @@ def install_alpha_environment() -> dict:
         except (OSError, json.JSONDecodeError):
             ready = {}
         if ready.get("fingerprint") == fingerprint:
-            _exec([str(python), "-c", smoke], env=env, timeout=180)
-            return {"python": str(python), "anime_source": str(source),
-                    "fingerprint": fingerprint}
+            try:
+                _exec([str(python), "-c", smoke], env=env, timeout=180)
+            except Exception as exc:
+                print(f"[alpha-env] stale 3D alpha cache failed smoke: {exc}; repairing", flush=True)
+                marker.unlink(missing_ok=True)
+            else:
+                return {"python": str(python), "anime_source": str(source),
+                        "fingerprint": fingerprint}
     WORK.mkdir(parents=True, exist_ok=True)
     _prepare_venv("venv_alpha")
     constraints = WORK / "alpha_cuda_constraints.txt"
