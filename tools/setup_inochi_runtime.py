@@ -54,20 +54,39 @@ def _run(command: list[str], *, timeout: int, cwd: Path | None = None) -> None:
         )
 
 
+def _link_dependencies_ready() -> bool:
+    """Check the link-time headers/symlinks as well as executables.
+
+    Existing code only looked for ldc2/dub/xvfb-run and skipped SDL2/GL/GLU
+    development libraries whenever the compiler was already on PATH.
+    """
+    if not shutil.which("pkg-config"):
+        return False
+    try:
+        result = subprocess.run(
+            ["pkg-config", "--exists", "sdl2", "gl", "glu", "zlib"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=20, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
 def _install_compiler() -> None:
     needed = ("ldc2", "dub", "xvfb-run")
-    if all(shutil.which(name) for name in needed):
+    if all(shutil.which(name) for name in needed) and _link_dependencies_ready():
         return
     if not shutil.which("apt-get"):
         raise RuntimeError(
-            "Inochi SDK requires LDC, DUB, SDL2 and Xvfb; no apt-get found")
+            "Inochi SDK requires LDC, DUB, SDL2, OpenGL, zlib and Xvfb; no apt-get found")
     prefix = [] if (hasattr(os, "geteuid") and os.geteuid() == 0) else ["sudo"]
     _run([*prefix, "apt-get", "update", "-qq"], timeout=300)
     _run([*prefix, "apt-get", "install", "-y", "--no-install-recommends",
-          "ldc", "dub", "xvfb", "libsdl2-dev", "libgl1-mesa-dev",
-          "libglu1-mesa-dev"], timeout=900)
-    if not all(shutil.which(name) for name in needed):
-        raise RuntimeError("D compiler and headless OpenGL runtime did not install")
+          "ldc", "dub", "xvfb", "pkg-config", "libsdl2-dev",
+          "libgl1-mesa-dev", "libglu1-mesa-dev", "zlib1g-dev"], timeout=900)
+    if not all(shutil.which(name) for name in needed) or not _link_dependencies_ready():
+        raise RuntimeError("D compiler or SDL2/OpenGL/GLU/zlib link-time dependencies are missing")
 
 
 def ensure_inochi_native_runtime() -> str:
