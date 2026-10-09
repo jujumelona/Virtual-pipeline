@@ -22,6 +22,39 @@ def _layers(source: SourceSet, folder: Path) -> PartsDocument | None:
     from .preparation import _load_image, _read_layers
     base = _load_image(Path(source.front_image).read_bytes(), "source")
     supplied = _read_layers(source.user_layers_zip, base.size)
+    from vtuber_pipeline.prompt_contract import LAYER_PARTS, REQUIRED_2D, CANVAS_2D
+
+    provided_names = {name.casefold() for name, _ in supplied}
+    missing = sorted(set(REQUIRED_2D) - provided_names)
+    if missing:
+        raise ValueError(
+            "Provided layered artwork is incomplete; refusing to fall back "
+            "to FLUX/SAM automatic generation. Missing semantic PNGs: "
+            + ", ".join(missing)
+        )
+    if __import__("os").environ.get("VTUBER_2D_STRICT_LAYER_INPUT") == "1":
+        expected = {name for name, _ in LAYER_PARTS}
+        unexpected = sorted(provided_names - expected)
+        missing_full = sorted(expected - provided_names)
+        if missing_full or unexpected:
+            raise ValueError(
+                f"2D high-quality pack must contain exactly {len(expected)} "
+                f"layer PNGs; missing={missing_full}; unexpected={unexpected}"
+            )
+        if base.size != CANVAS_2D:
+            raise ValueError(
+                f"2D master canvas must be {CANVAS_2D}, got {base.size}"
+            )
+    for name, image in supplied:
+        alpha = np.asarray(image.getchannel("A"), dtype=np.uint8)
+        pixels = int(np.count_nonzero(alpha))
+        if not pixels:
+            raise ValueError(f"{name}: generated layer is completely transparent")
+        if pixels > base.width * base.height * 0.85:
+            raise ValueError(
+                f"{name}: nearly full-canvas opaque background; "
+                "expected one isolated transparent RGBA part"
+            )
     folder.mkdir(parents=True, exist_ok=True)
     parts = []
     for i, (name, img) in enumerate(supplied):
@@ -54,11 +87,12 @@ def prepare_common_2d(source: SourceSet) -> dict:
     # Independently supplied face crops are NOT spatially registered to that
     # image, so their HRNet landmarks must not be used for full-canvas rigging.
     landmarks = detect(source.front_image, str(work / "face"))
-    complete_layer_ids = {"hair.front", "hair.back", "face",
-                          "eye.left.white", "eye.right.white", "mouth.inner"}
-    have = {p.semantic_id for p in supplied.parts} if supplied else set()
-    if supplied and complete_layer_ids.issubset(have):
+    if supplied:
+        # User supplied ALL geometrically registered and occlusion-complete
+        # layers. Never run alpha, Florence, SAM or FLUX for this path.
         parts = supplied
+        print("[2d-layers] Using supplied full-canvas RGBA layers; "
+              "FLUX/SAM automatic restoration bypassed", flush=True)
     else:
         from vtuber_pipeline.perception.anime_alpha import create_person_alpha
         from vtuber_pipeline.perception.semantic_boxes import detect_semantic_parts
@@ -72,10 +106,6 @@ def prepare_common_2d(source: SourceSet) -> dict:
         parts=split_semantic_layers(alpha["rgba_png"],masks["index_json"],
                                     landmarks["landmarks_json"],str(work/"parts"))
         parts=fill_hidden_parts(parts,alpha["rgba_png"],str(work/"repair"))
-        if supplied:
-            names={p.semantic_id:p for p in parts.parts}
-            names.update({p.semantic_id:p for p in supplied.parts})
-            parts.parts=list(names.values())
     from .layer_export import write_psd_and_ora
     from .mesh2d import generate_meshes
     from .keyforms import build_keyforms
