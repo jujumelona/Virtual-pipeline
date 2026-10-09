@@ -104,6 +104,12 @@ grid, text or watermark. Hidden pixels and separate rigging layers
 must be inferred by the subsequent pipeline, not pre-drawn here.
 ~~~
 
+### FREE·PRO 새 프롬프트 생성 명령 (GPU 사용 없음)
+
+`vtuber-pipeline vts-prompts --edition free --scope upper --hair-color '#FFFFFF' --hairstyle 'white layered hair' --eyes 'violet' --face 'androgynous adult anime face' --outfit 'modest jacket, shirt and skirt' --accessories 'small hair clip' --output output/vts_prompts`
+
+`--edition pro --scope full`을 지정하면 전신 PRO의 독립 신체·헤어·의상·액세서리 참고 이미지를 위한 프롬프트를 만든다. **FREE는 완성 캐릭터 이미지 1장, PRO는 교체형 자산별 이미지를 별도로 생성**한다. 이 명령은 프롬프트와 모델 계획 ZIP만 생성하며 모델 가중치를 설치·다운로드하거나 `.moc3`를 만들지 않는다. **Stable-Layers 사용은 기본 설정이며 라이선스 선택 옵션은 없다.**
+
 ### ③ FREE용 AI 모델·소프트웨어 확정 설계 (공식 모델 카드·라이선스 확인, 실행 검증 전)
 
 **확정 기본 원칙:** 완성 캐릭터 **한 장은 외부 대형 이미지 AI에게 생성해 온다.** FREE 내부 파이프라인에서 FLUX.2 Klein 4B 및 별도 캐릭터 생성 모델을 설치하거나 다운로드하지 않는다. 얼굴/헤어/의상/액세서리까지 포함한 `free_upper_master.png` 또는 `free_full_master.png` 한 장을 입력받는다.
@@ -114,22 +120,23 @@ must be inferred by the subsequent pipeline, not pre-drawn here.
 | 1. 애니 신체 파싱 | [See-through V3 SAM-HQ ViT-H](https://huggingface.co/24yearsold/l2d_sam_iter2) (`checkpoint-18000.pt`) | **애니 신체 19개 의미별 파싱**에 특화된 체크포인트를 직접 사용. 일반 SAM을 애니 전용 모델이라고 오인하지 않음 | **Apache-2.0**, 상업적 이용 허용(공식 가중치 카드 명시) |
 | 2. 애니 레이어 분해 | [See-through V3](https://github.com/shitagaki-lab/see-through), 저VRAM 기본은 [LayerDiff3D NF4](https://huggingface.co/24yearsold/seethroughv0.0.2_layerdiff3d_nf4) + [Marigold NF4](https://huggingface.co/24yearsold/seethroughv0.0.1_marigold_nf4) | 캐릭터 한 장 → 최대 23개 의미별 레이어·순서·가려진 영역 추정·PSD. **공식 `inference_psd_quantized.py`** 사용을 계획; 23개는 최종 ArtMesh 최대치나 완성 리깅이 아님 | 코드는 **Apache-2.0**. **LayerDiff / Marigold 가중치: Open RAIL++/Open RAIL-M 제한 병존**, **상업 이용 허용**, 배포·서비스 제공 시 원 라이선스 제한·고지·NOTICE 적용 필요 |
 | 3. 일반 이미지 경계·세부 마스크 | **[SAM2.1 Hiera Large](https://huggingface.co/facebook/sam2.1-hiera-large)** (`sam2.1_hiera_large.pt`) **한 종류로 고정** | 공식 SAM2.1 비교표상 계열 중 최고 정확도 체크포인트. 기존에 제안한 tiny/small/base+ 선택지를 FREE 설정에서 삭제. See-through 의미별 파싱과 역할이 다르며, 필요 영역에만 호출 | **Apache-2.0**, 상업적 이용 허용 |
-| 4. 고난도 반복 분해 | **[Qwen/Qwen-Image-Layered](https://huggingface.co/Qwen/Qwen-Image-Layered)** 20B. 저메모리 후보는 **[OzzyGT/qwen-image-layered-bnb-4bit-transformer](https://huggingface.co/OzzyGT/qwen-image-layered-bnb-4bit-transformer)** | 공식 Qwen 분해기는 가변·재귀 RGBA 분리 지원. 4비트 모델은 **베이스 전체 패키지가 아닌 Transformer 부분**의 bnb NF4 압축이므로 원본의 텍스트 인코더·VAE 등도 따로 필요. SAM/See-through 결과가 부족한 영역에만 실행 | 원본과 해당 NF4 체크포인트 **Apache-2.0**. 커뮤니티 양자화본의 출력·메모리·정밀도는 비교 검증 필요 |
+| 4. 고난도 반복 분해 | **[Qwen/Qwen-Image-Layered](https://huggingface.co/Qwen/Qwen-Image-Layered)** 20B. 저메모리 후보는 **[OzzyGT/qwen-image-layered-bnb-4bit-transformer](https://huggingface.co/OzzyGT/qwen-image-layered-bnb-4bit-transformer)** | 공식 Qwen 분해기는 가변·재귀 RGBA 분리 지원. 4비트 모델은 **베이스 전체 패키지가 아닌 Transformer 부분**의 bnb NF4 압축이므로 원본의 텍스트 인코더·VAE 등도 따로 필요. SAM/See-through 결과가 부족한 영역에만 실행. **Stable-Layers LoRA 기본 적용**(실제 런타임 통합·T4 검증 필요) | 원본과 해당 NF4 체크포인트 **Apache-2.0**. 커뮤니티 양자화본의 출력·메모리·정밀도는 비교 검증 필요 |
 | 5. 움직임 단위 합성·리깅 | 프로젝트 메시·키폼·물리·합성 검사 코드, 추후 Cubism FREE 제약 검사기 | 눈·입·눈꺼풀·머리 가닥·옷감 등 **독립 변형에 필요한 레이어만** 보존. 이미지에서 확인되지 않는 파츠를 임의 증식하지 않음. ArtMesh ≤100, 파츠 그룹 ≤30, 디포머 ≤50, 파라미터 ≤30 등을 동시 검사 | 자체 코드 MIT; Cubism Editor 라이선스 별도 |
 | 6. 공식 결과 산출 | [Cubism Editor 공식 내보내기](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/) / [현재 검증기](https://github.com/jujumelona/Virtual-pipeline/blob/main/vtuber_pipeline/two_d/cubism_handoff.py) | `.moc3`·`.model3.json`·텍스처·물리 수집. **현재는 Editor를 통한 수동 리깅/내보내기 필요**. 성공한 자동 MOC3 생성기를 가장하지 않음 | 공식 Cubism 이용 조건 준수 |
 
 **SAM 선택 근거:** [Meta SAM2.1 공식 README의 체크포인트 성능 비교](https://github.com/facebookresearch/sam2#model-description)에서 Large가 계열 내 가장 높은 SA-V·MOSE·LVOS v2 지표를 기록한다. 따라서 FREE 모드에 별도 SAM2.1 small/base+를 선택 가능하게 두지 않는다. 애니 전용 See-through SAM-HQ는 **서로 다른 네트워크와 목적**이므로 이 선택에서 제외되는 "작은 SAM2.1" 모델이 아니다.
 
-### ③-1. 실제 LoRA 전수 후보 판단 (확인된 관련 모델에 대해서만)
+### ③-1. LoRA 실제 채택 및 라이선스: Stable-Layers 기본 사용
 
-| LoRA 후보 | 확인한 실제 용도·라이선스 | 무료 상업용 기본 경로 판단 |
-|---|---|---|
-| **[StabilityLabs/Stable-Layers](https://huggingface.co/StabilityLabs/Stable-Layers)** | **Qwen-Image-Layered 기반 RGBA 레이어 분리용 GRPO 학습 LoRA**. 가장 직접적으로 관련된 검토 후보. 그러나 **Stability AI Community License**로 연간 매출 **미화 100만 달러 이상** 기업·개인은 상업 이용 시 별도 기업 라이선스 필요. 또한 일반 물체 4개 레이어 추출에 초점을 둬 애니 VTuber 세부 리깅 파츠와 동일하지 않음 | **채택하지 않음**: 전 고객에게 매출 규모와 관계없이 제한 없는 기본 배포 계약에 맞지 않음 |
-| **[yeq6x/Qwen-Image-Layered-Control_LoRA](https://huggingface.co/yeq6x/Qwen-Image-Layered-Control_LoRA)** | **Apache-2.0** 표기, 실제 rank별 가중치 존재. 그러나 **모델 카드 내용이 비어 있어** 제어 목표·필요 로더·권장 강도·성능 검증 근거가 없음 | **채택하지 않음**: 목적·호환성 검증 증거 부족 |
-| **[tori29umai/Qwen-Image-Layered-LoRA-LineGray](https://huggingface.co/spaces/tori29umai/Qwen-Image-Layered-LoRA-LineGray)** | LineGray 분리 데모 존재. **VTuber용 자연스러운 리깅 파츠 개선 효과 및 모델 가중치의 재배포 조건**이 공식적으로 확인되지 않음 | **채택하지 않음**: 검증 부족 |
-| **See-through 전용 LoRA** | 현재 확인된 공식 See-through V3 배포는 **파인튜닝된 LayerDiff/Marigold/SAM-HQ 체크포인트**를 제공. 별도 공식 애니 리깅 파츠 개선 LoRA 배포 근거 없음 | **추가 LoRA 없음**. 이미 목적에 맞게 학습된 체크포인트 사용 |
+**채택:** [StabilityLabs/Stable-Layers](https://huggingface.co/StabilityLabs/Stable-Layers) (Qwen-Image-Layered용 GRPO 학습 LoRA). **FREE와 PRO 모두 Qwen 세부 분해 단계를 실행하면 기본적으로 이 LoRA를 사용한다.** FREE에서는 파츠 분리가 부족할 때만 Qwen을 호출하고, PRO에서는 더 적극적으로 세부 분해한다. **별도의 연매출 입력 화면이나 라이선스 선택 절차는 만들지 않는다.** Qwen 단계가 실행되지 않았으면 LoRA도 다운로드·실행할 필요가 없다.
 
-**LoRA 최종 결정: 현재 FREE 기본 구성에 덧붙일 LoRA는 0개.** 단순히 LoRA가 존재한다고 유효한 것은 아니다. 특히 상업 라이선스·베이스 호환성·VTuber 분할 성능 근거가 모두 확인된 추가 LoRA는 이번 조사에서 찾지 못했다. 무검증 LoRA를 다운로드하거나 붙이지 않는다.
+- **실제 모델 및 경로:** 베이스 `Qwen/Qwen-Image-Layered`; LoRA `StabilityLabs/Stable-Layers`의 `model/adapter_config.json`, `model/adapter_model.safetensors`(약 330MB). 공식 [Stable-Layers 코드](https://github.com/Stability-AI/Stable-Layers)와 모델 카드를 기준으로 한다.
+- **공식 권장 추론 설정:** Heun sampler, 50 steps, CFG 1.0, 최대변 640px, 한 번에 4개 레이어. **4개는 반복 분해 1회의 출력 레이어 수이지 Cubism ArtMesh 할당값이 아니다.** 자동 재귀 분해와 Live2D용 정확한 메시까지 검증됐다는 뜻도 아니다.
+- **무료/상업 이용:** Stability AI Community License는 개인과 연간 총매출 미화 **100만 달러 미만**의 적격 소규모 상업 사용자에게 무료 이용을 허용한다. **상업적 사용 시 공식 등록 요건이 있으며**, 그 이상의 상업 이용에는 Enterprise 라이선스가 필요할 수 있다. 이 프로젝트가 무료 배포된다는 사실은 해당 약관을 무효화하지 않으나, 이를 이유로 개인 사용자에게 매출 증빙을 요구하거나 기본 LoRA를 차단하지 않는다.
+- **배포 고지:** [라이선스 원문](https://stability.ai/license) · [상업 등록](https://stability.ai/community-license) · [LoRA 원본](https://huggingface.co/StabilityLabs/Stable-Layers). 해당 모델을 포함·배포하는 경우 라이선스 사본·NOTICE 및 **Powered by Stability AI** 표시 등 명시된 조건을 지킨다. 개발자용 프롬프트 ZIP에도 라이선스 안내 파일을 포함하며, 모델 가중치 자체는 프롬프트 ZIP에 포함하지 않는다.
+- **양자화 호환성:** Qwen 공식 20B BF16과 이 LoRA의 조합은 공개됐지만, 별도 [Qwen Transformer 4비트](https://huggingface.co/OzzyGT/qwen-image-layered-bnb-4bit-transformer) + Stable-Layers LoRA를 **Colab T4 16GB에서 직접 검증한 증거는 없다**. 따라서 4비트+LoRA의 성능·메모리·로딩 결과를 측정하기 전까지 실제 실행 완료를 주장하지 않는다.
+
+검토한 다른 LoRA: [yeq6x/Qwen-Image-Layered-Control_LoRA](https://huggingface.co/yeq6x/Qwen-Image-Layered-Control_LoRA)는 실제 목적·로더·성능 근거가 부족하고, [LineGray](https://huggingface.co/spaces/tori29umai/Qwen-Image-Layered-LoRA-LineGray)는 VTuber 리깅 향상 근거가 부족하므로 **중복으로 적용하지 않는다**. See-through는 이미 해당 태스크용 파인튜닝 체크포인트를 사용한다.
 
 ### ③-2. 양자화·T4 자원 조건의 실제 결론
 
