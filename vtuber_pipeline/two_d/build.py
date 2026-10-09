@@ -31,14 +31,15 @@ def _layers(source: SourceSet, folder: Path) -> PartsDocument | None:
     from vtuber_pipeline.prompt_contract import LAYER_PARTS, REQUIRED_2D, CANVAS_2D
 
     provided_names = {name.casefold() for name, _ in supplied}
+    vts = source.artwork_profile == "vts_auto"
     missing = sorted(set(REQUIRED_2D) - provided_names)
-    if missing:
+    if missing and not vts:
         raise ValueError(
             "Provided layered artwork is incomplete; refusing to fall back "
             "to FLUX/SAM automatic generation. Missing semantic PNGs: "
             + ", ".join(missing)
         )
-    if __import__("os").environ.get("VTUBER_2D_STRICT_LAYER_INPUT") == "1":
+    if not vts and __import__("os").environ.get("VTUBER_2D_STRICT_LAYER_INPUT") == "1":
         from vtuber_pipeline.wardrobe_contract import GARMENT_PARTS
         from vtuber_pipeline.hair_contract import HAIR_PARTS
         base_expected = {name for name, _ in LAYER_PARTS}
@@ -73,10 +74,21 @@ def _layers(source: SourceSet, folder: Path) -> PartsDocument | None:
                 f"{name}: nearly full-canvas opaque background; "
                 "expected one isolated transparent RGBA part"
             )
+    if vts and len(supplied) < 2:
+        raise ValueError("VTS imported PSD requires at least two separately movable layers")
     folder.mkdir(parents=True, exist_ok=True)
     parts = []
     for i, (name, img) in enumerate(supplied):
         identity = KNOWN.get(name.lower(), name.lower().replace("_","."))
+        if vts:
+            # Layer labels are extracted from See-through PSD semantics. A
+            # legacy neutral-base required-name check cannot apply here.
+            if not any(identity == p or identity.startswith(p+".")
+                       for p in ("hair", "body", "leg", "shoe", "arm", "head",
+                                 "hand", "brow", "sleeve", "accessory",
+                                 "ear", "nose", "neck", "cloth", "face",
+                                 "eye", "mouth", "eyebrow", "hat", "ornament")):
+                raise ValueError("Unclassified VTS PSD layer: " + name)
         depth = z_order(identity)
         alpha = np.asarray(img.getchannel("A"))
         ys,xs = np.nonzero(alpha > 0)
