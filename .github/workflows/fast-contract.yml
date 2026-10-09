@@ -50,6 +50,7 @@ jobs:
             tests/production/test_observed_multiview_silhouette.py \
             tests/production/test_project_all_views_contract.py \
             tests/production/test_observed_facial_subparts.py \
+            tests/production/test_2d_semantic_occlusion_order.py \
             tests/production/test_observed_hair_islands.py \
             tests/production/test_inochi_native_compatibility.py \
             tests/production/test_supplied_hair_geometry.py \
