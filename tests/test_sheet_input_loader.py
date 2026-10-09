@@ -153,7 +153,7 @@ def test_3d_view_sheet_lossless_crop(tmp_path,monkeypatch):
                        ("left",105),("right",140)):
         with Image.open(result[name]) as img:
             assert img.size==(8,8)
-            assert img.getpixel((3,3))==(color,30,40)
+            assert img.getpixel((3,3))==(color,30,40,255)
 
 
 def test_zoomed_face_cell_preserves_native_2x_pixels(tmp_path,monkeypatch):
