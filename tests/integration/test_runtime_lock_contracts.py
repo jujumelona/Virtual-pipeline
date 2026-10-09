@@ -247,8 +247,9 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
     # ensure_runtime(), but deliberately never installs/starts Gradio. The
     # legacy optional UI retains the matching locked version constant.
     assert _constants("tools/colab_app.py")["GRADIO_VERSION"] == gradio
-    assert "app['ensure_runtime']()" in notebook_code
-    assert "runpy.run_path" in notebook_code
+    # v8 bootstrap is lightweight; dependency installation belongs to ③.
+    assert "colab_mode_prepare.py" in notebook_code
+    assert "app['ensure_runtime']()" not in notebook_code
     assert "import gradio" not in notebook_code
 
 
@@ -270,11 +271,12 @@ def test_readme_open_in_colab_badge_targets_canonical_separate_cells_notebook():
     notebook = json.loads(_read(notebook_file))
     cells = ["".join(c.get("source", [])) for c in notebook["cells"]
              if c.get("cell_type") == "code"]
-    assert len(cells) == 7
-    setup, selection, upload, generate, download, diagnostics, final = cells
-    assert "setup_code" in setup
-    assert "colab_app.py" in setup
-    assert "app['ensure_runtime']()" in setup
+    assert len(cells) == 8
+    setup, selection, prefetch, upload, generate, download, diagnostics, final = cells
+    assert "setup_code" not in setup
+    assert "colab_app.py" not in setup
+    assert "colab_mode_prepare.py" in prefetch
+    assert "--mode" in prefetch
     assert "stop_legacy_server()" in setup
     assert 'TASK = "캐릭터 생성"' in selection
     assert 'MODE = "3d"' in selection
