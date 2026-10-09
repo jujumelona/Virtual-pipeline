@@ -222,7 +222,7 @@ def test_real_gradio_mode_selection_wires_upload_then_background_preparation():
     registry = {component["id"]: component for component in config["components"]}
     deps = config["dependencies"]
     navigation = next(entry for entry in deps if entry.get("api_name") == "select_workflow_view")
-    setup_events = [entry for entry in deps if entry.get("api_name") == "prepare_selected_workflow_ui"]
+    setup_events = [entry for entry in deps if str(entry.get("api_name", "")).startswith("prepare_selected_workflow_ui")]
     assert len(setup_events) == 4  # chained preparation plus one retry per mode
     assert any(entry.get("trigger_after") == navigation["id"] for entry in setup_events)
     first_outputs = [registry[i]["props"].get("label") for i in navigation["outputs"]]
