@@ -1241,7 +1241,7 @@ def _run_2d_production_inline(image_path, commercial_usage,
         return "원본 캐릭터 이미지를 업로드하세요.", "", None
     try:
         if os.environ.get("VTUBER_2D_SUPPLIED_LAYERS") == "1" and not user_layers_zip:
-            raise ValueError("External 2D layers profile requires all 26 PNG layers ZIP")
+            raise ValueError("External 2D layers profile requires all 24 neutral PNG layers ZIP")
         ensure_workflow_for_generation(target, commercial_usage)
         from vtuber_pipeline.common.schemas import SourceSet
         from vtuber_pipeline.two_d.build import build_inochi2d, build_live2d
