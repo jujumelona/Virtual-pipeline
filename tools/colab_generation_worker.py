@@ -33,11 +33,11 @@ def run_request(request: dict) -> list:
     if kind == "inochi2d":
         if len(values) != 2:
             raise ValueError("Inochi2D expects character image and usage")
-        return list(app["build_inochi2d_ui"](*values))
+        return list(app["_run_2d_production_inline"](*values, target="inochi2d"))
     if kind == "live2d":
         if len(values) != 2:
             raise ValueError("Live2D expects character image and usage")
-        return list(app["build_live2d_ui"](*values))
+        return list(app["_run_2d_production_inline"](*values, target="live2d"))
     if kind == "avatar":
         if len(values) != 10:
             raise ValueError("Avatar production argument contract mismatch")
