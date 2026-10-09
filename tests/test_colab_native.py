@@ -213,3 +213,33 @@ def test_notebook_prints_entire_failure_details_not_last_2200_only(
     output = capsys.readouterr().out
     assert early in output
     assert output.count("verbose-build-line") == 400
+
+
+
+@pytest.mark.parametrize("status", [
+    "❌ Avatar 생성 실패: rigging error",
+    "inochi2d: 제작 실패 (임시 그림 파일을 모델 완성으로 표시하지 않음)",
+    "live2d 제작 실패: invalid segmentation",
+])
+def test_failed_callback_never_publishes_leftover_artifact(
+    tmp_path, monkeypatch, capsys, status,
+):
+    """A failed model can still leave a valid-looking intermediate artifact."""
+    monkeypatch.setattr(native, "WORK", tmp_path)
+    monkeypatch.setattr(native, "OUTPUT", tmp_path / "output")
+    image = tmp_path / "character.png"
+    image.write_bytes(b"input")
+    leftover = native.OUTPUT / "old-result.zip"
+    leftover.parent.mkdir(parents=True)
+    leftover.write_bytes(b"stale output")
+
+    def failed(_mode, _args, *, on_event):
+        return (status, "first actionable traceback line", str(leftover))
+
+    assert native.generate(
+        "inochi2d", image_path=str(image), runner=failed,
+    ) is None
+    displayed = capsys.readouterr().out
+    assert "first actionable traceback line" in displayed
+    assert "결과 파일을 완성 모델로 제공하지 않습니다" in displayed
+    assert leftover.is_file()
