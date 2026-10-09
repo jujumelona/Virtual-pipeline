@@ -247,10 +247,19 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
     # ensure_runtime(), but deliberately never installs/starts Gradio. The
     # legacy optional UI retains the matching locked version constant.
     assert _constants("tools/colab_app.py")["GRADIO_VERSION"] == gradio
-    # v8 bootstrap is lightweight; dependency installation belongs to ③.
-    assert "colab_mode_prepare.py" in notebook_code
-    assert "app['ensure_runtime']()" not in notebook_code
-    assert "import gradio" not in notebook_code
+    # Legacy notebook still installs from its bootstrap. The canonical v8
+    # notebook instead exposes explicit program/model downloads in cell ③.
+    assert "app['ensure_runtime']()" in notebook_code
+    canonical_notebook = json.loads(_read(
+        "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb"
+    ))
+    canonical_code = "\n".join(
+        "".join(cell.get("source", [])) for cell in canonical_notebook["cells"]
+        if cell.get("cell_type") == "code"
+    )
+    assert "colab_mode_prepare.py" in canonical_code
+    assert "app['ensure_runtime']()" not in canonical_code
+    assert "import gradio" not in canonical_code
 
 
 
