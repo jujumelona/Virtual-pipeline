@@ -236,3 +236,69 @@ def test_real_gradio_mode_selection_wires_upload_then_background_preparation():
     for name in ("Inochi2D 캐릭터 그림", "2D 캐릭터 원본 일러스트 (필수)",
                  "전신 정면 이미지 (필수)"):
         assert name in {item["props"].get("label") for item in registry.values()}
+
+
+def test_avatar_components_declared_before_gradio_callback_registration():
+    """Regression for the 3D startup NameError before any model is loaded.
+
+    A malformed prompt edit previously removed avatar_status/other controls
+    while leaving click(outputs=[avatar_status]) in place. Check the AST
+    independently of Gradio's evolving construction-time behavior.
+    """
+    import ast
+
+    tree = ast.parse((ROOT / "tools" / "colab_app.py").read_text(encoding="utf-8"))
+    app = next(node for node in tree.body
+               if isinstance(node, ast.FunctionDef) and node.name == "build_app")
+    assignments = {}
+    for node in ast.walk(app):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    assignments[target.id] = node.lineno
+
+    required = (
+        "avatar_skintokens_setup", "avatar_run", "avatar_status",
+        "avatar_log", "avatar_log_file", "avatar_result",
+        "avatar_download_button", "avatar_http_link",
+    )
+    for name in required:
+        assert name in assignments, f"3D component not defined: {name}"
+
+    event_bindings = [
+        node for node in ast.walk(app)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in {"click", "then"}
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id in {
+            "avatar_skintokens_setup", "avatar_run", "avatar_generation_event",
+        }
+    ]
+    assert len(event_bindings) == 3, "3D initialization callbacks not wired"
+    for event in event_bindings:
+        for argument in ast.walk(event):
+            if isinstance(argument, ast.Name) and argument.id in required:
+                assert assignments[argument.id] < event.lineno, (
+                    f"{argument.id} referenced at line {event.lineno} "
+                    f"before creation at line {assignments[argument.id]}"
+                )
+
+
+def test_3d_view_exposes_real_upload_status_and_download_components():
+    ui = _app()
+    config = ui.build_app().get_config_file()
+    labels = {item.get("props", {}).get("label") for item in config["components"]}
+    for label in (
+        "전신 정면 이미지 (필수)",
+        "얼굴 확대 이미지 (전신 고품질 모드 필수)",
+        "전신 후면 이미지 (선택: 후면 텍스처에 사용)",
+        "왼쪽 측면 참조 (선택)",
+        "오른쪽 측면 참조 (선택)",
+        "전신 VRM 변환",
+        "완성 VRM (다운로드 가능한 원본 파일)",
+        "↓ avatar.vrm 파일 직접 다운로드",
+        "진행 로그",
+        "전체 로그",
+    ):
+        assert label in labels, f"3D startup dropped required control: {label}"
