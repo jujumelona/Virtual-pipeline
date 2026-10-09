@@ -1,5 +1,11 @@
 from pathlib import Path
+import os
 import sys
+
+# Transformers is a PyTorch-only worker. Loading the unrelated TensorFlow
+# framework can pull incompatible CUDA shared libraries from Colab at import.
+os.environ["USE_TF"] = "0"
+os.environ["USE_FLAX"] = "0"
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from _entry import execute
 
@@ -81,13 +87,18 @@ def infer(req):
     import json
     import torch
     from PIL import Image
-    from transformers import AutoProcessor, AutoModelForCausalLM
+    from transformers import AutoProcessor, Florence2ForConditionalGeneration
     from vtuber_pipeline.common.part_taxonomy import SEMANTIC_PROMPTS
     image=Image.open(req["image_path"]).convert("RGB")
     device="cuda" if torch.cuda.is_available() else "cpu"
     name=snapshot
-    processor=AutoProcessor.from_pretrained(name, trust_remote_code=True)
-    model=AutoModelForCausalLM.from_pretrained(name, trust_remote_code=True).to(device).eval()
+    # Transformers 4.57 has a native Florence2 class; Microsoft model's old
+    # AutoModelForCausalLM remote-code mapping is no longer a valid default.
+    # Fail closed rather than loading arbitrary model code from the cache.
+    processor=AutoProcessor.from_pretrained(name, trust_remote_code=False)
+    model=Florence2ForConditionalGeneration.from_pretrained(
+        name, trust_remote_code=False
+    ).to(device).eval()
     parts=[]
     # Open-vocabulary detection is grounded in model-returned boxes; no phantom parts.
     for semantic,prompt in SEMANTIC_PROMPTS.items():
