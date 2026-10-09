@@ -1495,7 +1495,8 @@ def build_app() -> gr.Blocks:
                     avatar_rigging_provider = gr.Dropdown(
                         label="3D 자동 스키닝 엔진",
                         choices=[("기본 휴머노이드 + 머리카락 리깅 (검증 경로)", "canonical"),
-                                 ("SkinTokens 실험적 스키닝 (별도 CUDA 환경 설치 필요)", "skintokens")],
+                                 ("Blender 자동 본 히트 스키닝 (T4 지원·실험적)", "blender_heat"),
+                                 ("SkinTokens 실험적 스키닝 (Ampere+ CUDA만 가능)", "skintokens")],
                         value="canonical",
                     )
                     avatar_skintokens_setup = gr.Button(
