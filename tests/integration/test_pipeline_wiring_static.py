@@ -71,6 +71,7 @@ def test_avatar_stage_dag_is_complete_and_ordered():
         "surface_refine",
         "texture_transfer",
         "rig",
+        "skintokens_skin",
         "expressions",
         "gaze",
         "springbone",
@@ -153,6 +154,8 @@ def test_colab_avatar_ui_options_reach_avatar_config():
     source = _source("tools/colab_app.py")
     assert '"profile": "commercial"' in source
     assert '"commercial_usage": commercial_usage' in source
+    assert '"rigging": {"provider": rigging_provider}' in source
+    assert "avatar_rigging_provider" in source
 
 
 def test_colab_accessory_ui_options_reach_reconstruction_and_build():
