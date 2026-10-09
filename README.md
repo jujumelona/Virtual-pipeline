@@ -141,7 +141,7 @@ vertex count produces an explicit failed stage; no silent downgrade is
 reported as a finished model. The user can choose canonical when the
 optional heat solver is not suitable for an individual character.
 
-Gradio 3D mode: select **Blender 자동 본 히트 스키닝 (T4 지원·실험적)**.
+Colab native notebook: ③ 생성 셀에서 `generate(..., rigging_provider="blender_heat")`를 선택합니다. 기본값은 검증 경로 `canonical`입니다.
 CLI:
 
 ```bash
@@ -178,7 +178,7 @@ unsupported GPUs before checkpoint download or expensive TripoSR stages.
 Use **canonical** 3D rigging on T4. On a supported GPU, SkinTokens
 requires >=14 GiB of *free* VRAM. Real GPU end-to-end quality is not yet verified.
 
-After the regular 3D setup, click **SkinTokens 별도 설치·검증** inside Gradio
+SkinTokens 별도 설치·검증은 고급 CLI의 명시적 작업으로만 수행하고, 기본 Colab 노트북은 자동 설치하지 않습니다
 and select **SkinTokens 실험적 스키닝**. The explicit installer never runs
 during generation. Equivalent CLI setup on an Ampere+ GPU:
 
@@ -220,7 +220,7 @@ export TRIPOSR_DIR="$PWD/TripoSR"
 
 ## Google Colab
 
-상단 **Open In Colab** 버튼으로 열고 **① 환경 설치 → ② 모드별 다운로드 안내 → ③ 생성 UI** 순서대로 실행합니다. 체크포인트는 ③ 화면에서 **Inochi2D / Live2D / 3D VRM 중 하나를 선택한 후** 해당 모드에 필요한 목록만 다운로드합니다.
+상단 **Open In Colab** 버튼에서 노트북을 열고 **① 환경 설치 → ② Colab 기본 입력란에서 제작 모드 선택 → ③ 사진 업로드 및 생성** 순서대로 실행합니다. Gradio나 별도 웹 서버를 실행하지 않습니다. 모델은 ③ 생성 셀에서 선택한 모드에 필요한 것만 설치·검증하며, 작업이 끝나면 셀도 종료됩니다. **③ 셀을 중지하면 해당 AI 생성 프로세스와 하위 GPU 작업의 종료를 요청합니다.** 전체 로그는 `/content/vtuber_builder/jobs/`에 보존합니다.
 
 ### ① 캐릭터 / 얼굴 만들기
 
@@ -231,7 +231,7 @@ export TRIPOSR_DIR="$PWD/TripoSR"
 - eye-bone look-at
 - hair SpringBone
 - **캐릭터 VRM 생성**
-- 검증된 `avatar.vrm` 생성 직후 Colab ③ 셀이 파일 경로 `/content/vtuber_builder/avatar.vrm`에 검증된 복사본을 저장하고, Colab 출력에 Gradio 서버 직접 다운로드 링크를 제공합니다. 가능한 브라우저에서는 다운로드를 자동 시도하며, 차단되면 **Gradio의 `↓ avatar.vrm 파일 직접 다운로드` 버튼**이나 출력된 링크를 클릭하세요. `google.colab.files.download()`처럼 셀을 멈추는 방식은 사용하지 않습니다.
+- 검증된 `avatar.vrm`은 `/content/vtuber_builder/avatar.vrm`에도 복사합니다. Colab **왼쪽 파일 탐색기**에서 다운로드하거나, 생성 종료 후 별도 셀에 `from google.colab import files; files.download(RESULT_FILE)`을 입력하여 내려받을 수 있습니다. 브라우저 다운로드 요청을 생성 셀 내부에서 강제로 시작하지 않습니다.
 
 ### ② 악세사리 만들기
 
