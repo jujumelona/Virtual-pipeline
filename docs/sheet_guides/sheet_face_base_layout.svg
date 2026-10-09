@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="4096" height="4096" viewBox="0 0 4096 4096">
+<rect width="4096" height="4096" fill="#f9fbfd"/>
+<rect x="7" y="7" width="2034" height="2034" fill="#deeafa" stroke="#77899e" stroke-width="13"/>
+<text x="1024" y="1024" font-size="118" font-weight="700" font-family="Arial, sans-serif" text-anchor="middle" fill="#253954"><tspan x="1024" dy="0">ear_left</tspan></text>
+<text x="1024" y="1993" font-family="Arial, sans-serif" font-size="64" fill="#63758f" text-anchor="middle">1,1 · 2048×2048</text>
+<rect x="2055" y="7" width="2034" height="2034" fill="#eee4f9" stroke="#77899e" stroke-width="13"/>
+<text x="3072" y="1024" font-size="118" font-weight="700" font-family="Arial, sans-serif" text-anchor="middle" fill="#253954"><tspan x="3072" dy="0">ear_right</tspan></text>
+<text x="3072" y="1993" font-family="Arial, sans-serif" font-size="64" fill="#63758f" text-anchor="middle">1,2 · 2048×2048</text>
+<rect x="7" y="2055" width="2034" height="2034" fill="#eee4f9" stroke="#77899e" stroke-width="13"/>
+<text x="1024" y="3072" font-size="118" font-weight="700" font-family="Arial, sans-serif" text-anchor="middle" fill="#253954"><tspan x="1024" dy="0">neck</tspan></text>
+<text x="1024" y="4041" font-family="Arial, sans-serif" font-size="64" fill="#63758f" text-anchor="middle">2,1 · 2048×2048</text>
+<rect x="2055" y="2055" width="2034" height="2034" fill="#def3ec" stroke="#77899e" stroke-width="13"/>
+<text x="3072" y="3072" font-size="118" font-weight="700" font-family="Arial, sans-serif" text-anchor="middle" fill="#253954"><tspan x="3072" dy="0">face</tspan></text>
+<text x="3072" y="4041" font-family="Arial, sans-serif" font-size="64" fill="#63758f" text-anchor="middle">2,2 · 2048×2048</text>
+</svg>
