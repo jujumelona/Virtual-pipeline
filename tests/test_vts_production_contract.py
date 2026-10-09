@@ -80,3 +80,17 @@ def test_free_fails_closed_when_psd_has_more_than_artmesh_limit(tmp_path):
     psd.save(location)
     with pytest.raises(ValueError,match="ArtMesh limit"):
         psd_to_registered_rgba(location,tmp_path/"too_many",artmesh_max=2)
+
+
+def test_see_through_heuristic_uses_only_observed_metadata(tmp_path):
+    import json
+    from tools.vts_production import _observed_split_tags
+    path = tmp_path / "depth.psd.json"
+    path.write_text(json.dumps({"parts": {
+        "hair_side": {}, "arm_left": {}, "eye_left": {}, "unknown": {},
+        "cloth": {},
+    }}))
+    assert _observed_split_tags(path, depth=True) == [
+        "hair_side", "arm_left", "cloth"
+    ]
+    assert _observed_split_tags(path, depth=False) == ["hair_side", "cloth"]

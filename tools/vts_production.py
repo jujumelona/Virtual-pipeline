@@ -162,6 +162,86 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
     return source, out_zip, len(leaves)
 
 
+def _observed_split_tags(metadata: Path, *, depth: bool) -> list[str]:
+    """Only submit tags that really exist in the pinned See-through PSD."""
+    if not metadata.is_file():
+        return []
+    data = json.loads(metadata.read_text(encoding="utf-8"))
+    parts = data.get("parts")
+    if not isinstance(parts, dict):
+        return []
+    allowed = ("hair", "arm", "hand", "sleeve", "leg", "foot",
+               "shoe", "cloth", "outfit", "ribbon", "accessor")
+    result = []
+    for tag in parts:
+        if not isinstance(tag, str) or "," in tag:
+            continue
+        name = tag.lower()
+        if any(word in name for word in allowed) and (depth or
+            not any(x in name for x in ("left", "right", "_l", "_r"))):
+            result.append(tag)
+    return result[:32]
+
+
+def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
+                     timeout: int = 1800) -> Path:
+    """Run the *real* optional upstream depth/LR stage with its required sidecars.
+
+    Both original and candidate remain available; invalid/changed composites
+    never replace the source or falsely increase ArtMesh candidate counts.
+    """
+    from PIL import ImageChops, ImageStat
+    from psd_tools import PSDImage
+    from tools.vts_subprocess import run_logged
+
+    script = third_party / "inference/scripts/heuristic_partseg.py"
+    if not script.is_file():
+        print("[See-through] official depth/LR script unavailable: using original PSD", flush=True)
+        return src
+    current = src
+    for mode in ("seg_wdepth", "seg_wlr"):
+        meta = Path(str(current) + ".json")
+        depth_src = current.with_name(current.stem + "_depth.psd")
+        if not meta.is_file() or not depth_src.is_file():
+            print("[See-through] depth/metadata companion files absent: "
+                  "cannot run native heuristic safely", flush=True)
+            break
+        tags = _observed_split_tags(meta, depth=(mode == "seg_wdepth"))
+        if not tags:
+            break
+        cmd = [worker_python, "-u", str(script), mode,
+               "--srcp", str(current), "--target_tags", ",".join(tags)]
+        log = current.with_name(current.stem + "_" + mode + ".log")
+        status = run_logged(cmd, cwd=third_party, log_path=log,
+                            timeout_seconds=timeout)
+        suffix = "_wdepth" if mode == "seg_wdepth" else "_lrsplit"
+        result = current.with_name(current.stem + suffix + ".psd")
+        if status != 0 or not result.is_file():
+            print("[See-through] native heuristic rejected:", mode, str(log), flush=True)
+            break
+        old = PSDImage.open(current)
+        new = PSDImage.open(result)
+        if old.size != new.size:
+            print("[See-through] heuristic changed canvas; rejected", flush=True)
+            break
+        first, second = old.composite(), new.composite()
+        if first is None or second is None:
+            break
+        # Pixel-level difference in visible composite, not an invented rig metric.
+        diff = ImageChops.difference(first.convert("RGBA"), second.convert("RGBA"))
+        mean_error = max(ImageStat.Stat(diff).mean)
+        old_n = sum(1 for x in old.descendants() if not x.is_group())
+        new_n = sum(1 for x in new.descendants() if not x.is_group())
+        if mean_error > 3 or new_n < old_n:
+            print("[See-through] heuristic composite/part count regression rejected:",
+                  mode, mean_error, old_n, new_n, flush=True)
+            break
+        current = result
+        print("[See-through] native extra split accepted:",
+              mode, old_n, "->", new_n, flush=True)
+    return current
+
+
 def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int = 7200):
     """Use the published NF4 PSD inference entrypoint, not a fake layer splitter."""
     program = third_party / "inference/scripts/inference_psd_quantized.py"
@@ -211,7 +291,8 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
         raise RuntimeError(f"See-through exited {code}; full log: {log}")
     after = sorted(
         (f for f in base.rglob("*.psd")
-         if (f.stat().st_size, f.stat().st_mtime_ns) != before.get(str(f))),
+         if not f.stem.endswith("_depth")
+         and (f.stat().st_size, f.stat().st_mtime_ns) != before.get(str(f))),
         key=lambda f: f.stat().st_mtime_ns, reverse=True,
     )
     if not after:
@@ -223,7 +304,15 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
                            f"Candidates: {[p.name for p in after[:5]]}; log: {log}")
     psd = work / "see_through_layers.psd"
     shutil.copy2(matched[0], psd)
-    return psd
+    # The public heuristic reads source.psd.json AND source_depth.psd.
+    # Copy both *only* when the pinned upstream actually produced them.
+    generated_meta = Path(str(matched[0]) + ".json")
+    generated_depth = matched[0].with_name(matched[0].stem + "_depth.psd")
+    if generated_meta.is_file() and generated_depth.is_file():
+        shutil.copy2(generated_meta, Path(str(psd) + ".json"))
+        shutil.copy2(generated_depth, psd.with_name(psd.stem + "_depth.psd"))
+    return _safe_refine_psd(psd, third_party=third_party,
+                            worker_python=worker_python)
 
 
 def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
