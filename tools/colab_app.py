@@ -1208,7 +1208,7 @@ def build_2d_ui(image_path, layers_zip, commercial_usage, target="live2d"):
     if not image_path:
         return "원본 캐릭터 이미지를 업로드하세요.", "", None
     try:
-        require_runtime_ready(target)
+        ensure_workflow_for_generation(target, commercial_usage)
         from vtuber_pipeline.common.schemas import SourceSet
         from vtuber_pipeline.two_d.build import build_inochi2d, build_live2d
         output = OUTPUT_ROOT / uuid.uuid4().hex[:10] / target
@@ -1263,12 +1263,15 @@ def collect_cubism_zip_ui(official_zip):
         return "공식 MOC3 검증/수집 실패: "+str(exc), traceback.format_exc(), None
 
 
-def build_inochi2d_ui(image_path, layers_zip, commercial_usage):
-    return build_2d_ui(image_path, layers_zip, commercial_usage, target="inochi2d")
+def build_inochi2d_ui(image_path, commercial_usage, *legacy_usage):
+    # The character creation UI accepts one image, never a separate parts ZIP.
+    usage = legacy_usage[0] if legacy_usage else commercial_usage
+    return build_2d_ui(image_path, None, usage, target="inochi2d")
 
 
-def build_live2d_ui(image_path, layers_zip, commercial_usage):
-    return build_2d_ui(image_path, layers_zip, commercial_usage, target="live2d")
+def build_live2d_ui(image_path, commercial_usage, *legacy_usage):
+    usage = legacy_usage[0] if legacy_usage else commercial_usage
+    return build_2d_ui(image_path, None, usage, target="live2d")
 
 
 def choose_workflow(mode: str, usage: str):
@@ -1421,9 +1424,7 @@ def build_app() -> gr.Blocks:
                 label="Inochi2D 캐릭터 그림", sources=["upload"],
                 type="filepath", height=390,
             )
-            inochi_layers = gr.File(
-                label="투명 PNG 파츠 ZIP (선택)", file_types=[".zip"], type="filepath",
-            )
+            gr.Markdown("캐릭터 사진 한 장만 입력합니다. 얼굴·머리카락·눈·입 등의 파츠는 내부 AI가 자동 분리합니다.")
             with gr.Accordion("외부 이미지 AI용 Inochi2D 프롬프트", open=False):
                 gr.Textbox(
                     label="Inochi2D 기본 캐릭터",
@@ -1444,7 +1445,7 @@ def build_app() -> gr.Blocks:
             )
             inochi_run.click(
                 fn=build_inochi2d_ui,
-                inputs=[inochi_image, inochi_layers, selected_usage],
+                inputs=[inochi_image, selected_usage],
                 outputs=[inochi_status, inochi_report, inochi_result],
                 show_progress="full",
                 concurrency_id="vtuber_gpu_pipeline",
@@ -1464,10 +1465,7 @@ def build_app() -> gr.Blocks:
                 label="2D 캐릭터 원본 일러스트 (필수)",
                 sources=["upload"], type="filepath", height=390,
             )
-            two_d_layers = gr.File(
-                label="분리된 투명 PNG 파츠 ZIP (선택; 모든 PNG는 원본과 동일한 캔버스)",
-                file_types=[".zip"], type="filepath",
-            )
+            gr.Markdown("캐릭터 사진 한 장만 입력합니다. Live2D 제작에 필요한 레이어와 파츠 분리는 프로그램이 자동 수행합니다.")
             with gr.Accordion("외부 대형 AI에 넣을 2D 제작 프롬프트", open=False):
                 gr.Textbox(
                     label="2D 전면 캐릭터 일러스트",
@@ -1488,7 +1486,7 @@ def build_app() -> gr.Blocks:
             )
             two_d_run.click(
                 fn=build_live2d_ui,
-                inputs=[two_d_image, two_d_layers, selected_usage],
+                inputs=[two_d_image, selected_usage],
                 outputs=[two_d_status, two_d_report, two_d_result],
                 show_progress="full",
                 concurrency_id="vtuber_gpu_pipeline",
