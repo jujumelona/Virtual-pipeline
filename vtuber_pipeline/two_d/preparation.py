@@ -15,7 +15,7 @@ from xml.etree import ElementTree as ET
 
 MAX_LAYERS = 128
 MAX_LAYER_BYTES = 32 * 1024 * 1024
-MAX_TOTAL_BYTES = 256 * 1024 * 1024
+MAX_TOTAL_BYTES = 1024 * 1024 * 1024
 MAX_DIMENSION = 8192
 USAGE = {"personalNonProfit", "personalProfit", "corporation"}
 SUGGESTED_PARTS = (
