@@ -124,6 +124,51 @@ Commercial/production avatar reconstruction verifies the TripoSR git revision be
 
 `third_party.lock.json` separates source revisions from binary integrity hashes. `artifact_sha256` is never filled with a git SHA or package version. It is reserved for a real SHA256 of downloaded artifact bytes.
 
+## Optional SkinTokens / TokenRig auto-skinning
+
+**Implemented, experimental; not part of the default T4 workflow.**
+The [SkinTokens upstream](https://github.com/VAST-AI-Research/SkinTokens) is MIT licensed
+and the published model is MIT tagged. Its source is pinned to
+`273b691d35989d71cd17ff2895fdc735097b92d1`.
+
+On a compatible GPU the optional stage invokes the upstream `demo.py` with
+`--use_skeleton --use_transfer` in an isolated Python environment. It validates
+source/candidate vertex positions, UV order, skeleton names, normalized
+weights and preserved head/hair binding; **only JOINTS_0 and WEIGHTS_0**
+are transplanted into the canonical rigged GLB. The original mesh, texture,
+VRM bone hierarchy, face morphs, hair chains and look-at remain authoritative.
+Any mismatch is a build failure, never a fabricated or silently degraded rig.
+
+**Colab T4 warning:** upstream SkinTokens hardcodes BF16 and FlashAttention-2;
+the official kernels require Ampere+ (SM >= 8.0). NVIDIA T4 (SM 7.5) is
+therefore not compatible, notwithstanding 16 GB VRAM. Preflight blocks
+unsupported GPUs before checkpoint download or expensive TripoSR stages.
+Use **canonical** 3D rigging on T4. On a supported GPU, SkinTokens
+requires >=14 GiB of *free* VRAM. Real GPU end-to-end quality is not yet verified.
+
+After the regular 3D setup, click **SkinTokens 별도 설치·검증** inside Gradio
+and select **SkinTokens 실험적 스키닝**. The explicit installer never runs
+during generation. Equivalent CLI setup on an Ampere+ GPU:
+
+```bash
+python -m pip install uv
+python tools/setup_skintokens_runtime.py --directory /content/third_party/SkinTokens
+export VTUBER_SKINTOKENS_DIR=/content/third_party/SkinTokens
+export VTUBER_SKINTOKENS_PYTHON=/content/third_party/SkinTokens/.venv/bin/python
+vtuber-pipeline avatar --image character.png --output output/avatar \
+  --face-image face.png --full-body --rigging-provider skintokens
+```
+
+The installer checks out pinned source, creates a Python 3.11 virtual
+environment, installs upstream dependencies, fetches the official two
+checkpoints and verifies actual artifact hashes in the runtime identity.
+TripoSR, FLUX and Colab base PyTorch packages are not replaced.
+
+**Licensing caution:** the model card describes training on ArticulationXL,
+VRoid Hub and ModelsResource. The MIT license declaration on the model
+does not independently audit rights in every source training asset.
+Check applicable dataset and model terms before commercial deployment.
+
 ## Installation
 
 로컬에서 설치할 경우 TripoSR의 오래된 `requirements.txt`를 그대로 설치하지 마세요. Colab launcher와 동일한 호환성 세트를 사용하는 것이 기준입니다.
