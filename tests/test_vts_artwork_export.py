@@ -215,3 +215,38 @@ def test_free_request_respects_remaining_layer_budget(tmp_path):
                                    qwen=True, qwen_infer=infer, per_pass_layers=8, max_qwen_passes=1)
     assert result["layer_count"] == 100
     assert result["qwen_attempts"][0]["accepted"] is True
+
+
+def test_free_texture_budget_measures_cropped_layers_and_warns_without_resizing(tmp_path):
+    import json
+    from io import BytesIO
+    folder = tmp_path / "input"
+    folder.mkdir()
+    registered = folder / "registered.zip"
+    with ZipFile(registered, "w") as z:
+        for i in range(2):
+            im = Image.new("RGBA", (2048, 2048))
+            im.paste((100, 80, 60, 255), (100, 100, 1900, 1900))
+            buf = BytesIO(); im.save(buf, format="PNG")
+            z.writestr(f"hair.front.{i}.png", buf.getvalue())
+    result = build_artwork_package(registered, tmp_path / "out", edition="free", scope="full")
+    with ZipFile(result["package"]) as z:
+        report = json.loads(z.read("metadata/texture_budget.json"))
+        assert report["native_scale_impossible"] is True
+        assert report["cropped_area_px"] == 2 * 1800 * 1800
+        assert report["uniform_scale_upper_bound"] < 1
+        assert report["editor_packing_verified"] is False
+        assert Image.open(BytesIO(z.read("layers_png/0000_hair.front.0.png"))).size == (2048, 2048)
+        assert "texture_budget.json" in z.read("LIVE2D_ARTWORK_GUIDE.md").decode()
+        assert "현재 크기" in z.read("TEXTURE_BUDGET.md").decode()
+
+
+def test_pro_texture_budget_does_not_apply_free_ceiling(tmp_path):
+    import json
+    source = make_layers(tmp_path / "in")
+    result = build_artwork_package(source, tmp_path / "out", edition="pro", scope="full", asset_kind="hair")
+    with ZipFile(result["package"]) as z:
+        report = json.loads(z.read("metadata/texture_budget.json"))
+        assert report["free_limit_applied"] is False
+        assert report["atlas_edge_px"] is None
+        assert report["native_scale_impossible"] is None

@@ -183,6 +183,49 @@ def _write_psd(parts, target: Path, *, free: bool):
     return groups
 
 
+def _texture_budget(layers, edition: str):
+    """Necessary area/edge bounds, never a claim of successful Editor packing."""
+    padding = 2  # estimate only; Editor mesh margins may need more
+    sizes = []
+    for layer in layers:
+        left, top, right, bottom = layer["image"].getchannel("A").getbbox()
+        sizes.append((right - left, bottom - top))
+    area = sum(w * h for w, h in sizes)
+    padded_area = sum((w + 2 * padding) * (h + 2 * padding) for w, h in sizes)
+    edge = 2048 if edition == "free" else None
+    impossible = None
+    scale = None
+    if edge is not None:
+        impossible = area > edge * edge or any(max(w, h) > edge for w, h in sizes)
+        # Ignore padding for a strict necessary upper bound; including fixed
+        # padding inside sqrt(area) would not be a valid scaling bound.
+        scale = min(1.0, (edge * edge / area) ** .5,
+                    min(edge / max(w, h) for w, h in sizes))
+    report = {
+        "schema": "vtuber/artwork-texture-budget-v1",
+        "free_limit_applied": edge is not None, "atlas_edge_px": edge,
+        "atlas_count_max": 1 if edge else None,
+        "cropped_area_px": area, "estimated_padding_px": padding,
+        "padded_area_px": padded_area,
+        "native_scale_impossible": impossible,
+        "uniform_scale_upper_bound": scale,
+        "editor_packing_verified": False, "artwork_resized": False,
+        "note": "Bounds on cropped raster rectangles only. Mesh UVs, margins "
+                "and packing can require a smaller scale. Verify in Cubism Editor.",
+    }
+    message = ("현재 크기는 2048px 한 장에 들어갈 수 없습니다. Editor에서 텍스처 배율을 "
+               "조정하되 얼굴·눈의 디테일을 우선하세요." if impossible else
+               "면적만으로 실제 패킹 성공을 확정할 수 없습니다. Editor에서 확인하세요.")
+    if edge is None:
+        message = "PRO에는 FREE의 2048px 한 장 제한을 적용하지 않습니다."
+    md = ("# 텍스처 면적 예산\n\n" + message + "\n\n"
+          + f"알파 경계 사각형 합계: {area:,} px² / 여백 2px 추정 합계: {padded_area:,} px².\n\n"
+          + "metadata/texture_budget.json에 면적·변 길이의 필요조건을 기록했습니다. "
+          "PSD와 PNG를 자동 축소하지 않았습니다. 이 값은 네이티브 아틀라스 또는 "
+          "패킹 통과 증명이 아니며 실제 메시·UV·여백은 Editor에서 확인합니다.\n")
+    return report, md
+
+
 def _reference_bundle(layers, *, edition: str, scope: str, asset_kind: str | None,
                       qwen_attempts: list, split_names: list, group_count: int):
     """Produce useful *observed* companions, not fictitious Cubism keyforms."""
@@ -293,6 +336,10 @@ def _reference_bundle(layers, *, edition: str, scope: str, asset_kind: str | Non
     }
     entries.append(("metadata/integrity_report.json",
                     json.dumps(integrity, ensure_ascii=False, indent=2).encode("utf-8")))
+    texture, texture_md = _texture_budget(layers, edition)
+    entries.append(("metadata/texture_budget.json",
+                    json.dumps(texture, ensure_ascii=False, indent=2).encode("utf-8")))
+    entries.append(("TEXTURE_BUDGET.md", texture_md.encode("utf-8")))
     return entries
 
 
@@ -396,6 +443,8 @@ def _guide_md(edition: str, scope: str, asset_kind: str | None,
         "Cubism 공식 리깅 JSON이 아님\n"
         "- metadata/segmentation_trace.json: Qwen 분해 채택/거절 정보\n"
         "- metadata/integrity_report.json: 자동 확인 범위\n"
+        "- metadata/texture_budget.json 및 TEXTURE_BUDGET.md: 실제 파츠 면적 예산; "
+        "Editor 패킹 통과 증명이 아님\n"
         "- QUALITY_REVIEW.md: 사람의 실제 그림 검수 목록\n"
         "- README_CUBISM.md: 간략 Editor 사용법\n\n"
         "## 세부 파츠 확인\n\n" + area + "\n\n"
