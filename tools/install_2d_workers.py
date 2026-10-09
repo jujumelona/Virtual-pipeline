@@ -246,8 +246,11 @@ def install_2d_environment() -> dict:
     env["PIP_CONSTRAINT"] = str(constraints)
     env["SAM2_BUILD_CUDA"] = "0"
     env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+    # Hydra pins antlr4-python3-runtime==4.9.*, which is source-only on
+    # PyPI. Keep binary preference, but permit this pure-Python dependency
+    # to build. PIP_CONSTRAINT still locks the existing Torch/Torchvision ABI.
     _exec([str(python), "-m", "pip", "install", "--prefer-binary",
-           "--only-binary=:all:", *PYTHON_PACKAGES],
+           *PYTHON_PACKAGES],
           env=env, timeout=1800)
     sources = {kind: _checkout_source(kind, lock) for kind in PIN_KEYS}
     # Upstream SAM2 requires iopath>=0.1.10. PyPI distributes that exact
