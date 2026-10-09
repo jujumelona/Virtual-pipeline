@@ -28,7 +28,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/inochi-compiler"
           ldc2 --version | tee "$RUNNER_TEMP/inochi-compiler/toolchain.log"
           dub --version | tee -a "$RUNNER_TEMP/inochi-compiler/toolchain.log"
-          VTUBER_INOCHI_RUNTIME_DIR="$RUNNER_TEMP/inochi-runtime" \\
+          VTUBER_INOCHI_RUNTIME_DIR="$RUNNER_TEMP/inochi-runtime" \
             python tools/setup_inochi_runtime.py 2>&1 | tee "$RUNNER_TEMP/inochi-compiler/native_build.log"
       - name: Verify native exporter is executable
         run: |
