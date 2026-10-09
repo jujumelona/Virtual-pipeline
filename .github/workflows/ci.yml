@@ -9,9 +9,12 @@ on:
 permissions:
   contents: read
 
+# Preserve one running full verification while newer main commits arrive.
+# GitHub keeps at most one pending run per group, replacing stale pending SHA,
+# so continuous patch commits do not kill the only full-suite result.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   wiring:
