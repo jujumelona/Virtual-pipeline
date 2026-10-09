@@ -498,7 +498,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                 # Cap review resolution without altering output PSD/PNG pixels.
                 from PIL import Image
                 from io import BytesIO
-                with Image.open(reference_image) as original, Image.open(master) as asset:
+                with Image.open(reference_image) as original, Image.open(
+                    BytesIO(archive.read("preview/composite.png"))) as asset:
                     original.load()
                     asset.load()
                     preview = original.convert("RGBA")
@@ -515,7 +516,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         "output_psd_canvas": produced["canvas"],
                         "output_canvas_matches_body": list(original.size) == produced["canvas"],
                         "input_size": list(original.size),
-                        "method": "50-percent visual overlay only",
+                        "method": "50-percent body / final PSD composite visual overlay only",
                         "automatic_pose_landmark_alignment_verified": False,
                         "automatic_character_identity_verified": False,
                         "warning": "Visually inspect hair/outfit/accessory boundaries "

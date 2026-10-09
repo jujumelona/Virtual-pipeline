@@ -240,6 +240,9 @@ def test_generated_pro_handoff_uses_source_coordinate_frame(tmp_path, monkeypatc
     with ZipFile(result["package"]) as z:
         report = json.loads(z.read("metadata/pro_reference_alignment.json"))
         assert report["output_canvas_matches_body"] is True
+        from io import BytesIO
+        overlay = Image.open(BytesIO(z.read("preview/pro_body_asset_overlay.png")))
+        assert overlay.getpixel((20, 30))[0] > 0  # actual PSD, not blank submitted master
         manifest = json.loads(z.read("metadata/layer_manifest.json"))
         assert manifest["layers"][0]["canvas_xyxy_bbox"] == [16, 20, 46, 60]
         geometry = json.loads(z.read("metadata/input_vs_psd_geometry.json"))

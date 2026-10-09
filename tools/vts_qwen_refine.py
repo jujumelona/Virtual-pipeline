@@ -110,7 +110,7 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
             "lora":ADAPTER,"layers":[str(x) for x in produced],
             "layer_count":layer_count,
             "log":str(log),"not_cubism_artmeshes":True,
-            "warning":"These are 4 coarse candidate layers; Live2D semantic rigging accuracy not guaranteed."}
+            "warning":f"These are {layer_count} candidate layers; Live2D semantic rigging accuracy not guaranteed."}
     (output_dir/"qwen_stage.json").write_text(
         json.dumps(result,ensure_ascii=False,indent=2),encoding="utf-8")
     return result
