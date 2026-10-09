@@ -87,23 +87,12 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
         "--size","640","--transparent","--device","cuda",
     ]
     log=output_dir/"stable_layers_full.log"
-    begin=time.monotonic()
-    with log.open("w",encoding="utf-8") as f:
-        runtime_env=os.environ.copy()
-        runtime_env["HF_HUB_OFFLINE"]="1"
-        runtime_env["TRANSFORMERS_OFFLINE"]="1"
-        p=subprocess.Popen(cmd,cwd=third_party/"Stable-Layers",env=runtime_env,
-                           stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
-                           text=True,bufsize=1)
-        try:
-            for line in p.stdout:
-                f.write(line);f.flush()
-                print(line,end="",flush=True)
-                if time.monotonic()-begin>timeout:
-                    raise TimeoutError("Qwen NF4+Stable-Layers timed out")
-            exitcode=p.wait(timeout=15)
-        except BaseException:
-            p.kill();p.wait(timeout=20);raise
+    runtime_env=os.environ.copy()
+    runtime_env["HF_HUB_OFFLINE"]="1"
+    runtime_env["TRANSFORMERS_OFFLINE"]="1"
+    from tools.vts_subprocess import run_logged
+    exitcode=run_logged(cmd,cwd=third_party/"Stable-Layers",env=runtime_env,
+                        log_path=log,timeout_seconds=timeout)
     if exitcode:
         raise RuntimeError(f"Qwen NF4/Stable-Layers exited {exitcode}; log={log}")
     folder=output_dir/"qwen_layers"/input_image.stem

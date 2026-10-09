@@ -189,23 +189,9 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
         "--save_to_psd", "--resolution", "1024",
     ]
     print("[VTS] See-through NF4:", " ".join(command), flush=True)
-    started = time.monotonic()
-    with log.open("w", encoding="utf-8") as out:
-        proc = subprocess.Popen(command, cwd=third_party, env=env,
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, bufsize=1)
-        try:
-            for line in proc.stdout:
-                out.write(line)
-                out.flush()
-                print(line, end="", flush=True)
-                if time.monotonic() - started > timeout:
-                    raise TimeoutError(f"See-through timed out after {timeout}s")
-            code = proc.wait(timeout=15)
-        except BaseException:
-            proc.kill()
-            proc.wait(timeout=20)
-            raise
+    from tools.vts_subprocess import run_logged
+    code = run_logged(command, cwd=third_party, env=env, log_path=log,
+                      timeout_seconds=timeout)
     if code:
         raise RuntimeError(f"See-through exited {code}; full log: {log}")
     after = sorted(

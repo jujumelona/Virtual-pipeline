@@ -18,24 +18,12 @@ ROOT = Path("/content/vtuber_builder/third_party")
 TIMEOUT = 5400
 
 def checked(args, *, cwd=None, timeout=TIMEOUT, env=None):
-    print("[VTS setup]", " ".join(map(str,args)), flush=True)
-    proc = subprocess.Popen(list(map(str,args)), cwd=cwd, env=env,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True, bufsize=1)
-    begin = time.monotonic()
-    try:
-        for line in proc.stdout:
-            print(line, end="", flush=True)
-            if time.monotonic() - begin > timeout:
-                raise TimeoutError(f"Command timed out after {timeout}s")
-        code = proc.wait(timeout=10)
-    except BaseException:
-        proc.kill()
-        proc.wait(timeout=20)
-        raise
+    from tools.vts_subprocess import run_logged
+    print("[VTS setup]", " ".join(map(str, args)), flush=True)
+    code = run_logged(args, cwd=cwd, env=env, timeout_seconds=timeout)
     if code:
         raise RuntimeError(f"Command failed exit={code}: {args}")
-    return proc
+    return code
 
 
 def checkout(url: str, dest: Path, sha: str):

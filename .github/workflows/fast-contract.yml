@@ -41,6 +41,7 @@ jobs:
             tests/test_cubism_export_validation.py \
             tests/test_vts_mode_contract.py \
             tests/test_vts_production_contract.py \
+            tests/test_vts_subprocess.py \
             tests/test_psd_layer_roundtrip.py \
             tests/test_prefetch_mode_contract.py \
             tests/test_instantmesh_license_guard.py \
