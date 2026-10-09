@@ -102,9 +102,9 @@ def prepare(*, qwen: bool = False, install: bool = True):
     weights = [
         "24yearsold/seethroughv0.0.2_layerdiff3d_nf4",
         "24yearsold/seethroughv0.0.1_marigold_nf4",
-        "24yearsold/l2d_sam_iter2",
-        "facebook/sam2.1-hiera-large",
     ]
+    # Neither parser/SAM2 is called by the pinned quantized PSD entrypoint.
+    # Prefetching them adds downloads without refining any output masks.
     if qwen:
         checkout("https://github.com/Stability-AI/Stable-Layers.git",
                  ROOT / "Stable-Layers", STABLE_LAYERS_SHA)

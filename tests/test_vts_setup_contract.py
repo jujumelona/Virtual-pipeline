@@ -46,3 +46,22 @@ def snapshot_download(*args, **kwargs):
         setup.download_snapshot("fixture/model", python=sys.executable,
                                 record_path=record, timeout=.3)
     assert not record.exists()
+
+
+def test_prefetch_only_models_consumed_by_actual_vts_entrypoints(tmp_path, monkeypatch):
+    monkeypatch.setattr(setup, 'ROOT', tmp_path)
+    monkeypatch.setattr(setup, 'checkout', lambda url, dest, sha: dest)
+    downloaded = []
+    def download(model, **kwargs):
+        downloaded.append(model)
+        return '/cache/' + model.replace('/', '--')
+    monkeypatch.setattr(setup, 'download_snapshot', download)
+    manifest = setup.prepare(qwen=True, install=False)
+    assert downloaded == [
+        '24yearsold/seethroughv0.0.2_layerdiff3d_nf4',
+        '24yearsold/seethroughv0.0.1_marigold_nf4',
+        'OzzyGT/qwen-image-layered-bnb-4bit-transformer',
+        'StabilityLabs/Stable-Layers',
+        'Qwen/Qwen-Image-Layered',
+    ]
+    assert [x['model'] for x in json.loads(manifest.read_text())['snapshots']] == downloaded
