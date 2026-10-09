@@ -61,7 +61,7 @@ class Identity:
     hairstyle: str
     eye_color: str
     face_description: str
-    outfit: str
+    outfit: str = ""  # Deprecated compatibility arg; base body never uses outfit.
     gender: str = ""
     palette: str = ""
     accessories: str = ""
