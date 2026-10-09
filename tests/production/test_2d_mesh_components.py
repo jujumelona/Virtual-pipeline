@@ -47,3 +47,43 @@ def test_concave_hair_outline_never_bridges_empty_center(tmp_path):
     vertices = np.asarray(mesh["vertices_xy"])
     assert all(_triangle_coverage(image > 0, vertices[t], cv2) >= .92
                for t in mesh["triangles"])
+
+
+def test_island_inside_foreground_hole_gets_its_own_mesh(tmp_path):
+    """RETR_EXTERNAL on the whole mask loses the nested independent island."""
+    image = np.zeros((256, 256), dtype=np.uint8)
+    image[30:226, 30:226] = 255
+    image[82:174, 82:174] = 0
+    image[108:150, 108:150] = 255
+    mesh = _run(image, tmp_path)
+    assert mesh["connected_components"] == 2
+    labels_count, labels = cv2.connectedComponents(np.uint8(image > 0), connectivity=8)
+    assert labels_count == 3  # background, enclosing ring, interior island
+    vertices = np.asarray(mesh["vertices_xy"], dtype=np.float64)
+    touched = set()
+    for triangle in mesh["triangles"]:
+        coords = np.rint(vertices[triangle]).astype(np.int32)
+        ids = {int(labels[y, x]) for x, y in coords}
+        assert len(ids) == 1 and 0 not in ids, (
+            "a triangle must never bridge independently observed components"
+        )
+        touched.update(ids)
+    assert touched == {1, 2}
+
+
+def test_holes_are_not_silently_filled_by_neighboring_island(tmp_path):
+    image = np.zeros((192, 192), dtype=np.uint8)
+    image[15:177, 15:177] = 255
+    image[65:127, 65:127] = 0
+    image[83:108, 83:108] = 255
+    mesh = _run(image, tmp_path)
+    assert mesh["connected_components"] == 2
+    vertices = np.asarray(mesh["vertices_xy"], dtype=np.float64)
+    count, labels = cv2.connectedComponents(np.uint8(image > 0), connectivity=8)
+    assert count == 3
+    for triangle in mesh["triangles"]:
+        coords = np.rint(vertices[triangle]).astype(int)
+        component_id = int(labels[coords[0, 1], coords[0, 0]])
+        assert component_id != 0
+        component = labels == component_id
+        assert _triangle_coverage(component, vertices[triangle], cv2) >= 0.92
