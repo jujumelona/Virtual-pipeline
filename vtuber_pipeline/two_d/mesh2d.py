@@ -45,10 +45,14 @@ def generate_meshes(parts_json: str, output_dir: str) -> dict:
         ) > 32)
         if binary.shape != (height, width):
             raise ValueError(f"{part['semantic_id']}: mask has different canvas dimensions")
-        contours, _ = cv2.findContours(
-            binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE,
+        # RETR_EXTERNAL on the full mask drops islands contained in a hole
+        # of another region. Triangulate each *foreground connected component*
+        # in isolation so neither sampling nor coverage can borrow pixels
+        # from a neighboring island.
+        count, labels, stats, _centroids = cv2.connectedComponentsWithStats(
+            binary, connectivity=8,
         )
-        if not contours:
+        if count <= 1:
             continue
         fine = any(
             name in part["semantic_id"]
@@ -58,7 +62,15 @@ def generate_meshes(parts_json: str, output_dir: str) -> dict:
         points_all = []
         triangles_all = []
         component_count = 0
-        for contour in sorted(contours, key=cv2.contourArea, reverse=True):
+        order = sorted(range(1, count), key=lambda i: int(stats[i, cv2.CC_STAT_AREA]), reverse=True)
+        for component_index in order:
+            component = np.uint8(labels == component_index)
+            contours, _ = cv2.findContours(
+                component, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE,
+            )
+            if not contours:
+                continue
+            contour = max(contours, key=cv2.contourArea)
             if cv2.contourArea(contour) < 8:
                 continue
             approx = cv2.approxPolyDP(
@@ -68,17 +80,22 @@ def generate_meshes(parts_json: str, output_dir: str) -> dict:
             points = [tuple(map(float, p)) for p in approx]
             for gy in range(y + step // 2, y + body_h, step):
                 for gx in range(x + step // 2, x + body_w, step):
-                    if binary[min(gy, height - 1), min(gx, width - 1)]:
+                    if component[min(gy, height - 1), min(gx, width - 1)]:
                         points.append((float(gx), float(gy)))
             points = list(dict.fromkeys(points))
             if len(points) < 3:
                 continue
             vertices = np.asarray(points, dtype=float)
-            triangles = Delaunay(vertices).simplices
+            try:
+                triangles = Delaunay(vertices).simplices
+            except Exception as exc:
+                raise ValueError(
+                    f"{part['semantic_id']}: component {component_index} triangulation failed"
+                ) from exc
             accepted = [
                 [int(vertex + len(points_all)) for vertex in tri]
                 for tri in triangles
-                if _triangle_coverage(binary, vertices[tri], cv2) >= 0.92
+                if _triangle_coverage(component, vertices[tri], cv2) >= 0.92
             ]
             if not accepted:
                 continue
