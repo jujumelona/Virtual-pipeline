@@ -292,6 +292,8 @@ def write_vts_brief_package(brief: dict, destination: str) -> str:
     target = path / name
     temp = target.with_suffix(".tmp")
     with ZipFile(temp, "w", ZIP_DEFLATED) as archive:
+        from tools.vts_official_settings import editor_settings_md
+        archive.writestr("OFFICIAL_EDITOR_SETTINGS.md", editor_settings_md())
         archive.writestr("manifest.json", json.dumps(brief, ensure_ascii=False, indent=2))
         archive.writestr(
             "READ_ME_FIRST.txt",

@@ -372,6 +372,8 @@ def test_all_ten_public_modes_make_registered_psd_handoffs(tmp_path, scope, edit
     output_name = (asset if edition == "pro" else "avatar") + ".psd"
     with ZipFile(result["package"]) as archive:
         assert output_name in archive.namelist()
+        assert "OFFICIAL_EDITOR_SETTINGS.md" in archive.namelist()
+        assert "60 FPS" in archive.read("OFFICIAL_EDITOR_SETTINGS.md").decode()
         assert not any(name.endswith(".moc3") for name in archive.namelist())
         manifest = json.loads(archive.read("metadata/layer_manifest.json"))
         assert manifest["edition"] == edition and manifest["scope"] == scope

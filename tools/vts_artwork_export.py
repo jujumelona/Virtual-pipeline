@@ -654,6 +654,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     extras = _reference_bundle(
         layers, edition=edition, scope=scope, asset_kind=asset_kind,
         qwen_attempts=attempted, split_names=generated, group_count=group_count)
+    from tools.vts_official_settings import editor_settings_md
+    extras.append(("OFFICIAL_EDITOR_SETTINGS.md", editor_settings_md()))
     extras.extend(runtime_logs)
     with ZipFile(package, "w", ZIP_DEFLATED, compresslevel=6) as z:
         z.write(psd_path, name + ".psd")

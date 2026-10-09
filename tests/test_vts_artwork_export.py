@@ -364,3 +364,13 @@ def test_cubism_psd_declares_the_official_srgb_profile(tmp_path):
     profile = PSDImage.open(path).image_resources.get_data(Resource.ICC_PROFILE)
     assert profile
     assert 'srgb' in ImageCms.getProfileName(ImageCms.ImageCmsProfile(BytesIO(profile))).lower()
+
+
+def test_official_editor_reference_keeps_parameter_and_physics_conventions():
+    from tools.vts_official_settings import editor_settings_md
+    guide = editor_settings_md()
+    assert 'ParamAngleX / ParamAngleY / ParamAngleZ | -30 | 0 | 30' in guide
+    assert 'ParamEyeLOpen / ParamEyeROpen | 0 | 1 | 1' in guide
+    assert 'ParamBodyAngleX / ParamBodyAngleY / ParamBodyAngleZ | -10 | 0 | 10' in guide
+    assert '60 FPS' in guide
+    assert '실제 파라미터·키폼·물리를 생성하지 않습니다' in guide
