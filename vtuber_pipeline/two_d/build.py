@@ -27,7 +27,8 @@ def _layers(source: SourceSet, folder: Path) -> PartsDocument | None:
         return None
     from .preparation import _load_image, _read_layers
     base = _load_image(Path(source.front_image).read_bytes(), "source")
-    supplied = _read_layers(source.user_layers_zip, base.size)
+    supplied = _read_layers(source.user_layers_zip, base.size,
+                            max_layers=4096 if source.artwork_profile == "vts_auto" else 128)
     from vtuber_pipeline.prompt_contract import LAYER_PARTS, REQUIRED_2D, CANVAS_2D
 
     provided_names = {name.casefold() for name, _ in supplied}

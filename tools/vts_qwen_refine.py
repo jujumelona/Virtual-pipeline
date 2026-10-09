@@ -61,7 +61,10 @@ def _patch_pinned_official(code: str, *, quant_dir: str, lora_dir: str) -> str:
 
 
 def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_ROOT,
-          timeout: int = 9000, python: str | None = None) -> dict:
+          timeout: int = 9000, python: str | None = None,
+          layer_count: int = 4) -> dict:
+    if not 2 <= layer_count <= 10:
+        raise ValueError("Qwen per-pass layer count must be between 2 and 10")
     from huggingface_hub import snapshot_download
     from PIL import Image
     if not input_image.is_file():
@@ -83,7 +86,7 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
         python or sys.executable, "-u", str(patched),
         "--input",str(input_image.resolve()),"--output",str(output_dir/"qwen_layers"),
         "--base-model",str(base_path),"--lora",str(lora_path),
-        "--steps","50","--guidance-scale","1.0","--num-layers","4",
+        "--steps","50","--guidance-scale","1.0","--num-layers",str(layer_count),
         "--size","640","--transparent","--device","cuda",
     ]
     log=output_dir/"stable_layers_full.log"
@@ -96,15 +99,16 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
     if exitcode:
         raise RuntimeError(f"Qwen NF4/Stable-Layers exited {exitcode}; log={log}")
     folder=output_dir/"qwen_layers"/input_image.stem
-    produced=[folder/f"layer_{i}.png" for i in range(4)]
+    produced=[folder/f"layer_{i}.png" for i in range(layer_count)]
     if not all(f.is_file() for f in produced):
-        raise RuntimeError("Qwen reported success but didn't provide 4 RGBA layers")
+        raise RuntimeError(f"Qwen reported success but didn't provide {layer_count} RGBA layers")
     for f in produced:
         with Image.open(f) as im:
             im.load()
             if im.mode!="RGBA":raise ValueError(f"Not an RGBA layer: {f}")
     result={"status":"complete_qwen_candidate_layers","quantized_transformer":QUANT,
             "lora":ADAPTER,"layers":[str(x) for x in produced],
+            "layer_count":layer_count,
             "log":str(log),"not_cubism_artmeshes":True,
             "warning":"These are 4 coarse candidate layers; Live2D semantic rigging accuracy not guaranteed."}
     (output_dir/"qwen_stage.json").write_text(

@@ -44,7 +44,24 @@ def _semantic_family(name: str) -> str:
     Unknown layers become fixed clothing/decoration graphics, not invented eyes.
     This classification needs validation before a production-quality rig claim.
     """
-    name = name.casefold().replace("_", " ").replace("-", " ")
+    raw = name.casefold().replace("_", ".").replace("-", ".")
+    # The See-through / Qwen layer name is a semantic identity, not just an
+    # annotation. Never discard left/right, front/back, iris or lid suffixes.
+    canonical = ("hair.", "eye.", "eyebrow.", "mouth.", "cloth.",
+                 "body.", "arm.", "leg.", "hand.", "shoe.", "accessory.")
+    if raw.startswith(canonical):
+        return raw
+    name = raw.replace(".", " ")
+    side = "left" if "left" in name else "right" if "right" in name else None
+    if "iris" in name or "pupil" in name or "eyelid" in name or "sclera" in name:
+        detail = next(x for x in ("iris", "pupil", "eyelid", "sclera") if x in name)
+        return ("eye." + side + "." + detail) if side else ("eye." + detail)
+    if "eye" in name and side:
+        return "eye." + side
+    if ("eyebrow" in name or "brow" in name) and side:
+        return "eyebrow." + side
+    if "hair" in name and side:
+        return "hair.side." + side
     checks = (
         ("hair.back", ("back hair", "hair back", "rear hair")),
         ("hair.front", ("bang", "fringe", "front hair", "hair front")),
@@ -127,8 +144,6 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
     if artmesh_max is not None and len(leaves) > artmesh_max:
         raise ValueError(f"Cubism FREE ArtMesh limit exceeded: {len(leaves)} > {artmesh_max}. "
                          "Refusing to silently flatten animation layers.")
-    if len(leaves) > 512:
-        raise ValueError("Excessive PSD layer count (>512)")
     out_zip = dest / "registered_layers.zip"
     source = dest / "psd_composite.png"
     composite = psd.composite()

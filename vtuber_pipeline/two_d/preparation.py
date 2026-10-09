@@ -44,14 +44,14 @@ def _load_image(data: bytes, description: str):
         raise ValueError(f"{description}: invalid image: {exc}") from exc
 
 
-def _read_layers(archive: str, canvas: tuple[int, int]):
+def _read_layers(archive: str, canvas: tuple[int, int], *, max_layers: int = MAX_LAYERS):
     from PIL import Image
     layers = []
     total = 0
     with zipfile.ZipFile(archive) as bundle:
         entries = [x for x in bundle.infolist() if not x.is_dir()]
-        if not entries or len(entries) > MAX_LAYERS:
-            raise ValueError(f"layers ZIP must contain 1..{MAX_LAYERS} PNG files")
+        if not entries or len(entries) > max_layers:
+            raise ValueError(f"layers ZIP must contain 1..{max_layers} PNG files")
         used_names = set()
         for entry in sorted(entries, key=lambda x: x.filename.casefold()):
             name = entry.filename.replace("\\", "/")

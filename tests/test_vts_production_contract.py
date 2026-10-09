@@ -15,7 +15,10 @@ from tools.vts_production import _semantic_family, psd_to_registered_rgba
     ("Back Hair", "hair.back"),
     ("front bangs", "hair.front"),
     ("sleeve fabric", "cloth"),
-    ("left iris", "eye"),
+    ("left iris", "eye.left.iris"),
+    ("hair.back", "hair.back"),
+    ("eye.right.lid", "eye.right.lid"),
+    ("eyebrow.left", "eyebrow.left"),
     ("accessory pendant", "ornament"),
     ("nose", "nose"),
 ])
