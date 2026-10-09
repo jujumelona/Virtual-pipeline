@@ -556,20 +556,25 @@ def _prepare_models_checked(mode: str = "3d") -> None:
          "--mode", scope],
         timeout=3000,
     )
-    # Downloaded weights do not prove that the detector can be instantiated.
-    # Validate actual YOLOv3 + HRNetV2 initialization on Colab CUDA before
-    # writing the ready marker, not during the user's first generation.
-    print("[models] 얼굴 검출기 YOLOv3/HRNetV2 CUDA 초기화 검증", flush=True)
-    _run(
-        [
-            sys.executable, "-u", "-c",
-            "from vtuber_pipeline.avatar.face_detector import AnimeFaceDetector; "
-            "detector = AnimeFaceDetector(); "
-            "assert detector._detector is not None; "
-            "print('[models] face-detector-init-ok', flush=True)",
-        ],
-        timeout=600,
-    )
+    # A prewarmed one-shot GPU service HAS already instantiated both models.
+    # Starting a second CUDA detector here would waste memory and may OOM.
+    from tools.colab_gpu_warmup import available_face_worker
+    if (os.environ.get("VTUBER_GPU_PREWARM") == "1"
+            and available_face_worker()):
+        print("[models] 얼굴 검출기 YOLOv3/HRNetV2 CUDA 로드 검증 완료 "
+              "(resident GPU worker reusable by first production stage)", flush=True)
+    else:
+        print("[models] 얼굴 검출기 YOLOv3/HRNetV2 CUDA 초기화 검증", flush=True)
+        _run(
+            [
+                sys.executable, "-u", "-c",
+                "from vtuber_pipeline.avatar.face_detector import AnimeFaceDetector; "
+                "detector = AnimeFaceDetector(); "
+                "assert detector._detector is not None; "
+                "print('[models] face-detector-init-ok', flush=True)",
+            ],
+            timeout=600,
+        )
     # A success marker must only exist after all parallel workers finish.
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text(
