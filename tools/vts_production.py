@@ -99,11 +99,15 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
             continue
         tile = tile.convert("RGBA")
         if layer.mask is not None:
-            actual_alpha = layer.mask.topil(layer_sized=True)
+            actual_alpha = layer.mask.topil()
             if actual_alpha is None:
                 raise ValueError("PSD layer mask cannot be decoded: "+str(layer.name))
             if actual_alpha.size != tile.size:
-                raise ValueError("PSD layer alpha size mismatched: "+str(layer.name))
+                full_alpha = Image.new("L", tile.size, 0)
+                full_alpha.paste(actual_alpha.convert("L"),
+                                 (int(layer.mask.left)-int(layer.left),
+                                  int(layer.mask.top)-int(layer.top)))
+                actual_alpha = full_alpha
             tile.putalpha(actual_alpha.convert("L"))
         if not tile.getchannel("A").getbbox():
             continue
