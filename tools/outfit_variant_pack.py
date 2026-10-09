@@ -67,7 +67,7 @@ def change_outfit(source_zip: str, new_outfit_png: str, result_zip: str) -> str:
         payload=BytesIO()
         merged.save(payload,"PNG")
         dest.parent.mkdir(parents=True,exist_ok=True)
-        temporary=dest.with_suffix(".pending")
+        temporary=dest.with_name(dest.stem + ".pending.zip")
         try:
             with ZipFile(temporary,"w",compression=ZIP_DEFLATED) as out:
                 for name,item in members.items():
