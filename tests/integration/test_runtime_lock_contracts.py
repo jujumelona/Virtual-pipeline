@@ -415,6 +415,10 @@ def test_ci_actions_are_immutable_sha_pinned_and_full_suite_is_gated():
     assert "actions/checkout@v" not in workflow
     assert "actions/setup-python@v" not in workflow
 
+    # A new main commit must not cancel a full verification already in
+    # progress; GitHub coalesces pending runs within this concurrency group.
+    assert "group: ci-${{ github.workflow }}-${{ github.ref }}" in workflow
+    assert "cancel-in-progress: false" in workflow
     assert "full-suite:" in workflow
     assert "python -m pytest -q tests" in workflow
     assert "- full-suite" in workflow
