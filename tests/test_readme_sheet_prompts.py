@@ -1,4 +1,4 @@
-"""README's real image input contract: modular 2D, clothed 3D.
+"""README image input contract: modular 2D and skin-colored neutral 3D.
 
 Every exported image prompt must be self-contained: filename, ratio, number
 of views/parts, reference attachment, and costume treatment. Do not make
@@ -46,6 +46,10 @@ def test_character_base_is_20_parts_no_hair_no_outfit():
     core={"front_master.png"}|{s.filename for s in SHEETS_2D}
     for name in core:
         p=data[name]
+        assert "{skin_color}" in p, name
+        assert "{base_layer}" not in p, name
+        assert "Neutral fitted UNDERLAYER" not in p, name
+        assert "NO gray/flesh-colored bodysuit" in p or "Do NOT draw a bodysuit" in p, name
         assert ("NO costume" in p or "NO detachable costume" in p
                 or "NO detachable clothing" in p or "NO jacket" in p
                 or "OUTFIT-FREE" in p),name
@@ -74,19 +78,33 @@ def test_hairstyle_and_costume_are_optional_distinct_artwork():
     assert HAIR_SHEET.filename!="sheet_hair.png"
     assert GARMENT_SHEET.filename=="outfit_variant.png"
 
-def test_3d_mainline_must_include_integrated_identical_outfit():
+def test_3d_base_prompts_keep_skin_tone_without_integrated_outfit():
     p=prompts()
-    for s in VIEWS_3D:
-        prompt=p[s.filename]
-        assert "DEFAULT INTEGRATED OUTFIT" in prompt
-        assert "SAME COMPLETE DEFAULT OUTFIT" in prompt
+    for view in VIEWS_3D:
+        prompt=p[view.filename]
+        assert "{skin_color}" in prompt
+        assert "PRODUCTION PURPOSE — 3D VTUBER BASE" in prompt
+        assert "NO garment of any kind" in prompt
+        assert "DEFAULT INTEGRATED OUTFIT" not in prompt
+        assert "SAME COMPLETE DEFAULT OUTFIT" not in prompt
         assert "4:3" in prompt
         assert "2:3" in prompt
-        for tile in s.tiles:
+        for tile in view.tiles:
             assert tile.name.upper() in prompt
-    assert "DEFAULT INTEGRATED OUTFIT" in p["face.png"]
-    assert "width:height=1:1" in p["face.png"]
+    face=p["face.png"]
+    assert "{skin_color}" in face
+    assert "PRODUCTION PURPOSE — MATCH THE 3D VTUBER BASE IDENTITY" in face
+    assert "width:height=1:1" in face
+    assert "NO costume collar" in face
     assert "character_3d_sheet_pack.zip" in section()
-    assert "다른 의상을 입힌 3D 아바타" in section()
     assert "3D 의상 자동 교체는 제공하지 않습니다" in section()
     assert "정적 소품" in section()
+
+
+def test_every_master_and_body_prompt_is_a_modular_vtuber_base():
+    p=prompts()
+    assert "MODULAR ADULT VTUBER AVATAR BASE" in p["front_master.png"]
+    assert "NO gray/flesh-colored bodysuit" in p["sheet_body_base.png"]
+    assert "NO gray/flesh-colored bodysuit" in p["sheet_arms_hands.png"]
+    assert "TRUE transparent RGBA" in p["outfit_variant.png"]
+    assert "alpha=0" in p["hair_variant.png"]
