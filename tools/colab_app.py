@@ -1373,14 +1373,31 @@ def _reattach_generation_workers(mode: str) -> None:
         from tools.install_2d_workers import activate_2d_environment
         _setup_stage("Bind verified 2D workers", activate_2d_environment)
         if mode == "inochi2d":
-            _prepare_inochi_exporter_best_effort("Bind official Inochi exporter")
+            if os.environ.get("VTUBER_NOTEBOOK_EXPLICIT_DOWNLOAD") == "1":
+                from tools.setup_inochi_runtime import bind_prepared_inochi_runtime
+                try:
+                    _setup_stage("Bind prepared Inochi SDK (no installs)",
+                                 bind_prepared_inochi_runtime)
+                except RuntimeError as exc:
+                    print("[inochi-sdk] exporter not ready; may only produce "
+                          f"editable artwork, not INP: {exc}", flush=True)
+            else:
+                _prepare_inochi_exporter_best_effort("Bind official Inochi exporter")
     elif mode == "3d":
         from tools.install_2d_workers import activate_alpha_environment
         _setup_stage("Bind 3D alpha worker", activate_alpha_environment)
-        from tools.setup_blender_runtime import ensure_blender_runtime
-        _setup_stage("Bind verified Blender VRM runtime", lambda: ensure_blender_runtime(
-            str(WORK_ROOT / "third_party" / "blender")
-        ))
+        if os.environ.get("VTUBER_NOTEBOOK_EXPLICIT_DOWNLOAD") == "1":
+            from tools.setup_blender_runtime import bind_verified_blender_runtime
+            _setup_stage("Bind verified Blender VRM runtime (no downloads)",
+                         lambda: bind_verified_blender_runtime(
+                             str(WORK_ROOT / "third_party" / "blender")
+                         ))
+        else:
+            from tools.setup_blender_runtime import ensure_blender_runtime
+            _setup_stage("Bind verified Blender VRM runtime",
+                         lambda: ensure_blender_runtime(
+                             str(WORK_ROOT / "third_party" / "blender")
+                         ))
     else:
         raise ValueError("Unknown production mode: " + mode)
 
