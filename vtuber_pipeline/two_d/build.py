@@ -14,6 +14,10 @@ KNOWN = {
     "brow_left": "eyebrow.left", "brow_right": "eyebrow.right",
     "mouth_closed": "mouth.lip", "mouth_open": "mouth.inner",
     "body": "body", "face": "face", "neck": "neck",
+    "ear_left": "ear.left", "ear_right": "ear.right",
+    "nose": "nose",
+    "hair_left": "hair.side.left", "hair_right": "hair.side.right",
+    "outfit_front": "cloth.front", "outfit_back": "cloth.back",
 }
 
 def _layers(source: SourceSet, folder: Path) -> PartsDocument | None:
