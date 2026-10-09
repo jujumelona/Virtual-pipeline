@@ -187,6 +187,33 @@ def test_character_mode_rejects_accessory_only_mode_in_ui_dispatch():
     assert "accessory_base_path=" not in character_code
 
 
+def test_v8_notebook_generation_failure_is_never_a_green_finished_cell():
+    import ast
+    import json
+
+    repo = Path(__file__).resolve().parents[1]
+    notebook = json.loads((repo / "notebooks" /
+                           "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
+    code_cells = ["".join(c["source"]) for c in notebook["cells"]
+                  if c["cell_type"] == "code"]
+    assert len(code_cells) == 4
+    generate_cell = code_cells[2]
+    final_diagnostics = code_cells[3]
+    ast.parse(generate_cell)
+    ast.parse(final_diagnostics)
+    assert "if not RESULT_FILE:" in generate_cell
+    assert "raise RuntimeError(" in generate_cell
+    assert "VTUBER_GENERATION_FAILED:" in generate_cell
+    assert "VTUBER_GENERATION_OUTPUT_MISSING:" in generate_cell
+    assert "VTUBER_GENERATION_FAILED:" not in final_diagnostics
+    assert "status.json" in final_diagnostics
+    assert "generation.log" in final_diagnostics
+    assert "재연결" in final_diagnostics
+    assert "완성" not in generate_cell.split("if not RESULT_FILE:", 1)[1].split(
+        "raise RuntimeError(", 1
+    )[0]
+
+
 def test_notebook_event_printer_displays_unfiltered_logs_including_early_errors(capsys):
     from tools.colab_native import _event_printer
     lines = (
