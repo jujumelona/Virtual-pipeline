@@ -120,28 +120,40 @@ def _framing(scope: str) -> str:
     )
 
 
-def _prompt(identity_text: str, framing: str, filename: str, task: str, *, free: bool = True) -> dict:
+def _prompt(identity_text: str, framing: str, filename: str, task: str, *, free: bool = True, detached: bool = False) -> dict:
     prompt = (
         ("ORIGINAL FULLY CLOTHED ADULT ANIME VTUBER\n"
          if free else "ORIGINAL ADULT ANIME VTUBER SEPARATE ASSET\n")
         + identity_text + "\n\n"
         + "OUTPUT EXACT FILE NAME: " + filename + "\n"
         + "ONE image, WIDTH:HEIGHT = 2:3 portrait; use the generator's best "
-          "native supported resolution. Do not promise 4K/8K or RGBA support.\n"
+          "native supported resolution. 2:3 is the project composition, not a "
+          "mandatory See-through/Qwen input ratio. If unsupported, choose the closest "
+          "native portrait size without stretching or cropping artwork. Set the "
+          "actual generator size/aspect option; prompt text alone does not set pixels. "
+          "Do not promise 4K/8K or RGBA support.\n"
         + framing + "\n"
         + task + "\n"
-        + "Strict identity consistency, crisp clean anime outlines, symmetric "
-          "neutral front-facing pose, open eyes, closed lips, flat-front lighting; "
-          "clear outline boundaries for later riggable part extraction. "
-          "Fully opaque modest clothing; no exposed torso or intimate anatomy. "
-          "Plain contrasting background is fine; alpha transparency is OPTIONAL "
-          "for master images. Never draw a grid, multiple poses/views, "
-          "additional characters, labels, watermark or checkerboard. "
-          "Do NOT require the image generator to supply 100 image files or "
-          "Cubism rigging meshes.\n"
+        + ("Preserve the attached reference canvas dimensions, origin and asset "
+           "attachment points. Do not add a character, eyes, lips or unrelated clothing. "
+           "Use genuine transparent alpha if supported; otherwise use a plain contrasting "
+           "background for the foreground-mask stage. Never draw a checkerboard. "
+           if detached else
+           "Strict identity consistency, crisp clean anime outlines, symmetric "
+           "neutral front-facing pose, open eyes, closed lips, flat-front lighting; "
+           "clear outline boundaries for later riggable part extraction. "
+           "Fully opaque modest clothing; no exposed torso or intimate anatomy. "
+           "Plain contrasting background is fine; alpha transparency is OPTIONAL "
+           "for master images. ")
+        + "Never draw a grid, multiple poses/views, additional characters, labels, "
+          "watermark or checkerboard. Do NOT require the image generator to supply "
+          "100 image files or Cubism rigging meshes.\n"
     )
     return {"filename": filename, "purpose": "external_image_ai_reference",
-            "prompt": prompt, "aspect_ratio": "2:3"}
+            "prompt": prompt, "aspect_ratio": "2:3",
+            "aspect_ratio_source": "project_composition_not_model_requirement",
+            "native_generation_settings_verified": False,
+            "detached_reference_dimensions_required": detached}
 
 
 def build_vts_brief(
@@ -218,7 +230,8 @@ def build_vts_brief(
             "matching location, with no unrelated anatomy, garments or hair. "
             "Keep the full asset within the canvas, no label/grid."
         )
-        images.append(_prompt(data, asset_frame, filename, task, free=False))
+        images.append(_prompt(data, asset_frame, filename, task, free=False,
+                              detached=asset_kind != "body"))
     qwen_usage = "on_demand_if_quality_insufficient" if edition == "free" else "primary_high_detail_refinement"
     brief = {
         "schema": "vtuber/vts-artwork-brief-v1",
@@ -242,6 +255,16 @@ def build_vts_brief(
         },
         "models": {
             "image_generator": "external_large_image_AI_only",
+            "image_processing": {
+                "see_through": {"canvas": [1280, 1280], "resize": "center_square_pad_resize",
+                                "steps": 30, "depth_resolution": 768},
+                "stable_layers": {"max_side": 640, "dimension_multiple": 16,
+                                  "resize": "preserve_aspect_then_round", "steps": 50,
+                                  "sampler": "Heun", "guidance_scale": 1.0},
+                "upscale_before_decomposition": False,
+                "upscale_reason": "Official decomposition already resizes inputs; no mandatory SR stage.",
+                "external_generator": "Select its native size in its own UI/API; prompts cannot enforce pixels.",
+            },
             "stages": [dict(item) for item in MODEL_STACK],
             "qwen_usage": qwen_usage,
             "qwen_quantized_t4_verified": False,

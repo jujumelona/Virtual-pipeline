@@ -137,3 +137,24 @@ def test_cli_no_license_gate_and_outputs_zip(identity, tmp_path):
     assert '"stable_layers_enabled_for_planning": true' in result.output
     assert (tmp_path / "vts_free_upper_prompts.zip").is_file()
     assert "NOT a .moc3" in result.output
+
+@pytest.mark.parametrize('scope', ['upper', 'full'])
+@pytest.mark.parametrize('asset', ['hair', 'outfit', 'accessory'])
+def test_detached_prompt_has_no_character_pose_or_clothing_instruction(identity, scope, asset):
+    image = build_vts_brief('pro', scope, identity, asset_kind=asset)['images'][0]
+    assert 'open eyes, closed lips' not in image['prompt']
+    assert 'Fully opaque modest clothing' not in image['prompt']
+    assert 'reference canvas' in image['prompt']
+    assert image['aspect_ratio_source'] == 'project_composition_not_model_requirement'
+
+@pytest.mark.parametrize('scope', ['upper', 'full'])
+@pytest.mark.parametrize('edition,asset', [('free', None), ('pro', 'body'),
+    ('pro', 'hair'), ('pro', 'outfit'), ('pro', 'accessory')])
+def test_all_ten_briefs_distinguish_native_generation_and_model_processing(identity, scope, edition, asset):
+    brief = build_vts_brief(edition, scope, identity, asset_kind=asset)
+    contract = brief['models']['image_processing']
+    assert contract['see_through']['canvas'] == [1280, 1280]
+    assert contract['stable_layers']['max_side'] == 640
+    assert contract['stable_layers']['dimension_multiple'] == 16
+    assert contract['upscale_before_decomposition'] is False
+    assert brief['images'][0]['native_generation_settings_verified'] is False
