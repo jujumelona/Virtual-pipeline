@@ -233,63 +233,36 @@ def test_readme_canonical_notebook_uses_fresh_cell_source():
     assert "subprocess.Popen(" in cells[0]
     assert "colab_bootstrap.log" in cells[0]
     assert "VTUBER_SETUP_ONLY" in cells[0]
-    assert "prepare_models" in cells[1]
-    assert "colab_model_setup.log" in cells[1]
-    assert "subprocess.Popen(" in cells[1]
-    assert "raise RuntimeError(" in cells[1]
-    assert "check=True" not in cells[1]
+    # Models must only be downloaded after the UI has selected a mode.
+    assert "모드별 모델 준비" in cells[1]
+    assert "prepare_models(" not in cells[1]
+    assert "subprocess.Popen(" not in cells[1]
+    app_source = (ROOT / "tools" / "colab_app.py").read_text(encoding="utf-8")
+    assert "prepare_models(mode)" in app_source
+    assert "VTUBER_WORKER_FLUX" in (ROOT / "tools" / "install_2d_workers.py").read_text(encoding="utf-8")
     assert 'run_name="__main__"' in cells[2]
     assert "colab_ui_launcher.py" in cells[2]
     assert "import gradio" not in cells[2]
 
 
-def test_model_step_preserves_real_subprocess_failure_in_notebook_log(
-    tmp_path, monkeypatch, capsys,
-):
-    """The second cell must not produce an opaque CalledProcessError."""
-    import pytest
-
+def test_model_step_does_not_launch_unselected_models(tmp_path, monkeypatch, capsys):
+    """The notebook's second cell is a note, not a hidden multi-GB download."""
     notebook = json.loads(
-        (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text(
-            encoding="utf-8"
-        )
+        (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v8.ipynb")
+        .read_text(encoding="utf-8")
     )
     cells = [
-        "".join(c["source"])
-        for c in notebook["cells"]
+        "".join(c["source"]) for c in notebook["cells"]
         if c["cell_type"] == "code"
     ]
-    cell = cells[1]
-    cell = cell.replace(
-        '"/content/Virtual-pipeline"', repr(str(tmp_path))
-    ).replace(
-        '"/content/vtuber_builder/logs/colab_model_setup.log"',
-        repr(str(tmp_path / "models.log")),
-    )
-    original_popen = subprocess.Popen
-
-    def failed_model_process(_cmd, **kwargs):
-        return original_popen(
-            [
-                sys.executable, "-u", "-c",
-                "import sys; print('exact-model-failure-trace', file=sys.stderr); "
-                "sys.exit(17)",
-            ],
-            cwd=tmp_path,
-            stdout=kwargs["stdout"],
-            stderr=kwargs["stderr"],
-            text=kwargs["text"],
-            bufsize=kwargs["bufsize"],
-        )
-
-    monkeypatch.setattr(subprocess, "Popen", failed_model_process)
-    with pytest.raises(RuntimeError, match="exit=17") as info:
-        exec(compile(cell, "<colab-model-cell>", "exec"), {})
-    assert "exact-model-failure-trace" in str(info.value)
-    assert "CalledProcessError" not in str(info.value)
-    log = (tmp_path / "models.log").read_text(encoding="utf-8")
-    assert "exact-model-failure-trace" in log
-    assert "exact-model-failure-trace" in capsys.readouterr().out
+    assert len(cells) == 3
+    assert "prepare_models(" not in cells[1]
+    assert "subprocess." not in cells[1]
+    def forbidden(*args, **kwargs):
+        raise AssertionError("model setup must wait for mode selection")
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    exec(compile(cells[1], "<colab-model-cell>", "exec"), {})
+    assert "모드별 모델 준비" in capsys.readouterr().out
 
 
 def test_model_prepare_entrypoint_dumps_unmodified_traceback(tmp_path, capsys):
@@ -304,7 +277,8 @@ def test_model_prepare_entrypoint_dumps_unmodified_traceback(tmp_path, capsys):
     prepare = module["prepare_models"]
     prepare.__globals__["WORK_ROOT"] = tmp_path
 
-    def fail():
+    def fail(mode):
+        assert mode == "3d"
         raise RuntimeError("pin-verification-failed-unique-code")
 
     prepare.__globals__["_prepare_models_checked"] = fail
