@@ -116,7 +116,7 @@ def build_inochi2d(source: SourceSet) -> BuildResult:
             # incompatible native INP exporter is PREPARED, never COMPLETE.
             result=BuildResult("inochi2d","prepared",art["layers"]["psd"],
                                art["layers"]["ora"],source.output_dir,
-                               "Native INP2 export unavailable: "+str(exc))
+                               "Official Inochi SDK INP export unavailable: "+str(exc))
     result.write(source.output_dir)
     return result
 
