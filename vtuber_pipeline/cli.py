@@ -52,29 +52,33 @@ def avatar(image, output, face_image, back_image, left_image, right_image, full_
         },
     )
     stages = result.get("stages", {})
-    stage_names = [
-        ("reference_quality", "external reference diagnostics"),
-        ("input_gate", "input validation + landmarks"),
-        ("person_alpha", "ISNet-IS foreground cutout"),
-        ("relative_depth", "per-observed-view relative depth"),
-        ("instantmesh", "InstantMesh geometry"),
-        ("multiview_alignment", "3D frame registration"),
-        ("surface_refine", "topology-preserving surface refinement"),
-        ("blender_vrm", "Blender native VRM 1.0 export"),
-        ("reference_reconstruction", "TripoSR reconstruction"),
-        ("template_fitting", "canonical template fitting"),
-        ("texture_transfer", "texture transfer"),
-        ("rig", "humanoid rig"),
-        ("expressions", "expressions / visemes"),
-        ("gaze", "look-at"),
-        ("springbone", "SpringBone"),
-        ("vrm_export", "VRM export"),
-        ("validator", "strict validation"),
-    ]
-    for key, label in stage_names:
-        stage = stages.get(key)
-        if not stage:
+    # Render every stage actually emitted by the orchestrator, in execution
+    # order. A fixed list silently hid newly added stages (and kept reporting
+    # removed InstantMesh stages), making production failure triage unreliable.
+    stage_labels = {
+        "reference_quality": "external reference diagnostics",
+        "person_alpha": "ISNet-IS foreground cutout",
+        "input_gate": "input validation + landmarks",
+        "relative_depth": "per-observed-view relative depth",
+        "reference_reconstruction": "TripoSR reconstruction",
+        "licensed_multiview": "observed TripoSR multi-view reconstruction",
+        "multiview_alignment": "3D frame registration",
+        "template_fitting": "canonical template fitting",
+        "surface_refine": "topology-preserving surface refinement",
+        "texture_transfer": "source-aware texture transfer",
+        "rig": "humanoid rig and hair",
+        "expressions": "expressions / visemes",
+        "gaze": "look-at",
+        "springbone": "SpringBone",
+        "vrm_export": "VRM export",
+        "blender_vrm_export": "Blender native VRM 1.0 export",
+        "validator": "strict validation",
+    }
+    for key, stage in stages.items():
+        if not isinstance(stage, dict):
+            click.echo(f"  · {key}: invalid stage report")
             continue
+        label = stage_labels.get(key, key)
         status = stage.get("status", "unknown")
         if status == "complete":
             click.echo(f"  ✓ {label}")
