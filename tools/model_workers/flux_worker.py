@@ -158,8 +158,53 @@ def memory_snapshot(stage: str) -> None:
     print(f"[flux-memory] stage={stage} " + " ".join(metrics), flush=True)
 
 
+def _run_isolated_flux_phase(script: str, source: Path, dest: Path) -> None:
+    """Use a new PID for each phase so all large model allocations disappear."""
+    import subprocess
+    import signal
+    from vtuber_pipeline.common.stage_runner import (
+        cgroup_memory_diagnostics, cgroup_oom_summary,
+    )
+
+    action = Path(script).stem
+    before = cgroup_memory_diagnostics()
+    memory_snapshot("before_" + action)
+    print(f"[flux-phase] {action}: start; input={source} output={dest}",
+          flush=True)
+    try:
+        # Inherit the worker's stdout/stderr stream without accumulating multi-
+        # megabyte tqdm logs in RAM. The parent stage runner persists both.
+        proc = subprocess.run(
+            [sys.executable, "-u", str(Path(__file__).resolve().parent / script),
+             str(source), str(dest)],
+            timeout=3300,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"{action}: timed out after 3300s") from exc
+    if proc.returncode:
+        evidence = (
+            cgroup_oom_summary(before, cgroup_memory_diagnostics())
+            if proc.returncode in (-signal.SIGKILL, 128 + signal.SIGKILL)
+            else ""
+        )
+        raise RuntimeError(
+            f"{action}: exit={proc.returncode} {evidence}. "
+            f"Large model and VAE phases are separate subprocesses. "
+            "Read [flux-memory] values immediately before termination."
+        )
+    if not dest.is_file() or not dest.stat().st_size:
+        raise RuntimeError(f"{action}: no verified output manifest: {dest}")
+    memory_snapshot("after_" + action)
+
+
 def infer(req):
-    from vtuber_pipeline.common.model_assets import resolve_snapshot
+    """Repair holes with a hard memory boundary after FLUX denoising.
+
+    4/4 denoising previously succeeded but the still-resident Qwen+FLUX
+    weights triggered SIGKILL during VAE decode. The model must EXIT before
+    standalone VAE-only decoding, rather than merely call empty_cache().
+    """
     from vtuber_pipeline.common.schemas import PartsDocument
 
     doc = PartsDocument.read(req["parts_json"])
@@ -179,37 +224,42 @@ def infer(req):
         saved = doc.write(str(out / "repaired_parts.json"))
         return {"parts_json": saved}
 
-    import torch
-    from diffusers import Flux2KleinPipeline
-    snapshot = resolve_snapshot("flux2_klein_4b")
-    dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
-    memory_snapshot("before_checkpoint_load")
-    pipe = Flux2KleinPipeline.from_pretrained(
-        snapshot, torch_dtype=dtype, low_cpu_mem_usage=True,
-    )
-    configure_low_memory_decode(pipe)
-    pipe.enable_model_cpu_offload()
-    memory_snapshot("after_checkpoint_load_offload")
-    reports = []
-    for index, (part, mask) in enumerate(planned):
-        marked, box = prepare_masked_edit(original, mask)
-        prompt = PROMPT + f" Target layer: {part.semantic_id}. Restore the gray missing region only."
-        memory_snapshot(f"before_denoise_part_{index}")
-        def _denoise_step(_pipeline, step, timestep, callback_kwargs):
-            if step == 3:
-                # In the pinned pipeline, VAE decoding happens immediately
-                # after the final step callback. This survives if SIGKILL
-                # occurs in decoder memory allocation.
-                memory_snapshot(f"before_vae_decode_part_{index}")
-            return callback_kwargs
+    plan_file = out / "flux_split_plan.json"
+    latent_manifest = out / "flux_latents_manifest.json"
+    decoded_manifest = out / "flux_decoded_manifest.json"
+    for destination in (latent_manifest, decoded_manifest):
+        destination.unlink(missing_ok=True)
+    plan_file.write_text(json.dumps({
+        "image_path": req["image_path"],
+        "repairs": [
+            {"index": index, "semantic_id": part.semantic_id,
+             "mask_png": part.hidden_fill_mask_png}
+            for index, (part, _mask) in enumerate(planned)
+        ],
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
 
-        edited = pipe(
-            image=marked, prompt=prompt, num_inference_steps=4,
-            guidance_scale=1.0, width=marked.width, height=marked.height,
-            callback_on_step_end=_denoise_step,
-        ).images[0].convert("RGB")
-        memory_snapshot(f"after_vae_decode_part_{index}")
+    _run_isolated_flux_phase("flux_latent_worker.py", plan_file, latent_manifest)
+    print("[flux-phase] denoiser exited: releasing Qwen+FLUX transformer "
+          "host and CUDA allocations before VAE decode", flush=True)
+    _run_isolated_flux_phase(
+        "flux_decode_worker.py", latent_manifest, decoded_manifest,
+    )
+    decoded = json.loads(decoded_manifest.read_text(encoding="utf-8"))["repairs"]
+    if len(decoded) != len(planned):
+        raise RuntimeError("FLUX separate VAE produced an incomplete parts list")
+
+    reports = []
+    for index, ((part, mask), item) in enumerate(zip(planned, decoded)):
+        if (int(item["index"]) != index
+                or item["semantic_id"] != part.semantic_id):
+            raise RuntimeError("FLUX decoded part order/semantic identity mismatch")
+        box = tuple(int(v) for v in item["box"])
+        if len(box) != 4:
+            raise ValueError("FLUX decoded source crop must contain 4 values")
         x0, y0, x1, y1 = box
+        edited = Image.open(item["decoded_png"]).convert("RGB")
+        if list(edited.size) != item["input_wh"]:
+            raise RuntimeError("FLUX decoded crop resolution receipt mismatch")
         restored_patch = np.asarray(
             edited.resize((x1 - x0, y1 - y0), Image.Resampling.LANCZOS),
             dtype=np.uint8,
@@ -220,14 +270,18 @@ def infer(req):
         reports.append({
             "part": part.semantic_id,
             "source_crop_xyxy": list(box),
-            "model_input_wh": list(marked.size),
+            "model_input_wh": item["input_wh"],
             **repair,
-            "reduced_input_resolution": (x1 - x0) > marked.width or (y1 - y0) > marked.height,
+            "reduced_input_resolution": (
+                (x1 - x0) > edited.width or (y1 - y0) > edited.height
+            ),
         })
     saved = doc.write(str(out / "repaired_parts.json"))
     stats = out / "occlusion_repair_report.json"
-    stats.write_text(json.dumps({"repairs": reports, "model": "FLUX.2-klein-4B"},
-                                indent=2), encoding="utf-8")
+    stats.write_text(json.dumps({
+        "repairs": reports, "model": "FLUX.2-klein-4B",
+        "decode_mode": "isolated-tiled-VAE-after-denoiser-exit",
+    }, indent=2), encoding="utf-8")
     return {"parts_json": saved, "repair_stats_json": str(stats)}
 
 
