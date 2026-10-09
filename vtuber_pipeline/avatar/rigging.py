@@ -442,6 +442,7 @@ def create_gltf_with_skin(
     ibm_off, ibm_len = append_aligned(ibm.tobytes())
 
     uv = None
+    texture_alpha_mode = "OPAQUE"
     uv_off = uv_len = image_off = image_len = None
     texture_file = pathlib.Path(texture_path) if texture_path else None
     uv_file = pathlib.Path(uv_path) if uv_path else None
@@ -457,6 +458,12 @@ def create_gltf_with_skin(
             )
         if not np.all(np.isfinite(uv)):
             raise ValueError("Texture UV contains non-finite values")
+        from PIL import Image as PillowImage
+        with PillowImage.open(texture_file) as atlas:
+            # glTF ignores PNG alpha unless the material declares it. Observe
+            # coverage without changing the embedded straight-alpha PNG bytes.
+            if atlas.convert("RGBA").getchannel("A").getextrema()[0] < 255:
+                texture_alpha_mode = "BLEND"
         uv_off, uv_len = append_aligned(uv.tobytes())
         image_off, image_len = append_aligned(texture_file.read_bytes())
 
@@ -517,6 +524,7 @@ def create_gltf_with_skin(
         gltf.textures.append(Texture(source=0, sampler=0, name="avatar_texture"))
         gltf.materials.append(Material(
             name="avatar_material",
+            alphaMode=texture_alpha_mode,
             pbrMetallicRoughness=PbrMetallicRoughness(
                 baseColorTexture=TextureInfo(index=0),
                 metallicFactor=0.0,

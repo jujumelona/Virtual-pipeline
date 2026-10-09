@@ -5,6 +5,35 @@ import sys
 from pathlib import Path
 
 
+def compatibility_export_options(operator, armature_name):
+    """Use verified v4.7.2 property names and reject incompatible operator RNA.
+
+    Source: VRM-Addon-for-Blender/v4.7.2/src/io_scene_vrm/exporter/export_scene.py.
+    RNA defaults are recorded separately from the explicit operator arguments.
+    """
+    options = {
+        "use_addon_preferences": False,
+        "export_invisibles": False,
+        "export_only_selections": False,
+        "enable_advanced_preferences": False,
+        "export_all_influences": False,
+        "export_lights": False,
+        "export_gltf_animations": False,
+        "export_try_sparse_sk": False,
+        "ignore_warning": False,
+        "armature_object_name": armature_name,
+    }
+    properties = operator.get_rna_type().properties
+    observed = {}
+    for name, value in options.items():
+        prop = properties.get(name)
+        expected_type = "BOOLEAN" if isinstance(value, bool) else "STRING"
+        if prop is None or prop.type != expected_type:
+            raise RuntimeError(f"VRM Add-on has incompatible export option: {name}")
+        observed[name] = {"type": prop.type, "default": prop.default}
+    return options, observed
+
+
 def main():
     import bpy
     if "--" not in sys.argv:
@@ -56,7 +85,10 @@ def main():
     bpy.ops.wm.save_as_mainfile(filepath=blend)
     if not Path(blend).is_file():
         raise RuntimeError("Blender failed to write the editable .blend project")
-    exported = bpy.ops.export_scene.vrm(filepath=target)
+    export_options, export_rna = compatibility_export_options(
+        bpy.ops.export_scene.vrm, armatures[0].name,
+    )
+    exported = bpy.ops.export_scene.vrm(filepath=target, **export_options)
     if "FINISHED" not in exported:
         raise RuntimeError(f"Official VRM Add-on export failed: {exported}")
     evidence = {
@@ -68,6 +100,8 @@ def main():
         "nonzero_shape_key_count": animated_keys,
         "rigged_skin": True,
         "nonempty_shape_keys": True,
+        "export_operator_arguments": export_options,
+        "export_operator_rna": export_rna,
     }
     Path(report).write_text(json.dumps(evidence, indent=2), encoding="utf-8")
 

@@ -53,6 +53,8 @@ jobs:
             tests/test_instantmesh_license_guard.py \
             tests/test_2d_worker_setup_contract.py \
             tests/test_blender_setup_generation_contract.py \
+            tests/test_blender_export_options.py \
+            tests/production/test_rig_texture_alpha.py \
             tests/test_3d_alpha_worker_install.py \
             tests/production/test_2d_observed_keyform_pivots.py \
             tests/production/test_2d_spring_keyform_binding.py \
