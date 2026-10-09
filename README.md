@@ -543,6 +543,16 @@ Other permanent character details: {other_details}
 
 TASK: Generate the SAME original VTuber as TWO separate full-body
 ORTHOGRAPHIC reference views in one sheet_front_back.png image.
+3D AVATAR PURPOSE: {standalone_clothed_or_wardrobe_ready_base}.
+If standalone_clothed: preserve the full visible default costume; the
+current 3D pipeline may bake that outfit into the combined avatar mesh.
+If wardrobe_ready_base: render the identical character in a neutral,
+fully-covered fitted bodysuit/base underlayer (no removable coat, bulky
+sleeves, flowing skirt or detachable garment baked into the body).
+Match arm, waist and leg topology cleanly for a later fitted skinned
+XWear costume. No nude imagery or exposed intimate anatomy required.
+A wardrobe-ready label does not guarantee mesh/skin compatibility:
+verify clothing fit and coverage in the actual VRoid editor.
 CANVAS ASPECT RATIO WIDTH:HEIGHT = 4:3.
 LAYOUT exactly 2 equal-width columns in one row.
 Column 1: FRONT full body
@@ -581,6 +591,14 @@ Other permanent character details: {other_details}
 
 TASK: Generate the SAME original VTuber as TWO separate full-body
 ORTHOGRAPHIC reference views in one sheet_side_views.png image.
+3D AVATAR PURPOSE: {standalone_clothed_or_wardrobe_ready_base}.
+Keep precisely the SAME purpose and body/base garment state that was
+chosen for sheet_front_back.png. For wardrobe_ready_base, retain the
+neutral fitted covered bodysuit and do not introduce detachable coats
+or flared skirt geometry into these side views. For standalone_clothed,
+retain the full original default costume consistently across views.
+The 3D reconstruction pipeline does not separately extract a cloth mesh
+from this reference. A real wardrobe must be fitted in VRoid later.
 CANVAS ASPECT RATIO WIDTH:HEIGHT = 4:3.
 LAYOUT exactly 2 equal-width columns in one row.
 Column 1: CHARACTER LEFT full body
@@ -636,6 +654,8 @@ character_3d_sheet_pack.zip
     ├── sheet_side_views.png
     └── face.png
 ```
+
+**3D 의상 교체를 계획한 경우:** 현재 3D 재구성은 기본 의상이 신체 표면과 합쳐질 수 있습니다. **옷을 입은 완성 캐릭터로 시작하는 것은 정상**이지만 그런 메시에서 기존 옷만 자동 제거할 수 있는 것은 아닙니다. 별도 의상 메시를 처음부터 보관하지 않는 현 파이프라인에서는, 향후 XWear를 입힐 예정이라면 `3D AVATAR PURPOSE=wardrobe_ready_base`로 **노출 없는 중립 밀착 베이스**를 먼저 만들 것을 권장합니다. 이후 VRoid에서 기존 표면과 새 의상이 서로 뚫리는지 확인하고 메시 가림을 수정해야 합니다. 이미지 프롬프트만으로 신체 토폴로지나 VRoid 피팅 호환성이 검증되지는 않습니다.
 
 **3D 의상 변경:** 이미지 참조만으로 메시 스키닝까지 자동 완성되는 모드는 없습니다. 액세서리 작업의 `3D 교체 의상(XWear)` 옵션에서는 **VRM 1개 + 실제 costume.xwear 1개**를 VRoid Studio 편집기 전달용 ZIP으로 묶습니다. 이 ZIP은 착용 완료 VRM이 아닙니다. 원본 VRM에 옷을 맞춘 뒤 메시 가림·애니메이션·표정 검증을 거쳐 VRM 1.0으로 재출력해야 합니다. 스키닝 없는 소품 부착기에는 의상 메시를 넣지 않습니다.
 
