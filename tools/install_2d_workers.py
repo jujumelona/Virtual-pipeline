@@ -258,8 +258,10 @@ def install_2d_environment() -> dict:
     # install above; build only this pure-Python package without touching
     # the pretrained Colab CUDA Torch ABI. Its portalocker requirement is
     # installed explicitly in PYTHON_PACKAGES.
+    # Allow PEP 517 isolated setuptools for iopath's source archive. A
+    # clean Python 3.13 venv may not include setuptools.build_meta.
     _exec([str(python), "-m", "pip", "install", "--no-deps",
-           "--no-build-isolation", *SAM2_RUNTIME_PACKAGES],
+           *SAM2_RUNTIME_PACKAGES],
           env=env, timeout=600)
     # Install source packages with dependencies explicitly disabled. The
     # standalone pip above already resolved Python libraries; never let an
