@@ -188,7 +188,9 @@ def _observed_split_tags(metadata: Path, *, depth: bool) -> list[str]:
     if not isinstance(parts, dict):
         return []
     allowed = ("hair", "arm", "hand", "sleeve", "leg", "foot",
-               "shoe", "cloth", "outfit", "ribbon", "accessor")
+               "shoe", "cloth", "outfit", "ribbon", "accessor",
+               "eye", "irid", "eyebrow", "eyelash", "eyewhite",
+               "ear", "wings", "tail", "objects")
     result = []
     for tag in parts:
         if not isinstance(tag, str) or "," in tag:

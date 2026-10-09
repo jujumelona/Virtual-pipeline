@@ -91,7 +91,7 @@ def test_see_through_heuristic_uses_only_observed_metadata(tmp_path):
         "cloth": {},
     }}))
     assert _observed_split_tags(path, depth=True) == [
-        "hair_side", "arm_left", "cloth"
+        "hair_side", "arm_left", "eye_left", "cloth"
     ]
     assert _observed_split_tags(path, depth=False) == ["hair_side", "cloth"]
 
@@ -157,3 +157,19 @@ def test_live2d_pro_builds_each_asset_without_batch_companions(tmp_path, asset):
 ])
 def test_official_see_through_names_are_not_misclassified(upstream, expected):
     assert _semantic_family(upstream) == expected
+
+def test_eye_and_face_parts_eligible_for_real_left_right_split(tmp_path):
+    import json
+    from tools.vts_production import _observed_split_tags
+    path = tmp_path / "sidecar.psd.json"
+    path.write_text(json.dumps({"parts": {
+        "eyes": {}, "irides": {}, "eyewhite": {},
+        "eyebrow": {}, "eyelash": {}, "ears": {}, "nose": {}, "mouth": {},
+    }}))
+    observed = _observed_split_tags(path, depth=False)
+    assert "eyes" in observed
+    assert "irides" in observed
+    assert "eyewhite" in observed
+    assert "ears" in observed
+    assert "nose" not in observed
+    assert "mouth" not in observed
