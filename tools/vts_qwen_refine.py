@@ -32,31 +32,34 @@ def _patch_pinned_official(code: str, *, quant_dir: str, lora_dir: str) -> str:
     after="""    from diffusers import DiffusionPipeline, QwenImageTransformer2DModel
 
     transformer_q4 = QwenImageTransformer2DModel.from_pretrained(
-        """ + repr(quant_dir) + """, torch_dtype=torch.float16, device_map="auto",
+        """ + repr(quant_dir) + """, torch_dtype=runtime_dtype, device_map="auto",
     )
     pipe = DiffusionPipeline.from_pretrained(
-        args.base_model, torch_dtype=torch.float16,
+        args.base_model, torch_dtype=runtime_dtype,
         transformer=transformer_q4,
         trust_remote_code=True, cache_dir=args.cache_dir,
     )
     transformer = pipe.transformer.eval()
-    set_4bit_compute_dtype(transformer, torch.float16)
+    set_4bit_compute_dtype(transformer, runtime_dtype)
     vae = pipe.vae.to(device).eval()"""
     if code.count(before)!=1:
         raise RuntimeError("Stable-Layers upstream model loader changed: refuse unverified patch")
     code=code.replace(before,after)
     from inspect import getsource
-    from tools.vts_quantization import set_4bit_compute_dtype
-    code = getsource(set_4bit_compute_dtype) + "\n" + code
+    from tools.vts_quantization import set_4bit_compute_dtype, select_compute_dtype
     if code.count('text_encoder = text_encoder.to(device).eval()')!=1:
         raise RuntimeError("Stable-Layers text encoder binding changed")
     code=code.replace('text_encoder = text_encoder.to(device).eval()',
                       'text_encoder = text_encoder.to("cpu").eval()')
     # T4 has native fp16 and no native BF16. Preserve the Heun denoiser and
     # trained LoRA, but make all generated latent/embedding dtypes float16.
-    code=code.replace('torch.bfloat16','torch.float16')
+    code=code.replace('torch.bfloat16','runtime_dtype')
     if code.count('torch.bfloat16'):
         raise RuntimeError("BF16 GPU operation remains")
+    if code.count('import torch\n') != 1:
+        raise RuntimeError("Stable-Layers dtype initialization contract changed")
+    code = code.replace('import torch\n', 'import torch\nruntime_dtype = select_compute_dtype(torch)\n')
+    code = getsource(set_4bit_compute_dtype) + "\n" + getsource(select_compute_dtype) + "\n" + code
     if code.count('transformer = PeftModel.from_pretrained(transformer, args.lora)')!=1:
         raise RuntimeError("Stable-Layers upstream LoRA attachment changed")
     if lora_dir not in code:
