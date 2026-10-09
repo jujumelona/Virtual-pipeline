@@ -16,21 +16,25 @@ def validate_build_result(result) -> None:
     if suffix != required[result.mode]:
         raise ValueError("primary format does not match mode")
     if result.mode == "inochi2d":
-        from vtuber_pipeline.two_d.inochi_bridge import INP2_MAGIC
+        from vtuber_pipeline.two_d.inochi_bridge import inspect_native_inp
         import json
 
-        with Path(result.primary_file).open("rb") as source:
-            if source.read(len(INP2_MAGIC)) != INP2_MAGIC:
-                raise ValueError("Inochi complete requires a native INP2 header")
+        try:
+            native = inspect_native_inp(result.primary_file)
+        except (ValueError, OSError) as exc:
+            raise ValueError("Inochi complete requires an SDK-native INP puppet") from exc
         report_path = Path(result.primary_file).parent / "native_export_report.json"
         if not _nonempty(str(report_path)):
             raise ValueError("Inochi complete requires evidence from the native SDK exporter")
         evidence = json.loads(report_path.read_text(encoding="utf-8"))
         if (evidence.get("sdk_native_write") is not True
+                or evidence.get("sdk_roundtrip_read") is not True
+                or int(evidence.get("sdk_reimport_binding_count", 0)) < 1
+                or evidence.get("inp_format") != native["format"]
                 or int(evidence.get("mesh_vertices_count", 0)) < 3
                 or int(evidence.get("bound_keyforms_count", 0)) < 1
                 or int(evidence.get("physics_bindings_count", 0)) < 1):
-            raise ValueError("Inochi native rig is missing meshes, keyforms, or physics")
+            raise ValueError("Inochi native rig is missing verified meshes, keyforms, or physics")
     if result.mode == "live2d":
         from vtuber_pipeline.two_d.cubism_handoff import validate_official_export
         validate_official_export(str(Path(result.primary_file).parent))
