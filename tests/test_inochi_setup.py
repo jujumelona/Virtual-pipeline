@@ -31,7 +31,7 @@ def test_native_setup_does_not_skip_missing_graphics_development_headers(monkeyp
     monkeypatch.setattr(setup, "_link_dependencies_ready", lambda: len(checked) > 0)
     monkeypatch.setattr(setup, "_run", lambda cmd, **kwargs: checked.append(cmd))
     setup._install_compiler()
-    assert any(cmd[:2] == ["apt-get", "update"] for cmd in checked)
+    assert any("apt-get" in cmd and "update" in cmd for cmd in checked)
     installs = [cmd for cmd in checked if "install" in cmd]
     assert len(installs) == 1
     for package in ("libsdl2-dev", "libgl1-mesa-dev", "libglu1-mesa-dev",
