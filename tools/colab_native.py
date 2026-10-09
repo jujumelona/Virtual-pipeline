@@ -331,8 +331,12 @@ def generate(
         from tools.colab_generation_process import run_isolated
         runner = run_isolated
     job_folder = WORK / "notebook_inputs" / uuid.uuid4().hex
-    print("캐릭터 사진 한 장을 선택하세요." if mode != "accessory"
-          else "액세서리 제작 모드", flush=True)
+    if mode in ("inochi2d", "live2d") and layers_zip_path:
+        print("개별 PNG 27장 업로드 검증 완료: 사용자 추가 업로드 없음", flush=True)
+    elif mode != "accessory":
+        print("기존 캐릭터 입력 이미지를 사용해 제작합니다.", flush=True)
+    else:
+        print("액세서리 제작 모드", flush=True)
     worker_mode, args = _build_arguments(
         mode, usage, upload, job_folder, image_path=image_path,
         full_body=full_body, texture_size=texture_size,
