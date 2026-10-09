@@ -124,7 +124,10 @@ def prefetch_mode(mode: str, *, cache_dir: str | None = None, timeout: int = 240
     """
     if mode not in ("common_2d", "3d"):
         raise ValueError("unsupported prefetch mode")
-    import json
+    # CPU-only checkpoint verification processes are independent. Reuse the
+    # bounded executor instead of serially waiting through HF downloads.
+    # Actual neural inference remains strictly serialized by the UI queue.
+    work: list[tuple[str, str]] = []
     for name in MODE_ASSETS[mode]:
         # The InstantMesh model checkpoint is not a clearance to execute the
         # bundled CC-BY-NC Zero123++/Nvidia source renderer. Delay this large
@@ -142,13 +145,20 @@ def prefetch_mode(mode: str, *, cache_dir: str | None = None, timeout: int = 240
                 "from vtuber_pipeline.common.model_assets import resolve_snapshot; "
                 f"print(resolve_snapshot({name!r}, cache_dir={cache_dir!r}), flush=True)"
             )
-        run_model_task(name, code, timeout=timeout)
+        work.append((name, code))
     if mode == "3d":
         # These files are not independent selectable model families, but the
         # deployed TripoSR/rig pipeline requires them in its environment.
         for label, code in TASKS:
             if label in {"DINO", "u2net", "MakeHuman"}:
-                run_model_task(label, code, timeout=timeout)
+                work.append((label, code))
+    if not work:
+        raise RuntimeError("selected mode has no license-cleared model assets")
+    prefetch_assets(
+        tuple(work),
+        workers=min(MAX_WORKERS, len(work)),
+        runner=lambda label, code: run_model_task(label, code, timeout=timeout),
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> None:
