@@ -158,7 +158,7 @@ must be inferred by the subsequent pipeline, not pre-drawn here.
 - `input_invalid` / `segmentation_failed` / `free_budget_exceeded` / `rigging_validation_failed` / `needs_editor_export` 등의 **제안된 상태명**을 사용해 실패 원인을 구별한다. 현재 코드에 이미 존재하는 상태라고 주장하지 않는다. **검증된 공식 MOC3가 있어야만** `complete`.
 - **한 번에 헤어·의상·액세서리를 모두 착용한 ONE 고정 스타일 모델**을 목표로 하며, 방송 중 독립 의상/헤어 스위치 지원을 FREE의 완료 조건에 넣지 않는다. 스타일이 다르면 별개 모델로 만든다.
 
-**현재 연결 상태:** FREE·PRO 프롬프트 생성과 [Colab v8 노트북](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb)의 모델 설치·이미지 업로드·See-through NF4 → PSD → 실제 등록 RGBA 레이어 → 기존 메시·키폼·물리 → **Cubism Editor 전달 ZIP** 실행 경로가 추가됐다. **정식 `.moc3` 자동 생성과 완전한 Cubism 프로젝트 자동 리깅은 여전히 미구현**이다. PRO의 별도 의상·헤어·액세서리는 원본 ZIP에 보존되지만, Cubism에서 원클릭 교체 가능한 완료 파라미터는 아직 자동 연결되지 않는다. FREE의 ArtMesh **100개** 초과는 거부하지만, 디포머 50·파라미터 30·2048px 아틀라스 최종 검증은 정식 Cubism Editor에서 추가 확인해야 한다. **GPU T4 실기 추론 및 결과 품질도 미검증**이다.
+**현재 연결 상태:** FREE·PRO 프롬프트 생성과 Colab v8 노트북의 모델 설치·이미지 업로드·See-through NF4 → PSD → 실제 등록 RGBA 레이어 → 기존 메시·키폼·물리 → **Cubism Editor 전달 ZIP** 실행 경로가 추가됐다. **정식 `.moc3` 자동 생성과 완전한 Cubism 프로젝트 자동 리깅은 여전히 미구현**이다. PRO의 별도 의상·헤어·액세서리는 원본 ZIP에 보존되지만, Cubism에서 원클릭 교체 가능한 완료 파라미터는 아직 자동 연결되지 않는다. FREE의 ArtMesh **100개** 초과는 거부하지만, 디포머 50·파라미터 30·2048px 아틀라스 최종 검증은 정식 Cubism Editor에서 추가 확인해야 한다. **GPU T4 실기 추론 및 결과 품질도 미검증**이다.
 
 ### Colab v8 실제 사용 흐름
 
