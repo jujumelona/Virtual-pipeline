@@ -21,8 +21,12 @@ def test_wardrobe_is_accessory_subtype_not_falsely_static_bone_attachment():
     uploads=cells[3]
     build=cells[4]
     assert 'ACCESSORY_SUBTYPE = "소품"' in options
+    # User-visible task options now live in the dynamic, scoped UI module.
+    from tools.colab_mode_ui import ACCESSORY_LABELS
+    assert "소품" in ACCESSORY_LABELS
     for subtype in ("2D 교체 의상","3D 교체 의상(XWear)"):
-        assert subtype in options and subtype in uploads and subtype in build
+        assert subtype in ACCESSORY_LABELS and subtype in uploads and subtype in build
+    assert "render_notebook_controls(globals())" in options
     assert 'OUTFIT_2D_TARGET' in options
     assert 'outfit_variant.png' in uploads
     assert 'costume.xwear' in uploads
