@@ -104,7 +104,6 @@ def commit_repaired_part(part, mask: Image.Image, restored_patch: np.ndarray,
 def infer(req):
     from vtuber_pipeline.common.model_assets import resolve_snapshot
     from vtuber_pipeline.common.schemas import PartsDocument
-    from vtuber_pipeline.perception.compose import masked_repair
 
     doc = PartsDocument.read(req["parts_json"])
     original = Image.open(req["image_path"]).convert("RGB")
