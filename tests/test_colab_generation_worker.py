@@ -33,8 +33,22 @@ def test_invalid_mode_or_wrong_character_inputs_fail_before_generation(monkeypat
     })
     with pytest.raises(ValueError, match="Unknown production mode"):
         worker.run_request({"mode": "unsupported", "args": []})
-    with pytest.raises(ValueError, match="expects character image and usage"):
-        worker.run_request({"mode": "live2d", "args": ["photo.png", "usage", "parts.zip"]})
+    with pytest.raises(ValueError, match="master image, usage, optional layer ZIP"):
+        worker.run_request({"mode": "live2d", "args": ["photo.png", "usage", "parts.zip", "extra"]})
+
+
+def test_2d_layered_mode_passes_exact_user_zip_to_production(monkeypatch):
+    invoked = []
+    def fake_runpy(*args, **kwargs):
+        return {"_run_2d_production_inline": lambda *values, target: (
+            invoked.append((target, values)) or ("prepared", "user layers", None)
+        )}
+    monkeypatch.setattr(worker.runpy, "run_path", fake_runpy)
+    result = worker.run_request({
+        "mode": "live2d", "args": ["master.png", "corporation", "26_layers.zip"]
+    })
+    assert result == ["prepared", "user layers", None]
+    assert invoked == [("live2d", ("master.png", "corporation", "26_layers.zip"))]
 
 
 def test_generation_bootstrap_uses_stdlib_only():
