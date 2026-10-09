@@ -122,7 +122,7 @@ def _install_compiler() -> None:
     _run([*prefix, "apt-get", "update", "-qq"], timeout=300)
     _run([*prefix, "apt-get", "install", "-y", "--no-install-recommends",
           "ldc", "dub", "xvfb", "pkg-config", "libsdl2-dev",
-          "libgl1-mesa-dev", "libglu1-mesa-dev", "zlib1g-dev"], timeout=900)
+          "libgl1-mesa-dev", "libglvnd-dev", "libglu1-mesa-dev", "zlib1g-dev"], timeout=900)
     if not all(shutil.which(name) for name in needed) or not _link_dependencies_ready():
         raise RuntimeError("D compiler or SDL2/OpenGL/GLU/zlib link-time dependencies are missing")
 
@@ -143,13 +143,14 @@ def _verify_native_linker() -> None:
             "#include <GL/glu.h>\n"
             "#include <zlib.h>\n"
             "int main(void) { "
-            "return (int)(SDL_Init(0) + (glGetString == 0) "
-            "+ (gluErrorString == 0) + (zlibVersion() == 0)); }\n",
+            "return (int)(SDL_Init(0) + (glGetString(GL_VERSION) == 0) "
+            "+ (gluErrorString(GL_NO_ERROR) == 0) + (zlibVersion() == 0)); }\n",
             encoding="utf-8",
         )
         _run([
             "cc", str(c_source), "-o", str(probe / "c_link_probe"),
-            "-lSDL2", "-lGL", "-lGLU", "-lz",
+            "-Wl,--no-as-needed", "-lSDL2", "-lGL",
+            "-lGLdispatch", "-lGLU", "-lz",
         ], timeout=120, cwd=PROJECT)
         d_source = probe / "link_probe.d"
         d_source.write_text(
@@ -157,6 +158,7 @@ def _verify_native_linker() -> None:
             encoding="utf-8",
         )
         _run(["ldc2", str(d_source), "-of=" + str(probe / "d_link_probe"),
+              "-L--no-as-needed", "-L-lGL", "-L-lGLdispatch",
               "-v"], timeout=120, cwd=PROJECT)
     print("[inochi-sdk] native C and D linker smoke passed", flush=True)
 
