@@ -24,35 +24,71 @@ CACHE = Path(os.environ.get(
 
 
 def _run(command: list[str], *, timeout: int, cwd: Path | None = None) -> None:
-    """Persist complete D compiler output; never discard the actual diagnostics.
+    """Stream ALL native compiler stdout/stderr to Colab and a durable file.
 
-    The old check=True call exposed only CalledProcessError(exit=2), making
-    source/API mismatches indistinguishable from linker and missing packages.
+    No only-last-N-lines excerpts: unresolved symbols often appear hundreds of
+    lines before '/usr/bin/cc failed'. Use a file (not a pipe) so the producer
+    never deadlocks when notebook output is slow; read it concurrently.
     """
-    log = CACHE / "logs" / "native_build.log"
-    log.parent.mkdir(parents=True, exist_ok=True)
-    print("[inochi-sdk] " + " ".join(command) + f" · log={log}", flush=True)
-    with log.open("a", encoding="utf-8") as stream:
-        stream.write("\n$ " + subprocess.list2cmdline(command) + "\n")
-        stream.flush()
-        try:
-            result = subprocess.run(command, timeout=timeout,
-                cwd=str(cwd) if cwd else None, stdout=stream,
-                stderr=subprocess.STDOUT, check=False)
-        except subprocess.TimeoutExpired as exc:
-            raise RuntimeError(
-                f"Inochi SDK command exceeded {timeout}s; full output: {log}"
-            ) from exc
-    if result.returncode:
-        # Tail is bounded for notebook output, full source error is on disk.
-        with log.open("r", encoding="utf-8", errors="replace") as stream:
-            from collections import deque
-            tail = "".join(deque(stream, maxlen=95))
-        raise RuntimeError(
-            f"Inochi SDK command failed (exit={result.returncode}): "
-            + subprocess.list2cmdline(command)
-            + f"\n{tail[-11000:]}\nFull compiler output: {log}"
+    import signal
+    import time
+
+    log_path = CACHE / "logs" / "native_build.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    header = "[inochi-sdk] $ " + subprocess.list2cmdline(command)
+    print(f"{header}\n[inochi-sdk] complete transcript: {log_path}", flush=True)
+    with log_path.open("a", encoding="utf-8") as sink:
+        sink.write(header + "\n")
+        sink.flush()
+        proc = subprocess.Popen(
+            command, cwd=str(cwd) if cwd else None, stdout=sink,
+            stderr=subprocess.STDOUT, start_new_session=True,
         )
+    cursor = 0
+    deadline = time.monotonic() + timeout
+
+    def drain() -> None:
+        nonlocal cursor
+        with log_path.open("r", encoding="utf-8", errors="replace") as stream:
+            stream.seek(cursor)
+            while True:
+                line = stream.readline()
+                if not line:
+                    break
+                print(line, end="" if line.endswith("\n") else "\n", flush=True)
+            cursor = stream.tell()
+
+    try:
+        while proc.poll() is None:
+            drain()
+            if time.monotonic() > deadline:
+                raise subprocess.TimeoutExpired(command, timeout)
+            time.sleep(0.1)
+        drain()
+    except BaseException:
+        if proc.poll() is None:
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                proc.wait(timeout=10)
+        drain()
+        raise
+
+    if proc.returncode:
+        raise RuntimeError(
+            f"Inochi SDK command failed (exit={proc.returncode}): "
+            + subprocess.list2cmdline(command)
+            + f"\nFull compiler output already shown above and saved in: {log_path}"
+        )
+
 
 
 def _link_dependencies_ready() -> bool:
