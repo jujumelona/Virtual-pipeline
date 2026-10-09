@@ -268,6 +268,19 @@ class AvatarPipeline:
         rigging_provider = rigging_cfg.get("provider", "canonical")
         if rigging_provider not in {"canonical", "skintokens"}:
             return config_failure("rigging.provider must be canonical or skintokens")
+        skintokens_identity = None
+        if rigging_provider == "skintokens":
+            # Experimental CUDA provider is preflighted before spending time on
+            # TripoSR, UV baking or rig generation. T4 is unsupported by the
+            # pinned upstream BF16/FlashAttention-2 implementation.
+            try:
+                from vtuber_pipeline.avatar.skintokens_bridge import (
+                    runtime_identity, check_gpu_compatibility,
+                )
+                skintokens_identity = runtime_identity()
+                check_gpu_compatibility(skintokens_identity)
+            except Exception as exc:
+                return config_failure("skintokens preflight: " + str(exc))
 
         profile = cfg.get("profile", "commercial")
         if profile not in {"commercial", "production", "development"}:
@@ -747,13 +760,7 @@ class AvatarPipeline:
         # UVs, node palette and hair binding contracts remain valid. There is no
         # silent fall-back when the user explicitly selected this provider.
         if rigging_provider == "skintokens":
-            try:
-                from vtuber_pipeline.avatar.skintokens_bridge import (
-                    runtime_identity, run_skintokens_skin_only,
-                )
-                skintokens_identity = runtime_identity()
-            except Exception as exc:
-                return self._fail(results, "skintokens_skin", str(exc))
+            from vtuber_pipeline.avatar.skintokens_bridge import run_skintokens_skin_only
             skintokens = self._run_stage(
                 "skintokens_skin",
                 (rigged_mesh, skintokens_identity),
