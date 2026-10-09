@@ -215,23 +215,25 @@ def test_readme_canonical_notebook_uses_native_colab_cells():
     assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb" in readme
     cells = ["".join(c["source"]) for c in json.loads(
         notebook_path.read_text(encoding="utf-8"))["cells"] if c["cell_type"] == "code"]
-    assert len(cells) == 8
+    assert len(cells) == 9
     assert "subprocess.Popen(" in cells[0]
     assert "colab_bootstrap.log" in cells[0]
     assert "start_new_session=True" in cells[0]
     assert "stop_legacy_server()" in cells[0]
     assert 'TASK = "캐릭터 생성"' in cells[1]
     assert "ACCESSORY_ANCHOR = \"AUTO\"" in cells[1]
-    assert "colab_mode_prepare.py" in cells[2]
-    assert "generate(" not in cells[2]
-    assert "files.upload" in cells[3]
+    assert "build_prompts" in cells[2]
+    assert "write_prompt_package" in cells[2]
+    assert "colab_mode_prepare.py" in cells[3]
     assert "generate(" not in cells[3]
-    assert "if TASK == \"캐릭터 생성\":" in cells[4]
-    assert "elif TASK == \"액세서리 제작\":" in cells[4]
+    assert "files.upload" in cells[4]
+    assert "generate(" not in cells[4]
+    assert "if TASK == \"캐릭터 생성\":" in cells[5]
+    assert "elif TASK == \"액세서리 제작\":" in cells[5]
     assert "MODE =" in cells[1]
-    assert "files.download(" not in cells[4]
-    assert "files.download(" in cells[5]
-    assert "colab_native import generate" in cells[4]
+    assert "files.download(" not in cells[5]
+    assert "files.download(" in cells[6]
+    assert "colab_native import generate" in cells[5]
     assert "colab_ui_launcher" not in "".join(cells)
 
 
@@ -240,7 +242,7 @@ def test_native_mode_picker_does_not_download_unselected_models(monkeypatch, cap
         (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v8.ipynb")
         .read_text(encoding="utf-8"))
     cells = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
-    assert len(cells) == 8
+    assert len(cells) == 9
     assert "prepare_models(" not in cells[1]
     assert "subprocess." not in cells[1]
     def forbidden(*args, **kwargs):
@@ -287,10 +289,11 @@ def test_all_colab_notebooks_use_native_cell_lifetimes():
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
         cells = ["".join(cell["source"]) for cell in notebook["cells"]
                  if cell["cell_type"] == "code"]
-        expected = 8 if suffix == "_v8" else 3
+        expected = 9 if suffix == "_v8" else 3
         assert len(cells) == expected, notebook_path
         if suffix == "_v8":
-            _, _, prefetch, upload, generate, download, diagnostics, final_cell = cells
+            _, _, prompts, prefetch, upload, generate, download, diagnostics, final_cell = cells
+            assert "build_prompts(" in prompts
             assert "colab_mode_prepare.py" in prefetch
             assert "generate(" not in prefetch
             assert "generate(" not in upload
