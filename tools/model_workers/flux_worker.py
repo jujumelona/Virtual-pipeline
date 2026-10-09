@@ -52,6 +52,55 @@ def prepare_masked_edit(original: Image.Image, mask: Image.Image, *,
     return patch, box
 
 
+def commit_repaired_part(part, mask: Image.Image, restored_patch: np.ndarray,
+                         box: tuple[int, int, int, int], output_dir: Path,
+                         index: int) -> dict:
+    """Persist repair pixels AND the geometric mask consumed by 2D meshing.
+
+    Previously only part.rgba_png changed; mesh2d used the stale mask_png,
+    discarding every FLUX-restored occluded pixel from the final rig.
+    """
+    from vtuber_pipeline.perception.compose import masked_repair
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    original_part = np.asarray(Image.open(part.rgba_png).convert("RGBA")).copy()
+    if mask.size != (original_part.shape[1], original_part.shape[0]):
+        raise ValueError(f"{part.semantic_id}: part and hidden mask canvas mismatch")
+    x0, y0, x1, y1 = box
+    if not (0 <= x0 < x1 <= original_part.shape[1]
+            and 0 <= y0 < y1 <= original_part.shape[0]):
+        raise ValueError(f"{part.semantic_id}: invalid repair crop bounds")
+    selected = np.asarray(mask.crop(box), dtype=np.uint8)
+    region = original_part[y0:y1, x0:x1]
+    original_part[y0:y1, x0:x1] = masked_repair(
+        region, restored_patch, selected,
+    )
+    # Preserve visible pixels and extend only the explicit hidden mask. The
+    # resulting alpha is the single source of truth for mesh2d and exporters.
+    mask_pixels = original_part[:, :, 3]
+    ys, xs = np.nonzero(mask_pixels > 0)
+    if not len(xs):
+        raise ValueError(f"{part.semantic_id}: repaired layer is empty")
+    rgba_path = output_dir / f"repaired_{index:03d}.png"
+    mask_path = output_dir / f"repaired_mask_{index:03d}.png"
+    Image.fromarray(original_part, "RGBA").save(rgba_path)
+    Image.fromarray(mask_pixels, "L").save(mask_path)
+    part.rgba_png = str(rgba_path)
+    part.mask_png = str(mask_path)
+    part.hidden_fill_mask_png = None
+    part.bbox_xyxy = [
+        int(xs.min()), int(ys.min()), int(xs.max() + 1), int(ys.max() + 1),
+    ]
+    part.source_stage = "sam2.1+flux2-klein-4b"
+    return {
+        "rgba_png": str(rgba_path),
+        "mask_png": str(mask_path),
+        "new_bbox_xyxy": part.bbox_xyxy,
+        "semantic_hole_pixels": int(np.count_nonzero(selected)),
+    }
+
+
 def infer(req):
     from vtuber_pipeline.common.model_assets import resolve_snapshot
     from vtuber_pipeline.common.schemas import PartsDocument
@@ -93,23 +142,14 @@ def infer(req):
             edited.resize((x1 - x0, y1 - y0), Image.Resampling.LANCZOS),
             dtype=np.uint8,
         )
-        original_part = np.asarray(Image.open(part.rgba_png).convert("RGBA")).copy()
-        if original_part.shape[:2] != (original.height, original.width):
-            raise ValueError(f"{part.semantic_id}: part is not on the original canvas")
-        region = original_part[y0:y1, x0:x1]
-        mask_region = np.asarray(mask.crop(box), dtype=np.uint8)
-        original_part[y0:y1, x0:x1] = masked_repair(
-            region, restored_patch, mask_region,
+        repair = commit_repaired_part(
+            part, mask, restored_patch, box, out, index,
         )
-        dest = out / f"repaired_{index:03d}.png"
-        Image.fromarray(original_part, "RGBA").save(dest)
-        part.rgba_png = str(dest)
-        part.source_stage = "sam2.1+flux2-klein-4b"
         reports.append({
             "part": part.semantic_id,
             "source_crop_xyxy": list(box),
             "model_input_wh": list(marked.size),
-            "semantic_hole_pixels": int(np.count_nonzero(mask_region)),
+            **repair,
             "reduced_input_resolution": (x1 - x0) > marked.width or (y1 - y0) > marked.height,
         })
     saved = doc.write(str(out / "repaired_parts.json"))
