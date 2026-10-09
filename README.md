@@ -448,13 +448,13 @@ character_2d_sheet_pack.zip
     └── sheet_arms_hands.png
 ```
 
-### 의상 교체 — 현재 제작 구조의 정확한 범위
+### 2D 의상 교체 — 소품과 다른 제작 방식
 
 **기본 몸 `body`와 팔 `arm_left/right`는 옷을 제외한 중립 베이스**, `outfit_front` 및 `outfit_back`는 기본 옷 전용 레이어입니다. 의상을 교체하려면 **같은 `front_master.png`와 같은 비율·포즈·팔 위치로 새로운 `sheet_body_outfit.png`를 생성하고, 두 `outfit_* ` 레이어만 교체**해야 합니다. 얼굴·머리·피부·팔까지 다시 그리면 캐릭터가 달라집니다.
 
 단, 현재의 두 의상 레이어만으로는 **움직이는 양쪽 소매, 후드, 치마 물리, 옷별 마스크·스킨·메시·키폼이 자동으로 교체되는 기능은 없습니다.** PSD/ORA에서 옷 레이어 교체 후 리깅을 다시 조정해야 합니다. 이 기능을 구현하지 않은 상태에서 방송 중 원클릭 옷 변경이 지원된다고 설명하지 않습니다.
 
-**옷만 다시 생성하는 프롬프트**
+**추가 의상 시트 `outfit_variant.png`만 생성하는 프롬프트**
 
 ```text
 CHARACTER IDENTITY (fill in every bracketed field):
@@ -469,10 +469,13 @@ Exact palette / HEX swatches: {palette}
 Accessories / locations: {accessories}
 Other permanent character details: {other_details}
 
-TASK: Redesign ONLY the detachable costume for the SAME VTuber.
+TASK: Render ONE new replaceable garment sheet, save exactly as
+outfit_variant.png. This is an additional 2D wardrobe input, NOT a
+new front_master.png nor a full new character sheet.
 Attach the actual original front_master.png as identity reference.
 Aspect ratio WIDTH:HEIGHT = 4:3, 2 columns x 2 rows.
-Row1 Col1: unchanged clean BASE BODY, no costume.
+Row1 Col1: COMPLETELY EMPTY TRANSPARENT alpha=0.
+The existing base body comes unchanged from character_2d_sheet_pack.zip.
 Row1 Col2: NEW removable OUTFIT FRONT (fabric, collar, bodice,
 sleeves, straps and front garment features only).
 Row2 Col1: NEW removable OUTFIT BACK (back panel, rear garment
@@ -484,6 +487,34 @@ Each cell is its assigned semantic layer only. True alpha transparency.
 No grid lines, captions or drawn placement guide.
 Render at native supported resolution; no exact pixel requirement.
 ```
+
+### 실제 의상 제작 입력: 종류·권장 이미지·상태
+
+아래 이미지 개수는 **권장 출발점**입니다. 제품의 공식 필수 이미지 수가 아닙니다. 생성 AI의 출력에서 실제 투명도·부품 분리·관절 움직임을 확인하십시오.
+
+| 제작 목표 | 필요한 이미지/모델 | 생성 시 권장 비율 | 현재 프로그램 처리 |
+|---|---|---|---|
+| 2D 기본 의상을 입은 캐릭터 | 정면 기준 **1장** + 파츠 시트 **7장** = **8 PNG** | 정면 2:3, 얼굴·눈·입 1:1, 긴 머리 2:3, 신체/옷/팔 4:3 | 옷을 입은 기준 모습 + 별도 베이스 몸/옷 레이어를 만들고 리깅 입력으로 사용 |
+| 2D 추가 의상(단순한 디자인) | 기존 `character_2d_sheet_pack.zip` + 신규 `outfit_variant.png` **1장** | 4:3, 2×2: 몸칸 비움 / 앞옷 / 뒷옷 / 빈칸 | 기존 캐릭터와 베이스 몸을 그대로 유지하고 두 의상층만 교체한 뒤 2D 제작 재실행 |
+| 2D 복잡한 의상 | 추가 소매 좌·우·깃·치마·끈·장식 등 독립 레이어 | 한 파츠당 공간 확보, 디자인에 따라 가변 | 현재 고정 26레이어만으로는 미지원. 추가 메시·키폼·물리 제작 필요 |
+| 3D 기본 의상 캐릭터 | 전신 4방향 **4뷰** + 얼굴 확대 **1뷰** = **5뷰, PNG 파일 3개** | 전신 각 뷰 2:3, 2뷰 시트 각각 4:3, 얼굴 1:1 | 기본 의상도 포함하는 하나의 VRM 재구성/스킨 |
+| 3D 새 의상 디자인 참고 | 동일 아바타의 옷 정면·후면·좌·우 **4뷰**, 필요하면 옷깃·소매·치맛단 상세 **1~3장** | 4뷰는 같은 A포즈의 세로 2:3, 상세 컷 1:1 | **참고 이미지일 뿐**. 이 이미지들만으로 스키닝 의상은 완성되지 않음 |
+| 3D 실제 옷 착용 | 원본 `base_avatar.vrm` 1개 + 이미 모델링된 `costume.xwear` 1개 | 이미지 대신 실제 의상 파일 필요 | VRoid Studio로 가져갈 `vroid_dressup_handoff.zip` 준비. 피팅·동작 확인·VRM 출력은 편집기에서 수행 |
+| 정적 액세서리 | 기준 VRM + 물건 단독 이미지 1~8장 | 대상 형태에 따라 1:1 권장 | 단일 뼈 부착(모자·안경 등). 옷 스키닝과 전혀 다름 |
+
+**의상을 입은 정면 기준 캐릭터를 만드는 것은 정상입니다.** 단, 그 의상이 베이스 몸/팔 PNG에 박혀 있으면 나중에 갈아입힐 수 없으므로 `body`/기본 팔은 중립 속레이어, `outfit_front`/`outfit_back`는 기본 의상으로 별도 분리합니다. 여기서 **속레이어는 실제 피부나 가려지는 몸체를 의미하며, 나체 그림을 의무적으로 생성하라는 뜻이 아닙니다.**
+
+**권장 품질:** 생성 AI가 지원하는 기본 픽셀 해상도를 사용하고, 제작 시 2D는 실제 시트를 자른 뒤 필요한 부품만 2배 규모로 정규화합니다. 권장 3D 결과 텍스처는 프로젝트 옵션 중 **2048**(VRAM이 부족하면 1024)입니다. 최대 출력 숫자가 디테일을 보장하는 것은 아니며, AI 업스케일은 없는 옷의 기하·두께·관절 가중치를 만들지 못합니다.
+
+#### Colab ②–⑥ 실제 의상 작업 선택
+
+`TASK=액세서리 제작`일 때 `ACCESSORY_SUBTYPE`에서 구분합니다.
+
+- **`소품`**: 기존 1~8개 이미지 소품 → 정적 부착.
+- **`2D 교체 의상`**: `OUTFIT_2D_TARGET=live2d` 또는 `inochi2d` 선택. ④ 셀에 기준 시트 ZIP과 신규 `outfit_variant.png`를 각각 넣습니다. ⑤에서 기존 캐릭터를 보존한 `character_2d_sheet_pack.zip` 변형본을 제작하고 해당 2D 경로를 다시 실행합니다. **Cubism 공식 모델에서 옷 전환은 여전히 편집기의 메시·표시·키 설정이 필요**합니다.
+- **`3D 교체 의상(XWear)`**: ④ 셀에서 원본 VRM과 **실제** `costume.xwear`를 지정합니다. ⑤는 `vroid_dressup_handoff.zip`을 출력하며, 설치 가능한 VRoid Studio 데스크톱 편집기에서 **Add Base Model → Add Costume → Auto-fitting → skin mask/mesh deletion → 애니메이션 점검 → VRM 1.0 출력**까지 진행합니다. **자동 완성 VRM을 내보내는 기능으로 표기하지 않습니다.**
+
+공식 참고: [Live2D 파츠 분리](https://docs.live2d.com/en/cubism-editor-tutorials/psd/) · [Live2D 의상/팔 전환 유의](https://docs.live2d.com/en/cubism-sdk-tutorials/attention-changepose/) · [Inochi Creator PSD 가져오기](https://docs.inochi2d.com/en/latest/inochi2d/faq.html) · [VRoid Studio XWear 착용·피팅](https://vroid.pixiv.help/hc/en-us/articles/38722733769241-Getting-Started-with-the-Dress-up-Feature-for-those-who-want-to-dress-up-their-characters) · [Blender 스키닝](https://docs.blender.org/manual/en/latest/modeling/modifiers/deform/armature.html).
 
 ### 3D VRM — 전신 2뷰 시트 2장 + 얼굴 확대 1장
 
@@ -605,7 +636,7 @@ character_3d_sheet_pack.zip
     └── face.png
 ```
 
-**3D 의상 변경:** 현재 3D 경로는 완성된 VRM의 임의 옷을 자동 탈착·교환하는 전용 의상 리깅 기능이 아닙니다. 새 의상의 정면·후면·측면 이미지로 모델을 다시 생성하거나, 별도 의상 메시와 스킨을 제작해 Blender 등에서 VRM에 연결해야 합니다. 액세서리 모드를 옷 교체 기능으로 간주하지 않습니다.
+**3D 의상 변경:** 이미지 참조만으로 메시 스키닝까지 자동 완성되는 모드는 없습니다. 액세서리 작업의 `3D 교체 의상(XWear)` 옵션에서는 **VRM 1개 + 실제 costume.xwear 1개**를 VRoid Studio 편집기 전달용 ZIP으로 묶습니다. 이 ZIP은 착용 완료 VRM이 아닙니다. 원본 VRM에 옷을 맞춘 뒤 메시 가림·애니메이션·표정 검증을 거쳐 VRM 1.0으로 재출력해야 합니다. 스키닝 없는 소품 부착기에는 의상 메시를 넣지 않습니다.
 
 ### 액세서리 이미지
 
@@ -849,9 +880,9 @@ export TRIPOSR_DIR="$PWD/TripoSR"
 - **캐릭터 VRM 생성**
 - 검증된 `avatar.vrm`은 `/content/vtuber_builder/avatar.vrm`에도 복사합니다. Colab **왼쪽 파일 탐색기**에서 다운로드하거나, 생성 종료 후 **⑥ 결과 다운로드 전용 셀**에서 `DOWNLOAD_NOW=True`를 선택하여 내려받을 수 있습니다. 브라우저 다운로드 요청을 생성 셀 내부에서 강제로 시작하지 않습니다.
 
-### ② 악세사리 만들기
+### ② 액세서리 및 의상 만들기
 
-Colab의 `TASK`를 **액세서리 제작**으로 선택할 때만 실행합니다. 일반 캐릭터 생성은 `TASK=캐릭터 생성`이 기본이고, `MODE`에서 3D VRM/Inochi2D/Live2D를 선택합니다. 액세서리 `ACCESSORY_ANCHOR=AUTO`는 파일명에 포함된 hat/glasses/shoes 등의 키워드에 따라 개별 부착 위치를 지정하며, 판별할 수 없는 파일명은 적용 전에 오류로 알려줍니다. `ALL`은 업로드한 각 액세서리를 **모든 지원 부착 위치에 각각 적용**합니다. 이는 업로드 이미지 전체를 한 번에 받는 기능과 별개이며, 총 적용 횟수가 커질 수 있습니다. 원본 이미지 3D 복원 결과는 중복 계산하지 않고 재사용합니다.
+Colab의 `TASK`를 **액세서리 제작**으로 선택한 뒤 `ACCESSORY_SUBTYPE`으로 **소품 / 2D 교체 의상 / 3D 교체 의상(XWear)**를 선택합니다. 아래 정적 부착 안내는 `소품`에만 해당합니다. 일반 캐릭터 생성은 `TASK=캐릭터 생성`이 기본이고, `MODE`에서 3D VRM/Inochi2D/Live2D를 선택합니다. 액세서리 `ACCESSORY_ANCHOR=AUTO`는 파일명에 포함된 hat/glasses/shoes 등의 키워드에 따라 개별 부착 위치를 지정하며, 판별할 수 없는 파일명은 적용 전에 오류로 알려줍니다. `ALL`은 업로드한 각 액세서리를 **모든 지원 부착 위치에 각각 적용**합니다. 이는 업로드 이미지 전체를 한 번에 받는 기능과 별개이며, 총 적용 횟수가 커질 수 있습니다. 원본 이미지 3D 복원 결과는 중복 계산하지 않고 재사용합니다.
 
 - 방금 만든 캐릭터 VRM 재사용 또는 기존 VRM 업로드
 - 악세사리 슬롯 최대 8개
