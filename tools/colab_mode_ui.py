@@ -333,3 +333,17 @@ def choose_notebook_controls(values: dict, *, evaluate=None) -> tuple:
     values["MODE_SELECTION_SNAPSHOT"] = snapshot
     values["MODE_SELECTION_CONFIRMED"] = True
     return snapshot
+
+
+def render_notebook_controls(values: dict) -> bool:
+    """Backward-compatible, BLOCKING adapter for already-open Colab notebooks.
+
+    Colab v8 cells created before the synchronous UI change import this
+    original public function. Never return early or display an async-only
+    widget: that lets Run All use 3D defaults or trip the confirmation guard.
+    This shim shares the new synchronous browser dialog, which returns to
+    Python ONLY after the user clicks the confirmation button.
+    """
+    choose_notebook_controls(values)
+    require_confirmed_selection(values)
+    return True
