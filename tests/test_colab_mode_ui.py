@@ -156,7 +156,8 @@ def test_notebook_has_confirmation_guard_before_download_and_upload():
     selection, setup, upload, build = cells[1:5]
     assert '#@param ["캐릭터 생성", "액세서리 제작"]' not in selection
     assert "choose_notebook_controls(globals())" in selection
-    assert "② 설정 확정" in selection
+    assert "choose_notebook_controls(globals())" in selection
+    assert "설정 확정 및 ③ 진행" in selection
     for code in (setup, upload, build):
         assert "require_confirmed_selection(globals())" in code
     assert setup.index("require_confirmed_selection(globals())") < setup.index("run(command")
