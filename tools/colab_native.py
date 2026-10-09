@@ -217,13 +217,30 @@ def _event_printer(event):
         fraction, description = event[1:3]
         print(f"[진행] {100.0 * float(fraction):.0f}% {description}", flush=True)
     elif kind == "log":
-        message = str(event[1])
-        important = [
-            line for line in message.splitlines()
-            if re.search(r"error|exception|fail|model.*ready|smoke.*ok|validated|완료|경고", line, re.I)
-        ]
-        for line in important[-3:]:
-            print("[작업] " + line[:250], flush=True)
+        # pip often prints a nonfatal "ERROR: pip's dependency resolver..."
+        # despite returning 0; git checkout HEAD notes may contain "error"
+        # inside commit titles. Neither is a model failure.
+        lines = []
+        for line in str(event[1]).splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith(
+                ("ERROR: pip's dependency resolver", "HEAD is now at",
+                 "Not uninstalling ", "Can't uninstall ")
+            ):
+                continue
+            meaningful = (
+                stripped.startswith(("Traceback (most recent call last):",
+                                     "Error:", "ERROR:", "RuntimeError:",
+                                     "ImportError:", "FileNotFoundError:",
+                                     "subprocess.CalledProcessError:"))
+                or "[setup]" in stripped and "FAILED" in stripped
+                or "[inochi-sdk]" in stripped and "unavailable" in stripped
+                or re.search(r"(worker-import-smoke-ok|flux-transformers-hub-import-ok|실패|준비 완료)", stripped)
+            )
+            if meaningful:
+                lines.append(stripped)
+        for line in lines[-3:]:
+            print("[작업] " + line[:280], flush=True)
 
 
 def generate(
