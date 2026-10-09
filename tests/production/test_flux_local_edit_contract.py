@@ -133,15 +133,80 @@ def test_low_memory_decoder_does_not_accept_unbounded_tiles():
         configure_low_memory_decode(SimpleNamespace(vae=None), tile_pixels=255)
 
 
-def test_flux_decode_boundary_is_logged_after_final_step_before_result_save():
+def test_flux_decode_boundary_is_a_real_process_exit_not_empty_cache():
     import inspect
+    from tools.model_workers import flux_worker, flux_latent_worker, flux_decode_worker
+
+    parent = inspect.getsource(flux_worker.infer)
+    denoiser = inspect.getsource(flux_latent_worker.run)
+    decoder = inspect.getsource(flux_decode_worker.run)
+    assert "flux_latent_worker.py" in parent
+    assert "flux_decode_worker.py" in parent
+    assert parent.index("flux_latent_worker.py") < parent.index("flux_decode_worker.py")
+    assert "low_cpu_mem_usage=True" in denoiser
+    assert "pipe.enable_model_cpu_offload()" in denoiser
+    assert 'output_type="latent"' in denoiser
+    assert "after_final_denoise_step_part_" in denoiser
+    assert "from_pretrained(" in decoder
+    assert 'subfolder="vae"' in decoder
+    assert "configure_low_memory_decode(" in decoder
+    assert "before_vae_only_decode_part_" in decoder
+    assert "edited.resize(" in parent
+
+
+def test_flux_split_process_handoff_preserves_visible_pixels(tmp_path, monkeypatch):
+    """The heavy denoiser must finish before VAE starts; no synthetic fill mask."""
+    import json
+    from vtuber_pipeline.common.schemas import Part, PartsDocument
     from tools.model_workers import flux_worker
 
-    source = inspect.getsource(flux_worker.infer)
-    assert "low_cpu_mem_usage=True" in source
-    assert "configure_low_memory_decode(pipe)" in source
-    assert "pipe.enable_model_cpu_offload()" in source
-    assert "callback_on_step_end=_denoise_step" in source
-    assert "before_vae_decode_part_" in source
-    assert "after_vae_decode_part_" in source
-    assert "edited.resize(" in source
+    input_image = tmp_path / "reference.png"
+    Image.new("RGB", (64, 64), (10, 30, 50)).save(input_image)
+    pixels = np.zeros((64, 64, 4), np.uint8)
+    pixels[20:45, 15:40] = (10, 30, 50, 255)
+    source = tmp_path / "layer.png"
+    Image.fromarray(pixels, "RGBA").save(source)
+    old_mask = tmp_path / "layer-mask.png"
+    Image.fromarray(pixels[:, :, 3], "L").save(old_mask)
+    hidden = np.zeros((64, 64), np.uint8)
+    hidden[14:20, 20:28] = 255
+    hidden_png = tmp_path / "hidden.png"
+    Image.fromarray(hidden, "L").save(hidden_png)
+    part = Part("hair.front", str(source), str(old_mask), str(hidden_png),
+                [15, 20, 40, 45], 70, [], "sam2.1")
+    doc = PartsDocument(64, 64, [part], None, "")
+    plan = doc.write(str(tmp_path / "parts.json"))
+    calls = []
+
+    def fake_phase(script, source, destination):
+        calls.append(script)
+        assert calls == ["flux_latent_worker.py"] if len(calls) == 1 else (
+            calls == ["flux_latent_worker.py", "flux_decode_worker.py"])
+        if script == "flux_latent_worker.py":
+            destination.write_text(json.dumps({"repairs": [
+                {"index": 0, "semantic_id": "hair.front",
+                 "latent_path": str(tmp_path / "latent.safetensors"),
+                 "box": [18, 12, 30, 22], "input_wh": [256, 256]},
+            ]}))
+            return
+        restored = tmp_path / "restored.png"
+        Image.new("RGB", (256, 256), (200, 80, 40)).save(restored)
+        destination.write_text(json.dumps({"repairs": [
+            {"index": 0, "semantic_id": "hair.front",
+             "decoded_png": str(restored), "box": [18, 12, 30, 22],
+             "input_wh": [256, 256]},
+        ]}))
+
+    monkeypatch.setattr(flux_worker, "_run_isolated_flux_phase", fake_phase)
+    result = flux_worker.infer({
+        "parts_json": plan, "image_path": str(input_image),
+        "output_dir": str(tmp_path / "repaired"),
+    })
+    assert calls == ["flux_latent_worker.py", "flux_decode_worker.py"]
+    finished = PartsDocument.read(result["parts_json"])
+    after = np.asarray(Image.open(finished.parts[0].rgba_png).convert("RGBA"))
+    assert (after[17, 24] == [200, 80, 40, 255]).all()
+    assert (after[24, 24] == [10, 30, 50, 255]).all()
+    report = json.loads((tmp_path / "repaired" /
+                         "occlusion_repair_report.json").read_text())
+    assert report["decode_mode"] == "isolated-tiled-VAE-after-denoiser-exit"
