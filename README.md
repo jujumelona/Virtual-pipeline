@@ -158,13 +158,80 @@ must be inferred by the subsequent pipeline, not pre-drawn here.
 - `input_invalid` / `segmentation_failed` / `free_budget_exceeded` / `rigging_validation_failed` / `needs_editor_export` 등의 **제안된 상태명**을 사용해 실패 원인을 구별한다. 현재 코드에 이미 존재하는 상태라고 주장하지 않는다. **검증된 공식 MOC3가 있어야만** `complete`.
 - **한 번에 헤어·의상·액세서리를 모두 착용한 ONE 고정 스타일 모델**을 목표로 하며, 방송 중 독립 의상/헤어 스위치 지원을 FREE의 완료 조건에 넣지 않는다. 스타일이 다르면 별개 모델로 만든다.
 
-**현재 연결 상태:** FREE·PRO 프롬프트 생성과 Colab v8 노트북의 모델 설치·이미지 업로드·See-through NF4 → PSD → 실제 등록 RGBA 레이어 → 기존 메시·키폼·물리 → **Cubism Editor 전달 ZIP** 실행 경로가 추가됐다. **정식 `.moc3` 자동 생성과 완전한 Cubism 프로젝트 자동 리깅은 여전히 미구현**이다. PRO의 별도 의상·헤어·액세서리는 원본 ZIP에 보존되지만, Cubism에서 원클릭 교체 가능한 완료 파라미터는 아직 자동 연결되지 않는다. FREE의 ArtMesh **100개** 초과는 거부하지만, 디포머 50·파라미터 30·2048px 아틀라스 최종 검증은 정식 Cubism Editor에서 추가 확인해야 한다. **GPU T4 실기 추론 및 결과 품질도 미검증**이다.
+**현재 연결 상태:** FREE·PRO 프롬프트 원본은 이 README에서 제공하며, Colab v8 노트북은 모델 설치·이미지 업로드·See-through NF4 → PSD → 실제 등록 RGBA 레이어 → 기존 메시·키폼·물리 → **Cubism Editor 전달 ZIP** 실행 경로가 추가됐다. **정식 `.moc3` 자동 생성과 완전한 Cubism 프로젝트 자동 리깅은 여전히 미구현**이다. PRO의 별도 의상·헤어·액세서리는 원본 ZIP에 보존되지만, Cubism에서 원클릭 교체 가능한 완료 파라미터는 아직 자동 연결되지 않는다. FREE의 ArtMesh **100개** 초과는 거부하지만, 디포머 50·파라미터 30·2048px 아틀라스 최종 검증은 정식 Cubism Editor에서 추가 확인해야 한다. **GPU T4 실기 추론 및 결과 품질도 미검증**이다.
+
+### Colab 모드 선택 및 옵션 설명 — Live2D의 FREE/PRO는 하위 선택
+
+노트북 **② 셀의 상위 작업 선택**은 `캐릭터 생성`과 `액세서리 제작`이다. **캐릭터 생성 시에만** `3D VRM` / `Inochi2D` / `Live2D` 선택을 표시하고, **Live2D를 선택한 경우에만** Cubism `FREE` / `PRO` 및 상반신/전신·Qwen 옵션을 표시한다. 액세서리 제작 시에만 소품·교체 의상·XWear 옵션을 표시한다. Colab의 고정 `#@param` 폼은 값에 따라 항목을 숨길 수 없으므로 나머지 설정은 **작업별 동적 위젯**으로 표시한다. 상위 `TASK` 변경은 ② 셀 재실행, 나머지 위젯 선택은 값 변경 즉시 반영된다.
+
+| 화면에 보이는 선택 | 내부 변수 | 옵션과 의미 |
+|---|---|---|
+| **작업 종류** | `TASK` | **캐릭터 생성**: 신규 2D/3D 캐릭터 제작, **액세서리 제작**: 기존 모델의 소품·교체 의상 |
+| **캐릭터 제작 모드** | `MODE` | **3D VRM**: 전신 VRM 제작, **Inochi2D**: Inochi Creator/Session용 2D, **Live2D**: Cubism Editor·VTube Studio 호환 2D 준비 자료 |
+| **Cubism 등급** | `LIVE2D_EDITION` | **FREE**: 옷·헤어·액세서리를 모두 착용한 완성 이미지 1장으로 고정 스타일 제작, **PRO**: 완성 참고 이미지 + 분리형 신체·헤어·의상(+장식) 원본을 개별 제작 |
+| **제작 범위** | `LIVE2D_FRAMING` | **상반신 (upper)**: 머리·양손·양팔·허리까지, **전신 (full)**: 머리부터 양발/신발까지. 예전 `VTS_SCOPE`의 이름을 수정한 것 |
+| **Qwen 세부 분해** | `LIVE2D_QWEN` | **자동**: FREE는 See-through, PRO는 Qwen 4bit + Stable-Layers 추가. **사용**: 선택한 Live2D 등급에서 Qwen 추가, **미사용**: Qwen 다운로드·실행 안 함. T4 실제 작동은 미검증 |
+| **사용 범위** | `USAGE` | **개인 비영리**, **개인 수익**, **기업**: 출력물의 이용 목적. 외부 AI/모델 라이선스를 자동으로 변경하는 설정은 아님 |
+| **3D 다중 시점 시트** | `MULTI_REFERENCE_3D` | **켬**: 전면·후면·좌우·얼굴을 포함한 ZIP, **끔**: 캐릭터 이미지 1장 |
+| **Inochi2D 입력 방식** | `TWO_D_INPUT` | **시트 ZIP (sheets)**: 기준 PNG + 시트 6장, **분리 PNG (provided_layers)**: 기준 1장+파츠 20장, **자동 분리 (automatic)**: 이미지 1장 |
+| **기존 이미지 경로** | `EXISTING_IMAGE_PATH` | 입력하면 지정한 이미지 사용, 비우면 ④ 업로드. PRO는 독립 파일을 ④에서 업로드 |
+| **액세서리·의상 작업** | `ACCESSORY_SUBTYPE` | **소품** / **2D 교체 의상** / **3D 교체 의상(XWear)**. **액세서리 제작 선택 시에만 화면에 표시** |
+| **소품 부착 위치** | `ACCESSORY_ANCHOR` | **AUTO**: 파일명으로 부착 위치 판별, **ALL**: 모든 위치에 중복 적용. HEAD_TOP·FACE·LEFT/RIGHT_EAR·NECK·CHEST·BACK·LEFT/RIGHT_SHOULDER·LEFT/RIGHT_HAND·LEFT/RIGHT_FOOT·HIPS는 해당 신체 위치에 고정 |
+| **2D 교체 의상 대상** | `OUTFIT_2D_TARGET` | **Live2D(기존 독립 제작 경로)** 또는 **Inochi2D**. Live2D FREE 한 벌 완성 모드와 별개 |
+| **기준 VRM 경로** | `ACCESSORY_BASE_VRM_PATH` | 소품 또는 3D 의상 제작 시 사용. 비우면 이전 결과 또는 ④ 업로드 |
+| **기준 2D ZIP 경로** | `WARDROBE_2D_BASE_ZIP_PATH` | 교체 의상 제작용 기준 중립 베이스. 비우면 ④ 업로드 |
+| **3D 의상 원본 경로** | `WARDROBE_XWEAR_PATH` | XWear 파일을 지정하거나 ④에서 `costume.xwear` 업로드 |
+
+**이미지 프롬프트:** 노트북은 캐릭터 색상·헤어·얼굴·의상 설명을 입력받거나 프롬프트 ZIP을 생성하지 않는다. **외부 이미지 AI에 붙여 넣을 FREE 프롬프트는 README 상단의 ①·②에 있고, PRO는 바로 아래 예제를 사용**한다.
+
+### Live2D PRO — 외부 이미지 AI에 요청할 실제 이미지 4~5장
+
+아래 모두 **동일한 성인 오리지널 애니 캐릭터**, **정면 중립 자세**, **2:3 세로**, **같은 비율·좌표·색상·광원**을 유지한다. `{gender}`, `{hair}`, `{face}`, `{skin_color}`, `{body}`, `{outfit}`, `{accessories}`, `{palette}`, `{identity_details}`를 결정하고 생성 AI에 각각 입력한다. 처음 만든 **`pro_{upper|full}_appearance_master.png`를 매번 실제 참조 이미지로 첨부**해야 동일 좌표의 독립 파츠를 확보할 수 있다. `upper`와 `full`은 함께 만들 필요 없이 하나만 선택한다.
+
+```text
+1. pro_{upper|full}_appearance_master.png  [필수]
+ONE FINISHED fully clothed adult anime VTuber with the COMPLETE chosen
+hair, outfit and accessories ALREADY WORN. Front-facing neutral pose,
+eyes open, mouth closed; visible hands, consistent skin and palette.
+For upper: show head, full hair, arms/hands through waist/upper hips.
+For full: show head, both arms/hands, legs and BOTH entire shoes.
+Portrait WIDTH:HEIGHT 2:3. One character, no sheet, labels or watermark.
+This master locks visual identity and coordinates for ALL further images.
+
+2. pro_{upper|full}_base_master.png  [필수]
+ATTACH appearance_master.png as the real reference.
+Same exact original adult character, identical front pose/anatomy, face,
+natural skin HEX, eyes, proportions and registration. NO detachable hair,
+NO detachable fashion clothing or accessories. Entire body remains
+covered by a plain OPAQUE skin-tone seamless base layer, NEVER nude.
+Keep the face, arms and hands. Do not move any attachment anchors.
+
+3. pro_{upper|full}_hair_variant.png  [필수]
+ATTACH appearance_master.png. Draw ONLY the complete hairstyle, roots,
+bangs, back and side locks plus fixed hair ornaments from the same
+character. Match placement, outer shape, colors and registration.
+Do not include face, anatomy or clothing. Make clear boundaries between
+locks so the pipeline can subdivide them. One hairstyle, no extra views.
+
+4. pro_{upper|full}_outfit_variant.png  [필수]
+ATTACH appearance_master.png. Draw ONLY the complete outfit covering
+the same pose and registered anatomy, including sleeves, collar and
+for full-body, shoes. No face, skin hands or hair. Keep garment edges
+and overlapping movable fabric panels crisp. No mannequin body art.
+
+5. pro_{upper|full}_accessories_variant.png  [선택]
+ATTACH appearance_master.png. Draw ONLY the specified detachable
+accessories at EXACT attachment coordinates. No body, face, hair or
+clothing. Skip this image if no detachable accessories are specified.
+```
+
+위 예시의 `{upper|full}` 표기는 사용자용 자리표시자다. **실제 파일명에서는 반드시 `upper` 또는 `full` 중 하나만 사용**한다. 예를 들면 `pro_upper_base_master.png`. **FREE는 위 PRO 분리 시트를 요구하지 않는다.** 출력 뒤에는 README의 리깅·Cubism Editor 준비 경로를 따른다.
 
 ### Colab v8 실제 사용 흐름
 
 1. **①** GitHub 저장소 동기화.
-2. **②** `MODE = vts_free` 또는 `vts_pro`, `VTS_SCOPE = upper/full` 선택. 이 셀에서 외부 대형 이미지 AI용 정확한 프롬프트를 출력하고 ZIP으로 기록한다. FREE는 헤어·옷·장식까지 포함한 **완성 그림 1장**; PRO는 완성 외형 기준 + 헤어 없는 불투명 베이스 + 별도 헤어·의상 (+선택 액세서리)의 **4~5장**이다.
-3. **③** 선택 모드의 2D 얼굴 검출기, See-through V3 및 공식 NF4 체크포인트·필수 소프트웨어 준비. `VTS_QWEN=auto`에서는 **PRO만** 추가로 Qwen 4bit Transformer·Stable-Layers LoRA를 내려받는다. FREE는 필요하면 `on`, Qwen 제외 시 `off` 선택. **모델 설치/다운로드는 ③에서만 진행**한다.
+2. **②** `TASK=캐릭터 생성` → **Live2D** → **FREE/PRO** → **상반신/전신** 선택. 노트북의 다른 제작 옵션은 해당 모드를 선택했을 때만 표시된다. **노트북은 이미지 AI 프롬프트를 생성·출력하지 않는다.** FREE·PRO 프롬프트는 이 README에서 확인한다.
+3. **③** 선택 모드의 2D 얼굴 검출기, See-through V3 및 공식 NF4 체크포인트·필수 소프트웨어 준비. `LIVE2D_QWEN=auto`에서는 **PRO만** 추가로 Qwen 4bit Transformer·Stable-Layers LoRA를 내려받는다. FREE는 필요하면 `on`, Qwen 제외 시 `off` 선택. **모델 설치/다운로드는 ③에서만 진행**한다.
 4. **④** 사용자 이미지 업로드. PRO는 프롬프트의 정확한 파일명으로 한 번에 업로드한다. FREE는 캐릭터 마스터 1장만 업로드한다.
 5. **⑤** 실 See-through NF4 분해 실행 → PSD 및 아트메쉬 후보 PNG → Cubism용 JSON/ZIP 구성. Qwen을 선택했으면 Stable-Layers GRPO LoRA로 4비트 후보 분해를 별도 실행하고 성공 시 보조 RGBA 파일을 ZIP에 추가한다. **Qwen 출력 4장과 고품질 리깅용 세부 파츠는 동일하지 않으며, 사용자 보완 검증을 거쳐야 한다.** 출력은 `vts_free_upper_cubism_handoff.zip` 등 **편집기 전달 자료**이고 방송용 모델이라고 주장하지 않는다.
 6. **⑥** 전달 ZIP 다운로드. **공식 Cubism Editor에서 리깅하고 내보낸** `.moc3` + `.model3.json` + 텍스처/물리 ZIP을 별도 준비해 `CUBISM_EXPORT_ZIP_PATH`에 지정하면, 이 셀에서 공식 산출물을 검사·수집한 ZIP을 다운로드할 수 있다.
