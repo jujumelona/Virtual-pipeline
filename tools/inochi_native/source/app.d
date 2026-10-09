@@ -137,7 +137,7 @@ int main(string[] args) {
                                : ["min", "max"];
             foreach (i, endpointName; endpointNames) {
                 auto sourceDeltas = deltaSet[endpointName].array;
-                enforce(sourceDeltas.length == part.mesh.vertices.length,
+                enforce(sourceDeltas.length == part.vertices.length,
                         "parameter deformation point count mismatch");
                 vec2[] deltas;
                 deltas.length = sourceDeltas.length;
