@@ -78,3 +78,49 @@ def test_worker_activation_uses_distinct_flux_executable(monkeypatch):
     assert installer.os.environ["VTUBER_WORKER_SAM"] == payload["python"]
     assert installer.os.environ["VTUBER_WORKER_FLUX"] == payload["flux_python"]
     assert installer.os.environ["ANIME_SEGMENTATION_REPO"] == payload["anime_source"]
+
+
+def test_venv_bootstrap_never_invokes_ensurepip(patched_root, monkeypatch):
+    """Colab worker venvs inherit pip and CUDA packages without ensurepip."""
+    _, work, _ = patched_root
+    created = []
+    invoked = []
+
+    class Builder:
+        def __init__(self, **settings):
+            created.append(settings)
+
+        def create(self, path):
+            (Path(path) / "bin").mkdir(parents=True)
+
+    monkeypatch.setattr(installer.venv, "EnvBuilder", Builder)
+    monkeypatch.setattr(
+        installer, "_exec", lambda args, **kwargs: invoked.append(args),
+    )
+    for name in ("venv", "venv_flux", "venv_alpha"):
+        interpreter = installer._prepare_venv(name)
+        assert interpreter == work / name / "bin" / "python"
+    assert len(created) == 3
+    assert all(option == {"with_pip": False, "system_site_packages": True}
+               for option in created)
+    assert all(command[-3:] == ["-m", "pip", "--version"] for command in invoked)
+
+
+def test_worker_dependency_failure_contains_actual_pip_stderr(
+    patched_root, capsys,
+):
+    """Do not collapse resolver errors to a CalledProcessError command."""
+    import sys
+    _, work, _ = patched_root
+    with pytest.raises(RuntimeError, match="No matching distribution found") as error:
+        installer._exec([
+            sys.executable, "-c",
+            "import sys; print('No matching distribution found: test-wheel', "
+            "file=sys.stderr); sys.exit(19)",
+        ], timeout=15)
+    assert "exit=19" in str(error.value)
+    assert "dependency_setup.log" in str(error.value)
+    logfile = work / "logs" / "dependency_setup.log"
+    assert logfile.is_file()
+    assert "No matching distribution found" in logfile.read_text(encoding="utf-8")
+    assert "No matching distribution found" in capsys.readouterr().out
