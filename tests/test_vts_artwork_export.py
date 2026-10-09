@@ -301,3 +301,28 @@ def test_foreground_proposal_wins_equal_alpha_overlap(tmp_path):
     assert children is not None and len(children) == 2
     assert {child["image"].getchannel("A").getbbox() for child in children} == {
         (0, 0, 20, 40), (20, 0, 40, 40)}
+
+
+def test_recursion_covers_other_observed_regions_before_repeating_hair(tmp_path):
+    from io import BytesIO
+    source = tmp_path / "regions.zip"
+    with ZipFile(source, "w") as z:
+        for name, box in [("hair.front", (0, 0, 200, 100)),
+                          ("eye.left", (10, 110, 40, 130)),
+                          ("mouth", (10, 140, 30, 160))]:
+            image = Image.new("RGBA", (256, 384))
+            image.paste((90, 80, 70, 255), box)
+            buf = BytesIO(); image.save(buf, format="PNG")
+            z.writestr(name + ".png", buf.getvalue())
+    def infer(src, output, **kwargs):
+        output.mkdir(parents=True)
+        size = Image.open(src).size
+        paths = []
+        for index in range(2):
+            image = Image.new("RGBA", size)
+            image.paste((0, 0, 0, 255), (index * size[0] // 2, 0, (index + 1) * size[0] // 2, size[1]))
+            path = output / f"layer{index}.png"; image.save(path); paths.append(path)
+        return {"layers": paths}
+    result = build_artwork_package(source, tmp_path / "out", edition="free", scope="upper",
+                                   qwen=True, qwen_infer=infer, max_qwen_passes=3)
+    assert {x["source_layer"] for x in result["qwen_attempts"]} == {"hair.front", "eye.left", "mouth"}

@@ -555,6 +555,7 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         if qwen_infer is None:
             from tools.vts_qwen_refine import infer as qwen_infer
         tried = set()
+        family_attempts = {}
         for serial in range(max_qwen_passes):
             selectable = [
                 (idx, layer) for idx, layer in enumerate(layers)
@@ -563,7 +564,14 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
             ]
             if not selectable or (edition == "free" and len(layers) >= FREE_LIMIT):
                 break
-            index, item = max(selectable, key=lambda pair: _candidate_score(pair[1]))
+            # Cover the other observed regions before spending every pass
+            # recursively on one large hairstyle. Within a family retain
+            # the existing detail/area priority.
+            index, item = max(selectable, key=lambda pair: (
+                -family_attempts.get(pair[1]["name"].split(".", 1)[0], 0),
+                _candidate_score(pair[1])))
+            family = item["name"].split(".", 1)[0]
+            family_attempts[family] = family_attempts.get(family, 0) + 1
             tried.add(item["name"])
             stem = "qwen_" + str(serial).zfill(3)
             crop = item["image"].crop(item["image"].getchannel("A").getbbox())
