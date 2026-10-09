@@ -50,6 +50,18 @@ def ui(tmp_path, monkeypatch):
         "require_runtime_ready",
         lambda _progress=None: ("a" * 40, ["runtime-ready"]),
     )
+    # These tests substitute pure functions for real GPU models. Keep mocked
+    # callbacks in-process: production always uses a separate model process.
+    def run_mocked_generation(mode, args, on_event=None):
+        if mode in {"inochi2d", "live2d"}:
+            return module._run_2d_production_inline(*args, target=mode)
+        from vtuber_pipeline.core.stage_progress import stage_reporter
+        handler = module.build_avatar_ui if mode == "avatar" else module.build_accessories_ui
+        with stage_reporter(lambda name, status, detail: on_event and on_event(
+                ("stage", name, status, detail))):
+            return handler(*args, progress=lambda fraction, desc="": (
+                on_event and on_event(("progress", fraction, desc))))
+    monkeypatch.setattr(module, "_run_isolated_generation", run_mocked_generation)
     return module
 
 
