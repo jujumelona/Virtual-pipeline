@@ -1,0 +1,38 @@
+name: Inochi Native SDK Compile
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/inochi_native/**'
+      - 'tools/setup_inochi_runtime.py'
+      - '.github/workflows/inochi-native-compile.yml'
+
+jobs:
+  compile-inp-exporter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install D toolchain and headless native graphics
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ldc dub xvfb libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev
+      - name: Check actual D compiler and DUB SDK API
+        run: |
+          set -o pipefail
+          mkdir -p /tmp/inochi-diagnostics
+          ldc2 --version | tee /tmp/inochi-diagnostics/compiler.log
+          dub --version | tee -a /tmp/inochi-diagnostics/compiler.log
+          cd tools/inochi_native
+          dub build --build=release --compiler=ldc2 --force --verbose 2>&1 | tee /tmp/inochi-diagnostics/native_build.log
+      - name: Validate native binary was produced
+        run: |
+          test -x tools/inochi_native/vtuber-inochi-native
+          file tools/inochi_native/vtuber-inochi-native
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inochi-compiler-diagnostics
+          path: /tmp/inochi-diagnostics/*
+          if-no-files-found: warn
+          retention-days: 5
