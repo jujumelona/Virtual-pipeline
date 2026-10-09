@@ -251,7 +251,8 @@ def test_sam2_iopath_sdist_installed_separately_from_binary_only_python_wheels(
     assert "--only-binary=:all:" not in sam_install[0]
     deps = [args for args in seen if "portalocker==2.10.1" in args]
     assert len(deps) == 1
-    assert "--only-binary=:all:" in deps[0]
+    assert "--prefer-binary" in deps[0]
+    assert "--only-binary=:all:" not in deps[0]  # Hydra requires ANTLR 4.9.3 sdist
     assert seen.index(deps[0]) < seen.index(sam_install[0])
 
 
