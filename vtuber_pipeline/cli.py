@@ -82,6 +82,10 @@ def avatar(image, output, face_image, back_image, left_image, right_image, full_
         status = stage.get("status", "unknown")
         if status == "complete":
             click.echo(f"  ✓ {label}")
+        elif status == "cached":
+            click.echo(f"  ✓ {label} (verified cached)")
+        elif status == "skipped":
+            click.echo(f"  · {label} (skipped)")
         else:
             detail = stage.get("error") or stage.get("warning") or status
             click.echo(f"  ✗ {label}: {detail}")
