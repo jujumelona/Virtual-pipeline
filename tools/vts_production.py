@@ -353,6 +353,8 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
     log = work / "see_through_full.log"
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
+    env["HF_HUB_OFFLINE"] = "1"
+    env["TRANSFORMERS_OFFLINE"] = "1"
     worker_python = os.environ.get("VTUBER_SEETHROUGH_PYTHON", sys.executable)
     command = [
         worker_python, "-u", str(program),

@@ -11,6 +11,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import uuid
 
 SEE_THROUGH_SHA = "df019de5129d6c4b406587a14c3501669441a783"
 STABLE_LAYERS_SHA = "b826314b34b12d7c7cce9f0de7f49a330bd8e011"
@@ -23,7 +24,8 @@ def checked(args, *, cwd=None, timeout=TIMEOUT, env=None):
     else:
         from vts_subprocess import run_logged
     print("[VTS setup]", " ".join(map(str, args)), flush=True)
-    code = run_logged(args, cwd=cwd, env=env, timeout_seconds=timeout)
+    log = ROOT / "setup_logs" / ("command_" + uuid.uuid4().hex + ".log")
+    code = run_logged(args, cwd=cwd, env=env, log_path=log, timeout_seconds=timeout)
     if code:
         raise RuntimeError(f"Command failed exit={code}: {args}")
     return code
@@ -42,8 +44,45 @@ def checkout(url: str, dest: Path, sha: str):
     return dest
 
 
+def download_snapshot(model: str, *, python: str, record_path: Path,
+                      timeout: float = TIMEOUT, ignore_patterns=None) -> str:
+    """Bound even silent HF downloads; only fresh records prove readiness."""
+    if __package__:
+        from .vts_subprocess import run_logged
+    else:
+        from vts_subprocess import run_logged
+    record_path = record_path.resolve()
+    record_path.parent.mkdir(parents=True, exist_ok=True)
+    record_path.unlink(missing_ok=True)
+    script = """import json, sys
+from pathlib import Path
+from huggingface_hub import snapshot_download
+model, record, options = sys.argv[1:]
+loc = snapshot_download(repo_id=model, **json.loads(options))
+Path(record).write_text(json.dumps({'model': model, 'snapshot': loc}), encoding='utf-8')
+print('Snapshot prepared:', model, flush=True)
+"""
+    options = {"ignore_patterns": ignore_patterns} if ignore_patterns else {}
+    env = os.environ.copy()
+    env["HF_HUB_DOWNLOAD_TIMEOUT"] = "60"
+    env["HF_HUB_ETAG_TIMEOUT"] = "30"
+    log = record_path.with_suffix(".log")
+    code = run_logged([python, "-u", "-c", script, model, str(record_path),
+                       json.dumps(options)], env=env, log_path=log,
+                      timeout_seconds=timeout)
+    if code != 0 or not record_path.is_file():
+        raise RuntimeError(f"Model download failed: {model}; exit={code}; log={log}")
+    data = json.loads(record_path.read_text(encoding="utf-8"))
+    if data.get("model") != model or not data.get("snapshot"):
+        raise RuntimeError(f"Invalid snapshot record: {model}; log={log}")
+    return data["snapshot"]
+
+
 def prepare(*, qwen: bool = False, install: bool = True):
-    from huggingface_hub import snapshot_download
+    ROOT.mkdir(parents=True, exist_ok=True)
+    # An interrupted new preparation must not expose an old ready marker.
+    output = ROOT / "vts_setup_manifest.json"
+    output.unlink(missing_ok=True)
     see = checkout("https://github.com/shitagaki-lab/see-through.git",
                    ROOT / "see-through", SEE_THROUGH_SHA)
     python = sys.executable
@@ -80,16 +119,18 @@ def prepare(*, qwen: bool = False, install: bool = True):
         # to the 4-bit transformer; avoid downloading the full BF16 transformer.
         weights.append("Qwen/Qwen-Image-Layered")
     manifests=[]
-    for model in weights:
+    for serial, model in enumerate(weights):
         print(f"[VTS model download] {model}",flush=True)
         kw = {}
         if model == "Qwen/Qwen-Image-Layered":
             kw["ignore_patterns"] = ["transformer/*.safetensors",
                                      "transformer/diffusion_pytorch_model*"]
-        loc = snapshot_download(repo_id=model, **kw)
+        loc = download_snapshot(model, python=python,
+                                record_path=ROOT / "setup_logs" / f"snapshot_{serial:02d}.json",
+                                **kw)
         manifests.append({"model":model,"snapshot":str(loc)})
-    output=ROOT/"vts_setup_manifest.json"
-    output.write_text(json.dumps({
+    temporary = output.with_suffix(".tmp")
+    temporary.write_text(json.dumps({
         "see_through_revision": SEE_THROUGH_SHA,
         "stable_layers_revision": STABLE_LAYERS_SHA if qwen else None,
         "see_through_python": python,
@@ -97,6 +138,7 @@ def prepare(*, qwen: bool = False, install: bool = True):
         "snapshots":manifests,
         "gpu_inference_verified": False,
     },ensure_ascii=False,indent=2),encoding="utf-8")
+    temporary.replace(output)
     return output
 
 
