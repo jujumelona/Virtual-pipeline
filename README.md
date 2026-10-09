@@ -6,19 +6,132 @@
 
 외부 이미지 생성 AI가 만든 캐릭터 이미지를 입력받아 **Inochi2D**, **Live2D**, **3D VRM** 모델을 제작합니다. 모드별 이미지 생성 사양과 프롬프트는 아래에 정리되어 있습니다.
 
-## Live2D Cubism FREE 호환 모드 — 고정 스타일 단일 캐릭터 (설계 계약 / 아직 미구현)
+## VTube Studio / Live2D Cubism FREE 모드 — 신규 프롬프트·AI 모델 계획 (현재 미구현)
 
-**목표:** VTube Studio에서 사용할 `.moc3` 1개 모델에 **캐릭터 본체, 헤어, 의상, 액세서리를 모두 포함한 고정 스타일**을 제작한다. FREE 모드에서는 헤어/의상/액세서리를 서로 교체할 별도 제작·업로드 대상으로 요구하지 않는다.
+**확정할 제작 방식:** FREE는 **신체·헤어·의상·액세서리를 모두 착용한 완성된 캐릭터 이미지 1장**을 생성하여 입력받는다. 고정된 헤어·의상·장식을 포함한 **단일 스타일의 완성 모델**을 목표로 한다. 머리카락 없는 신체 베이스·독립 헤어·독립 의상·액세서리 시트를 FREE 입력에 요구하지 않는다. 다만 눈·입·머리·소매 등을 **리깅용 레이어로 내부 분리**해야 하므로 그림 전체를 단일 ArtMesh로 평면화하는 것은 아니다.
 
-- **입력 생성:** 이미지 AI에는 헤어·의상·액세서리를 **모두 착용한 완성 캐릭터 마스터 1장**을 먼저 요청한다. 상반신/전신 구도는 해당 모드가 선택한 범위로 분리한다. 머리카락 없는 베이스 마스터 및 `hair_variant.png`, `outfit_variant.png`, 개별 액세서리 시트를 FREE 필수 입력으로 사용하지 않는다.
-- **자동 리깅 준비:** 완성 캐릭터 이미지 1장에서 얼굴·눈·입·머리카락·의상·액세서리 등의 **실제 움직임에 필요한 레이어를 내부적으로 분리**하고, 가려진 픽셀을 복원하며, 메시·디포머·파라미터를 만든다. **모든 요소를 단일 평면 PNG/ArtMesh로 납작하게 합치는 것이 아니다.** PSD/편집용 레이어는 유지하되 독립적인 교체형 상품·슬롯으로 내보내지는 않는다.
-- **FREE 예산:** 최종 조립 모델의 **ArtMesh 합계 최대 100개**(PNG 파일 100장이 아님), 파츠 그룹 최대 30개, 디포머 최대 50개, 파라미터 최대 30개, 텍스처 아틀라스 최대 2048px 1장 등 공식 FREE 제한을 검사한다. **신체/헤어/의상/액세서리별 파츠 수를 임의로 고정하지 않는다.** 필수 독립 움직임을 우선 보존하고 안전하게 묶을 수 있는 영역만 합친다. 품질을 유지하면서 예산을 맞출 수 없다면 실패로 판정한다.
-- **출력 계약:** 목표 출력은 **헤어·의상·액세서리가 이미 적용된 고정 스타일 Live2D 모델 1세트**(`.moc3`, `.model3.json`, 텍스처·필요한 물리 데이터)다. **한 모델 안에서 헤어·의상·액세서리를 각각 실시간 교체하는 기능은 FREE 모드의 목표가 아니다.** 다른 스타일은 필요하면 별도 모델로 제작한다.
-- **중요한 구현 상태:** 현재 저장소에는 **FREE 전용 자동 이미지 분할·제약 최적화·Cubism 네이티브 모델 내보내기**가 구현되지 않았다. 현재 `live2d` 실행 경로는 PSD와 `cubism_handoff.zip`를 출력하며, 공식 Cubism Editor에서 수동 리깅·`.moc3` 내보내기가 필요한 `needs_editor_export` 상태다. 위 계약은 **추후 구현할 모드의 설계**이고, 이미 작동하는 기능이라는 뜻이 아니다.
+### FREE 전용 상반신 / 전신 선택
 
-공식 근거: [Live2D FREE/PRO 기능 비교](https://www.live2d.com/ko/cubism/comparison/) · [PSD 가져오기](https://docs.live2d.com/en/cubism-editor-tutorials/psd/) · [Cubism 모델 내보내기](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/).
+| 하위 모드 | 필수 이미지 | 생성 요구 | 최종 스타일 |
+|---|---|---|---|
+| **FREE 상반신** | \`free_upper_master.png\` **1장** | 머리부터 허리 아래/골반 상단까지; 양손·팔·헤어 포함, 허벅지 중간 절단 금지 | 옷·헤어·장식이 적용된 고정 스타일 |
+| **FREE 전신** | \`free_full_master.png\` **1장** | 머리부터 신발 끝까지, 두 손·두 발 포함, 절단 금지 | 옷·헤어·장식이 적용된 고정 스타일 |
 
-**기존 아래 2D 베이스/헤어/의상 분리 프롬프트는 현재 구현된 모듈식 제작 경로의 명세이며 FREE 신규 계약에 그대로 적용되지 않는다.** 기존 경로와 3D 경로는 이 설계 메모로 변경되지 않는다.
+이 **마스터 1장**은 이미지 AI의 필수 출력 개수다. 후속 레이어 수나 ArtMesh 수가 아니다. 둘 중 하나의 프롬프트만 선택한다. 원본에서는 실제 투명 RGBA를 강제하지 않으며, 이미지 생성 AI의 **지원 네이티브 해상도**로 만든다. 대형 최종 편집용 캔버스의 픽셀 크기를 네이티브 생성 해상도라고 오인하지 않는다.
+
+### ① FREE 상반신 이미지 생성용 — \`free_upper_master.png\`
+
+~~~text
+ORIGINAL ADULT ANIME VTUBER (fill in the placeholders):
+Gender / presentation: {gender}
+Hair color, complete hairstyle, decorations: {hair}
+Face, eye design, iris and identity features: {face}
+Skin color / exact HEX: {skin_color}
+Body proportions and silhouette: {body}
+COMPLETE chosen outfit / fabric / colors: {outfit}
+COMPLETE chosen accessories and attachment positions: {accessories}
+Color palette / HEX: {palette}
+Permanent identity: {identity_details}
+
+TASK: Generate ONE FINISHED adult anime VTuber character illustration,
+file name exactly free_upper_master.png.
+MODE: FREE UPPER-BODY. WIDTH:HEIGHT = 2:3 portrait.
+Use the highest native resolution supported by your image model.
+Do not demand exact 4K or 8K pixels or a direct transparent PNG.
+
+The character ALREADY WEARS their complete hairstyle, costume,
+all selected accessories and decorations in ONE coherent style.
+This is NOT a bald base, costume mannequin or separate part sheet.
+
+Neutral, symmetrical, straight-on front pose. Eyes open, mouth closed.
+Show the complete head and hair, neck, upper body, both shoulders,
+forearms and both hands. Hands should not hide behind the torso.
+Frame intentionally down to just below the waist or upper hips;
+do NOT crop in the middle of the thighs. Keep long hair, sleeves
+and accessories fully inside the intended area.
+
+Clear anime line art, faithful color palette, stable frontal lighting.
+Leave visibly distinguishable boundaries around bangs, eyes,
+sleeves, hands, costume layers and ornaments for later segmentation.
+Do not invent extra outfit variants. Adult, family-friendly,
+fully clothed character; no exposed torso or intimate anatomy.
+Use a plain contrasting background; transparency is optional.
+
+OUTPUT ONE IMAGE ONLY. No grid, sprite sheet, labels, multiple
+poses, extra views, checkerboard or watermark.
+The pipeline, not this request, will later separate animation layers.
+~~~
+
+### ② FREE 전신 이미지 생성용 — \`free_full_master.png\`
+
+~~~text
+ORIGINAL ADULT ANIME VTUBER (fill in the placeholders):
+Gender / presentation: {gender}
+Hair color, complete hairstyle, decorations: {hair}
+Face, eye design, iris and identity features: {face}
+Skin color / exact HEX: {skin_color}
+Body proportions / full-body silhouette: {body}
+COMPLETE outfit including top, bottom, footwear: {outfit}
+COMPLETE accessories and attachment positions: {accessories}
+Color palette / HEX: {palette}
+Permanent identity: {identity_details}
+
+TASK: Generate ONE FINISHED FULL-BODY adult anime VTuber image.
+File name exactly free_full_master.png.
+MODE: FREE FULL-BODY. WIDTH:HEIGHT = 2:3 portrait.
+Generate at the best native resolution supported by your image AI.
+No enforced 4K/8K native pixels. Transparency is optional.
+
+Show ONE character from the uppermost hair or head ornament down
+to BOTH complete shoes and feet, with margins above and below.
+Do not crop the head, hands, legs or footwear.
+Straight-on orthographic-style front view, neutral symmetric A-pose.
+Separate arms slightly from the torso, fingers visible; keep both
+legs and footwear distinguishable. Eyes open; lips closed.
+
+The COMPLETE hairstyle, upper and lower outfit, shoes and
+accessories are already WORN by the same character.
+One style only, not hairless or modular costume components.
+Distinct visible boundaries between hair locks, face, sleeves,
+hands, waist, clothing panels, legs and shoes.
+Do not layer arms or legs so heavily that their silhouettes vanish.
+Clean anime line art, consistent palette and frontal lighting.
+Adult, family-friendly, fully clothed model; no intimate anatomy.
+Use a plain contrasting background, not a checkerboard.
+
+OUTPUT ONE IMAGE ONLY, no multiple angles, part sheets, labels,
+grid, text or watermark. Hidden pixels and separate rigging layers
+must be inferred by the subsequent pipeline, not pre-drawn here.
+~~~
+
+### ③ FREE용 AI 모델·소프트웨어 조합 계획
+
+| 작업 | 우선 후보 / 출처 | 맡길 기능과 확인해야 할 한계 |
+|---|---|---|
+| **완성 마스터 생성** | [FLUX.2 Klein 4B](https://github.com/black-forest-labs/flux2) 또는 사용자가 이용하는 대형 이미지 AI | 1장짜리 완성 캐릭터 생성. Klein **4B**는 Apache 2.0; 9B는 상업 이용 조건이 다르므로 대체 불가. **외부 이미지 AI 사용 시 Colab에서 생성 모델을 실행할 필요 없음** |
+| **인물·세부 마스크** | [SAM 2](https://github.com/facebookresearch/sam2) + 기존 알파·마스크 처리 | 인물 영역 검출·경계 보정. 단독으로 숨겨진 부분의 그림이나 리깅을 완성하지는 않음 |
+| **애니 의미별 레이어 분해** | [See-through V3](https://github.com/shitagaki-lab/see-through) | 한 장 → **최대 23개** 의미별 레이어 및 가려진 부분 추정·PSD. 23개는 상한 목표가 아니라 공식 분해 범위. **Live2D 완성 리깅 기능은 아님** |
+| **움직임 단위 세분화** | See-through 재분리 옵션 + SAM2 + 랜드마크/기하 분석 | 눈꺼풀·시선·입·머리카락 다발·옷장식 등 **별도 변형이 필요한 영역만** 재분리. 가짜 마스크나 억지 파츠 증식 금지 |
+| **가림 및 표정 보완** | See-through 내부 인페인팅 / 실패 부위에 한정한 FLUX.2 Klein 이미지 편집 실험 | 앞머리 아래 이마, 눈감김·입열림 등 원본에 없는 픽셀 추론. 원본 보이는 픽셀 보호와 색상·정체성 일관성 검사 필수 |
+| **리깅 중간표현** | 현재 프로젝트의 메시·키폼·물리 코드 | ArtMesh 후보·변형·물리·깊이 순서. **현재 JSON이 Cubism 프로젝트 자동 변환을 보장하지 않음** |
+| **FREE 예산 최적화** | 새로 구현할 결정적 제약 검증기 | 각 자산별 개수는 선험적으로 고정하지 않음. 필수 변형 보존→안전한 레이어만 병합→남은 예산 재배분→모든 제한 검사; 실패 시 완료 처리 금지 |
+| **정식 모델 출력** | [Live2D Cubism Editor](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/) + 현재 \`cubism_handoff.py\` | \`.moc3\`, \`.model3.json\`, 텍스처·물리 검증. 현재는 \`needs_editor_export\`: **공식 내보내기는 자동화되지 않음** |
+
+**예비 후보로만 유지:** [Qwen-Image-Layered](https://huggingface.co/Qwen/Qwen-Image-Layered)는 반복적 RGBA 분리에 활용 가능하지만 대형 모델이며 공식 예제의 권장 해상도는 640이므로 T4 기본 경로로 확정하지 않는다. [LayerDiffuse](https://github.com/lllyasviel/LayerDiffuse_DiffusersCLI)는 독립적인 투명 이미지 생성기이므로 See-through의 투명 레이어 출력이 불량할 때 별도로 시험할 수 있으나 기본적으로 중복 적용하지 않는다.
+
+**GPU 현실성:** See-through 공식 기본 모드는 **bf16 / 1280px / 약 12~16GB VRAM**, group offload는 약 10GB, NF4 대안은 약 8GB라고 안내한다. **Colab T4는 bf16 네이티브 지원 GPU가 아니므로** 기본 bf16 명령을 무검증으로 사용하면 안 된다. 순차적 GPU 모델 적재/해제, 오프로딩, 정밀도·커널 호환성과 실제 T4 실행을 확인하기 전까지 모델 연결은 **미검증**이다. 모든 코드 및 모델 가중치·의존성의 상업적 이용 조건은 따로 검사한다.
+
+### ④ Cubism FREE 수량 제약과 출력 판정
+
+[Live2D 공식 FREE/PRO 비교](https://www.live2d.com/ko/cubism/comparison/)에 따르면 완성 모델에서 **ArtMesh ≤100개**, **파츠 그룹 폴더 ≤30개**, **디포머 ≤50개**, **파라미터 ≤30개**(그중 블렌드셰이프 전용 ≤3개), **ArtPath ≤3개**, **2048px 이하 텍스처 아틀라스 1장**을 동시에 충족해야 한다.
+
+- **ArtMesh 100개 ≠ 입력 이미지 100장.** 원본은 1장이고 최종 분해·편집된 PSD 그림 레이어는 일반적으로 ArtMesh와 1:1이다. 몸·머리·옷·장식의 비율을 임의로 고정하지 않고 **움직임 품질을 보전하는 범위에서 100개 이하로 맞춘다**.
+- 필수 분리층(양 눈, 깜빡임, 입, 변형이 필요한 긴 머리/옷 조각)은 우선 보존하고 **동일하게 움직일 수 있는 요소만 병합 후보**로 삼는다. 병합 후 얼굴·팔·헤어·의상 흔들림의 가림 및 찢김을 재검증한다. 한도를 만족해도 품질 미달이면 실패로 판정한다.
+- 마스터 프레이밍/양손·양발 존재 검사 → 누락·겹침·가림 복원 오류 검사 → 모든 FREE 수량/아틀라스 조건 검사 → 눈깜빡임·입 모양·고개 각도·몸통 이동·물리 모션 검사 → **공식 내보낸 파일의 MOC3 검증** 순서로 진행한다.
+- \`input_invalid\` / \`segmentation_failed\` / \`free_budget_exceeded\` / \`rigging_validation_failed\` / \`needs_editor_export\` 등의 **제안된 상태명**을 사용해 실패 원인을 구별한다. 현재 코드에 이미 존재하는 상태라고 주장하지 않는다. **검증된 공식 MOC3가 있어야만** \`complete\`.
+- **한 번에 헤어·의상·액세서리를 모두 착용한 ONE 고정 스타일 모델**을 목표로 하며, 방송 중 독립 의상/헤어 스위치 지원을 FREE의 완료 조건에 넣지 않는다. 스타일이 다르면 별개 모델로 만든다.
+
+**구현 경계:** 이 페이지는 **FREE 모드용 새 프롬프트 및 모델 계획 문서**다. 현재 노트북·UI·파츠 코드에는 \`free_upper_master.png\` / \`free_full_master.png\` 처리, FREE 전용 자동 세분화·예산 최적화, Cubism 네이티브 자동 내보내기가 아직 구현되지 않았다. 다음의 독립 헤어·의상 모듈식 2D 입력 및 3D 입력은 기존 경로로 유지한다. **이 FREE 프롬프트를 \`front_master.png\`용 무모·무의상 프롬프트와 섞지 않는다.**
 
 ---
 
