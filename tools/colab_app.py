@@ -1483,46 +1483,47 @@ def build_app() -> gr.Blocks:
                         type="filepath",
                         height=430,
                     )
-                    avatar_face_image = gr.Image(
-                        label="얼굴 확대 이미지 (전신 고품질 모드 필수)",
-                        sources=["upload"],
-                        type="filepath",
-                        height=260,
-                    )
-                    avatar_back_image = gr.Image(
-                        label="전신 후면 이미지 (선택: 후면 텍스처에 사용)",
-                        sources=["upload"],
-                        type="filepath",
-                        height=320,
-                    )
-                    avatar_left_image = gr.Image(
-                        label="왼쪽 측면 참조 (선택)", sources=["upload"],
-                        type="filepath", height=220,
-                    )
-                    avatar_right_image = gr.Image(
-                        label="오른쪽 측면 참조 (선택)", sources=["upload"],
-                        type="filepath", height=220,
-                    )
-                    avatar_full_body = gr.Checkbox(
-                        label="고품질 다중 참조 모드 (얼굴 확대 이미지 필요 · 선택)",
-                        value=False,
-                    )
-                    avatar_texture_size = gr.Dropdown(
-                        label="텍스처 아틀라스 해상도",
-                        choices=[("2048×2048 (권장)", 2048), ("1024×1024 (빠름)", 1024)],
-                        value=2048,
-                    )
-                    avatar_rigging_provider = gr.Dropdown(
-                        label="3D 자동 스키닝 엔진",
-                        choices=[("기본 휴머노이드 + 머리카락 리깅 (검증 경로)", "canonical"),
-                                 ("Blender 자동 본 히트 스키닝 (T4 지원·실험적)", "blender_heat"),
-                                 ("SkinTokens 실험적 스키닝 (Ampere+ CUDA만 가능)", "skintokens")],
-                        value="canonical",
-                    )
-                    avatar_skintokens_setup = gr.Button(
-                        "SkinTokens 별도 설치·검증 (T4 불가 · Ampere 이상 GPU)",
-                        size="sm", variant="secondary",
-                    )
+                    with gr.Accordion("추가 이미지 참조·고급 설정 (선택)", open=False):
+                        avatar_face_image = gr.Image(
+                            label="얼굴 확대 이미지 (전신 고품질 모드 필수)",
+                            sources=["upload"],
+                            type="filepath",
+                            height=260,
+                        )
+                        avatar_back_image = gr.Image(
+                            label="전신 후면 이미지 (선택: 후면 텍스처에 사용)",
+                            sources=["upload"],
+                            type="filepath",
+                            height=320,
+                        )
+                        avatar_left_image = gr.Image(
+                            label="왼쪽 측면 참조 (선택)", sources=["upload"],
+                            type="filepath", height=220,
+                        )
+                        avatar_right_image = gr.Image(
+                            label="오른쪽 측면 참조 (선택)", sources=["upload"],
+                            type="filepath", height=220,
+                        )
+                        avatar_full_body = gr.Checkbox(
+                            label="고품질 다중 참조 모드 (얼굴 확대 이미지 필요 · 선택)",
+                            value=False,
+                        )
+                        avatar_texture_size = gr.Dropdown(
+                            label="텍스처 아틀라스 해상도",
+                            choices=[("2048×2048 (권장)", 2048), ("1024×1024 (빠름)", 1024)],
+                            value=2048,
+                        )
+                        avatar_rigging_provider = gr.Dropdown(
+                            label="3D 자동 스키닝 엔진",
+                            choices=[("기본 휴머노이드 + 머리카락 리깅 (검증 경로)", "canonical"),
+                                     ("Blender 자동 본 히트 스키닝 (T4 지원·실험적)", "blender_heat"),
+                                     ("SkinTokens 실험적 스키닝 (Ampere+ CUDA만 가능)", "skintokens")],
+                            value="canonical",
+                        )
+                        avatar_skintokens_setup = gr.Button(
+                            "SkinTokens 별도 설치·검증 (T4 불가 · Ampere 이상 GPU)",
+                            size="sm", variant="secondary",
+                        )
                     with gr.Accordion("외부 이미지 생성 AI에 넣을 제작 프롬프트", open=False):
                         gr.Markdown("이 프롬프트를 외부 대형 이미지 AI에 복사해 이미지를 만든 다음 위에 업로드하세요. **AI 이미지 생성 기능은 이 프로그램에 포함되지 않습니다.**")
                         gr.Textbox(
