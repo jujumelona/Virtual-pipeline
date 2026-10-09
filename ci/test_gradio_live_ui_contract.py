@@ -220,13 +220,11 @@ def test_real_gradio_mode_selection_wires_upload_then_background_preparation():
     ui = _app()
     config = ui.build_app().get_config_file()
     registry = {component["id"]: component for component in config["components"]}
-    deps = {entry.get("api_name"): entry for entry in config["dependencies"]}
-    navigation = deps["select_workflow_view"]
-    setup = deps["prepare_selected_workflow_ui"]
-    assert setup["trigger_after"] == navigation["id"] or any(
-        isinstance(trigger, (list, tuple)) and trigger[0] == navigation["id"]
-        for trigger in setup.get("targets", [])
-    )
+    deps = config["dependencies"]
+    navigation = next(entry for entry in deps if entry.get("api_name") == "select_workflow_view")
+    setup_events = [entry for entry in deps if entry.get("api_name") == "prepare_selected_workflow_ui"]
+    assert len(setup_events) == 4  # chained preparation plus one retry per mode
+    assert any(entry.get("trigger_after") == navigation["id"] for entry in setup_events)
     first_outputs = [registry[i]["props"].get("label") for i in navigation["outputs"]]
     assert "선택한 모드의 환경·모델 준비 상태" in first_outputs
     for name in ("Inochi2D 캐릭터 그림", "2D 캐릭터 원본 일러스트 (필수)",
