@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - "tools/inochi_native/**"
+      - "tools/setup_inochi_runtime.py"
       - "vtuber_pipeline/two_d/inochi_bridge.py"
       - "tests/production/test_inochi_native_compatibility.py"
       - "ci/inochi_2d_fullgraph_e2e.py"
@@ -23,7 +24,11 @@ jobs:
           sudo apt-get install -y -qq ldc dub libsdl2-dev libgl1-mesa-dev xvfb xauth
       - name: Compile genuine Inochi SDK 0.8.7 exporter
         run: |
-          dub build --root=tools/inochi_native --compiler=ldc2 --build=release
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/inochi-compiler"
+          ldc2 --version | tee "$RUNNER_TEMP/inochi-compiler/toolchain.log"
+          dub --version | tee -a "$RUNNER_TEMP/inochi-compiler/toolchain.log"
+          dub build --root=tools/inochi_native --compiler=ldc2 --build=release --force 2>&1 | tee "$RUNNER_TEMP/inochi-compiler/native_build.log"
       - name: Verify native exporter is executable
         run: |
           file tools/inochi_native/vtuber-inochi-native
@@ -61,5 +66,6 @@ jobs:
             ${{ runner.temp }}/inochi-full-2d/avatar.ora
             ${{ runner.temp }}/inochi-full-2d/production_result.json
             ${{ runner.temp }}/inochi-full-2d/native_export_report.json
+            ${{ runner.temp }}/inochi-compiler/*.log
           if-no-files-found: warn
           retention-days: 14
