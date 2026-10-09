@@ -160,17 +160,21 @@ def run_isolated(
             tail, pending_lines, relay_line, flush_pending,
         )
     except BaseException:
-        import signal
-        groups = _terminate_worker_tree(process, signal.SIGTERM)
-        try:
-            process.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            _terminate_worker_tree(process, signal.SIGKILL, groups)
-            process.wait(timeout=10)
-        (folder / "status.json").write_text(json.dumps({
-            "mode": mode, "state": "cancelled",
-            "pid": process.pid, "exit_code": process.returncode,
-        }), encoding="utf-8")
+        # _await_worker_completion may already have recorded a regular
+        # subprocess failure. Do not overwrite "failed" with "cancelled"
+        # unless a notebook interruption caught an *alive* child process.
+        if process.poll() is None:
+            import signal
+            groups = _terminate_worker_tree(process, signal.SIGTERM)
+            try:
+                process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                _terminate_worker_tree(process, signal.SIGKILL, groups)
+                process.wait(timeout=10)
+            (folder / "status.json").write_text(json.dumps({
+                "mode": mode, "state": "cancelled",
+                "pid": process.pid, "exit_code": process.returncode,
+            }), encoding="utf-8")
         raise
 
 
