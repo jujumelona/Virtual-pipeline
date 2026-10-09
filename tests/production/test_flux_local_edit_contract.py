@@ -92,3 +92,56 @@ def test_repair_rejects_misaligned_hidden_mask_before_writing(tmp_path):
             np.zeros((4, 4, 3), dtype=np.uint8), (0, 0, 4, 4),
             tmp_path / "repaired", 0,
         )
+
+
+def test_pinned_flux2_vae_decoder_uses_real_small_tiles():
+    """Merely enable_tiling() leaves Flux2's ineffective 1024px default."""
+    from types import SimpleNamespace
+    from tools.model_workers.flux_worker import configure_low_memory_decode
+
+    class VAE:
+        config = SimpleNamespace(block_out_channels=[128, 256, 512, 512])
+        tile_sample_min_size = 1024
+        tile_latent_min_size = 128
+        tile_overlap_factor = 0.25
+        use_tiling = False
+        use_slicing = False
+
+        def enable_tiling(self):
+            self.use_tiling = True
+
+        def enable_slicing(self):
+            self.use_slicing = True
+
+    vae = VAE()
+    configure_low_memory_decode(SimpleNamespace(vae=vae))
+    assert vae.use_tiling
+    assert vae.use_slicing
+    assert vae.tile_sample_min_size == 256
+    assert vae.tile_latent_min_size == 32
+    # A 1024px image is divided into smaller decode tiles rather than one
+    # full VAE activation tensor. No output resolution was reduced.
+    assert (1024 // 8) > vae.tile_latent_min_size
+
+
+def test_low_memory_decoder_does_not_accept_unbounded_tiles():
+    from types import SimpleNamespace
+    import pytest
+    from tools.model_workers.flux_worker import configure_low_memory_decode
+
+    with pytest.raises(ValueError, match="multiple of 16"):
+        configure_low_memory_decode(SimpleNamespace(vae=None), tile_pixels=255)
+
+
+def test_flux_decode_boundary_is_logged_after_final_step_before_result_save():
+    import inspect
+    from tools.model_workers import flux_worker
+
+    source = inspect.getsource(flux_worker.infer)
+    assert "low_cpu_mem_usage=True" in source
+    assert "configure_low_memory_decode(pipe)" in source
+    assert "pipe.enable_model_cpu_offload()" in source
+    assert "callback_on_step_end=_denoise_step" in source
+    assert "before_vae_decode_part_" in source
+    assert "after_vae_decode_part_" in source
+    assert "edited.resize(" in source
