@@ -100,6 +100,25 @@ def test_foreign_skeleton_fails_closed(tmp_path):
         graft_weights(str(baseline), str(predicted), str(tmp_path / "rejected.glb"))
 
 
+def test_changed_bind_pose_fails_closed(tmp_path):
+    baseline, predicted = _model(tmp_path)
+    gltf = GLTF2().load_binary(str(predicted))
+    attr_index = gltf.skins[0].inverseBindMatrices
+    assert attr_index is not None
+    original = _read(gltf, attr_index)
+    original[0, 12] += .1
+    access = gltf.accessors[attr_index]
+    view = gltf.bufferViews[access.bufferView]
+    blob = bytearray(gltf.binary_blob())
+    offset = (view.byteOffset or 0) + (access.byteOffset or 0)
+    payload = original.astype("<f4").tobytes()
+    blob[offset:offset + len(payload)] = payload
+    gltf.set_binary_blob(bytes(blob))
+    gltf.save_binary(str(predicted))
+    with pytest.raises(ValueError, match="rest-pose bind matrix"):
+        graft_weights(str(baseline), str(predicted), str(tmp_path / "rejected.glb"))
+
+
 def test_hair_cannot_be_rigged_to_torso(tmp_path):
     baseline, predicted = _model(tmp_path, hair=True)
     gltf = GLTF2().load_binary(str(predicted))
