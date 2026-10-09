@@ -147,7 +147,7 @@ def rasterize_multiview_texture(
                 continue
             chosen = indices[valid]
             canvas[coords_y[chosen], coords_x[chosen]] = np.clip(
-                values[valid], 0, 255).astype(np.uint8)
+                np.rint(values[valid]), 0, 255).astype(np.uint8)
             painted[coords_y[chosen], coords_x[chosen]] = True
             remaining[chosen] = False
             texel_count_by_view[name] += int(valid.sum())
