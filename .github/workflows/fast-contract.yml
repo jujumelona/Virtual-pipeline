@@ -54,6 +54,7 @@ jobs:
             tests/production/test_observed_hair_islands.py \
             tests/production/test_inochi_native_compatibility.py \
             tests/production/test_supplied_hair_geometry.py \
+            tests/production/test_skintokens_bridge.py \
             tests/integration/test_pipeline_wiring_static.py \
             tests/integration/test_module_graph_runtime.py \
             tests/integration/test_ui_callbacks_runtime.py \
