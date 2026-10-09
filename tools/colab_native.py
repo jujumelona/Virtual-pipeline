@@ -280,6 +280,13 @@ def generate(
     if details:
         # Never hide the beginning of a traceback or the first linker error.
         print(str(details), flush=True)
+    # A callback may return an intermediate file even after a failed build.
+    # Never turn that file into a successful Colab generation/download result.
+    # Match the same failure markers used by colab_generation_process.
+    failed = str(status).startswith("❌") or " 제작 실패" in str(status)
+    if failed:
+        print("제작 실패: 결과 파일을 완성 모델로 제공하지 않습니다.", flush=True)
+        return None
     if not output or not Path(str(output)).is_file():
         return None
     output = str(Path(output).resolve())
