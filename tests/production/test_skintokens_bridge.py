@@ -1,5 +1,6 @@
 """CPU-only production tests for real glTF SkinTokens handoff contracts."""
 from pathlib import Path
+import json
 import shutil
 
 import numpy as np
@@ -11,7 +12,9 @@ from pygltflib import GLTF2
 from vtuber_pipeline.avatar.rigging import (
     compute_skin_weights, create_gltf_with_skin, create_humanoid_skeleton,
 )
-from vtuber_pipeline.avatar.skintokens_bridge import graft_weights, _read, runtime_identity
+from vtuber_pipeline.avatar.skintokens_bridge import (
+    graft_weights, _read, runtime_identity, check_gpu_compatibility,
+)
 
 
 def _model(tmp_path, *, hair=False):
@@ -108,3 +111,45 @@ def test_runtime_requires_explicit_isolated_install(monkeypatch):
     monkeypatch.delenv("VTUBER_SKINTOKENS_DIR", raising=False)
     with pytest.raises(RuntimeError, match="VTUBER_SKINTOKENS_DIR"):
         runtime_identity()
+
+
+def test_t4_detected_and_rejected_before_inference(monkeypatch):
+    import vtuber_pipeline.avatar.skintokens_bridge as bridge
+
+    def fake_run(*args, **kwargs):
+        class Completed:
+            returncode = 0
+            stdout = json.dumps({
+                "device": "Tesla T4", "major": 7, "minor": 5,
+                "total_bytes": 16 * 1024**3, "free_bytes": 15 * 1024**3,
+                "bf16": False,
+            }) + "\n"
+            stderr = ""
+        return Completed()
+
+    monkeypatch.setattr(bridge.subprocess, "run", fake_run)
+    with pytest.raises(RuntimeError, match="sm75"):
+        check_gpu_compatibility({"python": "/env/python", "repo": "/tokenrig"})
+
+
+def test_ampere_works_only_with_sufficient_free_memory(monkeypatch):
+    import vtuber_pipeline.avatar.skintokens_bridge as bridge
+
+    probe = {
+        "device": "A100", "major": 8, "minor": 0,
+        "total_bytes": 40 * 1024**3, "free_bytes": 3 * 1024**3,
+        "bf16": True,
+    }
+
+    def fake_run(*args, **kwargs):
+        class Completed:
+            returncode = 0
+            stdout = json.dumps(probe) + "\n"
+            stderr = ""
+        return Completed()
+
+    monkeypatch.setattr(bridge.subprocess, "run", fake_run)
+    with pytest.raises(RuntimeError, match="14 GiB free"):
+        check_gpu_compatibility({"python": "/env/python", "repo": "/tokenrig"})
+    probe["free_bytes"] = 36 * 1024**3
+    assert check_gpu_compatibility({"python": "/env/python", "repo": "/tokenrig"})["device"] == "A100"
