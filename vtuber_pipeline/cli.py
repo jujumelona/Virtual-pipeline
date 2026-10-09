@@ -32,7 +32,10 @@ def cli():
     default="corporation",
     show_default=True,
 )
-def avatar(image, output, face_image, back_image, left_image, right_image, full_body, texture_size, profile, commercial_usage):
+@click.option("--rigging-provider", type=click.Choice(["canonical", "skintokens"]),
+              default="canonical", show_default=True,
+              help="Optional isolated SkinTokens skin prediction on the existing VRM skeleton")
+def avatar(image, output, face_image, back_image, left_image, right_image, full_body, texture_size, profile, commercial_usage, rigging_provider):
     """Build one VTuber avatar VRM from an external source image."""
     from vtuber_pipeline.avatar.build import build_avatar
 
@@ -41,6 +44,7 @@ def avatar(image, output, face_image, back_image, left_image, right_image, full_
         {
             "profile": profile,
             "commercial_usage": commercial_usage,
+            "rigging": {"provider": rigging_provider},
             "references": {
                 "full_body": full_body,
                 "face_image": face_image,
@@ -63,6 +67,7 @@ def avatar(image, output, face_image, back_image, left_image, right_image, full_
         "reference_reconstruction": "TripoSR reconstruction",
         "licensed_multiview": "observed TripoSR multi-view reconstruction",
         "multiview_alignment": "3D frame registration",
+        "skintokens_skin": "optional validated SkinTokens skin-only refinement",
         "template_fitting": "canonical template fitting",
         "surface_refine": "topology-preserving surface refinement",
         "texture_transfer": "source-aware texture transfer",
