@@ -457,6 +457,7 @@ def test_cli_avatar_options_reach_avatar_builder(
     assert captured["config"] == {
         "profile": "production",
         "commercial_usage": "personalProfit",
+        "rigging": {"provider": "canonical"},
         "references": {
             "full_body": False,
             "face_image": None,
