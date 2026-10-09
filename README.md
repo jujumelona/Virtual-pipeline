@@ -14,20 +14,8 @@
 
 ### 2D — 총 8개 PNG (기준 이미지 1장 + 파츠 시트 7장)
 
-기존처럼 **얼굴·눈·입 15개 파츠를 한 장의 4×4 시트에 압축하지 않습니다.** 작은 부품을 별도 **2×2 시트 네 장**으로 나누어 각 파츠에 **2048×2048 픽셀**을 배정했습니다. 얼굴 세부 시트의 한 칸은 원본 이미지 1024×1024 좌표 범위를 2배 해상도로 묘사하므로, 원본 위치로 되돌릴 때 텍스처를 불필요하게 키우거나 중심을 다시 추정하지 않습니다. 앞·뒤 머리카락과 몸·의상, 양팔·양손도 분리합니다.
 
-| 파일명 | 해상도 | 격자 / 한 칸 | 내용 |
-|---|---|---|---|
-| `front_master.png` | 2048×3072 | 기준 1장 | 캐릭터 정면 |
-| `sheet_face_base.png` | 4096×4096 | 2×2 / 2048×2048 | 얼굴 바탕·양쪽 귀·목 |
-| `sheet_eye_left.png` | 4096×4096 | 2×2 / 2048×2048 | 왼쪽 눈·홍채·눈꺼풀·눈썹 |
-| `sheet_eye_right.png` | 4096×4096 | 2×2 / 2048×2048 | 오른쪽 눈·홍채·눈꺼풀·눈썹 |
-| `sheet_mouth.png` | 4096×4096 | 2×2 / 2048×2048 | 코·닫힌 입·열린 입 |
-| `sheet_hair.png` | 4096×6144 | 2×2 / 2048×3072 | 앞머리·뒷머리·양쪽 옆머리 |
-| `sheet_body_outfit.png` | 4096×3072 | 2×2 / 2048×1536 | 몸통·의상 앞·뒤 |
-| `sheet_arms_hands.png` | 4096×3072 | 2×2 / 2048×1536 | 양쪽 팔·양쪽 손 |
 
-**정면 기준 좌표:** 왼쪽 위 (0,0), X는 오른쪽, Y는 아래. 캐릭터 중심 x=1024, 정수리 y≈240, 눈 y≈1110, 코 y≈1280, 입 y≈1380, 턱 y≈1510, 어깨 y≈1730, 허리 y≈2700. **캐릭터의 왼쪽은 정면 화면 오른쪽**입니다. 모든 2D 시트는 위 기준 이미지를 실제 참조 이미지로 사용합니다.
 
 #### 2D-0. `front_master.png` — 기준 캐릭터
 
@@ -46,14 +34,23 @@ Accessories and positions: {accessories}
 Other permanent body and character traits: {other_details}
 
 IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Use the previously created front_master.png as a real attached reference
-for each subsequent 2D sheet. Preserve colors, silhouette, linework,
+This is the first image; future 2D sheets must use it as their fixed
+reference. Preserve colors, silhouette, linework,
 gender presentation, facial anatomy, proportions, garment construction,
 lighting, hair roots and all character-defining details exactly.
 The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
 numbers and text MUST NOT appear in the generated image.
 One high-resolution RGBA PNG per request; no visible panel borders,
 annotations, guide colors, checkerboard, watermark or extraneous art.
+
+ABSOLUTE FRONT-MASTER OUTPUT AND COORDINATES:
+File front_master.png; PNG WIDTH=2048 HEIGHT=3072 pixels.
+Origin TOP-LEFT (0,0), +X RIGHT, +Y DOWN; center x=1024.
+Crown y≈240; eyes y≈1110; nose y≈1280; mouth y≈1380;
+chin y≈1510; neck y≈1590; shoulders y≈1730; waist y≈2700.
+CHARACTER LEFT is viewer-RIGHT, CHARACTER RIGHT is viewer-LEFT.
+No mirroring, changing proportions, reframing or tiling.
+This is the first identity reference image: no previous master exists.
 
 TASK:
 Create exactly ONE PNG file named front_master.png, 2048x3072 pixels.
@@ -73,7 +70,6 @@ Preserve this geometry for all following 2D image sheets.
 
 [배치도 이미지 열기](docs/sheet_guides/sheet_face_base_layout.svg)
 
-**고밀도 시트:** 셀 2048×2048은 기준 원본 1024×1024 ROI를 2배 샘플링합니다.
 
 **복사할 프롬프트**
 
@@ -112,6 +108,35 @@ Finish occluded structures (scalp/skin beneath hair, full eyelids,
 pupil disks, lips, sleeves under garments, hidden seam continuation).
 No hand-written labels or image layout lines in the final PNG.
 Reserved EMPTY tile is completely transparent alpha=0.
+
+ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
+MASTER RESOLUTION 2048x3072 (width x height).
+ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
+Character CENTER x=1024. Landmarks in MASTER PIXELS:
+crown/top of head y≈240; eyes y≈1110; nose y≈1280;
+mouth y≈1380; chin y≈1510; neck y≈1590;
+shoulders y≈1730; waist y≈2700.
+Preserve these shared physical registration landmarks and character
+anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
+CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
+CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
+Attach the actual previously generated front_master.png to this request
+and use its character appearance AND coordinates as a strict reference.
+
+COMPLETE OUTPUT SPECIFICATIONS:
+EXACT OUTPUT FILE: sheet_face_base.png (RGBA PNG, REAL transparent alpha).
+EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 4096 pixels.
+GRID: 2 columns x 2 rows; CELL: 2048 x 2048 pixels.
+Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
+row1 col1 ear_left: SHEET [0,0,2048,2048)
+row1 col2 ear_right: SHEET [2048,0,4096,2048)
+row2 col1 neck: SHEET [0,2048,2048,4096)
+row2 col2 face: SHEET [2048,2048,4096,4096)
+Each 2048x2048 tile is a native 2x-detail render of one
+1024x1024 ROI in the master; do not upscale a smaller image.
+Do NOT center the part in its tile; preserve the master ROI-relative
+position. All pixels outside the isolated semantic part alpha=0.
+Any EMPTY cell must be entirely transparent. Do not render guide labels.
 
 EXACT OUTPUT: sheet_face_base.png; PNG RGBA; image size 4096x4096.
 EXACT GRID: 2 columns × 2 rows; each cell 2048x2048.
@@ -135,7 +160,6 @@ Keep identical character appearance and exact absolute ROI alignment.
 
 [배치도 이미지 열기](docs/sheet_guides/sheet_eye_left_layout.svg)
 
-**고밀도 시트:** 셀 2048×2048은 기준 원본 1024×1024 ROI를 2배 샘플링합니다.
 
 **복사할 프롬프트**
 
@@ -174,6 +198,35 @@ Finish occluded structures (scalp/skin beneath hair, full eyelids,
 pupil disks, lips, sleeves under garments, hidden seam continuation).
 No hand-written labels or image layout lines in the final PNG.
 Reserved EMPTY tile is completely transparent alpha=0.
+
+ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
+MASTER RESOLUTION 2048x3072 (width x height).
+ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
+Character CENTER x=1024. Landmarks in MASTER PIXELS:
+crown/top of head y≈240; eyes y≈1110; nose y≈1280;
+mouth y≈1380; chin y≈1510; neck y≈1590;
+shoulders y≈1730; waist y≈2700.
+Preserve these shared physical registration landmarks and character
+anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
+CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
+CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
+Attach the actual previously generated front_master.png to this request
+and use its character appearance AND coordinates as a strict reference.
+
+COMPLETE OUTPUT SPECIFICATIONS:
+EXACT OUTPUT FILE: sheet_eye_left.png (RGBA PNG, REAL transparent alpha).
+EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 4096 pixels.
+GRID: 2 columns x 2 rows; CELL: 2048 x 2048 pixels.
+Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
+row1 col1 eye_left_white: SHEET [0,0,2048,2048)
+row1 col2 eye_left_iris: SHEET [2048,0,4096,2048)
+row2 col1 eye_left_lid: SHEET [0,2048,2048,4096)
+row2 col2 brow_left: SHEET [2048,2048,4096,4096)
+Each 2048x2048 tile is a native 2x-detail render of one
+1024x1024 ROI in the master; do not upscale a smaller image.
+Do NOT center the part in its tile; preserve the master ROI-relative
+position. All pixels outside the isolated semantic part alpha=0.
+Any EMPTY cell must be entirely transparent. Do not render guide labels.
 
 EXACT OUTPUT: sheet_eye_left.png; PNG RGBA; image size 4096x4096.
 EXACT GRID: 2 columns × 2 rows; each cell 2048x2048.
@@ -200,7 +253,6 @@ The left/right designation refers to CHARACTER left/right.
 
 [배치도 이미지 열기](docs/sheet_guides/sheet_eye_right_layout.svg)
 
-**고밀도 시트:** 셀 2048×2048은 기준 원본 1024×1024 ROI를 2배 샘플링합니다.
 
 **복사할 프롬프트**
 
@@ -239,6 +291,35 @@ Finish occluded structures (scalp/skin beneath hair, full eyelids,
 pupil disks, lips, sleeves under garments, hidden seam continuation).
 No hand-written labels or image layout lines in the final PNG.
 Reserved EMPTY tile is completely transparent alpha=0.
+
+ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
+MASTER RESOLUTION 2048x3072 (width x height).
+ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
+Character CENTER x=1024. Landmarks in MASTER PIXELS:
+crown/top of head y≈240; eyes y≈1110; nose y≈1280;
+mouth y≈1380; chin y≈1510; neck y≈1590;
+shoulders y≈1730; waist y≈2700.
+Preserve these shared physical registration landmarks and character
+anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
+CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
+CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
+Attach the actual previously generated front_master.png to this request
+and use its character appearance AND coordinates as a strict reference.
+
+COMPLETE OUTPUT SPECIFICATIONS:
+EXACT OUTPUT FILE: sheet_eye_right.png (RGBA PNG, REAL transparent alpha).
+EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 4096 pixels.
+GRID: 2 columns x 2 rows; CELL: 2048 x 2048 pixels.
+Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
+row1 col1 eye_right_white: SHEET [0,0,2048,2048)
+row1 col2 eye_right_iris: SHEET [2048,0,4096,2048)
+row2 col1 eye_right_lid: SHEET [0,2048,2048,4096)
+row2 col2 brow_right: SHEET [2048,2048,4096,4096)
+Each 2048x2048 tile is a native 2x-detail render of one
+1024x1024 ROI in the master; do not upscale a smaller image.
+Do NOT center the part in its tile; preserve the master ROI-relative
+position. All pixels outside the isolated semantic part alpha=0.
+Any EMPTY cell must be entirely transparent. Do not render guide labels.
 
 EXACT OUTPUT: sheet_eye_right.png; PNG RGBA; image size 4096x4096.
 EXACT GRID: 2 columns × 2 rows; each cell 2048x2048.
@@ -265,7 +346,6 @@ The left/right designation refers to CHARACTER left/right.
 
 [배치도 이미지 열기](docs/sheet_guides/sheet_mouth_layout.svg)
 
-**고밀도 시트:** 셀 2048×2048은 기준 원본 1024×1024 ROI를 2배 샘플링합니다.
 
 **복사할 프롬프트**
 
@@ -304,6 +384,35 @@ Finish occluded structures (scalp/skin beneath hair, full eyelids,
 pupil disks, lips, sleeves under garments, hidden seam continuation).
 No hand-written labels or image layout lines in the final PNG.
 Reserved EMPTY tile is completely transparent alpha=0.
+
+ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
+MASTER RESOLUTION 2048x3072 (width x height).
+ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
+Character CENTER x=1024. Landmarks in MASTER PIXELS:
+crown/top of head y≈240; eyes y≈1110; nose y≈1280;
+mouth y≈1380; chin y≈1510; neck y≈1590;
+shoulders y≈1730; waist y≈2700.
+Preserve these shared physical registration landmarks and character
+anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
+CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
+CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
+Attach the actual previously generated front_master.png to this request
+and use its character appearance AND coordinates as a strict reference.
+
+COMPLETE OUTPUT SPECIFICATIONS:
+EXACT OUTPUT FILE: sheet_mouth.png (RGBA PNG, REAL transparent alpha).
+EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 4096 pixels.
+GRID: 2 columns x 2 rows; CELL: 2048 x 2048 pixels.
+Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
+row1 col1 nose: SHEET [0,0,2048,2048)
+row1 col2 mouth_closed: SHEET [2048,0,4096,2048)
+row2 col1 mouth_open: SHEET [0,2048,2048,4096)
+row2 col2 EMPTY: SHEET [2048,2048,4096,4096)
+Each 2048x2048 tile is a native 2x-detail render of one
+1024x1024 ROI in the master; do not upscale a smaller image.
+Do NOT center the part in its tile; preserve the master ROI-relative
+position. All pixels outside the isolated semantic part alpha=0.
+Any EMPTY cell must be entirely transparent. Do not render guide labels.
 
 EXACT OUTPUT: sheet_mouth.png; PNG RGBA; image size 4096x4096.
 EXACT GRID: 2 columns × 2 rows; each cell 2048x2048.
@@ -330,7 +439,6 @@ in the nose tile, not the whole surrounding face.
 
 [배치도 이미지 열기](docs/sheet_guides/sheet_hair_layout.svg)
 
-**실좌표 시트:** 셀 좌표가 지정된 기준 원본 ROI와 1:1 대응합니다. 생성 후 프로그램에서 파츠별 초해상도를 적용합니다.
 
 **복사할 프롬프트**
 
@@ -369,6 +477,35 @@ Finish occluded structures (scalp/skin beneath hair, full eyelids,
 pupil disks, lips, sleeves under garments, hidden seam continuation).
 No hand-written labels or image layout lines in the final PNG.
 Reserved EMPTY tile is completely transparent alpha=0.
+
+ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
+MASTER RESOLUTION 2048x3072 (width x height).
+ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
+Character CENTER x=1024. Landmarks in MASTER PIXELS:
+crown/top of head y≈240; eyes y≈1110; nose y≈1280;
+mouth y≈1380; chin y≈1510; neck y≈1590;
+shoulders y≈1730; waist y≈2700.
+Preserve these shared physical registration landmarks and character
+anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
+CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
+CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
+Attach the actual previously generated front_master.png to this request
+and use its character appearance AND coordinates as a strict reference.
+
+COMPLETE OUTPUT SPECIFICATIONS:
+EXACT OUTPUT FILE: sheet_hair.png (RGBA PNG, REAL transparent alpha).
+EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 6144 pixels.
+GRID: 2 columns x 2 rows; CELL: 2048 x 3072 pixels.
+Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
+row1 col1 hair_front: SHEET [0,0,2048,3072)
+row1 col2 hair_back: SHEET [2048,0,4096,3072)
+row2 col1 hair_left: SHEET [0,3072,2048,6144)
+row2 col2 hair_right: SHEET [2048,3072,4096,6144)
+Each tile corresponds 1:1 to the master ROI indicated below;
+after extraction the pipeline may perform per-part neural upscale.
+Do NOT center the part in its tile; preserve the master ROI-relative
+position. All pixels outside the isolated semantic part alpha=0.
+Any EMPTY cell must be entirely transparent. Do not render guide labels.
 
 EXACT OUTPUT: sheet_hair.png; PNG RGBA; image size 4096x6144.
 EXACT GRID: 2 columns × 2 rows; each cell 2048x3072.
@@ -394,7 +531,6 @@ Keep realistic strand detail, filled hidden roots, and hair-tip shape.
 
 [배치도 이미지 열기](docs/sheet_guides/sheet_body_outfit_layout_v2.svg)
 
-**실좌표 시트:** 셀 좌표가 지정된 기준 원본 ROI와 1:1 대응합니다. 생성 후 프로그램에서 파츠별 초해상도를 적용합니다.
 
 **복사할 프롬프트**
 
@@ -433,6 +569,35 @@ Finish occluded structures (scalp/skin beneath hair, full eyelids,
 pupil disks, lips, sleeves under garments, hidden seam continuation).
 No hand-written labels or image layout lines in the final PNG.
 Reserved EMPTY tile is completely transparent alpha=0.
+
+ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
+MASTER RESOLUTION 2048x3072 (width x height).
+ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
+Character CENTER x=1024. Landmarks in MASTER PIXELS:
+crown/top of head y≈240; eyes y≈1110; nose y≈1280;
+mouth y≈1380; chin y≈1510; neck y≈1590;
+shoulders y≈1730; waist y≈2700.
+Preserve these shared physical registration landmarks and character
+anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
+CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
+CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
+Attach the actual previously generated front_master.png to this request
+and use its character appearance AND coordinates as a strict reference.
+
+COMPLETE OUTPUT SPECIFICATIONS:
+EXACT OUTPUT FILE: sheet_body_outfit.png (RGBA PNG, REAL transparent alpha).
+EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 3072 pixels.
+GRID: 2 columns x 2 rows; CELL: 2048 x 1536 pixels.
+Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
+row1 col1 body: SHEET [0,0,2048,1536)
+row1 col2 outfit_front: SHEET [2048,0,4096,1536)
+row2 col1 outfit_back: SHEET [0,1536,2048,3072)
+row2 col2 EMPTY: SHEET [2048,1536,4096,3072)
+Each tile corresponds 1:1 to the master ROI indicated below;
+after extraction the pipeline may perform per-part neural upscale.
+Do NOT center the part in its tile; preserve the master ROI-relative
+position. All pixels outside the isolated semantic part alpha=0.
+Any EMPTY cell must be entirely transparent. Do not render guide labels.
 
 EXACT OUTPUT: sheet_body_outfit.png; PNG RGBA; image size 4096x3072.
 EXACT GRID: 2 columns × 2 rows; each cell 2048x1536.
@@ -456,7 +621,6 @@ Keep identical character appearance and exact absolute ROI alignment.
 
 [배치도 이미지 열기](docs/sheet_guides/sheet_arms_hands_layout.svg)
 
-**실좌표 시트:** 셀 좌표가 지정된 기준 원본 ROI와 1:1 대응합니다. 생성 후 프로그램에서 파츠별 초해상도를 적용합니다.
 
 **복사할 프롬프트**
 
@@ -495,6 +659,35 @@ Finish occluded structures (scalp/skin beneath hair, full eyelids,
 pupil disks, lips, sleeves under garments, hidden seam continuation).
 No hand-written labels or image layout lines in the final PNG.
 Reserved EMPTY tile is completely transparent alpha=0.
+
+ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
+MASTER RESOLUTION 2048x3072 (width x height).
+ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
+Character CENTER x=1024. Landmarks in MASTER PIXELS:
+crown/top of head y≈240; eyes y≈1110; nose y≈1280;
+mouth y≈1380; chin y≈1510; neck y≈1590;
+shoulders y≈1730; waist y≈2700.
+Preserve these shared physical registration landmarks and character
+anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
+CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
+CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
+Attach the actual previously generated front_master.png to this request
+and use its character appearance AND coordinates as a strict reference.
+
+COMPLETE OUTPUT SPECIFICATIONS:
+EXACT OUTPUT FILE: sheet_arms_hands.png (RGBA PNG, REAL transparent alpha).
+EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 3072 pixels.
+GRID: 2 columns x 2 rows; CELL: 2048 x 1536 pixels.
+Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
+row1 col1 arm_left: SHEET [0,0,2048,1536)
+row1 col2 arm_right: SHEET [2048,0,4096,1536)
+row2 col1 hand_left: SHEET [0,1536,2048,3072)
+row2 col2 hand_right: SHEET [2048,1536,4096,3072)
+Each tile corresponds 1:1 to the master ROI indicated below;
+after extraction the pipeline may perform per-part neural upscale.
+Do NOT center the part in its tile; preserve the master ROI-relative
+position. All pixels outside the isolated semantic part alpha=0.
+Any EMPTY cell must be entirely transparent. Do not render guide labels.
 
 EXACT OUTPUT: sheet_arms_hands.png; PNG RGBA; image size 4096x3072.
 EXACT GRID: 2 columns × 2 rows; each cell 2048x1536.
@@ -531,13 +724,7 @@ character_2d_sheet_pack.zip
 
 ### 3D VRM — 총 3개 PNG (전신 시트 2장 + 얼굴 확대 1장)
 
-전신 4방향을 하나의 4096×6144 이미지에 몰아넣지 않고, **각각 4096×3072 크기의 2뷰 시트**로 나눕니다. 한 시점당 픽셀 수(2048×3072)는 동일하지만 시트당 이미지 생성 부담을 낮추고 외형 정합성을 비교하기 쉽습니다. 얼굴은 별도 정면 확대 이미지를 사용합니다.
 
-| 파일명 | 해상도 | 격자 / 한 칸 | 시점 |
-|---|---|---|---|
-| `sheet_front_back.png` | 4096×3072 | 2열×1행 / 2048×3072 | 정면·후면 |
-| `sheet_side_views.png` | 4096×3072 | 2열×1행 / 2048×3072 | 왼쪽·오른쪽 측면 |
-| `face.png` | 2048×2048 | 얼굴 확대 단일 이미지 | 정면 얼굴 |
 
 #### 3D-1. `sheet_front_back.png` — 정면·후면 전신
 
@@ -560,15 +747,26 @@ Accessories and positions: {accessories}
 Other permanent body and character traits: {other_details}
 
 IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-For sheet_side_views.png and face.png attach the FRONT view already
-generated in sheet_front_back.png. For sheet_front_back.png, use the
-same character identity fields below without a prior generated reference.
+This is the first 3D view sheet; no prior reference is required.
 Preserve colors, silhouette, linework, gender presentation, anatomy,
 proportions, costume seams and lighting consistently across all views.
 The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
 numbers and text MUST NOT appear in the generated image.
 One high-resolution RGBA PNG per request; no visible panel borders,
 annotations, guide colors, checkerboard, watermark or extraneous art.
+
+3D MULTIVIEW OUTPUT RESOLUTION AND PIXEL COORDINATES:
+EXACT FILE sheet_front_back.png; 4096x3072 RGBA PNG (width x height).
+Origin TOP-LEFT (0,0), +X RIGHT, +Y DOWN.
+2 COLUMNS x 1 ROW; EACH CELL 2048x3072 pixels.
+row1 col1 FRONT: SHEET [0,0,2048,3072).
+row1 col2 BACK: SHEET [2048,0,4096,3072).
+LOCAL COORDINATES IN EACH CELL: center x=1024; crown y≈150;
+neck y≈600; shoulders y≈730; waist y≈1550;
+knees y≈2330; ground baseline y≈2930.
+Same exact orthographic figure height and body placement in every view.
+LEFT/RIGHT refer to CHARACTER orientation; do not mirror a view.
+True alpha transparency, no visible reference labels or grid lines.
 
 TASK:
 Output exactly sheet_front_back.png as ONE 4096x3072 PNG,
@@ -607,15 +805,27 @@ Accessories and positions: {accessories}
 Other permanent body and character traits: {other_details}
 
 IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-For sheet_side_views.png and face.png attach the FRONT view already
-generated in sheet_front_back.png. For sheet_front_back.png, use the
-same character identity fields below without a prior generated reference.
+Attach the completed FRONT image from sheet_front_back.png as
+this character's exact size, design and appearance reference.
 Preserve colors, silhouette, linework, gender presentation, anatomy,
 proportions, costume seams and lighting consistently across all views.
 The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
 numbers and text MUST NOT appear in the generated image.
 One high-resolution RGBA PNG per request; no visible panel borders,
 annotations, guide colors, checkerboard, watermark or extraneous art.
+
+3D MULTIVIEW OUTPUT RESOLUTION AND PIXEL COORDINATES:
+EXACT FILE sheet_side_views.png; 4096x3072 RGBA PNG (width x height).
+Origin TOP-LEFT (0,0), +X RIGHT, +Y DOWN.
+2 COLUMNS x 1 ROW; EACH CELL 2048x3072 pixels.
+row1 col1 LEFT: SHEET [0,0,2048,3072).
+row1 col2 RIGHT: SHEET [2048,0,4096,3072).
+LOCAL COORDINATES IN EACH CELL: center x=1024; crown y≈150;
+neck y≈600; shoulders y≈730; waist y≈1550;
+knees y≈2330; ground baseline y≈2930.
+Same exact orthographic figure height and body placement in every view.
+LEFT/RIGHT refer to CHARACTER orientation; do not mirror a view.
+True alpha transparency, no visible reference labels or grid lines.
 
 TASK:
 Output exactly sheet_side_views.png as ONE 4096x3072 PNG,
@@ -650,15 +860,24 @@ Accessories and positions: {accessories}
 Other permanent body and character traits: {other_details}
 
 IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-For sheet_side_views.png and face.png attach the FRONT view already
-generated in sheet_front_back.png. For sheet_front_back.png, use the
-same character identity fields below without a prior generated reference.
+Attach the completed FRONT image from sheet_front_back.png as
+this character's exact size, design and appearance reference.
 Preserve colors, silhouette, linework, gender presentation, anatomy,
 proportions, costume seams and lighting consistently across all views.
 The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
 numbers and text MUST NOT appear in the generated image.
 One high-resolution RGBA PNG per request; no visible panel borders,
 annotations, guide colors, checkerboard, watermark or extraneous art.
+
+FACE CLOSEUP OUTPUT/ABSOLUTE COORDINATES:
+EXACT FILE face.png; 2048x2048 RGBA PNG (width x height).
+Origin TOP-LEFT (0,0); +X RIGHT, +Y DOWN.
+Front-face center x≈1024, y≈1050 in THIS closeup image.
+These are not full-body y-coordinates. Include entire visible face,
+eyes, ears, jaw and hairline without cropping.
+CHARACTER LEFT is viewer-RIGHT in a front view.
+Use the front tile in sheet_front_back.png as the reference.
+No mirroring, distortion, captions, guide colors or borders.
 
 TASK:
 Output only face.png, exactly 2048x2048 PNG.
