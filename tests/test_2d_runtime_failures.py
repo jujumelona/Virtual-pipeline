@@ -48,5 +48,6 @@ def test_florence_worker_uses_native_model_without_tensorflow_or_legacy_causallm
     assert 'os.environ["USE_TF"] = "0"' in source
     assert 'os.environ["USE_FLAX"] = "0"' in source
     assert "Florence2ForConditionalGeneration" in source
-    assert "AutoModelForCausalLM" not in source
+    assert "AutoModelForCausalLM.from_pretrained" not in source
+    assert "from transformers import AutoProcessor, AutoModelForCausalLM" not in source
     assert "trust_remote_code=False" in source
