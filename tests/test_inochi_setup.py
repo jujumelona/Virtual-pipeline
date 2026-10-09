@@ -77,3 +77,35 @@ def test_native_runtime_hash_includes_dependency_lock():
     import inspect
     assert "dependency_lock.read_bytes()" in inspect.getsource(
         setup.ensure_inochi_native_runtime)
+
+
+def test_linker_preflight_compiles_c_graphics_and_ldc_phobos(tmp_path, monkeypatch):
+    monkeypatch.setattr(setup, "CACHE", tmp_path)
+    called = []
+    def fake_run(cmd, *, timeout, cwd):
+        called.append(cmd)
+        assert Path(cmd[1]).is_file()
+        assert cwd == setup.PROJECT
+    monkeypatch.setattr(setup, "_run", fake_run)
+    setup._verify_native_linker()
+    assert len(called) == 2
+    assert called[0][0] == "cc"
+    assert {"-lSDL2", "-lGL", "-lGLU", "-lz"}.issubset(set(called[0]))
+    assert called[1][0] == "ldc2"
+    assert "-v" in called[1]
+
+
+def test_linker_preflight_failure_is_not_swallowed(tmp_path, monkeypatch):
+    monkeypatch.setattr(setup, "CACHE", tmp_path)
+    def broken_cc(cmd, **kwargs):
+        raise RuntimeError("/usr/bin/ld: cannot find -lSDL2")
+    monkeypatch.setattr(setup, "_run", broken_cc)
+    with pytest.raises(RuntimeError, match="cannot find -lSDL2"):
+        setup._verify_native_linker()
+
+
+def test_real_native_build_follows_linker_preflight_before_verbose_dub():
+    import inspect
+    code = inspect.getsource(setup.ensure_inochi_native_runtime)
+    assert code.index("_verify_native_linker()") < code.index('["dub", "build"')
+    assert '"--force", "--verbose"' in code
