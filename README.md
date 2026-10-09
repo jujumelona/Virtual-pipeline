@@ -4,7 +4,118 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
-외부 AI가 만든 캐릭터 이미지를 사용자가 업로드합니다. **Inochi2D**, **Live2D**, **3D VRM**의 세 가지 모드를 제공합니다. 이미지 생성 AI는 파이프라인에 포함하지 않고, 모드별 복사 가능한 제작 프롬프트를 UI에 제공합니다.
+외부 AI가 만든 캐릭터 이미지를 사용자가 업로드합니다. **Inochi2D**, **Live2D**, **3D VRM**의 세 가지 모드를 제공합니다. 이미지 생성 AI는 파이프라인에 포함하지 않으며, **모드별 이미지 제작 프롬프트는 README에서 제공하고 Colab에는 완성된 PNG만 업로드합니다.**
+
+## 모드별 외부 이미지 AI 제작 프롬프트 — Colab에는 PNG만 업로드
+
+**프롬프트·머리색·눈색·의상·캔버스 규격은 이 README에서만 안내합니다.** Colab에는 프롬프트 입력칸도, 사용자가 만들 ZIP도 필요 없습니다. 먼저 아래 공통 캐릭터 설정을 채우고 외부 이미지 생성 AI에 프롬프트를 입력합니다. 이후 결과 **PNG 파일만** Colab ④ 셀에 업로드하세요. 기준 이미지를 먼저 생성한 후, 나머지 파일을 만들 때마다 실제 이미지 참조로 첨부합니다.
+
+### 캐릭터 외형 — 사용자가 중괄호 항목만 채우기
+
+```text
+ORIGINAL VTUBER CHARACTER IDENTITY (USER-EDITABLE):
+Hair color: {hair_color}
+Hairstyle, length, bangs and decorations: {hairstyle}
+Eye color, shape, iris and pupil details: {eyes}
+Face, skin tone, ears and marks: {face}
+Outfit, fabrics, garment seams: {outfit}
+Palette and HEX colors: {palette}
+Accessories: {accessories}
+Other fixed character traits: {other_details}
+
+CONSISTENCY LOCK:
+Same original character throughout every file. Attach the previously
+created front master image to each subsequent generation request. Preserve
+the exact colors, anatomy, proportions, line-art, hair, costume, shading,
+lighting, coordinate frame and identity. Do not change pose except when a
+different view is explicitly requested. ONE PNG per request, not a character
+sheet, tiled collection, collage, annotated diagram, or several alternatives.
+No text, logos, watermarks, fake checkerboard transparency, or clipping.
+```
+
+### Live2D / Inochi2D — 이미지 **27장** (원본 1장 + 개별 파츠 26장)
+
+**모든 파일에 적용하는 크기·좌표·투명도 프롬프트 (위 캐릭터 정보와 함께 입력):**
+
+```text
+OUTPUT CANVAS: exactly 2048 x 3072 pixels, width x height, PNG.
+Origin at TOP-LEFT (0,0), +X to the right, +Y downward.
+Common absolute alignment coordinates (in pixels):
+head center X=1024; crown Y=240; both eyes baseline Y=1110;
+nose Y=1280; neutral mouth Y=1380; jaw Y=1510;
+neck Y=1590; shoulders Y=1730; waist Y=2700.
+One orthographic straight-on character in a neutral upright pose,
+eyes open and mouth closed in the master reference.
+Keep the exact SAME full-size 2048x3072 canvas for EVERY layer:
+never crop, rescale, rotate, mirror or re-center an isolated part.
+Each layer must remain at its MASTER pixel location.
+PART LAYERS MUST USE TRUE TRANSPARENT RGBA:
+inside the named part = appropriately opaque textured pixels;
+outside it = alpha 0 (NOT black, white, or checkerboard).
+Complete hidden anatomy/material behind overlaid parts:
+face skin behind bangs, hair roots behind face, arms under garments,
+collar beneath chin, and all occluded texture/outline continuation.
+Never fill hidden parts with invented plain color; finish full detail
+consistent with the original picture. No other parts on each layer.
+Master is front_master.png, full unobstructed identity reference.
+The open-mouth layer is an alternate deformation expression, NOT
+a second mouth that should overlay the neutral closed-mouth master.
+Clean antialiased edges and consistent lighting.
+```
+
+**각 이미지를 따로 생성:** 매번 위 공통 캐릭터 정보 + 좌표·투명도 공통문 + 아래 행의 개별 지시를 함께 사용합니다. 파일명을 정확히 저장합니다.
+
+| 순서 | 파일명 | 외부 AI에 추가할 개별 제작 지시 |
+|---|---|---|
+| 01 | `front_master.png` | OUTPUT front_master.png. High-detail neutral front anime VTuber master, complete face/eyes/hair/upper body silhouette, same 2048×3072 coordinates. Eyes open, mouth closed, whole body region visible, no labels. |
+| 02 | `hair_back.png` | Output only the complete hair_back layer. Complete back-of-head hair, including hidden roots and hair behind shoulders. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 03 | `body.png` | Output only the complete body layer. Complete upper body and jacket/tunic torso with uninterrupted fabric behind arms and hair. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 04 | `neck.png` | Output only the complete neck layer. Entire neck from jaw to collar, even under chin and garment. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 05 | `ear_left.png` | Output only the complete ear_left layer. Character's left ear, fully drawn behind hair. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 06 | `ear_right.png` | Output only the complete ear_right layer. Character's right ear, fully drawn behind hair. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 07 | `face.png` | Output only the complete face layer. Full facial skin and jaw without eyes, brows, lips or bangs; include covered forehead. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 08 | `eye_left_white.png` | Output only the complete eye_left_white layer. Left eye sclera and complete outline footprint. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 09 | `eye_left_iris.png` | Output only the complete eye_left_iris layer. Left iris and pupil colored surface, fully drawn circular disc. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 10 | `eye_left_lid.png` | Output only the complete eye_left_lid layer. Left top and bottom visible eyelids with blink-ready closed lid geometry. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 11 | `eye_right_white.png` | Output only the complete eye_right_white layer. Right eye sclera and complete outline footprint. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 12 | `eye_right_iris.png` | Output only the complete eye_right_iris layer. Right iris and pupil colored surface, fully drawn circular disc. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 13 | `eye_right_lid.png` | Output only the complete eye_right_lid layer. Right top and bottom visible eyelids with blink-ready closed lid geometry. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 14 | `brow_left.png` | Output only the complete brow_left layer. Whole left eyebrow including segment hidden by bangs. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 15 | `brow_right.png` | Output only the complete brow_right layer. Whole right eyebrow including segment hidden by bangs. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 16 | `nose.png` | Output only the complete nose layer. Nose line and shadow on transparent canvas; only nose pixels. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 17 | `mouth_closed.png` | Output only the complete mouth_closed layer. Closed mouth lip outline in resting pose. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 18 | `mouth_open.png` | Output only the complete mouth_open layer. Open mouth shape including teeth, tongue and interior; separate animation variant. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 19 | `hair_left.png` | Output only the complete hair_left layer. Complete left side-hair tuft/strand groups, including roots behind face. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 20 | `hair_right.png` | Output only the complete hair_right layer. Complete right side-hair tuft/strand groups, including roots behind face. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 21 | `hair_front.png` | Output only the complete hair_front layer. Full bangs/forelock with complete roots, preserving the front reference. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 22 | `arm_left.png` | Output only the complete arm_left layer. Complete character-left arm and sleeve, including body-hidden shoulder. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 23 | `arm_right.png` | Output only the complete arm_right layer. Complete character-right arm and sleeve, including body-hidden shoulder. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 24 | `hand_left.png` | Output only the complete hand_left layer. Character-left hand, fully modeled even when sleeve obscures wrist. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 25 | `hand_right.png` | Output only the complete hand_right layer. Character-right hand, fully modeled even when sleeve obscures wrist. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 26 | `outfit_front.png` | Output only the complete outfit_front layer. Outer upper-body garment panel, detachable and complete beneath accessories. Keep exact reference coordinates; all other pixels actual alpha=0. |
+| 27 | `outfit_back.png` | Output only the complete outfit_back layer. Outer rear garment panel, complete underneath front panels and arms. Keep exact reference coordinates; all other pixels actual alpha=0. |
+
+**Colab:** `live2d` 또는 `inochi2d` + 2D 입력 `provided_layers` → ④ 셀에서 **27장 PNG를 한 번에 선택**. ZIP·프롬프트·외형 정보를 Colab에 따로 입력하지 않습니다. 코드가 수량·파일명·해상도·알파를 검증한 뒤 파츠를 바로 사용하는 경로로 제작하므로 **FLUX/SAM/Florence 복원은 실행하지 않습니다.** Live2D의 공식 `.moc3` 출력은 Cubism Editor가 별도로 필요합니다.
+
+### 3D VRM — 이미지 **5장** (정면·후면·좌측·우측·얼굴 확대)
+
+전신 4장은 **2048×3072 PNG**, 얼굴 확대 1장은 **2048×2048 PNG**. 모든 전신 뷰의 원점 (0,0)은 좌측 상단, X는 오른쪽, Y는 아래로 증가합니다. 신체 중심 X=1024, 정수리 Y≈150, 목 Y≈600, 어깨 Y≈730, 허리 Y≈1550, 무릎 Y≈2330, 발바닥 Y≈2930. 정투영 카메라(orthographic), A-포즈, 동일 렌더 스케일·카메라 높이·조명, 전신·머리카락·손가락·신발 잘림 없음. 캐릭터의 외형/의상/장식/색을 바꾸지 않고 정해진 방향으로만 회전시켜 출력. 외곽은 가능하면 진짜 투명 PNG 알파로 처리합니다. 얼굴 확대 이미지는 **전신 픽셀 좌표와 같지 않으며**, 외형과 얼굴 특징만 일치시켜야 합니다.
+
+| 파일명 | 외부 이미지 생성 AI의 개별 요청 (위 캐릭터 공통 프롬프트와 결합) |
+|---|---|
+| `front.png` | Orthographic full-body FRONT of the same character. Neutral A-pose, all limbs and hair visible, centerline x=1024, feet baseline y=2930, no perspective. |
+| `back.png` | Orthographic full-body BACK, exact same character rotated 180°, same proportions, clothing seam structure, hair volume, placement and lighting. |
+| `left.png` | Orthographic full-body LEFT side, exactly 90° rotation, same body scale, hairstyle, garments and height anchors. |
+| `right.png` | Orthographic full-body RIGHT side, exactly 90° rotation, same body scale, hairstyle, garments and height anchors. |
+| `face.png` | Exactly 2048×2048 PNG of the same character's ORTHOGRAPHIC FRONT FACE close-up; face center x≈1024, y≈1050; visible complete hairline, eyes, eyebrows, nose, lips and ears. |
+
+**Colab:** `3d`, `MULTI_REFERENCE_3D=True` → ④ 셀에서 **PNG 다섯 장만** 업로드합니다. 3D 등록 알고리즘이 실제 기하·화풍 차이를 별도로 확인합니다.
+
+### 액세서리 — 이미지 **1~8장**
+
+외부 AI 개별 프롬프트: `Draw ONE original {accessory_type}, {material}, {color}, {ornaments}, perfectly isolated on transparent PNG, all components/attachment surfaces fully visible, 3D geometry legible, crisp silhouette, consistent character style, centered product view, no body, no mannequin, no text, no watermark, no cut-off geometry.` 각각 한 물건의 이미지만 만들고 파일명을 알아보기 쉽게 저장합니다. Colab에는 기준 VRM과 액세서리 PNG(1~8장)만 입력합니다.
+
+**보증 범위:** 위 좌표·정렬·알파 문장은 생성 AI에 대한 명세이며 픽셀 단위 정합의 절대 보증은 아닙니다. 파일 크기·파일명·개수·RGBA 알파는 코드가 검사하지만, 캐릭터가 실제로 동일한지·가려진 부분이 자연스러운지·시점이 기하학적으로 일치하는지는 추가 품질 검증이 필요합니다.
 
 ## 작업 모드
 
@@ -18,7 +129,7 @@
 
 ### Inochi2D
 
-- 입력: 외부 AI 캐릭터 원본 1장 + 사용자가 제작한 투명 PNG 파츠 ZIP(선택). 프롬프트는 Inochi2D용으로 분리합니다.
+- 입력: 외부 AI 기준 이미지 1장 + 개별 투명 파츠 PNG 26장 (Colab에서 ZIP 불필요). 프롬프트는 Inochi2D용으로 분리합니다.
 - 현재 출력: `avatar.psd`, `avatar.ora`, `meshes2d.json`, `keyforms.json`, `physics2d.json`, `puppet_spec.json`. SDK 네이티브 출력에 성공한 경우에만 `avatar.inp`를 `complete`로 보고합니다.
 - 네이티브 자동화: 공식 BSD-2 **Inochi2D SDK 0.8.7**의 실제 `MeshData`·`Part`·`DeformationParameterBinding`·`SimplePhysics`를 구성하고 SDK의 `inWriteINPPuppet`로 **실제 INP1**을 출력합니다. SDK로 다시 읽어 애니메이션·물리 바인딩을 검사합니다. 0.9 개발판은 현재 변형 바인딩이 비활성화되어 본선에 사용하지 않습니다.
 - 실제 컴파일+SDK 네이티브 INP 재임포트 검증: [GitHub Actions PASS](https://github.com/jujumelona/Virtual-pipeline/actions/runs/37878238975). 이 검증은 SDK 프로그램의 정상 작동을 증명하며 **사용자별 AI 파츠 품질을 보증하지는 않습니다.**
@@ -26,7 +137,7 @@
 
 ### Live2D
 
-- 입력: 외부 AI 캐릭터 원본 + 사용자 파츠 ZIP. Live2D용 파츠 보완 프롬프트를 따로 제공합니다.
+- 입력: 외부 AI 기준 이미지 + 개별 투명 PNG 파츠 26장. 이미지 제작 프롬프트는 위 README를 참고합니다.
 - 현재 출력: `avatar.psd`, `avatar.ora`, `cubism_handoff.zip`, `cubism_spec.json`. 공식 Editor 내보내기 결과의 MOC3·텍스처·physics·model3 참조는 별도 `live2d-import-export`에서 확인합니다.
 - 목표: **Live2D Cubism Editor에서 리깅 후 `.moc3`, `.model3.json`, 텍스처/물리 출력**, VTube Studio에서 로드.
 - **Live2D Cubism Editor는 비오픈소스**입니다. 공식 모델 바이너리 생성은 [Cubism 내보내기 문서](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/)에 기술돼 있습니다. 검증된 상업용 오픈소스 MOC3 인코더가 없어 이 프로젝트는 완성된 Live2D 모델을 자동 생성한다고 주장하지 않습니다.
