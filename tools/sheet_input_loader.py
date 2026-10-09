@@ -85,13 +85,13 @@ def _valid_aspect(actual: tuple[int, int], expected: tuple[int, int]) -> bool:
 def _tile_box(image_size: tuple[int,int], sheet, row: int, col: int):
     """Use observed pixels, never assume the AI emitted target resolution."""
     width, height = image_size
-    if width % sheet.columns or height % sheet.rows:
-        raise ValueError(
-            f"{sheet.filename}: width/height must divide into exactly "
-            f"{sheet.columns}x{sheet.rows} cells without fractional pixels"
-        )
-    cw, ch = width // sheet.columns, height // sheet.rows
-    return (col*cw,row*ch,(col+1)*cw,(row+1)*ch)
+    # AI generators often produce odd dimensions; deterministic nearest
+    # grid boundaries still partition all pixels without gaps or overlaps.
+    x0 = round(col * width / sheet.columns)
+    x1 = round((col+1) * width / sheet.columns)
+    y0 = round(row * height / sheet.rows)
+    y1 = round((row+1) * height / sheet.rows)
+    return x0,y0,x1,y1
 
 
 def _upscale_to(image: Image.Image, target: tuple[int,int], upscaler,
@@ -152,6 +152,15 @@ def inspect_sheet_archive(archive_path: str, mode: str) -> dict:
                                 for col in range(sheet.columns):
                                     box = _tile_box(im.size,sheet,row,col)
                                     alpha = im.crop(box).getchannel("A")
+                                    if ((row,col) in used
+                                            and alpha.histogram()[255] >=
+                                            int(alpha.width*alpha.height*0.97)):
+                                        raise ValueError(
+                                            f"{name}: grid ({row+1},{col+1}) is "
+                                            "nearly opaque wall-to-wall. "
+                                            "Remove the fake/background layer; "
+                                            "upscaling does not create transparency."
+                                        )
                                     if (row,col) in used and not alpha.getbbox():
                                         raise ValueError(
                                             f"{name}: part at grid ({row+1},{col+1}) is empty"
