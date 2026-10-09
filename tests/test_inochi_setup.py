@@ -10,18 +10,47 @@ import pytest
 from tools import setup_inochi_runtime as setup
 
 
-def test_native_build_failure_exposes_real_compiler_errors(tmp_path, monkeypatch):
+def test_native_build_failure_exposes_entire_live_compiler_output(
+    tmp_path, monkeypatch, capsys,
+):
+    import sys
     monkeypatch.setattr(setup, "CACHE", tmp_path)
-    def fail(cmd, *, timeout, cwd, stdout, stderr, check):
-        stdout.write("source/app.d(71): Error: missing symbol in official SDK\n")
-        stdout.flush()
-        return SimpleNamespace(returncode=2)
-    monkeypatch.setattr(setup.subprocess, "run", fail)
-    with pytest.raises(RuntimeError, match="missing symbol in official SDK") as error:
-        setup._run(["dub", "build", "--compiler=ldc2"], timeout=10, cwd=tmp_path)
-    assert "Full compiler output:" in str(error.value)
-    assert (tmp_path / "logs" / "native_build.log").is_file()
-    assert "Error: missing symbol" in (tmp_path / "logs" / "native_build.log").read_text()
+    # A real child prints an error before 300 unrelated compiler lines.
+    # That first error must appear both on screen and in the saved log.
+    script = (
+        "import sys; print('source/app.d(71): Error: FIRST missing symbol', flush=True);"
+        " [print('compiler-line-%04d' % i) for i in range(300)];"
+        " print('/usr/bin/cc failed with status: 1'); sys.exit(2)"
+    )
+    with pytest.raises(RuntimeError, match="exit=2"):
+        setup._run([sys.executable, "-u", "-c", script], timeout=10, cwd=tmp_path)
+    output = capsys.readouterr().out
+    file = (tmp_path / "logs" / "native_build.log").read_text()
+    assert "FIRST missing symbol" in output
+    assert "/usr/bin/cc failed with status: 1" in output
+    assert "compiler-line-0000" in output
+    assert "compiler-line-0299" in output
+    assert output.index("FIRST missing symbol") < output.index("compiler-line-0299")
+    assert "FIRST missing symbol" in file
+    assert "compiler-line-0299" in file
+
+
+def test_native_log_second_command_does_not_reprint_previous_output(
+    tmp_path, monkeypatch, capsys,
+):
+    import sys
+    monkeypatch.setattr(setup, "CACHE", tmp_path)
+    setup._run([sys.executable, "-c", "print('first-command-marker')"],
+               timeout=10, cwd=tmp_path)
+    first = capsys.readouterr().out
+    setup._run([sys.executable, "-c", "print('second-command-marker')"],
+               timeout=10, cwd=tmp_path)
+    second = capsys.readouterr().out
+    assert "first-command-marker" in first
+    assert "first-command-marker" not in second
+    assert "second-command-marker" in second
+    log = (tmp_path / "logs" / "native_build.log").read_text()
+    assert "first-command-marker" in log and "second-command-marker" in log
 
 
 def test_native_setup_does_not_skip_missing_graphics_development_headers(monkeypatch):
