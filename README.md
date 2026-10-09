@@ -702,7 +702,7 @@ Save exact filename outfit_variant.png, rename the download if needed.
 
 #### ②-3. 3D 외부 의상 교체 — 수동 편집기 전달만 지원 (고급)
 
-현재 레포의 3D 자동 본선은 **기본 의상 포함 VRM**을 생성하며, 3D 의상 자동 교체는 제공하지 않습니다. VRoid Studio의 별도 [Dress-up/XWear](https://vroid.pixiv.help/hc/en-us/articles/39512879834649-Introduction-to-VRoid-Studio-s-Dress-Up-Feature)는 외부 편집기 작업으로, 실제로 제작된 `costume.xwear`와 기준 `avatar.vrm`을 사용합니다. Colab의 **3D 교체 의상(XWear)**은 이 파일 두 개를 **편집기로 전달할 ZIP**만 구성합니다. 옷이 착용된 새로운 VRM을 자동 생성하지 않습니다. 기본 의상이 이미 있는 VRM에서는 의상 관통·중복 메시 삭제 및 피팅을 외부 편집기에서 수행해야 합니다.
+현재 레포의 3D 자동 본선은 **기본 의상 포함 VRM**을 생성하며, 3D 의상 자동 교체는 제공하지 않습니다. VRoid Studio의 별도 [Dress-up/XWear](https://vroid.pixiv.help/hc/en-us/articles/39512879834649-Introduction-to-VRoid-Studio-s-Dress-Up-Feature)는 외부 편집기 작업으로, 실제로 제작된 `costume.xwear`와 기준 `avatar.vrm`을 사용합니다. Colab의 **3D 교체 의상(XWear)**은 유효한 `base_avatar.vrm`과 `costume.xwear`를 받아 **편집기로 전달할 `vroid_dressup_handoff.zip`**만 구성합니다. 옷이 착용된 새로운 VRM을 자동 생성하지 않습니다. 기본 의상이 이미 있는 VRM에서는 의상 관통·중복 메시 삭제 및 피팅을 외부 편집기에서 수행해야 합니다.
 
 **기본 권장 경로는 위 3D 의상 통합 캐릭터 제작입니다.** 단순 PNG 의상 참조 이미지를 XWear 원본이라고 주장하거나, 고정 본 액세서리를 몸이 구부러지는 의상으로 취급하지 않습니다.
 
