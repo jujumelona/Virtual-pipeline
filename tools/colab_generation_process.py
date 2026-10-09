@@ -169,7 +169,11 @@ def run_isolated(
             try:
                 process.wait(timeout=3)
             except subprocess.TimeoutExpired:
-                _terminate_worker_tree(process, signal.SIGKILL, groups)
+                pass
+            # A stage may ignore SIGTERM and survive after the direct worker
+            # exits. Kill the groups discovered before the parent exited.
+            _terminate_worker_tree(process, signal.SIGKILL, groups)
+            if process.poll() is None:
                 process.wait(timeout=10)
             (folder / "status.json").write_text(json.dumps({
                 "mode": mode, "state": "cancelled",
