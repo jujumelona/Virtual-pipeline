@@ -1576,7 +1576,22 @@ def build_app() -> gr.Blocks:
                         )
                         gr.Textbox(
                             label="같은 캐릭터 측면 (선택)",
-                            value="[REFERENCE LOCK] Keep exactly the same character design, standing height, proportions, A-pose, hair volume, costume colors and shoe geometry as the FRONT image. [OUTPUT] ONE complete full-body LEFT SIDE orthographic image if creating the left-reference file, or ONE RIGHT SIDE orthographic image for the right-reference file; generate each direction in a separate image. Camera level and scale must match the front and rear images. Render clear facial profile, true head depth, chest/back contour, hairstyle thickness, wrists, legs and shoes; plain background, flat consistent lighting. [AVOID] three-quarter angles, perspective, cropped extremities, inconsistent costume/hair, collage, text and watermark.", lines=21, max_lines=30,
+                            value="Same exact character as the front image, full-body LEFT or RIGHT orthographic side turnaround reference, neutral A-pose, identical body proportions, hairstyle volume, costume colors, shoe geometry and image scale. Draw each side separately, clear facial profile and body silhouette, even studio lighting, simple background, no perspective, no cropped limbs, no text or watermark.", lines=5,
+                        )
+                    avatar_run = gr.Button("전신 VRM 변환", variant="primary")
+                    avatar_result = gr.File(
+                        label="완성 VRM (다운로드 가능한 원본 파일)",
+                        interactive=False,
+                    )
+                    avatar_download_button = gr.DownloadButton(
+                        label="↓ avatar.vrm 파일 직접 다운로드",
+                        value=None, interactive=False,
+                    )
+                    avatar_http_link = gr.Markdown(value="", visible=False)
+                with gr.Column(scale=1, min_width=310, elem_id="generation-panel"):
+                    avatar_status = gr.Markdown("대기 중")
+                    avatar_log = gr.Textbox(
+                        label="진행 로그", lines=21, max_lines=30,
                         interactive=False, autoscroll=True,
                     )
                     avatar_log_file = gr.File(
