@@ -266,7 +266,8 @@ class AvatarPipeline:
         if not isinstance(rigging_cfg, dict) or set(rigging_cfg) - {"provider"}:
             return config_failure("rigging must be an object with only provider")
         rigging_provider = rigging_cfg.get("provider", "canonical")
-        if rigging_provider not in {"canonical", "skintokens", "blender_heat"}:
+        if (not isinstance(rigging_provider, str)
+                or rigging_provider not in {"canonical", "skintokens", "blender_heat"}):
             return config_failure("rigging.provider must be canonical, blender_heat or skintokens")
         skintokens_identity = None
         if rigging_provider == "skintokens":
