@@ -72,6 +72,7 @@ def test_avatar_stage_dag_is_complete_and_ordered():
         "texture_transfer",
         "rig",
         "skintokens_skin",
+        "blender_heat_skin",
         "expressions",
         "gaze",
         "springbone",
