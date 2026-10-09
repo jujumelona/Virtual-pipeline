@@ -79,6 +79,7 @@ def run_isolated(
     deadline = time.monotonic() + timeout
     cursor = 0
     tail = deque(maxlen=140)
+    pending_lines: list[str] = []
 
     def relay_line(line: str) -> None:
         tail.append(line)
@@ -99,7 +100,14 @@ def run_isolated(
             elif payload.get("kind") == "failed":
                 on_event(("log", payload.get("error", "")[-1500:]))
         else:
-            on_event(("log", line.rstrip()))
+            # Preserve every byte in generation.log, but send at most one
+            # compact transcript update per poll to Gradio's event queue.
+            pending_lines.append(line.rstrip())
+
+    def flush_pending() -> None:
+        if pending_lines and on_event:
+            on_event(("log", "\\n".join(pending_lines[-12:])))
+        pending_lines.clear()
 
     # Do not hold an open pipe or read model weights into the UI process.
     while True:
@@ -112,6 +120,7 @@ def run_isolated(
                         break
                     relay_line(line)
                 cursor = stream.tell()
+        flush_pending()
         status = process.poll()
         if status is not None:
             # Drain late buffered output before checking result.json.
@@ -119,6 +128,7 @@ def run_isolated(
                 stream.seek(cursor)
                 for line in stream:
                     relay_line(line)
+            flush_pending()
             break
         if time.monotonic() > deadline:
             # Stop the whole worker session, including its child model stages.
