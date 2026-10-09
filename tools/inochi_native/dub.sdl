@@ -7,4 +7,6 @@ dependency "inochi2d" version="==0.8.7"
 # The released SDK 0.8.7 includes functional DeformationParameterBinding.
 # SDK 0.9 main currently has that class disabled; never silently upgrade.
 subConfiguration "inochi2d" "full"
-lflags "-lSDL2" "-lz" "-lz" "-lGL"
+# libGL.so on GLVND-based Colab exposes _glapi_tls_Current through
+# libGLdispatch.so. Explicit linking is necessary for DUB/LDC --as-needed.
+lflags "-lSDL2" "-lz" "-lGL" "-lGLdispatch" "-ldl"
