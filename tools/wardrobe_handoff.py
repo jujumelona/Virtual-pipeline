@@ -85,3 +85,65 @@ def prepare_vroid_dressup(base_vrm: str, outfit_xwear: str,
     finally:
         tmp.unlink(missing_ok=True)
     return str(output)
+
+
+def prepare_vroid_hair_handoff(base_vrm: str, hair_xwear: str,
+                               destination: str) -> str:
+    """Editor handoff for real hair-as-accessory XWear, never a fake hairstyle.
+
+    VRoid Studio does not export native Hair-category presets as XWear.
+    A separately authored mesh must be configured as an accessory,
+    keeping its spring bones where applicable, before using this path.
+    """
+    from tools.colab_native import _has_vrm_container
+    vrm = Path(base_vrm).resolve(strict=True)
+    hair = Path(hair_xwear).resolve(strict=True)
+    output = Path(destination).resolve()
+    if vrm == hair or output in (vrm, hair):
+        raise ValueError("Avatar, hair asset and output must be separate files")
+    if vrm.suffix.casefold() != ".vrm" or not _has_vrm_container(vrm):
+        raise ValueError("Hair fitting requires an actual VRM base avatar")
+    if hair.name != "hair.xwear":
+        raise ValueError("Hair accessory file must be named exactly hair.xwear")
+    if not 128 <= hair.stat().st_size <= 750*1024*1024:
+        raise ValueError("hair.xwear invalid byte size")
+    manifest = {
+        "type": "vtuber/hair-handoff-v1",
+        "status": "editor_import_required",
+        "base_avatar": {"sha256":_digest(vrm),"bytes":vrm.stat().st_size},
+        "detachable_hair": {"filename":"hair.xwear","sha256":_digest(hair),
+                           "bytes":hair.stat().st_size},
+        "native_hair_category_export_as_xwear_supported": False,
+        "requires_accessory_mesh_with_head_bone_mapping": True,
+        "springbone_validation_required": True,
+        "automated_hair_creation": False,
+        "automated_fitting": False,
+        "vrm_exported": False,
+    }
+    guide=(
+        "HAIR XWEAR HANDOFF, NOT A FINISHED VRM\n"
+        "1. Author real hairstyle geometry (not a PNG impostor).\n"
+        "2. Convert hair mesh to XWear AS AN ACCESSORY with correct head\n"
+        "   attachment and appropriate VRM SpringBone binding.\n"
+        "3. VRoid Studio native Hair-category presets do NOT export to XWear.\n"
+        "4. Open VRoid Studio Dress-up, load base_avatar.vrm.\n"
+        "5. Import hair.xwear; choose the correct HEAD bone.\n"
+        "6. Verify hair pose, dynamics, collision and hairline under motions.\n"
+        "7. Export the resulting VRM, then validate it.\n"
+        "Official reference: https://vroid.pixiv.help/hc/en-us/articles/"
+        "44377205985177-How-to-export-XAvatar-and-XWear-files-while-"
+        "retaining-VRM-SpringBone\n"
+    )
+    output.parent.mkdir(parents=True,exist_ok=True)
+    temp=output.with_name(output.name+".partial")
+    try:
+        with ZipFile(temp,"w",compression=ZIP_DEFLATED,compresslevel=1) as z:
+            z.write(vrm,"base_avatar.vrm")
+            z.write(hair,"hair.xwear")
+            z.writestr("manifest.json",
+                       json.dumps(manifest,ensure_ascii=False,indent=2))
+            z.writestr("VRoid_hair_steps.txt",guide)
+        temp.replace(output)
+    finally:
+        temp.unlink(missing_ok=True)
+    return str(output)
