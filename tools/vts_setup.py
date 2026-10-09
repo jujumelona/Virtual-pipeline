@@ -62,9 +62,9 @@ def prepare(*, qwen: bool = False, install: bool = True):
             checked([sys.executable, "-m", "venv", "--system-site-packages", str(venv)], timeout=120)
         python = str(venv / "bin/python")
         checked([python, "-m", "pip", "install", "--disable-pip-version-check",
-                 "-r", str(see/"requirements.txt")], timeout=5400)
+                 "-r", str(see/"requirements.txt")], cwd=see, timeout=5400)
         checked([python, "-m", "pip", "install", "--disable-pip-version-check",
-                 "-r", str(see/"requirements-inference-bnb.txt")], timeout=5400)
+                 "-r", str(see/"requirements-inference-bnb.txt")], cwd=see, timeout=5400)
         checked([python, "-c", "import torch,bitsandbytes,psd_tools; "
                  "print('torch',torch.__version__,'bf16',torch.cuda.is_bf16_supported() "
                  "if torch.cuda.is_available() else 'cpu')"], timeout=120)
