@@ -8,7 +8,8 @@ import pytest
 from tools.colab_mode_ui import (
     MODE_LABELS, EDITION_LABELS, FRAMING_LABELS, QWEN_LABELS,
     ACCESSORY_LABELS, ANCHOR_LABELS, internal_scope, input_profile, refresh_qwen,
-    selection_signature, require_confirmed_selection,
+    selection_signature, require_confirmed_selection, choose_notebook_controls,
+    _browser_form_js,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -74,9 +75,9 @@ def test_notebook_has_task_scoped_controls_without_prompt_creation():
     assert "require_confirmed_selection(globals())" in upload
     assert "require_confirmed_selection(globals())" in build
     assert "MODEL_DOWNLOAD_SELECTION = CONFIRMED_SELECTION" in setup
-    assert "MODE_SELECTION_CONFIRMED" in select or "render_notebook_controls(globals())" in select
+    assert "choose_notebook_controls(globals())" in select
     assert 'MODE = "3d"' in select
-    assert "render_notebook_controls(globals())" in select
+    assert "choose_notebook_controls(globals())" in select
     assert '"vts_free"' not in select and '"vts_pro"' not in select
     assert "vts_notebook_brief" not in select
     assert "write_vts_brief_package" not in "\n".join(cells)
@@ -154,10 +155,57 @@ def test_notebook_has_confirmation_guard_before_download_and_upload():
     cells = ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
     selection, setup, upload, build = cells[1:5]
     assert '#@param ["캐릭터 생성", "액세서리 제작"]' not in selection
-    assert "render_notebook_controls(globals())" in selection
+    assert "choose_notebook_controls(globals())" in selection
     assert "② 설정 확정" in selection
     for code in (setup, upload, build):
         assert "require_confirmed_selection(globals())" in code
     assert setup.index("require_confirmed_selection(globals())") < setup.index("run(command")
     assert upload.index("require_confirmed_selection(globals())") < upload.index("files.upload()")
     assert build.index("require_confirmed_selection(globals())") < build.index("make_cubism_handoff(")
+
+
+
+def test_colab_browser_picker_is_a_blocking_promise_and_stays_task_scoped():
+    js = _browser_form_js(_values())
+    assert js.startswith("new Promise((resolve, reject) => {")
+    assert "submit.addEventListener('click'" in js
+    assert "resolve(result)" in js
+    assert "visible('ACCESSORY_SUBTYPE', !character)" in js
+    assert "visible('LIVE2D_EDITION', live2d)" in js
+    assert "window.setTimeout" not in js
+    assert "run(command" not in js
+
+
+def test_browser_selection_returns_values_before_cell_completes():
+    selected = _values()
+    selected.pop("MODE_SELECTION_CONFIRMED")
+    selected.pop("LIVE2D_USE_QWEN")
+    selected.pop("MODE_SELECTION_SNAPSHOT", None)
+    selected.update(MODE="live2d", LIVE2D_EDITION="pro", LIVE2D_FRAMING="full")
+    captured = []
+
+    def fake_browser(js):
+        captured.append(js)
+        return {key: selected[key] for key in (
+            "TASK", "MODE", "LIVE2D_EDITION", "LIVE2D_FRAMING", "LIVE2D_QWEN",
+            "TWO_D_INPUT", "MULTI_REFERENCE_3D", "ACCESSORY_SUBTYPE",
+            "ACCESSORY_ANCHOR", "OUTFIT_2D_TARGET", "USAGE",
+            "EXISTING_IMAGE_PATH", "ACCESSORY_BASE_VRM_PATH",
+            "WARDROBE_2D_BASE_ZIP_PATH", "WARDROBE_XWEAR_PATH",
+        )}
+
+    live = _values()
+    snapshot = choose_notebook_controls(live, evaluate=fake_browser)
+    assert len(captured) == 1
+    assert live["MODE_SELECTION_CONFIRMED"] is True
+    assert snapshot == selection_signature(live)
+    assert live["MODE"] == "live2d"
+    assert live["LIVE2D_EDITION"] == "pro"
+    assert live["LIVE2D_USE_QWEN"] is True
+
+
+def test_invalid_browser_choice_does_not_confirm_or_trigger_fallback():
+    live = _values()
+    with pytest.raises(RuntimeError, match="올바르지"):
+        choose_notebook_controls(live, evaluate=lambda js: {"TASK": "캐릭터 생성"})
+    assert live["MODE_SELECTION_CONFIRMED"] is False

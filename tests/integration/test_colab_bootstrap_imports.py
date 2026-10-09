@@ -247,8 +247,15 @@ def test_native_mode_picker_does_not_download_unselected_models(monkeypatch, cap
     def forbidden(*args, **kwargs):
         raise AssertionError("mode selection must not spawn any process")
     monkeypatch.setattr(subprocess, "Popen", forbidden)
+    import tools.colab_mode_ui as picker
+    called = []
+    def fake_browser(values):
+        called.append(True)
+        return ("캐릭터 생성", "3d", "personalNonProfit", True, "")
+    monkeypatch.setattr(picker, "choose_notebook_controls", fake_browser)
     exec(compile(cells[1], "<colab-mode>", "exec"), {})
-    assert "작업 종류: 캐릭터 생성" in capsys.readouterr().out
+    assert called == [True]
+    assert "② 제작 옵션 확정" in capsys.readouterr().out
 
 
 def test_model_prepare_entrypoint_dumps_unmodified_traceback(tmp_path, capsys):
