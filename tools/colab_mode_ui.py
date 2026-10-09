@@ -112,11 +112,17 @@ def selection_signature(values: dict) -> tuple:
             asset_kind = values.get("LIVE2D_PRO_ASSET", "body")
             if edition == "pro" and asset_kind not in PRO_ASSET_LABELS:
                 raise ValueError("PRO 독립 제작 종류를 확인하세요.")
+            passes = values.get("LIVE2D_QWEN_PASSES", 8)
+            layers = values.get("LIVE2D_QWEN_LAYERS", 6)
+            if not isinstance(passes, int) or not 0 <= passes <= 12:
+                raise ValueError("Qwen 반복 횟수 0..12 범위를 확인하세요.")
+            if not isinstance(layers, int) or not 2 <= layers <= 10:
+                raise ValueError("Qwen 회당 분리 레이어 2..10 범위를 확인하세요.")
             expected = qwen == "on" or (qwen == "auto" and edition == "pro")
             if values.get("LIVE2D_USE_QWEN") != expected:
                 raise ValueError("Qwen 옵션이 변경되었습니다.")
             return (task, mode, usage, edition, framing, qwen,
-                    asset_kind if edition == "pro" else None,
+                    layers, passes, asset_kind if edition == "pro" else None,
                     values.get("EXISTING_IMAGE_PATH", ""))
         if mode == "inochi2d":
             setting = values.get("TWO_D_INPUT")
@@ -177,6 +183,8 @@ def begin_mode_selection(values: dict) -> None:
         "LIVE2D_PRO_ASSET": "body",
         "LIVE2D_FRAMING": "upper",
         "LIVE2D_QWEN": "auto",
+        "LIVE2D_QWEN_LAYERS": 6,
+        "LIVE2D_QWEN_PASSES": 8,
         "LIVE2D_USE_QWEN": False,
         "TWO_D_INPUT": "sheets",
         "MULTI_REFERENCE_3D": True,

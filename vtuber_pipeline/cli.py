@@ -419,7 +419,10 @@ def vts_prompts(edition, asset, scope, hair_color, hairstyle, eyes, face_descrip
 @click.option("--third-party", type=click.Path(exists=True, file_okay=False), default=None)
 @click.option("--qwen/--no-qwen", default=False,
               help="Run 4-bit Qwen + Stable-Layers candidate refinement (GPU-intensive)")
-def vts_build(edition, scope, master, output, asset, reference, psd, third_party, qwen):
+@click.option("--qwen-layers", type=click.IntRange(2, 10), default=6)
+@click.option("--qwen-passes", type=click.IntRange(0, 12), default=8)
+def vts_build(edition, scope, master, output, asset, reference, psd,
+              third_party, qwen, qwen_layers, qwen_passes):
     """Generate genuine PSD-to-Cubism handoff, not an invented .moc3 binary."""
     import json
     from pathlib import Path
@@ -431,7 +434,7 @@ def vts_build(edition, scope, master, output, asset, reference, psd, third_party
             third_party=Path(third_party) if third_party else None,
             asset_kind=asset,
             reference_image=Path(reference) if reference else None,
-            qwen=qwen,
+            qwen=qwen, qwen_layers=qwen_layers, qwen_passes=qwen_passes,
         )
     except Exception as exc:
         raise click.ClickException(str(exc)) from exc

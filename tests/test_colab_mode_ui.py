@@ -147,3 +147,19 @@ def test_readme_describes_static_submode_form():
 def test_invalid_cubism_edition_fails():
     with pytest.raises(ValueError):
         internal_scope("캐릭터 생성", "live2d", "enterprise", "소품", "live2d")
+
+def test_live2d_qwen_budget_changes_mode_signature():
+    from tools.colab_mode_ui import selection_signature
+    values = {
+        "TASK": "캐릭터 생성", "MODE": "live2d", "USAGE": "personalNonProfit",
+        "LIVE2D_EDITION": "pro", "LIVE2D_FRAMING": "upper",
+        "LIVE2D_QWEN": "auto", "LIVE2D_USE_QWEN": True,
+        "LIVE2D_QWEN_LAYERS": 8, "LIVE2D_QWEN_PASSES": 12,
+        "LIVE2D_PRO_ASSET": "hair",
+    }
+    first = selection_signature(values)
+    values["LIVE2D_QWEN_LAYERS"] = 7
+    assert selection_signature(values) != first
+    values["LIVE2D_QWEN_LAYERS"] = 11
+    with pytest.raises(ValueError, match="2..10"):
+        selection_signature(values)

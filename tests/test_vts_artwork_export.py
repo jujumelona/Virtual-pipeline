@@ -181,3 +181,12 @@ def test_companion_files_are_real_and_coordinates_match(tmp_path):
             reconstructed.alpha_composite(img)
         assert ImageChops.difference(preview, reconstructed).getbbox() is None
 
+
+def test_qwen_invalid_recursion_parameters_rejected(tmp_path):
+    archive = make_layers(tmp_path / "in")
+    with pytest.raises(ValueError, match="Invalid Qwen"):
+        build_artwork_package(archive, tmp_path / "wrong", edition="free",
+                              scope="upper", per_pass_layers=11)
+    with pytest.raises(ValueError, match="Invalid Qwen"):
+        build_artwork_package(archive, tmp_path / "wrong2", edition="pro",
+                              scope="upper", asset_kind="hair", max_qwen_passes=13)

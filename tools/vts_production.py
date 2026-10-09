@@ -320,7 +320,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         reference_image: Path | None = None,
                         external_psd: Path | None = None,
                         third_party: Path | None = None,
-                        qwen: bool = False) -> dict:
+                        qwen: bool = False, qwen_layers: int = 6,
+                        qwen_passes: int = 8) -> dict:
     """Produce a *layered image* ZIP, not an unimportable pseudo-rig.
 
     Each PRO call processes exactly one body/hair/outfit/accessory asset.
@@ -358,6 +359,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
         produced = build_artwork_package(
             registered, output / "artwork", edition=edition, scope=scope,
             asset_kind=asset_kind, qwen=qwen,
+            per_pass_layers=qwen_layers, max_qwen_passes=qwen_passes,
             third_party=(third_party or Path("/content/vtuber_builder/third_party/see-through")).parent,
             python_path=os.environ.get("VTUBER_SEETHROUGH_PYTHON"),
         )
@@ -393,6 +395,8 @@ def main() -> None:
     ap.add_argument("--psd", type=Path, help="Pre-generated See-through PSD, skip GPU decomposition")
     ap.add_argument("--third-party", type=Path)
     ap.add_argument("--qwen", action="store_true", help="Run quantized Qwen+Stable-Layers candidate refinement")
+    ap.add_argument("--qwen-layers", type=int, default=6)
+    ap.add_argument("--qwen-passes", type=int, default=8)
     ap.add_argument("--asset", choices=("body", "hair", "outfit", "accessory"), help="Required for PRO")
     ap.add_argument("--reference", type=Path, help="Existing body image for a detachable PRO asset")
     args = ap.parse_args()
@@ -400,6 +404,7 @@ def main() -> None:
         args.master, args.output, edition=args.edition, scope=args.scope,
         external_psd=args.psd, third_party=args.third_party, qwen=args.qwen,
         asset_kind=args.asset, reference_image=args.reference,
+        qwen_layers=args.qwen_layers, qwen_passes=args.qwen_passes,
     )
     print(json.dumps({"status": out["state"], "package": out["package"],
                       "moc3_generated": False}, ensure_ascii=False))

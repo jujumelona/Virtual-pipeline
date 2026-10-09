@@ -502,7 +502,14 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
             source.parent.mkdir(parents=True, exist_ok=True)
             crop.save(source)
             run_dir = output / "qwen_work" / stem
-            kw = {"layer_count": per_pass_layers}
+            family = item["name"].split(".", 1)[0]
+            # Heuristic per-part budgets, not official guaranteed part counts.
+            suggested = {"hair": 8, "eye": 5, "eyebrow": 3,
+                         "mouth": 5, "face": 4, "body": 4,
+                         "cloth": 6, "sleeve": 4, "ornament": 4,
+                         "accessory": 4}.get(family, 4)
+            requested = max(2, min(per_pass_layers, suggested))
+            kw = {"layer_count": requested}
             if third_party is not None:
                 kw["third_party"] = third_party
             if python_path is not None:
@@ -512,6 +519,7 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
             accepted = bool(proposed and
                             (edition != "free" or len(layers) + len(proposed) - 1 <= FREE_LIMIT))
             attempted.append({"source_layer": item["name"], "accepted": accepted,
+                              "requested_count": requested,
                               "candidate_count": len(result["layers"])})
             if accepted:
                 layers[index:index+1] = proposed
