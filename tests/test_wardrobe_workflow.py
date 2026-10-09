@@ -64,6 +64,7 @@ def test_2d_clothing_variant_preserves_original_skin(tmp_path,monkeypatch):
 def test_2d_outfit_refuses_body_change(tmp_path,monkeypatch):
     spec=Sheet("sheet_body_outfit.png",(400,300),2,2,())
     monkeypatch.setattr(outfit_variant_pack,"SHEETS_2D",(spec,))
+    monkeypatch.setattr(outfit_variant_pack,"inspect_sheet_archive",lambda *a,**k:None)
     item=Image.new("RGBA",(400,300),(10,10,10,255))
     path=tmp_path/"outfit_variant.png"
     path.write_bytes(_png(item))
