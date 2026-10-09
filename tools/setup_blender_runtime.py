@@ -129,6 +129,48 @@ def ensure_blender_runtime(cache_dir: str) -> str:
     # A configured path is never proof of the official VRM operators.
     # Set readiness only after the exact Blender process has passed the probe.
     os.environ["VTUBER_BLENDER_VERIFIED_BINARY"] = str(executable)
+    # A separate notebook generation process cannot inherit the download
+    # worker's environment variables. Persist the successful *real* VRM
+    # operator probe and bind it read-only in that process.
+    (cache / "vrm_operators_verified.json").write_text(
+        __import__("json").dumps({
+            "binary": str(executable),
+            "extension_sha256": EXTENSION_SHA256,
+            "version": "4.2.23",
+            "operators": ["import_scene.vrm", "export_scene.vrm"],
+        }), encoding="utf-8",
+    )
+    return str(executable)
+
+
+def bind_verified_blender_runtime(cache_dir: str) -> str:
+    """Read-only handoff to a new worker; NEVER downloads or runs installers."""
+    import json
+
+    cache = Path(cache_dir).expanduser().resolve()
+    marker = cache / "vrm_operators_verified.json"
+    try:
+        data = json.loads(marker.read_text(encoding="utf-8"))
+        executable = Path(data["binary"]).expanduser().resolve()
+    except (FileNotFoundError, OSError, KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError(
+            "Blender VRM operators not verified: run notebook ③ download cell"
+        ) from exc
+    expected = cache / "blender-4.2.23-linux-x64" / "blender"
+    configured = os.environ.get("VTUBER_BLENDER_BINARY")
+    if (executable != (Path(configured).expanduser().resolve() if configured
+                       else expected)
+            or not executable.is_file()
+            or data.get("version") != "4.2.23"
+            or data.get("extension_sha256") != EXTENSION_SHA256
+            or data.get("operators") != ["import_scene.vrm", "export_scene.vrm"]):
+        raise RuntimeError(
+            "Blender VRM runtime marker does not match installed binary: "
+            "run notebook ③ download cell"
+        )
+    os.environ["VTUBER_BLENDER_BINARY"] = str(executable)
+    os.environ["VTUBER_BLENDER_VERIFIED_BINARY"] = str(executable)
+    os.environ["BLENDER_USER_CONFIG"] = str(cache / "blender-user")
     return str(executable)
 
 
