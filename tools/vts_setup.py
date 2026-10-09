@@ -78,6 +78,9 @@ def prepare(*, qwen: bool = False, install: bool = True):
     if qwen:
         checkout("https://github.com/Stability-AI/Stable-Layers.git",
                  ROOT / "Stable-Layers", STABLE_LAYERS_SHA)
+        if install:
+            checked([python, "-m", "pip", "install", "--disable-pip-version-check",
+                     "peft", "accelerate", "bitsandbytes"], timeout=3600)
         weights.extend([
             "OzzyGT/qwen-image-layered-bnb-4bit-transformer",
             "StabilityLabs/Stable-Layers",
