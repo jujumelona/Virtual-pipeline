@@ -835,13 +835,13 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
 def stream_avatar_ui(
     image_path, commercial_usage, latest_avatar,
     face_image=None, back_image=None, full_body=True, texture_size=2048,
-    left_image=None, right_image=None,
+    left_image=None, right_image=None, rigging_provider="canonical",
     progress: gr.Progress = gr.Progress(),
 ):
     previous = latest_avatar if latest_avatar and pathlib.Path(latest_avatar).is_file() else None
     yield from _stream_ui_task(
         build_avatar_ui, (image_path, commercial_usage, latest_avatar, face_image, back_image,
-                          full_body, texture_size, left_image, right_image),
+                          full_body, texture_size, left_image, right_image, rigging_provider),
         5, progress, preserve_avatar=previous,
     )
 
@@ -889,6 +889,7 @@ def build_avatar_ui(
     texture_size: int = 2048,
     left_image: Optional[str] = None,
     right_image: Optional[str] = None,
+    rigging_provider: str = "canonical",
     progress: gr.Progress = gr.Progress(),
 ):
     previous_avatar = (
@@ -923,6 +924,7 @@ def build_avatar_ui(
             config={
                 "profile": "commercial",
                 "commercial_usage": commercial_usage,
+                "rigging": {"provider": rigging_provider},
                 "references": {
                     "full_body": bool(full_body),
                     "face_image": str(face_image) if face_image else None,
@@ -1465,6 +1467,12 @@ def build_app() -> gr.Blocks:
                         choices=[("2048×2048 (권장)", 2048), ("1024×1024 (빠름)", 1024)],
                         value=2048,
                     )
+                    avatar_rigging_provider = gr.Dropdown(
+                        label="3D 자동 스키닝 엔진",
+                        choices=[("기본 휴머노이드 + 머리카락 리깅 (검증 경로)", "canonical"),
+                                 ("SkinTokens 실험적 스키닝 (별도 CUDA 환경 설치 필요)", "skintokens")],
+                        value="canonical",
+                    )
                     with gr.Accordion("외부 이미지 생성 AI에 넣을 제작 프롬프트", open=False):
                         gr.Markdown("이 프롬프트를 외부 대형 이미지 AI에 복사해 이미지를 만든 다음 위에 업로드하세요. **AI 이미지 생성 기능은 이 프로그램에 포함되지 않습니다.**")
                         gr.Textbox(
@@ -1507,7 +1515,8 @@ def build_app() -> gr.Blocks:
             avatar_generation_event = avatar_run.click(
                 fn=stream_avatar_ui,
                 inputs=[avatar_image, selected_usage, latest_avatar, avatar_face_image, avatar_back_image,
-                        avatar_full_body, avatar_texture_size, avatar_left_image, avatar_right_image],
+                        avatar_full_body, avatar_texture_size, avatar_left_image, avatar_right_image,
+                        avatar_rigging_provider],
                 outputs=[
                     avatar_status, avatar_log, avatar_result,
                     latest_avatar, avatar_log_file,
