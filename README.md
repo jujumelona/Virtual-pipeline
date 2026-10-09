@@ -560,7 +560,7 @@ OUTPUT: one SQUARE (WIDTH:HEIGHT=1:1) straight orthographic face image.
 ATTACH the actual FRONT character from sheet_front_back.png.
 SAME identity, hair, eyes, skin, ear structure and gender presentation.
 Face, both eyes, jaw and hairline visible and sharply detailed.
-No clothing collar obstructing the face, no redesign, no grid, labels
+NO removable clothing collar obstructing the face, no redesign, no grid, labels
 or text. Native image AI resolution, no forced pixel dimensions.
 ```
 
@@ -589,7 +589,7 @@ best native generation resolution, no avatar/body and no text.
 Accessories can use the existing STATIC attach pipeline; clothing cannot.
 ```
 
-#### ②-2. 2D 의상: `outfit_variant.png` (별도 1장)
+#### `outfit_variant.png` — ②-2. 2D 의상 (별도 1장)
 
 먼저 **이미 만든 중립 베이스 캐릭터의 `front_master.png`**를 참조로 넣고, 아래 배치도를 추가 첨부합니다. 이 시트는 **2열×2행, 전체 4:3** 비율입니다. 얼굴·머리·피부·몸통을 새로 생성하지 않습니다.
 
