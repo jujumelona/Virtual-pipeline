@@ -45,7 +45,6 @@ def test_gradio_6_builds_named_2d_and_3d_workflows():
 
     handlers = {getattr(fn, "fn", None) for fn in demo.fns.values()}
     assert ui.select_workflow_view in handlers
-    assert ui.prepare_selected_workflow_ui in handlers
     assert ui.return_to_workflow_choice in handlers
     assert ui.stream_avatar_ui in handlers
     assert ui.stream_accessories_ui in handlers
@@ -189,11 +188,11 @@ def test_real_gradio_native_file_route_serves_verified_avatar_bytes(tmp_path):
     ).status_code != 200
 
 
-def test_upload_panels_open_before_any_heavy_mode_setup():
-    """Navigation must not invoke pip, source checkout, or model prefetch."""
+def test_mode_switch_requires_no_installation_and_only_one_character_image():
+    """Selecting 2D/3D cannot run HF/pip; 2D build takes photo and usage."""
     from unittest.mock import patch
     ui = _app()
-    with patch.object(ui, "choose_workflow", side_effect=AssertionError("unexpected setup")):
+    with patch.object(ui, "choose_workflow", side_effect=AssertionError("no install on select")):
         for mode, expected in (
             ("inochi2d", (False, True, False, False, False)),
             ("live2d", (False, False, True, False, False)),
@@ -201,41 +200,68 @@ def test_upload_panels_open_before_any_heavy_mode_setup():
         ):
             selection = ui.select_workflow_view(mode, "corporation")
             assert tuple(item["visible"] for item in selection[:5]) == expected
+            assert len(selection) == 6
             assert selection[5] == "corporation"
-            assert selection[6] == mode
-            assert "이미지 업로드" in selection[7]
-            assert selection[8] is None
+
+    config = ui.build_app().get_config_file()
+    registry = {item["id"]: item for item in config["components"]}
+    names = {item.get("props", {}).get("label") for item in registry.values()}
+    assert "투명 PNG 파츠 ZIP (선택)" not in names
+    assert "분리된 투명 PNG 파츠 ZIP (선택; 모든 PNG는 원본과 동일한 캔버스)" not in names
+    for handler in ("build_inochi2d_ui", "build_live2d_ui"):
+        event = next(entry for entry in config["dependencies"] if entry.get("api_name") == handler)
+        assert len(event["inputs"]) == 2
+        assert [
+            registry[identity]["props"].get("label") for identity in event["inputs"]
+        ] == [
+            "Inochi2D 캐릭터 그림" if handler == "build_inochi2d_ui"
+            else "2D 캐릭터 원본 일러스트 (필수)",
+            None,  # selected_usage is a gr.State, not a parts upload
+        ]
 
 
-def test_failed_3d_alpha_setup_keeps_upload_panel_and_provides_log(tmp_path):
-    from unittest.mock import patch
-    ui = _app()
-    ui.WORK_ROOT = tmp_path
-    with patch.object(ui, "choose_workflow", side_effect=RuntimeError(
-        "pip install failed: No matching distribution found"
-    )):
-        status, log = ui.prepare_selected_workflow_ui("3d", "corporation")
-    assert "3D VRM" in status
-    assert "No matching distribution" in status
-    assert "재시도" in status
-    assert pathlib.Path(log).exists()
-    assert "RuntimeError" in pathlib.Path(log).read_text(encoding="utf-8")
-
-
-def test_real_gradio_mode_selection_wires_upload_then_background_preparation():
+def test_mode_selection_has_no_model_setup_followup():
     ui = _app()
     config = ui.build_app().get_config_file()
     registry = {component["id"]: component for component in config["components"]}
     deps = config["dependencies"]
     navigation = next(entry for entry in deps if entry.get("api_name") == "select_workflow_view")
-    setup_events = [entry for entry in deps if str(entry.get("api_name", "")).startswith("prepare_selected_workflow_ui")]
-    assert len(setup_events) == 4  # chained preparation plus one retry per mode
-    assert any(entry.get("trigger_after") == navigation["id"] for entry in setup_events)
-    first_outputs = [registry[i]["props"].get("label") for i in navigation["outputs"]]
-    assert "선택한 모드의 환경·모델 준비 상태" in first_outputs
-    for name in ("Inochi2D 캐릭터 그림", "2D 캐릭터 원본 일러스트 (필수)",
-                 "전신 정면 이미지 (필수)"):
-        assert name in {item["props"].get("label") for item in registry.values()}
+    assert len(navigation["outputs"]) == 6
+    assert not any(dep.get("api_name") == "prepare_selected_workflow_ui" for dep in deps)
+    labels = {item["props"].get("label") for item in registry.values()}
+    assert "전신 정면 이미지 (필수)" in labels
+    assert "Inochi2D 캐릭터 그림" in labels
+    assert "2D 캐릭터 원본 일러스트 (필수)" in labels
+
+
+def test_missing_models_are_prepared_by_generate_and_not_by_mode_selection(tmp_path):
+    from unittest.mock import patch
+    ui = _app()
+    call_log = []
+    def require(mode):
+        call_log.append(("verify", mode))
+        if len(call_log) == 1:
+            raise RuntimeError("② 모델 다운로드·검증을 먼저 완료하세요.")
+        return ("verified", ["ready"])
+
+    with patch.object(ui, "require_runtime_ready", side_effect=require):
+        with patch.object(ui, "choose_workflow", side_effect=lambda mode, usage: call_log.append(("prepare", mode, usage))):
+            assert ui.ensure_workflow_for_generation("live2d", "personalProfit") == ("verified", ["ready"])
+    assert call_log == [
+        ("verify", "live2d"),
+        ("prepare", "live2d", "personalProfit"),
+        ("verify", "live2d"),
+    ]
+
+
+def test_broken_model_setup_is_not_misreported_as_success():
+    from unittest.mock import patch
+    ui = _app()
+    with patch.object(ui, "require_runtime_ready", side_effect=RuntimeError("② 모델 다운로드·검증을 먼저 완료하세요.")):
+        with patch.object(ui, "choose_workflow", side_effect=RuntimeError("real HuggingFace download failed")):
+            import pytest
+            with pytest.raises(RuntimeError, match="real HuggingFace download failed"):
+                ui.ensure_workflow_for_generation("inochi2d", "corporation")
 
 
 def test_avatar_components_declared_before_gradio_callback_registration():
