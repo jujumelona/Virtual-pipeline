@@ -124,12 +124,47 @@ def _existing_image(path: str, *, description: str) -> str:
     return str(file)
 
 
+def _has_vrm_container(path: Path) -> bool:
+    """Reject stale/truncated GLBs before selecting an accessory base.
+
+    This is a cheap header/JSON preflight, NOT the product validator that
+    checks humanoid bones, expressions, materials and skinning downstream.
+    """
+    import json
+    import struct
+
+    try:
+        length = path.stat().st_size
+        if length < 28 or length > 1024 * 1024 * 1024:
+            return False
+        with path.open("rb") as handle:
+            header = handle.read(12)
+            if len(header) != 12:
+                return False
+            magic, version, total = struct.unpack("<4sII", header)
+            if magic != b"glTF" or version != 2 or total != length:
+                return False
+            chunk_header = handle.read(8)
+            if len(chunk_header) != 8:
+                return False
+            chunk_length, chunk_type = struct.unpack("<II", chunk_header)
+            if chunk_type != 0x4E4F534A or chunk_length < 4 or chunk_length > length - 20:
+                return False
+            payload = json.loads(handle.read(chunk_length).rstrip(b" \\t\\r\\n\\x00"))
+        vrm = payload.get("extensions", {}).get("VRMC_vrm")
+        return (
+            isinstance(vrm, dict)
+            and vrm.get("specVersion") == "1.0"
+            and "VRMC_vrm" in payload.get("extensionsUsed", [])
+        )
+    except (OSError, ValueError, TypeError, KeyError, struct.error, UnicodeDecodeError):
+        return False
+
+
 def _latest_avatar() -> str | None:
     saved = WORK / "avatar.vrm"
-    if saved.is_file():
-        with saved.open("rb") as handle:
-            if saved.stat().st_size > 20 and handle.read(4) == b"glTF":
-                return str(saved)
+    if saved.is_file() and _has_vrm_container(saved):
+        return str(saved)
     if OUTPUT.is_dir():
         candidates = sorted(
             OUTPUT.glob("**/avatar.vrm"),
@@ -140,7 +175,8 @@ def _latest_avatar() -> str | None:
         for candidate in candidates:
             try:
                 checked_avatar(candidate, OUTPUT)
-                return str(candidate)
+                if _has_vrm_container(candidate):
+                    return str(candidate)
             except (OSError, ValueError):
                 continue
     return None
