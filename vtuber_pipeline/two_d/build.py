@@ -45,9 +45,10 @@ def _layers(source: SourceSet, folder: Path) -> PartsDocument | None:
                 f"2D high-quality pack must contain exactly {len(expected)} "
                 f"layer PNGs; missing={missing_full}; unexpected={unexpected}"
             )
-        if base.size != CANVAS_2D:
+        expected = (CANVAS_2D, (CANVAS_2D[0]*2, CANVAS_2D[1]*2))
+        if base.size not in expected:
             raise ValueError(
-                f"2D master canvas must be {CANVAS_2D}, got {base.size}"
+                f"2D master canvas must be one of {expected}, got {base.size}"
             )
     for name, image in supplied:
         alpha = np.asarray(image.getchannel("A"), dtype=np.uint8)
