@@ -24,6 +24,44 @@ ANCHORS = (
     "BACK", "LEFT_SHOULDER", "RIGHT_SHOULDER", "LEFT_HAND",
     "RIGHT_HAND", "LEFT_FOOT", "RIGHT_FOOT", "HIPS",
 )
+ACCESSORY_ANCHOR_OPTIONS = ("AUTO", "ALL", *ANCHORS)
+# Classification is intentionally filename-based, not a claim that a vision
+# model understood an uploaded accessory. Ambiguous names fail before CUDA.
+ACCESSORY_ANCHOR_HINTS = (
+    (("hat", "cap", "crown", "tiara", "hairpin", "ribbon", "모자", "왕관", "머리핀"), ("HEAD_TOP",)),
+    (("glasses", "goggle", "eyewear", "안경", "고글"), ("FACE",)),
+    (("earring", "귀걸이"), ("LEFT_EAR", "RIGHT_EAR")),
+    (("necklace", "choker", "collar", "목걸이"), ("NECK",)),
+    (("brooch", "badge", "브로치", "뱃지"), ("CHEST",)),
+    (("backpack", "cape", "배낭", "망토"), ("BACK",)),
+    (("shoulder", "어깨"), ("LEFT_SHOULDER", "RIGHT_SHOULDER")),
+    (("glove", "bracelet", "장갑", "팔찌"), ("LEFT_HAND", "RIGHT_HAND")),
+    (("shoe", "boot", "sock", "신발", "부츠"), ("LEFT_FOOT", "RIGHT_FOOT")),
+    (("belt", "skirt", "허리띠", "벨트"), ("HIPS",)),
+)
+
+
+def _resolve_accessory_anchors(image_path: str, selected: str) -> tuple[str, ...]:
+    """ALL expands positions; AUTO only resolves unambiguous filename hints."""
+    if selected == "ALL":
+        return ANCHORS
+    if selected in ANCHORS:
+        return (selected,)
+    if selected != "AUTO":
+        raise ValueError("지원하지 않는 액세서리 부착 범위: " + str(selected))
+    filename = Path(image_path).stem.casefold()
+    matches = [
+        placements for keywords, placements in ACCESSORY_ANCHOR_HINTS
+        if any(key in filename for key in keywords)
+    ]
+    unique = tuple(dict.fromkeys(anchor for group in matches for anchor in group))
+    if len(matches) != 1 or not unique:
+        raise ValueError(
+            "자동 위치 판정 불가: " + Path(image_path).name
+            + " — 파일명에 hat/glasses/earring/necklace/shoe 등 종류를 명시하거나 "
+              "액세서리 위치를 직접 선택하세요."
+        )
+    return unique
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 MAX_IMAGE_BYTES = 32 * 1024 * 1024
 
@@ -70,7 +108,10 @@ def _stored_uploads(upload, folder: Path, *, images: bool, multiple: bool) -> li
             raise ValueError(f"업로드 데이터가 비어 있습니다: {name}")
         if len(payload) > (MAX_IMAGE_BYTES if images else 1024 * 1024 * 1024):
             raise ValueError("업로드 파일 크기 제한 초과: " + name)
-        path = folder / f"input_{index:02d}{extension}"
+        # Retain a safe basename so AUTO can infer position per accessory;
+        # never use user-controlled path separators inside output directories.
+        stem = re.sub(r"[^0-9a-zA-Z가-힣_-]", "_", Path(name).stem)[:70]
+        path = folder / f"input_{index:02d}_{stem}{extension}"
         path.write_bytes(payload)
         paths.append(str(path))
     return paths
@@ -130,7 +171,7 @@ def _build_arguments(mode, usage, upload, job_folder, *, image_path,
             int(texture_size), None, None, rigging_provider,
         ]
 
-    if accessory_anchor not in ANCHORS:
+    if accessory_anchor not in ACCESSORY_ANCHOR_OPTIONS:
         raise ValueError("지원하지 않는 액세서리 부착 위치: " + str(accessory_anchor))
     latest = None if accessory_base_path else _latest_avatar()
     if accessory_base_path:
@@ -150,9 +191,18 @@ def _build_arguments(mode, usage, upload, job_folder, *, image_path,
     )
     if len(images) > 8:
         raise ValueError("한 번에 생성 가능한 액세서리는 최대 8개입니다.")
+    placements = [(img, anchor)
+                  for img in images
+                  for anchor in _resolve_accessory_anchors(img, accessory_anchor)]
+    if len(placements) > 8 * len(ANCHORS):
+        raise ValueError("액세서리 부착 작업이 최대 개수를 초과했습니다.")
+    print(
+        f"액세서리 이미지 {len(images)}장 → 부착 {len(placements)}회 (모드: {accessory_anchor})",
+        flush=True,
+    )
     slots = [
-        value for img in images
-        for value in (img, accessory_anchor, "", 0.0, 0.0, 0.0, 1.0)
+        value for img, anchor in placements
+        for value in (img, anchor, "", 0.0, 0.0, 0.0, 1.0)
     ]
     return "accessory", [bool(latest), base, latest, *slots]
 
@@ -184,7 +234,7 @@ def generate(
     full_body: bool = False,
     texture_size: int = 2048,
     rigging_provider: str = "canonical",
-    accessory_anchor: str = "HEAD_TOP",
+    accessory_anchor: str = "AUTO",
     accessory_base_path: str = "",
     upload=None,
     runner=None,
