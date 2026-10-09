@@ -254,12 +254,20 @@ class AvatarPipeline:
             "reconstruction",
             "fitting",
             "references",
+            "rigging",
         }
         unknown_top = sorted(set(cfg) - allowed_top)
         if unknown_top:
             return config_failure(
                 f"Unknown avatar config keys: {unknown_top}"
             )
+
+        rigging_cfg = cfg.get("rigging", {})
+        if not isinstance(rigging_cfg, dict) or set(rigging_cfg) - {"provider"}:
+            return config_failure("rigging must be an object with only provider")
+        rigging_provider = rigging_cfg.get("provider", "canonical")
+        if rigging_provider not in {"canonical", "skintokens"}:
+            return config_failure("rigging.provider must be canonical or skintokens")
 
         profile = cfg.get("profile", "commercial")
         if profile not in {"commercial", "production", "development"}:
@@ -733,6 +741,34 @@ class AvatarPipeline:
         if rig.get("status") != "complete":
             return self._fail(results, "rig", rig.get("error", "rigging failed"))
         rigged_mesh = rig["rigged_mesh"]
+
+        # Optional real SkinTokens skin-only enhancement runs after our canonical
+        # VRM skeleton is built. Its output is promoted ONLY if exact geometry,
+        # UVs, node palette and hair binding contracts remain valid. There is no
+        # silent fall-back when the user explicitly selected this provider.
+        if rigging_provider == "skintokens":
+            try:
+                from vtuber_pipeline.avatar.skintokens_bridge import (
+                    runtime_identity, run_skintokens_skin_only,
+                )
+                skintokens_identity = runtime_identity()
+            except Exception as exc:
+                return self._fail(results, "skintokens_skin", str(exc))
+            skintokens = self._run_stage(
+                "skintokens_skin",
+                (rigged_mesh, skintokens_identity),
+                lambda: run_skintokens_skin_only(
+                    rigged_mesh, str(pathlib.Path(output_dir) / "skintokens"),
+                    identity=skintokens_identity,
+                ),
+            )
+            results["stages"]["skintokens_skin"] = skintokens
+            if (skintokens.get("status") != "complete"
+                    or not pathlib.Path(skintokens.get("rigged_mesh") or "").is_file()):
+                return self._fail(results, "skintokens_skin",
+                                  skintokens.get("error") or "SkinTokens produced no validated rig")
+            rigged_mesh = skintokens["rigged_mesh"]
+            results["rigged_mesh"] = rigged_mesh
 
         # 6. Generate required broadcast expressions and reject empty morphs.
         def expression_stage() -> Dict[str, Any]:
