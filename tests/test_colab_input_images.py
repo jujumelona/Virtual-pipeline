@@ -77,3 +77,44 @@ def test_readme_is_the_only_colab_prompt_source():
     assert "HAIR_COLOR =" not in code
     assert "prepare_2d_image_uploads(" in code
     assert "files.upload()" in code
+
+
+def test_every_external_2d_layer_name_has_a_valid_rig_semantic():
+    """All README-listed PNGs must map to real z-order, not crash after upload."""
+    from vtuber_pipeline.two_d.build import KNOWN
+    from vtuber_pipeline.common.part_taxonomy import z_order
+
+    actual = {name.removesuffix(".png") for name in inputs.EXPECTED
+              if name != "front_master.png"}
+    assert len(actual) == 26
+    semantic = [KNOWN.get(name, name.replace("_", ".")) for name in sorted(actual)]
+    assert len(set(semantic)) == 26
+    assert all(isinstance(z_order(part), int) for part in semantic)
+
+
+def test_generated_colab_2d_layer_pack_resolves_to_all_real_parts(tmp_path, monkeypatch):
+    """No SAM/FLUX fallback when all user images are complete and registered."""
+    from vtuber_pipeline.two_d.build import _layers
+    from vtuber_pipeline.common.schemas import SourceSet
+
+    monkeypatch.setattr(inputs, "CANVAS_2D", (256, 256))
+    uploaded = {}
+    for name in inputs.EXPECTED:
+        image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+        if name != "front_master.png":
+            from PIL import ImageDraw
+            ImageDraw.Draw(image).rectangle((90, 90, 120, 130),
+                                            fill=(90, 100, 110, 255))
+        else:
+            image.paste((90, 100, 110, 255), (65, 20, 191, 220))
+        buffer = BytesIO()
+        image.save(buffer, "PNG")
+        uploaded[name] = buffer.getvalue()
+    master, archive = inputs.prepare_2d_image_uploads(uploaded, str(tmp_path))
+    source = SourceSet(mode="live2d", front_image=master,
+                       user_layers_zip=archive, output_dir=str(tmp_path / "rig"))
+    result = _layers(source, tmp_path / "resolved")
+    assert result is not None
+    assert len(result.parts) == 26
+    assert all(part.hidden_fill_mask_png is None for part in result.parts)
+    assert len({part.semantic_id for part in result.parts}) == 26
