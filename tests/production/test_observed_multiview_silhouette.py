@@ -46,7 +46,11 @@ def test_observed_independent_multiview_constrains_original_geometry(tmp_path):
 
 
 def test_multiview_refuses_fabricated_role_and_missing_cutout(tmp_path):
-    coordinates = np.zeros((20, 3))
+    coordinates = np.column_stack((
+        np.linspace(-1., 1., 20),
+        np.linspace(0., 2., 20),
+        np.linspace(-.4, .4, 20),
+    ))
     normals = np.ones_like(coordinates)
     with pytest.raises(ValueError, match="camera roles"):
         correct_observed_multiview_silhouettes(
