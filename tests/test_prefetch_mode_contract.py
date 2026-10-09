@@ -2,6 +2,14 @@
 from unittest.mock import patch
 
 from tools import prefetch_model_assets as assets
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def default_download_without_gpu_prewarm(monkeypatch):
+    # Test the standard API contract independent of another notebook test
+    # enabling the optional resident first-GPU-model optimization.
+    monkeypatch.delenv("VTUBER_GPU_PREWARM", raising=False)
 
 
 def test_common_2d_downloads_only_common_2d_models():
