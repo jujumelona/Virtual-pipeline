@@ -253,14 +253,13 @@ def install_2d_environment() -> dict:
            *PYTHON_PACKAGES],
           env=env, timeout=1800)
     sources = {kind: _checkout_source(kind, lock) for kind in PIN_KEYS}
-    # Upstream SAM2 requires iopath>=0.1.10. PyPI distributes that exact
-    # release as a source archive, so it MUST NOT be inside the --only-binary
-    # install above; build only this pure-Python package without touching
-    # the pretrained Colab CUDA Torch ABI. Its portalocker requirement is
-    # installed explicitly in PYTHON_PACKAGES.
-    # Allow PEP 517 isolated setuptools for iopath's source archive. A
-    # clean Python 3.13 venv may not include setuptools.build_meta.
-    _exec([str(python), "-m", "pip", "install", "--no-deps",
+    # SAM2 requires iopath>=0.1.10, which is sdist-only on PyPI.
+    # iopath itself requires typing_extensions, tqdm and portalocker.
+    # Install its declared dependencies normally (no --no-deps): limiting
+    # them would hide runtime import failures until image generation.
+    # PIP_CONSTRAINT locks Torch/Torchvision so resolving this pure-Python
+    # package cannot replace the Colab CUDA stack.
+    _exec([str(python), "-m", "pip", "install", "--prefer-binary",
            *SAM2_RUNTIME_PACKAGES],
           env=env, timeout=600)
     # Install source packages with dependencies explicitly disabled. The
