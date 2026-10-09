@@ -313,8 +313,20 @@ def inochi2d_full(image, layers_zip, output, commercial_usage):
     """Build a native Inochi2D puppet; reject unsupported native exporters."""
     from vtuber_pipeline.common.schemas import SourceSet
     from vtuber_pipeline.two_d.build import build_inochi2d
-    result=build_inochi2d(SourceSet("inochi2d",image,user_layers_zip=layers_zip,
-                                   output_dir=output,commercial_usage=commercial_usage))
+    # Direct CLI invocation must be able to build the native executable,
+    # without requiring a separate undocumented environment setup command.
+    # Restore the user's process environment on completion/error.
+    import os
+    previous = os.environ.get("VTUBER_INOCHI_AUTO_BUILD")
+    os.environ["VTUBER_INOCHI_AUTO_BUILD"] = "1"
+    try:
+        result=build_inochi2d(SourceSet("inochi2d",image,user_layers_zip=layers_zip,
+                                       output_dir=output,commercial_usage=commercial_usage))
+    finally:
+        if previous is None:
+            os.environ.pop("VTUBER_INOCHI_AUTO_BUILD", None)
+        else:
+            os.environ["VTUBER_INOCHI_AUTO_BUILD"] = previous
     click.echo(__import__("json").dumps(result.__dict__,ensure_ascii=False))
     if result.status!="complete":
         raise click.ClickException(result.error or "No verified INP2 puppet was produced")
