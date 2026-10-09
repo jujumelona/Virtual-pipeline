@@ -146,7 +146,7 @@ def load_model(cache: Path | None = None):
 
 
 def upscale_rgba(image, model, *, output_scale: int = 2, tile: int = 128):
-    """Run neural x4 per tight part bbox; downsample x4 to requested x2.
+    """Run neural x4 per tight part bbox; optionally downsample result.
 
     The semantic ROI positioning is NOT changed: callers place the result at
     (master ROI offset + local bbox) * output_scale on a full canvas.
@@ -154,8 +154,8 @@ def upscale_rgba(image, model, *, output_scale: int = 2, tile: int = 128):
     import numpy as np
     import torch
     from PIL import Image
-    if output_scale not in (1, 2):
-        raise ValueError("Only geometric output scales 1x or 2x supported")
+    if output_scale not in (1, 2, 4):
+        raise ValueError("Neural output scales must be 1x, 2x or 4x")
     if tile < 32 or tile > 256 or tile % 16:
         raise ValueError("tile must be 32..256, multiple of 16")
     if image.mode != "RGBA":
