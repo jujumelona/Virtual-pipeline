@@ -1504,8 +1504,8 @@ def build_app() -> gr.Blocks:
                         type="filepath", height=220,
                     )
                     avatar_full_body = gr.Checkbox(
-                        label="전신 고품질 모드 (얼굴 확대 입력 필요)",
-                        value=True,
+                        label="고품질 다중 참조 모드 (얼굴 확대 이미지 필요 · 선택)",
+                        value=False,
                     )
                     avatar_texture_size = gr.Dropdown(
                         label="텍스처 아틀라스 해상도",
