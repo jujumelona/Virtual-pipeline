@@ -193,3 +193,60 @@ def rasterize_multiview_texture(
         "projection": "barycentric-per-texel",
         "unobserved_texels": int((~painted).sum()),
     }
+
+
+def project_all_views(
+    refined_glb: str, references_json: str,
+    uv_map_path: str | None, texture_size: int,
+    output_dir: str, *,
+    front_image_path: str | None = None,
+    face_bbox: list[float] | None = None,
+    face_image_path: str | None = None,
+    back_image_path: str | None = None,
+    left_image_path: str | None = None,
+    right_image_path: str | None = None,
+    full_body: bool = True,
+) -> dict:
+    """MD 6.8 public adapter for per-texel observed multiview UV projection.
+
+    Source references are measured in original image coordinates. Optional
+    normalized RGBA paths are accepted only when the caller has already
+    validated their correspondence to those measured source images.
+    """
+    import json
+    from pathlib import Path
+    from .texture_transfer import transfer_texture
+
+    document = json.loads(Path(references_json).read_text(encoding="utf-8"))
+    if document.get("status") != "complete":
+        raise ValueError("Input reference quality report is not complete")
+    images = document.get("images", {})
+    if not isinstance(images, dict) or "front" not in images:
+        raise ValueError("Missing observed front reference")
+    front = images["front"].get("path")
+    if not front or not Path(front).is_file():
+        raise FileNotFoundError("Observed original front image is missing")
+    for role, override in (
+        ("face", face_image_path), ("back", back_image_path),
+        ("left", left_image_path), ("right", right_image_path),
+    ):
+        if override is not None and not images.get(role, {}).get("path"):
+            raise ValueError(f"{role}: a normalized image cannot substitute for an unobserved view")
+
+    result = transfer_texture(
+        front_image_path or front, refined_glb, output_dir,
+        face_bbox=face_bbox,
+        face_image_path=face_image_path or images.get("face", {}).get("path"),
+        back_image_path=back_image_path or images.get("back", {}).get("path"),
+        left_image_path=left_image_path or images.get("left", {}).get("path"),
+        right_image_path=right_image_path or images.get("right", {}).get("path"),
+        full_body=full_body, texture_size=texture_size,
+        uv_map_path=uv_map_path,
+    )
+    if result.get("status") != "complete":
+        raise RuntimeError(f"Observed multiview texture failed: {result.get('error')}")
+    for key in ("base_color", "uv_json", "materials_json"):
+        artifact = Path(result[key])
+        if not artifact.is_file() or artifact.stat().st_size == 0:
+            raise RuntimeError(f"{key}: required texture interchange artifact missing")
+    return result
