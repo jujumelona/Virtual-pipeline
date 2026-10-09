@@ -121,6 +121,8 @@ def test_live2d_pro_builds_each_asset_without_batch_companions(tmp_path, asset):
         assert asset + ".psd" in zipfile.namelist()
         assert "README_CUBISM.md" in zipfile.namelist()
         assert "input_reference/source_asset.png" in zipfile.namelist()
+        assert "source_psd/see_through_layers.psd" in zipfile.namelist()
+        assert zipfile.read("source_psd/see_through_layers.psd")[:4] == b"8BPS"
         if asset != "body":
             assert "input_reference/body_base.png" in zipfile.namelist()
         assert "metadata/layer_manifest.json" in zipfile.namelist()

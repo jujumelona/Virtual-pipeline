@@ -8,7 +8,7 @@
 
 ## Live2D FREE/PRO 이미지·PSD 제작 (현재 구현)
 
-**Live2D 출력은 수정 가능한 레이어 PSD + 파츠별 RGBA PNG·알파 마스크 + 프리뷰 + 실제 좌표/레이어 목록 JSON + Cubism Editor 안내 README**입니다. 실제 ArtMesh, 디포머, 키폼, 물리와 모션, .cmo3 및 .moc3는 **사용자가 Cubism Editor에서 제작**합니다. Linux Colab에서 Editor나 MOC3 제작기가 자동 실행되는 것으로 표시하지 않습니다.
+**Live2D 출력은 수정 가능한 레이어 PSD + 파츠별 RGBA PNG·알파 마스크 + 프리뷰 + 실제 좌표/레이어 목록 JSON + See-through 원본 PSD·입력 이미지 + Cubism Editor 안내 README**입니다. 실제 ArtMesh, 디포머, 키폼, 물리와 모션, .cmo3 및 .moc3는 **사용자가 Cubism Editor에서 제작**합니다. Linux Colab에서 Editor나 MOC3 제작기가 자동 실행되는 것으로 표시하지 않습니다.
 
 ### 입력과 출력
 

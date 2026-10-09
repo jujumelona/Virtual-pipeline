@@ -365,6 +365,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
         # registration checks and independent PRO asset re-import.
         with ZipFile(produced["package"], "a", ZIP_DEFLATED) as archive:
             archive.write(master, "input_reference/source_" + master.name)
+            archive.write(psd, "source_psd/see_through_layers.psd")
             if reference_image is not None:
                 archive.write(reference_image, "input_reference/body_" + reference_image.name)
         report = {

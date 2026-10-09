@@ -211,13 +211,18 @@ def _reference_bundle(layers, *, edition: str, scope: str, asset_kind: str | Non
         image_path = f"layers_png/{stem}.png"
         mask_path = f"alpha_masks/{stem}_alpha.png"
         entries.extend(((image_path, image_bytes), (mask_path, alpha_bytes)))
-        mask = np.asarray(alpha, dtype=np.float64)
-        total = float(mask.sum())
+        # No 2x full-canvas coordinate grid: 32MP layers must remain
+        # processable on constrained Colab RAM.
+        mask = np.asarray(alpha, dtype=np.uint8)
+        x_masses = mask.sum(axis=0, dtype=np.float64)
+        y_masses = mask.sum(axis=1, dtype=np.float64)
+        total = float(x_masses.sum())
         if total <= 0:
             raise ValueError("Invalid empty alpha mask")
-        yy, xx = np.indices(mask.shape)
-        centroid = [round(float((mask * xx).sum() / total), 3),
-                    round(float((mask * yy).sum() / total), 3)]
+        centroid = [
+            round(float(x_masses @ np.arange(mask.shape[1], dtype=np.float64) / total), 3),
+            round(float(y_masses @ np.arange(mask.shape[0], dtype=np.float64) / total), 3),
+        ]
         records.append({
             "z_index_top_first": index,
             "semantic_name": name,
