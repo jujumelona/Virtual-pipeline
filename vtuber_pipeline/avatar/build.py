@@ -546,6 +546,7 @@ class AvatarPipeline:
         reference_mesh = reconstruction["mesh_path"]
 
         constraints_path = None
+        observed_texture_sources = {}
         if full_body:
             # The commercial path must never require Zero123++, nvdiffrast,
             # Nvidia-proprietary LRM code, or CC-BY-NC model weights.
@@ -573,6 +574,28 @@ class AvatarPipeline:
                     results, "licensed_multiview",
                     multiview.get("error", "licensed view mesh/provenance missing"),
                 )
+            # Reuse the same segmentation output for UV texture. Projecting
+            # original opaque side photos would paint their backgrounds into
+            # shoulders, arms, hair strands and garment seams.
+            try:
+                provenance = json.loads(pathlib.Path(
+                    multiview["provenance_json"]).read_text(encoding="utf-8"))
+                if provenance.get("contract") != "vtuber-commercial-triposr-multiview-v1":
+                    raise ValueError("Unexpected commercially licensed texture provenance")
+                for role, original in supplied_views.items():
+                    if original is None:
+                        continue
+                    evidence = provenance.get("views", {}).get(role, {})
+                    normalized = evidence.get("segmented_rgba")
+                    if (pathlib.Path(evidence.get("input_image") or "").resolve()
+                            != pathlib.Path(original).resolve()
+                            or not isinstance(normalized, str)
+                            or not pathlib.Path(normalized).is_file()):
+                        raise ValueError(f"{role}: observed foreground cutout is missing")
+                    observed_texture_sources[role] = normalized
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                return self._fail(results, "licensed_multiview", str(exc))
+
             try:
                 aligned = self._run_stage(
                     "multiview_alignment",
@@ -653,16 +676,21 @@ class AvatarPipeline:
         # 4. Project source appearance onto the fitted canonical topology.
         texture = self._run_stage(
             "texture_transfer",
-            (reference_digests, fitted_mesh, gate.get("bbox"), texture_size, full_body),
+            (reference_digests, observed_texture_sources,
+             fitted_mesh, gate.get("bbox"), texture_size, full_body),
             lambda: transfer_texture(
                 reconstruction_image if full_body else image_path,
                 fitted_mesh,
                 output_dir,
                 face_bbox=gate.get("bbox"),
                 face_image_path=face_image,
-                back_image_path=back_image,
-                **({"left_image_path": left_image} if left_image else {}),
-                **({"right_image_path": right_image} if right_image else {}),
+                back_image_path=observed_texture_sources.get("back") if full_body else back_image,
+                **({"left_image_path": observed_texture_sources["left"]}
+                   if full_body and "left" in observed_texture_sources else
+                   {"left_image_path": left_image} if left_image else {}),
+                **({"right_image_path": observed_texture_sources["right"]}
+                   if full_body and "right" in observed_texture_sources else
+                   {"right_image_path": right_image} if right_image else {}),
                 full_body=full_body,
                 texture_size=texture_size,
             ),
