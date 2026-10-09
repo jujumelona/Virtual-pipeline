@@ -280,10 +280,10 @@ def test_readme_open_in_colab_badge_targets_canonical_separate_cells_notebook():
     notebook = json.loads(_read(notebook_file))
     cells = ["".join(c.get("source", [])) for c in notebook["cells"]
              if c.get("cell_type") == "code"]
-    assert len(cells) == 9
-    setup, selection, prompts, prefetch, upload, generate, download, diagnostics, final = cells
-    assert "build_prompts(" in prompts
-    assert "write_prompt_package(" in prompts
+    assert len(cells) == 8
+    setup, selection, prefetch, upload, generate, download, diagnostics, final = cells
+    assert "prepare_2d_image_uploads" in upload
+    assert "write_prompt_package(" not in "\n".join(cells)
     assert "setup_code" not in setup
     assert "colab_app.py" not in setup
     assert "colab_mode_prepare.py" in prefetch
