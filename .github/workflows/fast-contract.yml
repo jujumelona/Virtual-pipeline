@@ -48,4 +48,5 @@ jobs:
             tests/production/test_supplied_hair_geometry.py \
             tests/integration/test_pipeline_wiring_static.py \
             tests/integration/test_module_graph_runtime.py \
+            tests/integration/test_ui_callbacks_runtime.py \
             tests/test_cli_production_registration.py
