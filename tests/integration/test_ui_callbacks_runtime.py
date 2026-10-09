@@ -81,6 +81,7 @@ def test_avatar_ui_passes_usage_to_avatar_and_exposes_vrm(ui, tmp_path, monkeypa
     assert calls == [(str(image), {
         "profile": "commercial",
         "commercial_usage": "personalProfit",
+        "rigging": {"provider": "canonical"},
         "references": {
             "full_body": False,
             "face_image": None,
