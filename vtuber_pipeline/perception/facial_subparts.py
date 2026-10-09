@@ -69,11 +69,15 @@ def split_facial_subparts(
         lum = light[yy0:yy1, xx0:xx1]
         roi = mask[yy0:yy1, xx0:xx1]
         samples = lum[roi]
-        q20, q80 = np.quantile(samples, [0.2, 0.8])
-        if q80 - q20 < 14:
+        # A real dark mouth/iris may occupy less than 20% of the broad SAM
+        # parent region; 20/80 quantiles then BOTH land on bright skin and
+        # silently erase visibly observed subparts. Use robust 10/90
+        # separation and retain the existing minimum-area component gate.
+        q10, q90 = np.quantile(samples, [0.1, 0.9])
+        if q90 - q10 < 14:
             produced.append(original)
             continue
-        dark = (lum < (q20 + q80) * .5) & roi
+        dark = (lum < (q10 + q90) * .5) & roi
         if ident.startswith("eye."):
             # The iris is the biggest central dark connected region. Peripheral
             # eyelid strokes are identified by their proximity to the top edge.
