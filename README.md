@@ -8,7 +8,7 @@
 
 ## 모드별 이미지 생성 — 영구 베이스 캐릭터와 교체형 의상 분리
 
-**2D와 3D 제작 방식은 서로 다릅니다.** 2D는 **옷 없는 중립 신체·얼굴 20파츠**를 먼저 제작하고, 헤어(`hair_variant.png`)와 교체할 옷(`outfit_variant.png`)을 별도 파츠로 추가합니다. 베이스는 얼굴·목·몸통·팔·손에 동일한 자연 피부색을 사용한 비노골적·특징 없는 신체 표면이어야 합니다. 회색 타이츠·바디슈트·봉제선·목 칼라 등의 의상 표현은 허용하지 않습니다. 3D는 **동일한 자연 피부색 중립 신체를 정면·후면·좌·우 시점으로 생성**하고, 현재 복원 경로에서 이 신체 외형을 VRM 메시·리깅으로 변환합니다. 2D와 달리 3D 헤어스타일은 현재 복원 경로를 위해 참조 이미지에 남깁니다. **별도 의상 메시 자동 생성·피팅·교체는 아직 지원하지 않습니다.**
+**2D와 3D 제작 방식은 서로 다릅니다.** 2D는 **헤어·교체 의상이 없는 방송용 기본 캐릭터 20파츠**를 먼저 제작하고, 헤어(`hair_variant.png`)와 교체 의상(`outfit_variant.png`)을 별도 파츠로 추가합니다. 기본 캐릭터는 **살구색 등 지정한 피부 톤의 불투명한 심리스 모션캡처 베이스웨어**로 신체를 완전히 덮습니다. 얼굴·목·손은 자연 피부색, 베이스웨어는 같은 `{skin_color}` 색상으로 표현하되 회색 슈트·의상 봉제선·칼라·지퍼 등은 넣지 않습니다. 3D도 **같은 색의 전신 커버를 착용한 비노골적 방송용 캐릭터**를 정면·후면·좌·우 시점으로 생성하고, 해당 외형을 VRM으로 복원·리깅합니다. 2D와 달리 3D 헤어스타일은 현재 복원 경로를 위해 참조 이미지에 남깁니다. **별도 의상 메시 자동 생성·피팅·교체는 아직 지원하지 않습니다.**
 
 이미지 AI에게 고정 픽셀 크기를 강요하지 않습니다. *각 프롬프트에 출력 파일명, 가로:세로 비율, 파츠 배치, 좌우, 첨부할 참조 이미지가 전부 명시되어 있습니다.* 생성된 다운로드 파일의 이름이 다르면 ZIP을 만들기 전에 반드시 명시된 이름으로 저장/변경합니다. 투명도는 실제 RGBA여야 하며, 배경이 그려진 이미지나 파츠 칸에 전체 캐릭터가 있는 이미지는 비율 조정·업스케일링으로 수정할 수 없습니다.
 
@@ -16,7 +16,7 @@
 
 순서: `front_master.png` 생성 → 그 이미지를 **모든 후속 프롬프트에 반드시 첨부** → 각 배치 가이드도 추가 첨부 → 출력 PNG의 비율·RGBA·각 칸의 파츠 확인 → ZIP 압축.
 
-#### `front_master.png` — 헤어·옷 없는 중립 정면 기준
+#### `front_master.png` — 불투명 피부색 베이스웨어·헤어 분리형 정면 기준
 
 **이미지 비율: 2:3 세로형.** 전신이 아닌 2D 방송용 상반신 중심 참조(머리, 목, 몸통, 양팔과 손이 보여야 함).
 
@@ -27,7 +27,7 @@ Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
 Facial structure, ears, distinguishing features: {face}
-Natural skin color / HEX for face AND ENTIRE body: {skin_color}
+Skin tone / matching opaque basewear color / exact HEX: {skin_color}
 Body type, anatomy and proportions: {body}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
@@ -41,19 +41,19 @@ fully inside the canvas. Same identity will be locked in future sheets.
 NO removable hairstyle, bangs, locks, wig or head hair in this
 BASE reference (draw the uncovered scalp/head instead). The listed
 hairstyle is an identity specification reserved for hair_variant.png.
-NO detachable costume, clothing, skirt, jacket, shirt, sleeves,
-gloves, shoes or costume accessories in this base artwork.
-THIS IS A MODULAR ADULT VTUBER AVATAR BASE for later 2D Live2D/Inochi2D
-rigging and independently replaceable hair, clothes and accessories.
-Render the uncovered scalp and EVERY visible anatomical body surface
-(face, neck, shoulders, torso, arms, hands and any visible hips/legs)
-using the SAME natural {skin_color} skin material, never gray fabric.
-Keep chest and pelvic surfaces smooth, simplified and non-explicit.
-Do NOT draw a bodysuit, undersuit, leotard, tights, underwear, collar,
-zipper, seams, stitches, cuffs, gloves, shoes or any clothing edges.
-The body is a featureless skin-colored anatomical base, NOT a person
-wearing flesh-colored clothing. Clothing and hair will be separate
-transparent deformable VTuber rigging assets generated later.
+THIS IS A FULLY COVERED ADULT ANIME VTUBER PRODUCTION MODEL,
+for Live2D/Inochi2D rigging and later separate fashion and hair assets.
+The face, neck and visible hands have the natural skin tone {skin_color}.
+The shoulders, chest, torso and arms wear a fully opaque, seamless,
+non-removable PRODUCTION BASE COVER in the matching {skin_color}.
+The base cover is plain and smooth, with no gray, texture, stitching,
+collar, zipper, panels, logos or visible garment edges.
+It must read as an intentionally clothed, family-friendly digital
+avatar reference with simplified covered body contours, not exposed skin.
+Draw no separately styled jacket, shirt, fashion outfit or accessories.
+Hair is a distinct future asset; show a smooth uncovered scalp here.
+Later costume parts must be authored as independent transparent assets;
+the production cover is simply the permanent covered reference surface.
 Do not generate a collage, labels, guides, text, or grid cells.
 ```
 
@@ -74,22 +74,23 @@ Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
 Facial structure, ears, distinguishing features: {face}
-Natural skin color / HEX for face AND ENTIRE body: {skin_color}
+Skin tone / matching opaque basewear color / exact HEX: {skin_color}
 Body type, anatomy and proportions: {body}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
-PERMANENT OUTFIT-FREE AVATAR CONTRACT:
-This is the same ONE character as the actual attached front_master.png.
-PROFESSIONAL MODULAR VTUBER RIGGING ASSET, not a finished dressed portrait.
-Natural {skin_color} skin must cover every visible base body surface,
-matching face, ears, neck, torso, shoulders, arms and hands seamlessly.
-Use simplified, smooth, non-explicit adult anatomy with no intimate details.
-NO gray/flesh-colored bodysuit, underlayer, leotard, tights, underwear,
-collar, zipper, fabric texture, stitched panels, cuffs, shoes or garments.
-NO removable hair, outfit, hoodie, jacket, shirt, skirt or costume parts.
-Skin material is the anatomy itself, NOT a skin-colored garment.
-Hair, face, base anatomy, arms and hands must be independent of clothing.
+FULLY COVERED MODULAR VTUBER PRODUCTION CONTRACT:
+This is the SAME character as the real attached front_master.png.
+The base design includes a fully opaque seamless {skin_color} rigging
+cover over all body surfaces except face, neck and visible hands.
+This is intentionally a clothed, non-suggestive anime character asset.
+The cover must be visually smooth, uniformly colored and featureless.
+Avoid gray suit fabric, obvious cloth wrinkles, stitched panels, collar,
+zipper, cuffs, colored outfit trim or garment boundaries.
+Preserve natural face/neck/hand skin coloring and simplified covered
+body contours. Never depict exposed torso or hips.
+No independently styled clothing or hair in the permanent base.
+Future removable costumes and hairstyle are separate image layers.
 In FRONT view, character-left is viewer-right; NEVER mirror the person.
 The attached colored grid diagram is only a LAYOUT GUIDE:
 do NOT draw labels, borders, numbers, colors or a fake transparency grid.
@@ -135,22 +136,23 @@ Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
 Facial structure, ears, distinguishing features: {face}
-Natural skin color / HEX for face AND ENTIRE body: {skin_color}
+Skin tone / matching opaque basewear color / exact HEX: {skin_color}
 Body type, anatomy and proportions: {body}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
-PERMANENT OUTFIT-FREE AVATAR CONTRACT:
-This is the same ONE character as the actual attached front_master.png.
-PROFESSIONAL MODULAR VTUBER RIGGING ASSET, not a finished dressed portrait.
-Natural {skin_color} skin must cover every visible base body surface,
-matching face, ears, neck, torso, shoulders, arms and hands seamlessly.
-Use simplified, smooth, non-explicit adult anatomy with no intimate details.
-NO gray/flesh-colored bodysuit, underlayer, leotard, tights, underwear,
-collar, zipper, fabric texture, stitched panels, cuffs, shoes or garments.
-NO removable hair, outfit, hoodie, jacket, shirt, skirt or costume parts.
-Skin material is the anatomy itself, NOT a skin-colored garment.
-Hair, face, base anatomy, arms and hands must be independent of clothing.
+FULLY COVERED MODULAR VTUBER PRODUCTION CONTRACT:
+This is the SAME character as the real attached front_master.png.
+The base design includes a fully opaque seamless {skin_color} rigging
+cover over all body surfaces except face, neck and visible hands.
+This is intentionally a clothed, non-suggestive anime character asset.
+The cover must be visually smooth, uniformly colored and featureless.
+Avoid gray suit fabric, obvious cloth wrinkles, stitched panels, collar,
+zipper, cuffs, colored outfit trim or garment boundaries.
+Preserve natural face/neck/hand skin coloring and simplified covered
+body contours. Never depict exposed torso or hips.
+No independently styled clothing or hair in the permanent base.
+Future removable costumes and hairstyle are separate image layers.
 In FRONT view, character-left is viewer-right; NEVER mirror the person.
 The attached colored grid diagram is only a LAYOUT GUIDE:
 do NOT draw labels, borders, numbers, colors or a fake transparency grid.
@@ -196,22 +198,23 @@ Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
 Facial structure, ears, distinguishing features: {face}
-Natural skin color / HEX for face AND ENTIRE body: {skin_color}
+Skin tone / matching opaque basewear color / exact HEX: {skin_color}
 Body type, anatomy and proportions: {body}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
-PERMANENT OUTFIT-FREE AVATAR CONTRACT:
-This is the same ONE character as the actual attached front_master.png.
-PROFESSIONAL MODULAR VTUBER RIGGING ASSET, not a finished dressed portrait.
-Natural {skin_color} skin must cover every visible base body surface,
-matching face, ears, neck, torso, shoulders, arms and hands seamlessly.
-Use simplified, smooth, non-explicit adult anatomy with no intimate details.
-NO gray/flesh-colored bodysuit, underlayer, leotard, tights, underwear,
-collar, zipper, fabric texture, stitched panels, cuffs, shoes or garments.
-NO removable hair, outfit, hoodie, jacket, shirt, skirt or costume parts.
-Skin material is the anatomy itself, NOT a skin-colored garment.
-Hair, face, base anatomy, arms and hands must be independent of clothing.
+FULLY COVERED MODULAR VTUBER PRODUCTION CONTRACT:
+This is the SAME character as the real attached front_master.png.
+The base design includes a fully opaque seamless {skin_color} rigging
+cover over all body surfaces except face, neck and visible hands.
+This is intentionally a clothed, non-suggestive anime character asset.
+The cover must be visually smooth, uniformly colored and featureless.
+Avoid gray suit fabric, obvious cloth wrinkles, stitched panels, collar,
+zipper, cuffs, colored outfit trim or garment boundaries.
+Preserve natural face/neck/hand skin coloring and simplified covered
+body contours. Never depict exposed torso or hips.
+No independently styled clothing or hair in the permanent base.
+Future removable costumes and hairstyle are separate image layers.
 In FRONT view, character-left is viewer-right; NEVER mirror the person.
 The attached colored grid diagram is only a LAYOUT GUIDE:
 do NOT draw labels, borders, numbers, colors or a fake transparency grid.
@@ -257,22 +260,23 @@ Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
 Facial structure, ears, distinguishing features: {face}
-Natural skin color / HEX for face AND ENTIRE body: {skin_color}
+Skin tone / matching opaque basewear color / exact HEX: {skin_color}
 Body type, anatomy and proportions: {body}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
-PERMANENT OUTFIT-FREE AVATAR CONTRACT:
-This is the same ONE character as the actual attached front_master.png.
-PROFESSIONAL MODULAR VTUBER RIGGING ASSET, not a finished dressed portrait.
-Natural {skin_color} skin must cover every visible base body surface,
-matching face, ears, neck, torso, shoulders, arms and hands seamlessly.
-Use simplified, smooth, non-explicit adult anatomy with no intimate details.
-NO gray/flesh-colored bodysuit, underlayer, leotard, tights, underwear,
-collar, zipper, fabric texture, stitched panels, cuffs, shoes or garments.
-NO removable hair, outfit, hoodie, jacket, shirt, skirt or costume parts.
-Skin material is the anatomy itself, NOT a skin-colored garment.
-Hair, face, base anatomy, arms and hands must be independent of clothing.
+FULLY COVERED MODULAR VTUBER PRODUCTION CONTRACT:
+This is the SAME character as the real attached front_master.png.
+The base design includes a fully opaque seamless {skin_color} rigging
+cover over all body surfaces except face, neck and visible hands.
+This is intentionally a clothed, non-suggestive anime character asset.
+The cover must be visually smooth, uniformly colored and featureless.
+Avoid gray suit fabric, obvious cloth wrinkles, stitched panels, collar,
+zipper, cuffs, colored outfit trim or garment boundaries.
+Preserve natural face/neck/hand skin coloring and simplified covered
+body contours. Never depict exposed torso or hips.
+No independently styled clothing or hair in the permanent base.
+Future removable costumes and hairstyle are separate image layers.
 In FRONT view, character-left is viewer-right; NEVER mirror the person.
 The attached colored grid diagram is only a LAYOUT GUIDE:
 do NOT draw labels, borders, numbers, colors or a fake transparency grid.
@@ -318,22 +322,23 @@ Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
 Facial structure, ears, distinguishing features: {face}
-Natural skin color / HEX for face AND ENTIRE body: {skin_color}
+Skin tone / matching opaque basewear color / exact HEX: {skin_color}
 Body type, anatomy and proportions: {body}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
-PERMANENT OUTFIT-FREE AVATAR CONTRACT:
-This is the same ONE character as the actual attached front_master.png.
-PROFESSIONAL MODULAR VTUBER RIGGING ASSET, not a finished dressed portrait.
-Natural {skin_color} skin must cover every visible base body surface,
-matching face, ears, neck, torso, shoulders, arms and hands seamlessly.
-Use simplified, smooth, non-explicit adult anatomy with no intimate details.
-NO gray/flesh-colored bodysuit, underlayer, leotard, tights, underwear,
-collar, zipper, fabric texture, stitched panels, cuffs, shoes or garments.
-NO removable hair, outfit, hoodie, jacket, shirt, skirt or costume parts.
-Skin material is the anatomy itself, NOT a skin-colored garment.
-Hair, face, base anatomy, arms and hands must be independent of clothing.
+FULLY COVERED MODULAR VTUBER PRODUCTION CONTRACT:
+This is the SAME character as the real attached front_master.png.
+The base design includes a fully opaque seamless {skin_color} rigging
+cover over all body surfaces except face, neck and visible hands.
+This is intentionally a clothed, non-suggestive anime character asset.
+The cover must be visually smooth, uniformly colored and featureless.
+Avoid gray suit fabric, obvious cloth wrinkles, stitched panels, collar,
+zipper, cuffs, colored outfit trim or garment boundaries.
+Preserve natural face/neck/hand skin coloring and simplified covered
+body contours. Never depict exposed torso or hips.
+No independently styled clothing or hair in the permanent base.
+Future removable costumes and hairstyle are separate image layers.
 In FRONT view, character-left is viewer-right; NEVER mirror the person.
 The attached colored grid diagram is only a LAYOUT GUIDE:
 do NOT draw labels, borders, numbers, colors or a fake transparency grid.
@@ -350,7 +355,7 @@ Use the highest *native* resolution your image AI can generate.
 Attach the ACTUAL front_master.png and sheet_body_base_layout.svg.
 CELL ORDER:
 row 1 col 1: body
-Only the skin-colored BODY torso/hips anatomical base (natural {skin_color}); clean shoulder/arm contours, smooth non-explicit chest/pelvis surfaces. Absolutely no fitted suit, fabric, garment panels, collar or seams. One isolated body part, not a costume sheet.
+Only the fully opaque {skin_color} covered BODY silhouette of the original VTuber, with smooth plain production base-cover material. Render covered chest and hips with simplified contours. No exposed skin on torso; no seams, zippers, collars or fashion decoration. Isolate this one rigging body part.
 
 All cells represent isolated segments in the SAME original character
 coordinate frame. Every non-part pixel is true transparent alpha=0.
@@ -376,22 +381,23 @@ Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
 Facial structure, ears, distinguishing features: {face}
-Natural skin color / HEX for face AND ENTIRE body: {skin_color}
+Skin tone / matching opaque basewear color / exact HEX: {skin_color}
 Body type, anatomy and proportions: {body}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
-PERMANENT OUTFIT-FREE AVATAR CONTRACT:
-This is the same ONE character as the actual attached front_master.png.
-PROFESSIONAL MODULAR VTUBER RIGGING ASSET, not a finished dressed portrait.
-Natural {skin_color} skin must cover every visible base body surface,
-matching face, ears, neck, torso, shoulders, arms and hands seamlessly.
-Use simplified, smooth, non-explicit adult anatomy with no intimate details.
-NO gray/flesh-colored bodysuit, underlayer, leotard, tights, underwear,
-collar, zipper, fabric texture, stitched panels, cuffs, shoes or garments.
-NO removable hair, outfit, hoodie, jacket, shirt, skirt or costume parts.
-Skin material is the anatomy itself, NOT a skin-colored garment.
-Hair, face, base anatomy, arms and hands must be independent of clothing.
+FULLY COVERED MODULAR VTUBER PRODUCTION CONTRACT:
+This is the SAME character as the real attached front_master.png.
+The base design includes a fully opaque seamless {skin_color} rigging
+cover over all body surfaces except face, neck and visible hands.
+This is intentionally a clothed, non-suggestive anime character asset.
+The cover must be visually smooth, uniformly colored and featureless.
+Avoid gray suit fabric, obvious cloth wrinkles, stitched panels, collar,
+zipper, cuffs, colored outfit trim or garment boundaries.
+Preserve natural face/neck/hand skin coloring and simplified covered
+body contours. Never depict exposed torso or hips.
+No independently styled clothing or hair in the permanent base.
+Future removable costumes and hairstyle are separate image layers.
 In FRONT view, character-left is viewer-right; NEVER mirror the person.
 The attached colored grid diagram is only a LAYOUT GUIDE:
 do NOT draw labels, borders, numbers, colors or a fake transparency grid.
@@ -411,7 +417,7 @@ row 1 col 1: arm_left
 row 1 col 2: arm_right
 row 2 col 1: hand_left
 row 2 col 2: hand_right
-Naturally skin-colored anatomical arms and hands ({skin_color}) only; consistent with face/neck/body. No sleeves, cuffs, bracelets, gloves, fabric bands, seams or garments.
+Arms: the identical opaque {skin_color} seamless production cover. Hands: natural {skin_color} skin. Keep the arm-to-hand transition understated with no cuffs, stitching, bracelets or costume accessories. Output only the four requested part cells.
 
 All cells represent isolated segments in the SAME original character
 coordinate frame. Every non-part pixel is true transparent alpha=0.
@@ -436,21 +442,21 @@ character_2d_sheet_pack.zip
 
 **중요:** 이 ZIP에는 헤어·옷 이미지(`hair_front/back/left/right`, `outfit_front/back`)가 포함되면 안 됩니다. 완성 스타일은 후속 2D 헤어·의상 추가 단계에서 제작합니다. 2D 베이스는 20개의 독립 신체·얼굴 파츠로 구성하고 실제 옷은 별도 액세서리/의상 모드에서 만듭니다.
 
-### ① 캐릭터 생성 — 3D 피부색 중립 신체 베이스 (전신 시트 2장 + 얼굴 1장)
+### ① 캐릭터 생성 — 3D 불투명 피부색 커버 베이스 (전신 시트 2장 + 얼굴 1장)
 
-**목적:** 나중에 3D 의상을 따로 제작·피팅할 수 있도록 회색 슈트가 아닌 자연 피부색의 중립 신체를 기준으로 생성합니다. 다만 현행 3D 경로는 입력 외형을 **하나의 아바타 메시로 복원·스키닝**하며, 독립적인 의상 메시 생성이나 자동 탈착·교체는 구현되지 않았습니다. 따라서 **의상이 없는 베이스 VRM 제작**과 **의상 교체까지 완성된 VRM 제작**을 구분해야 합니다. 의상 착용 VRM이 필요하면 실제 의상 메시를 별도로 모델링·스키닝하고 호환되는 편집기에서 피팅해야 합니다. 본체에 타이츠/바디슈트를 그려 넣으면 옷 경계가 베이스 메시·텍스처에 굳어지므로 금지합니다.
+**목적:** 이미지 생성 AI가 노출 신체로 해석하지 않도록 **전신을 덮는 불투명하고 단색의 심리스 VTuber 제작용 베이스웨어**를 사용합니다. 베이스웨어 색은 `{skin_color}`이며 얼굴·목·손의 피부색과 맞춥니다. 회색 슈트, 봉제선, 목 칼라, 지퍼, 원단 패턴을 생성하지 않습니다. 현행 3D 경로는 입력 외형을 하나의 아바타 메시로 복원하므로 이 커버 또한 **베이스 아바타 텍스처/외형에 통합**됩니다. 독립 의상 자동 모델링·피팅·탈착은 지원하지 않습니다. 교체할 옷은 따로 모델링·리깅해야 합니다.
 
 **2D와 3D의 머리카락 차이:** 2D 기본 마스터는 별도 헤어 파츠를 만들기 위해 무모(머리카락 없는 두피)입니다. 현재 3D는 입력 이미지에서 머리 형상을 재구성하므로 3D 정면·후면·측면 및 얼굴에는 **동일한 헤어스타일**을 표시합니다. 3D 머리카락 교체 자동화까지 보장한다는 뜻은 아닙니다.
 
 | 필요한 이미지 | 권장 비율 | 내용 | 출력 파일명 |
 |---|---|---|---|
-| 1장 | 전체 4:3 / 각 칸 2:3 | 피부색 중립 신체 정면·후면 2뷰 | `sheet_front_back.png` |
+| 1장 | 전체 4:3 / 각 칸 2:3 | 불투명 피부색 베이스웨어 캐릭터 정면·후면 2뷰 | `sheet_front_back.png` |
 | 1장 | 전체 4:3 / 각 칸 2:3 | 같은 베이스 신체 좌·우 2뷰 | `sheet_side_views.png` |
 | 1장 | 1:1 | 동일 캐릭터의 얼굴 확대 | `face.png` |
 
 **필수 3장 (4방향 전신 4뷰 + 얼굴 1뷰).** 인위적으로 출력 픽셀 크기를 고정하지 말고 이미지 AI의 네이티브 해상도로 제작합니다. 후속 시점에는 실제 생성한 이전 참조를 첨부하고, 색상과 체형이 일치하는지 확인합니다.
 
-#### `sheet_front_back.png` — 피부색 신체 베이스 정면·후면
+#### `sheet_front_back.png` — 피부색 전신 커버 정면·후면
 
 **배치도: 가로 4:3, 2열 × 1행.** 첫 3D 이미지로 생성합니다.
 
@@ -466,7 +472,7 @@ Gender / presentation: {gender}
 Hair color / style / bangs / ornaments: {hairstyle}
 Eye shape / iris / pupils: {eyes}
 Facial structure / ears / distinguishing marks: {face}
-Natural full-body skin color / exact HEX: {skin_color}
+Natural skin / matching opaque basewear / exact HEX: {skin_color}
 Body proportions / height / silhouette: {body}
 Other permanent identity details: {identity_details}
 
@@ -478,35 +484,32 @@ CELL LEFT: FRONT full-body skin-colored base view.
 CELL RIGHT: BACK full-body skin-colored base view.
 Attach sheet_front_back_layout.svg as a layout guide ONLY.
 
-PRODUCTION PURPOSE — 3D VTUBER BASE FOR SKELETAL RIGGING:
-Generate the SAME original adult anime VTuber as a neutral skin-colored
-base avatar for later VRM rigging and independently authored wardrobe.
-The base is a stylized, featureless, non-explicit anatomical surface,
-NOT a gray bodysuit, mannequin or a person wearing skin-colored clothes.
-Every visible body region including neck, torso, shoulders, arms,
-hands, hips, legs and feet has the SAME natural {skin_color} skin finish
-as the face. Keep chest/pelvis simplified; show no intimate anatomy.
-NO garment of any kind, underwear, leggings, bodysuit, latex suit,
-shirt, jacket, scarf, collar, zipper, seam, stitching, cuffs, socks,
-shoes or clothing silhouette. NO painted-on costume or accessories.
-This 3D base image MUST NOT include a default outfit; separate actual
-garments require modeling, fitting and skinning outside this generator.
-Retain the same defined hairstyle across views for the current 3D
-hair-reconstruction path; unlike 2D, this is not a hairless scalp base.
-Use the SAME neutral symmetric A-pose, arms ~25-35 degrees away from
-torso, orthographic camera, consistent body size and fixed lighting.
-Left/right are CHARACTER anatomical directions, not viewer directions.
-Never mirror a front view to fake a back/side view.
-Preserve head, hands, feet and complete body within every full-body tile.
-No props, text, watermark, frame, guides, labels or grid dividers.
-Use native resolution; plain contrasting background is acceptable
-because the pipeline segments the character.
+PRODUCTION PURPOSE — FULLY COVERED 3D VTUBER RIGGING MODEL:
+Create one original ADULT anime VTuber as an intentionally clothed,
+family-friendly 3D animation reference, ready for later VRM rigging.
+Face, neck and hands use natural skin tone {skin_color}. A FULLY OPAQUE
+seamless full-body production cover encloses shoulders, chest, torso,
+arms, hips, legs and feet, colored the SAME {skin_color}.
+This cover is a smooth, matte, textureless rigging base, with a neutral
+silhouette, no gray fabric, seams, wrinkles, zippers, cuffs, collar,
+graphics or layered fashion details. All body areas remain covered.
+This is a clothed character, not a realistic anatomy or exposure study.
+No decorative outfit is included: separate future wardrobe pieces
+will require independently produced garment meshes and skin weights.
+Retain the SAME specified hairstyle across all 3D reconstruction views.
+Use the SAME neutral symmetric A-pose, arms gently separated, orthographic
+eye-level camera, consistent scale, body proportions and flat lighting.
+Character LEFT and RIGHT refer to anatomical directions, not screen sides.
+Rotate for back/side views; never mirror the front as a substitute.
+All hair, head, hands and covered feet fit in each full-body tile.
+Use native image resolution and a plain contrasting background.
+No props, text, watermark, borders or visible layout guides.
 
 This is the FIRST 3D image; no earlier character image is required.
-Both cells must depict the same neutral body, with no outfit.
+Both cells show one fully covered character in the same seamless basewear.
 ```
 
-#### `sheet_side_views.png` — 같은 신체 베이스 좌·우 측면
+#### `sheet_side_views.png` — 같은 전신 커버 좌·우 측면
 
 **배치도: 가로 4:3, 2열 × 1행.** 앞서 만든 실제 `sheet_front_back.png`를 반드시 함께 첨부합니다.
 
@@ -522,7 +525,7 @@ Gender / presentation: {gender}
 Hair color / style / bangs / ornaments: {hairstyle}
 Eye shape / iris / pupils: {eyes}
 Facial structure / ears / distinguishing marks: {face}
-Natural full-body skin color / exact HEX: {skin_color}
+Natural skin / matching opaque basewear / exact HEX: {skin_color}
 Body proportions / height / silhouette: {body}
 Other permanent identity details: {identity_details}
 
@@ -535,36 +538,33 @@ CELL RIGHT: CHARACTER RIGHT SIDE full-body skin-colored base view.
 ATTACH the REAL previously generated sheet_front_back.png and
 sheet_side_views_layout.svg as separate visual references.
 
-PRODUCTION PURPOSE — 3D VTUBER BASE FOR SKELETAL RIGGING:
-Generate the SAME original adult anime VTuber as a neutral skin-colored
-base avatar for later VRM rigging and independently authored wardrobe.
-The base is a stylized, featureless, non-explicit anatomical surface,
-NOT a gray bodysuit, mannequin or a person wearing skin-colored clothes.
-Every visible body region including neck, torso, shoulders, arms,
-hands, hips, legs and feet has the SAME natural {skin_color} skin finish
-as the face. Keep chest/pelvis simplified; show no intimate anatomy.
-NO garment of any kind, underwear, leggings, bodysuit, latex suit,
-shirt, jacket, scarf, collar, zipper, seam, stitching, cuffs, socks,
-shoes or clothing silhouette. NO painted-on costume or accessories.
-This 3D base image MUST NOT include a default outfit; separate actual
-garments require modeling, fitting and skinning outside this generator.
-Retain the same defined hairstyle across views for the current 3D
-hair-reconstruction path; unlike 2D, this is not a hairless scalp base.
-Use the SAME neutral symmetric A-pose, arms ~25-35 degrees away from
-torso, orthographic camera, consistent body size and fixed lighting.
-Left/right are CHARACTER anatomical directions, not viewer directions.
-Never mirror a front view to fake a back/side view.
-Preserve head, hands, feet and complete body within every full-body tile.
-No props, text, watermark, frame, guides, labels or grid dividers.
-Use native resolution; plain contrasting background is acceptable
-because the pipeline segments the character.
+PRODUCTION PURPOSE — FULLY COVERED 3D VTUBER RIGGING MODEL:
+Create one original ADULT anime VTuber as an intentionally clothed,
+family-friendly 3D animation reference, ready for later VRM rigging.
+Face, neck and hands use natural skin tone {skin_color}. A FULLY OPAQUE
+seamless full-body production cover encloses shoulders, chest, torso,
+arms, hips, legs and feet, colored the SAME {skin_color}.
+This cover is a smooth, matte, textureless rigging base, with a neutral
+silhouette, no gray fabric, seams, wrinkles, zippers, cuffs, collar,
+graphics or layered fashion details. All body areas remain covered.
+This is a clothed character, not a realistic anatomy or exposure study.
+No decorative outfit is included: separate future wardrobe pieces
+will require independently produced garment meshes and skin weights.
+Retain the SAME specified hairstyle across all 3D reconstruction views.
+Use the SAME neutral symmetric A-pose, arms gently separated, orthographic
+eye-level camera, consistent scale, body proportions and flat lighting.
+Character LEFT and RIGHT refer to anatomical directions, not screen sides.
+Rotate for back/side views; never mirror the front as a substitute.
+All hair, head, hands and covered feet fit in each full-body tile.
+Use native image resolution and a plain contrasting background.
+No props, text, watermark, borders or visible layout guides.
 
 Rotate the same base avatar 90 degrees to its anatomical LEFT or RIGHT.
-Match FRONT/BACK body proportions, skin HEX, hairstyle, facial
-features, feet placement and anatomy. No new garments or accessories.
+Match FRONT/BACK body proportions, {skin_color} cover color, hair,
+face, covered feet and pose. Keep the identical plain basewear.
 ```
 
-#### `face.png` — 같은 신체 베이스의 얼굴 확대
+#### `face.png` — 같은 캐릭터의 얼굴 확대
 
 **비율 1:1 정사각형.** 앞서 만든 `sheet_front_back.png`의 실제 정면 셀을 첨부합니다.
 
@@ -576,7 +576,7 @@ Gender / presentation: {gender}
 Hair color / style / bangs / ornaments: {hairstyle}
 Eye shape / iris / pupils: {eyes}
 Facial structure / ears / distinguishing marks: {face}
-Natural full-body skin color / exact HEX: {skin_color}
+Natural skin / matching opaque basewear / exact HEX: {skin_color}
 Body proportions / height / silhouette: {body}
 Other permanent identity details: {identity_details}
 
@@ -594,9 +594,9 @@ Preserve eyes, jaw, iris, eyelashes, scalp/hairstyle, facial markings,
 ears and lighting from the first FRONT reference.
 The existing 3D reconstruction can use the same hairstyle as the body
 views; do not invent a different hairstyle or hair accessory.
-NO costume collar, turtleneck, bodysuit neckline, cloth edge,
-stitching, scarf, jewelry, invented clothing or gray fabric.
-Keep an unoccluded, non-explicit head/neck skin reference.
+Show the uncovered face and neck above the same simple covered
+production outfit. Keep the shoulders covered just outside the crop.
+No extra accessories, detailed fashion collars, scarf or gray fabric.
 No full-body portrait, labels, grid, props, text or watermark.
 ```
 
@@ -610,7 +610,7 @@ character_3d_sheet_pack.zip
     └── face.png
 ```
 
-Colab ②에서 **캐릭터 생성 → 3d → 전신 다중 시점(기본값)**을 선택하고 ④에서 ZIP을 업로드합니다. ⑤에서 네 방향을 개별 컷으로 분할·정규화하여 3D 복원·텍스처·리깅으로 전달합니다. 출력물은 피부색 신체 베이스 VRM이며 **별도 의상은 포함되지 않습니다.** 검증된 상업적 이용 가능 의상 모델을 나중에 별도 처리해야 하며, 이 파이프라인이 자동으로 옷을 피팅·스키닝하거나 전환하는 기능을 제공하지는 않습니다.
+Colab ②에서 **캐릭터 생성 → 3d → 전신 다중 시점(기본값)**을 선택하고 ④에서 ZIP을 업로드합니다. ⑤에서 네 방향을 개별 컷으로 분할·정규화하여 3D 복원·텍스처·리깅으로 전달합니다. 출력물은 **피부색 불투명 베이스웨어가 통합된 VRM**이며 별도 교체형 의상은 포함되지 않습니다. 검증된 상업적 이용 가능 의상 모델을 나중에 별도 처리해야 하며, 이 파이프라인이 자동으로 옷을 피팅·스키닝하거나 전환하는 기능을 제공하지는 않습니다.
 
 ### ② 액세서리 제작 — 소품과 교체형 의상은 별개
 
@@ -679,7 +679,7 @@ Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
 Facial structure, ears, distinguishing features: {face}
-Natural skin color / HEX for face AND ENTIRE body: {skin_color}
+Skin tone / matching opaque basewear color / exact HEX: {skin_color}
 Body type, anatomy and proportions: {body}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
@@ -714,9 +714,9 @@ Save exact filename outfit_variant.png, rename the download if needed.
 
 #### ②-3. 3D 외부 의상 교체 — 수동 편집기 전달만 지원 (고급)
 
-현재 레포의 3D 자동 본선은 **입력 이미지의 외형을 하나의 VRM 메시로 복원**하며, 위 기본 프롬프트는 의상 없이 피부색 신체를 생성합니다. 3D 의상 자동 교체는 제공하지 않습니다. VRoid Studio의 별도 [Dress-up/XWear](https://vroid.pixiv.help/hc/en-us/articles/39512879834649-Introduction-to-VRoid-Studio-s-Dress-Up-Feature)는 외부 편집기 작업으로, 실제로 제작된 `costume.xwear`와 기준 `avatar.vrm`을 사용합니다. Colab의 **3D 교체 의상(XWear)**은 유효한 `base_avatar.vrm`과 `costume.xwear`를 받아 **편집기로 전달할 `vroid_dressup_handoff.zip`**만 구성합니다. 옷이 착용된 새로운 VRM을 자동 생성하지 않습니다. 의상이나 기존 바디슈트가 이미 통합된 VRM에서는 의상 관통·중복 메시 삭제 및 피팅을 외부 편집기에서 수행해야 합니다.
+현재 레포의 3D 자동 본선은 **입력 이미지의 외형을 하나의 VRM 메시로 복원**하며, 위 기본 프롬프트는 피부색의 전신 커버를 입힌 상태로 생성합니다. 3D 의상 자동 교체는 제공하지 않습니다. VRoid Studio의 별도 [Dress-up/XWear](https://vroid.pixiv.help/hc/en-us/articles/39512879834649-Introduction-to-VRoid-Studio-s-Dress-Up-Feature)는 외부 편집기 작업으로, 실제로 제작된 `costume.xwear`와 기준 `avatar.vrm`을 사용합니다. Colab의 **3D 교체 의상(XWear)**은 유효한 `base_avatar.vrm`과 `costume.xwear`를 받아 **편집기로 전달할 `vroid_dressup_handoff.zip`**만 구성합니다. 옷이 착용된 새로운 VRM을 자동 생성하지 않습니다. 의상이나 기존 바디슈트가 이미 통합된 VRM에서는 의상 관통·중복 메시 삭제 및 피팅을 외부 편집기에서 수행해야 합니다.
 
-**피부색 3D 신체 베이스를 먼저 만들고, 실제 별도 제작된 의상 메시를 외부 편집기에서 피팅하는 것이 교체형 의상의 출발점입니다.** 단순 PNG 의상 참조 이미지를 XWear 원본이라고 주장하거나, 고정 본 액세서리를 몸이 구부러지는 의상으로 취급하지 않습니다.
+**피부색으로 완전히 덮인 3D 기본 캐릭터를 먼저 만들고, 별도로 제작된 의상 메시를 외부 편집기에서 피팅하는 방식입니다.** 단순 PNG 의상 참조 이미지를 XWear 원본이라고 주장하거나, 고정 본 액세서리를 몸이 구부러지는 의상으로 취급하지 않습니다.
 
 ## 작업 모드
 
