@@ -136,3 +136,24 @@ def test_live2d_pro_builds_each_asset_without_batch_companions(tmp_path, asset):
         assert "metadata/manual_rig_reference.json" in zipfile.namelist()
         assert "avatar.moc3" not in zipfile.namelist()
     assert result["state"] == "artwork_ready_editor_rig_required"
+
+@pytest.mark.parametrize("upstream,expected", [
+    ("headwear", "ornament.head"),
+    ("eyewear", "ornament.eyes"),
+    ("earwear", "ornament.ears"),
+    ("neckwear", "ornament.neck"),
+    ("handwear", "cloth.gloves"),
+    ("topwear", "cloth.upper"),
+    ("bottomwear", "cloth.lower"),
+    ("legwear", "cloth.legs"),
+    ("footwear", "shoe"),
+    ("tail", "accessory.tail"),
+    ("wings", "accessory.wings"),
+    ("objects", "ornament.objects"),
+    ("irides", "eye.iris"),
+    ("eyewhite", "eye.sclera"),
+    ("eyelash", "eye.lash"),
+    ("head", "body.head"),
+])
+def test_official_see_through_names_are_not_misclassified(upstream, expected):
+    assert _semantic_family(upstream) == expected

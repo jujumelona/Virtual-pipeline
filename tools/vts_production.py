@@ -45,6 +45,23 @@ def _semantic_family(name: str) -> str:
     This classification needs validation before a production-quality rig claim.
     """
     raw = name.casefold().replace("_", ".").replace("-", ".")
+    # Pinned See-through publishes 19 combined categories; body/head passes
+    # include 24 fine prompts. Distinguish wearable objects before the
+    # more general "neck", "ear" and "hand" string fallbacks.
+    exact_upstream = {
+        "headwear": "ornament.head", "eyewear": "ornament.eyes",
+        "earwear": "ornament.ears", "neckwear": "ornament.neck",
+        "handwear": "cloth.gloves", "topwear": "cloth.upper",
+        "bottomwear": "cloth.lower", "legwear": "cloth.legs",
+        "footwear": "shoe", "tail": "accessory.tail",
+        "wings": "accessory.wings", "objects": "ornament.objects",
+        "eyes": "eye", "irides": "eye.iris",
+        "eyewhite": "eye.sclera", "eyelash": "eye.lash",
+        "head": "body.head", "hair": "hair.general",
+        "face": "face", "ears": "ear",
+    }
+    if raw in exact_upstream:
+        return exact_upstream[raw]
     # The See-through / Qwen layer name is a semantic identity, not just an
     # annotation. Never discard left/right, front/back, iris or lid suffixes.
     canonical = ("hair.", "eye.", "eyebrow.", "mouth.", "cloth.",
