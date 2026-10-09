@@ -32,7 +32,7 @@ def cli():
     default="corporation",
     show_default=True,
 )
-@click.option("--rigging-provider", type=click.Choice(["canonical", "skintokens"]),
+@click.option("--rigging-provider", type=click.Choice(["canonical", "blender_heat", "skintokens"]),
               default="canonical", show_default=True,
               help="Optional isolated SkinTokens skin prediction on the existing VRM skeleton")
 def avatar(image, output, face_image, back_image, left_image, right_image, full_body, texture_size, profile, commercial_usage, rigging_provider):
@@ -67,6 +67,7 @@ def avatar(image, output, face_image, back_image, left_image, right_image, full_
         "reference_reconstruction": "TripoSR reconstruction",
         "licensed_multiview": "observed TripoSR multi-view reconstruction",
         "multiview_alignment": "3D frame registration",
+        "blender_heat_skin": "optional native Blender bone-heat body-skin refinement",
         "skintokens_skin": "optional validated SkinTokens skin-only refinement",
         "template_fitting": "canonical template fitting",
         "surface_refine": "topology-preserving surface refinement",
