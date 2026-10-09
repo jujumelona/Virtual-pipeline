@@ -82,25 +82,39 @@ class Identity:
                          if value.strip())
 
 
-def _common(identity: Identity) -> str:
+def _common(identity: Identity, *, mode: str = "2d") -> str:
+    if mode == "3d":
+        return (
+            "CRITICAL 3D IDENTITY LOCK: ONE identical original anime VTuber, "
+            "wearing the SAME complete default costume in EVERY direction. "
+            "Keep garment materials, shoes, cuffs, seams, hair, anatomy and "
+            "facial appearance constant across all views. "
+            "Use the already-generated front view as the design reference "
+            "for subsequent back/side/face images. Never mirror a character "
+            "to imitate a different view.\\n"
+            + identity.describe().replace(
+                "neutral_underlayer:", "integrated_default_outfit:"
+            )
+            + "\\nONE IMAGE PER REQUEST. No labels, borders or watermarks. "
+              "Use native image AI resolution and preserve view aspect ratio."
+        )
     return (
-        "CRITICAL IDENTITY LOCK: Keep a SINGLE identical original anime VTuber "
-        "character across ALL outputs. Same proportions, line thickness, color "
-        "swatches, hairstyle, neutral base anatomy, facial features and lighting. "
-        "Use the supplied front_master.png as the exact pixel-coordinate "
-        "reference for ALL subsequent layer images; do not redesign.\n"
-        + identity.describe() + "\n"
-        "ONE IMAGE PER REQUEST, NO MULTIPANEL CHARACTER SHEET, NO TEXT, "
-        "NO BORDER, NO LABELS, NO WATERMARKS. DO NOT MIRROR OR RESIZE THE "
-        "CHARACTER BETWEEN FILES."
+        "CRITICAL 2D IDENTITY LOCK: ONE outfit-free and hairstyle-free "
+        "neutral anime VTuber base, with the same face, anatomy and "
+        "body proportions across all permanent-part images. "
+        "Use front_master.png as identity and placement reference for "
+        "subsequent separate 2D layers; costume and hairstyle are never "
+        "baked into the permanent body.\\n"
+        + identity.describe() + "\\n"
+        "ONE IMAGE PER REQUEST, NO TEXT, NO LABELS, NO WATERMARKS. "
+        "Do not mirror or independently recenter 2D semantic parts."
     )
-
 
 def build_prompts(mode: str, identity: Identity) -> dict:
     """Emit explicit per-file instructions with fixed pixel anchors and counts."""
     if mode not in ("live2d", "inochi2d", "3d"):
         raise ValueError("unsupported prompt mode: " + mode)
-    general = _common(identity)
+    general = _common(identity, mode=mode)
     if mode == "3d":
         general += (
             "\\n3D DEFAULT INTEGRATED COSTUME: "
