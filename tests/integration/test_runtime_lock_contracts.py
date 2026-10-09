@@ -269,9 +269,14 @@ def test_readme_open_in_colab_badge_targets_canonical_three_step_notebook():
     ]
     assert len(code_cells) == 3
     assert "setup_python" in code_cells[0]
-    assert "prepare_models" in code_cells[1]
-    assert "colab_model_setup.log" in code_cells[1]
-    assert "subprocess.Popen(" in code_cells[1]
+    # The second cell is intentionally lazy: the model set is determined by
+    # choosing Inochi2D, Live2D or VRM in the third-cell Gradio UI.
+    assert "모드별 모델 준비" in code_cells[1]
+    assert "prepare_models(" not in code_cells[1]
+    assert "subprocess.Popen(" not in code_cells[1]
+    app = _read("tools/colab_app.py")
+    assert "prepare_models(mode)" in app
+    assert "_model_marker(scope)" in app
     assert "colab_ui_launcher.py" in code_cells[2]
     assert 'run_name="__main__"' in code_cells[2]
     assert "del _launcher_globals" in code_cells[2]
@@ -317,7 +322,10 @@ def test_lock_entries_are_fail_closed_and_complete():
     assert isinstance(tools, dict) and tools
 
     for name, item in tools.items():
-        assert item.get("commercial_safe") is True, name
+        # Retain a known non-commercial dependency in the source lock as a
+        # quarantine record; never rewrite its commercial flag to pass tests.
+        expected_safe = name != "instantmesh_large"
+        assert item.get("commercial_safe") is expected_safe, name
         assert isinstance(item.get("license"), str) and item["license"], name
 
         has_package_pin = bool(
@@ -386,7 +394,14 @@ def test_commercial_lock_rejects_blocked_license_families():
         if hits:
             blocked[name] = hits
 
-    assert blocked == {}
+    # Restricted components are allowed in the manifest only when explicitly
+    # quarantined and prevented from executing in commercial pipelines.
+    assert set(blocked) <= {"instantmesh_large"}
+    assert lock["tools"]["instantmesh_large"]["commercial_safe"] is False
+    worker = _read("tools/model_workers/instantmesh_worker.py")
+    assert "require_commercial_compatible_upstream(upstream)" in worker
+    prefetch = _read("tools/prefetch_model_assets.py")
+    assert 'name == "instantmesh_large"' in prefetch
 
 
 def test_ci_actions_are_immutable_sha_pinned_and_full_suite_is_gated():
