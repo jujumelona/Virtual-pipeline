@@ -137,3 +137,32 @@ def test_notebook_stop_cancels_separate_stage_session_not_only_top_worker(tmp_pa
         time.sleep(0.05)
     else:
         pytest.fail("Independent GPU-stage grandchild survived notebook stop")
+
+
+def test_every_log_line_and_early_linker_error_reach_notebook_without_tail_cutoff(
+    tmp_path, monkeypatch,
+):
+    _fake_worker(tmp_path, """
+        print('FIRST /usr/bin/ld: undefined reference to symbol', flush=True)
+        for number in range(240):
+            print('compile line %03d' % number, flush=True)
+        print('LAST Error: /usr/bin/cc failed with status: 1', flush=True)
+        sys.exit(2)
+    """, monkeypatch)
+    events = []
+    with pytest.raises(RuntimeError, match="exit=2"):
+        process.run_isolated(
+            "inochi2d", ["character.png", "corporation"],
+            root=tmp_path / "jobs", timeout=10, on_event=events.append,
+        )
+    logs = "".join(item[1] for item in events if item[0] == "log")
+    assert "FIRST /usr/bin/ld:" in logs
+    assert "compile line 000" in logs
+    assert "compile line 239" in logs
+    assert "LAST Error: /usr/bin/cc" in logs
+    assert logs.index("FIRST") < logs.index("compile line 000")
+    assert logs.index("compile line 000") < logs.index("compile line 239")
+    assert logs.index("compile line 239") < logs.index("LAST Error:")
+    folder = next((tmp_path / "jobs").iterdir())
+    disk = (folder / "generation.log").read_text()
+    assert disk == logs
