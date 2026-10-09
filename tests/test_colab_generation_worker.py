@@ -46,3 +46,28 @@ def test_generation_bootstrap_uses_stdlib_only():
         for alias in node.names
     ]
     assert not {"gradio", "torch", "numpy", "scipy"} & set(imports)
+
+
+def test_live2d_failed_callback_emits_failed_event_not_complete(
+    tmp_path, monkeypatch, capsys,
+):
+    import json
+    import sys
+
+    request = tmp_path / "request.json"
+    result = tmp_path / "result.json"
+    request.write_text(json.dumps({"mode": "live2d",
+                                   "args": ["/tmp/source.png", "corporation"]}))
+    monkeypatch.setattr(sys, "argv", ["colab_generation_worker.py",
+                                      str(request), str(result)])
+    monkeypatch.setattr(worker, "run_request", lambda request: [
+        "live2d: 제작 실패 (임시 그림 파일을 모델 완성으로 표시하지 않음)",
+        "flux_worker.py: exit=-9; log=flux.result.log",
+        None,
+    ])
+    assert worker.main() == 0
+    assert result.is_file(), "Preserve callback details for notebook error"
+    output = capsys.readouterr().out
+    assert '"kind": "failed"' in output
+    assert '"kind": "complete"' not in output
+    assert "exit=-9" in output
