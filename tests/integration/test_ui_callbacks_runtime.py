@@ -39,6 +39,11 @@ def ui(tmp_path, monkeypatch):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     monkeypatch.setattr(module, "OUTPUT_ROOT", tmp_path / "outputs")
+    monkeypatch.setattr(module, "WORK_ROOT", tmp_path / "runtime")
+    # Editor presence is a real production precondition. The callback tests
+    # mock only the independently tested Blender probe, not the output graph.
+    import tools.setup_blender_runtime as blender_setup
+    monkeypatch.setattr(blender_setup, "require_blender_runtime_ready", lambda: "/mock/blender")
     module._real_require_runtime_ready = module.require_runtime_ready
     monkeypatch.setattr(
         module,
@@ -80,6 +85,8 @@ def test_avatar_ui_passes_usage_to_avatar_and_exposes_vrm(ui, tmp_path, monkeypa
             "full_body": False,
             "face_image": None,
             "back_image": None,
+            "left_image": None,
+            "right_image": None,
             "texture_size": 2048,
         },
     })]
@@ -245,7 +252,15 @@ def test_generation_requires_explicit_prepared_runtime_without_install(ui, tmp_p
         ui._real_require_runtime_ready()
 
 
-def test_start_routes_to_exact_mode_with_selected_scope(ui):
+def test_start_routes_to_exact_mode_with_selected_scope(ui, monkeypatch):
+    import tools.install_2d_workers as installers
+    setup_calls = []
+    monkeypatch.setattr(installers, "activate_2d_environment",
+                        lambda: setup_calls.append("2d"))
+    monkeypatch.setattr(ui, "_setup_stage",
+                        lambda name, fn: setup_calls.append(name))
+    monkeypatch.setattr(ui, "prepare_models",
+                        lambda mode: setup_calls.append(mode))
     for requested, expected in (
         ("inochi2d", [False, True, False, False, False]),
         ("live2d", [False, False, True, False, False]),
@@ -255,6 +270,8 @@ def test_start_routes_to_exact_mode_with_selected_scope(ui):
         assert [part["visible"] for part in selected[:-1]] == expected
         assert selected[-1] == "personalProfit"
 
+    assert setup_calls == ["2d", "inochi2d", "2d", "live2d",
+                           "3D TripoSR checkout", "3d"]
     assert [v["visible"] for v in ui.return_to_workflow_choice()] == [
         True, False, False, False, False,
     ]
@@ -285,28 +302,49 @@ def test_workflow_selection_rejects_invalid_mode_or_usage(ui, mode, usage):
 def test_both_2d_modes_do_not_require_3d_gpu_runtime(
     ui, tmp_path, monkeypatch, target, filename,
 ):
+    """2D outputs are prepared/editor handoffs, never fake streaming puppets."""
     from PIL import Image
+    import vtuber_pipeline.two_d.build as production
     artwork = tmp_path / "artwork.png"
     Image.new("RGBA", (512, 768), (20, 40, 60, 255)).save(artwork)
+    checked = []
+    def assert_selected_runtime(mode):
+        checked.append(mode)
+        assert mode == target, "A 2D callback must never require 3D models"
+        return ("a" * 40, ["2d-runtime-ready"])
+    monkeypatch.setattr(ui, "require_runtime_ready", assert_selected_runtime)
+
+    expected_status = "prepared" if target == "inochi2d" else "needs_editor_export"
+    output_name = "artwork.psd" if target == "inochi2d" else "cubism_handoff.zip"
+    observed_sources = []
+    def fake_native_graph(source):
+        observed_sources.append(source)
+        assert source.mode == target
+        assert source.commercial_usage == "personalProfit"
+        folder = pathlib.Path(source.output_dir)
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / output_name
+        path.write_bytes(b"editable-contract-content")
+        return types.SimpleNamespace(
+            status=expected_status, primary_file=str(path),
+            editable_file=str(path), error=None,
+        )
     monkeypatch.setattr(
-        ui, "require_runtime_ready",
-        lambda *args: (_ for _ in ()).throw(AssertionError("3D runtime called")),
+        production, "build_inochi2d" if target == "inochi2d" else "build_live2d",
+        fake_native_graph,
     )
     handler = ui.build_inochi2d_ui if target == "inochi2d" else ui.build_live2d_ui
     status, report, path = handler(str(artwork), None, "personalProfit")
-    assert "단일 그림" in status
+    assert checked == [target]
+    assert len(observed_sources) == 1
     assert pathlib.Path(path).is_file()
-    assert pathlib.Path(path).name == filename
-    import json
-    import zipfile
-    with zipfile.ZipFile(path) as archive:
-        manifest = json.loads(archive.read("manifest.json"))
-        assert manifest["mode"] == target
-        assert manifest["rig_generated"] is False
-        assert manifest["vtube_studio_ready"] is False
-        assert manifest["inochi_session_ready"] is False
-        assert "artwork.ora" in archive.namelist()
-        assert all(not name.endswith((".inp", ".moc3")) for name in archive.namelist())
+    assert pathlib.Path(path).name == output_name
+    assert "status: " + expected_status in report
+    assert "방송용 모델 생성 완료" not in status
+    if target == "inochi2d":
+        assert "INP2" in status
+    else:
+        assert "Cubism" in status
 
 
 def test_launch_clears_stale_pipeline_modules_before_runtime_check(ui, tmp_path, monkeypatch):
