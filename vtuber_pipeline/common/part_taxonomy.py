@@ -3,7 +3,7 @@ PART_DEPTH = {
     "hair.back": 10, "body": 20, "leg": 22, "shoe": 24, "arm": 26,
     "head": 38, "hand": 60, "brow": 54, "sleeve": 36, "accessory": 80,
     "ear": 42, "nose": 55, "cloth.back": 19,
-    "neck": 30, "cloth": 35, "face": 40,
+    "neck": 30, "cloth": 35, "cloth.sleeve": 36, "face": 40,
     "eye": 50, "eye.left.white": 50, "eye.right.white": 50,
     "eye.left.iris": 51, "eye.right.iris": 51,
     "eye.left.lid": 53, "eye.right.lid": 53,
