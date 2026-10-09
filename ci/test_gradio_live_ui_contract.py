@@ -80,6 +80,7 @@ def test_gradio_real_update_routes_without_refreshing_installed_packages():
         assert [call.args[0] for call in stage.call_args_list] == [
             "3D TripoSR checkout",
             "3D alpha-only worker environment",
+            "3D Blender VRM operator verification",
         ]
 
 
