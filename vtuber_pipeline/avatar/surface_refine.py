@@ -129,7 +129,9 @@ def refine_anatomy(fitted_mesh: str, constraints_json: str,
     from vtuber_pipeline.avatar.observed_silhouette_constraint import (
         correct_observed_front_silhouette,
     )
-    silhouette_source = front_rgba_path or references.get("images", {}).get("front", {}).get("path")
+    # Only the producer-verified alpha cutout may constrain geometry.
+    # An opaque/orphaned reference_quality path isn't registered to this mesh.
+    silhouette_source = front_rgba_path
     corrected, silhouette_evidence = correct_observed_front_silhouette(
         np.asarray(mesh.vertices, dtype=float),
         np.asarray(mesh.vertex_normals, dtype=float),
