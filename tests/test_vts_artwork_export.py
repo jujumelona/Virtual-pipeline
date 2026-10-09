@@ -250,3 +250,21 @@ def test_pro_texture_budget_does_not_apply_free_ceiling(tmp_path):
         assert report["free_limit_applied"] is False
         assert report["atlas_edge_px"] is None
         assert report["native_scale_impossible"] is None
+
+
+def test_qwen_runtime_logs_are_in_final_package(tmp_path):
+    source = make_layers(tmp_path / "in")
+    def infer(src, output, **kwargs):
+        output.mkdir(parents=True)
+        log = output / "stable_layers_full.log"
+        log.write_text("model completed: native worker evidence\n")
+        image = Image.open(src).convert("RGBA")
+        paths = []
+        for i in range(2):
+            path = output / f"layer_{i}.png"; image.save(path); paths.append(str(path))
+        return {"layers": paths, "log": str(log)}
+    result = build_artwork_package(source, tmp_path / "out", edition="free", scope="upper",
+                                   qwen=True, qwen_infer=infer, max_qwen_passes=1)
+    with ZipFile(result["package"]) as z:
+        assert z.read("logs/qwen_000.log") == b"model completed: native worker evidence\n"
+    assert "logs/qwen_000.log" in result["supporting_files"]

@@ -525,6 +525,12 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         "metadata/pro_reference_alignment.json",
                         json.dumps(report_align, ensure_ascii=False, indent=2),
                     )
+            for log_path in sorted((output / "decomposition").rglob("*.log")):
+                archive.write(log_path, "logs/see_through/" + str(
+                    log_path.relative_to(output / "decomposition")))
+            produced["supporting_files"] = [
+                name for name in archive.namelist()
+                if name != Path(produced["art_psd"]).name]
         report = {
             **status, **produced, "state": "artwork_ready_editor_rig_required",
             "psd_source": str(psd), "source_master": str(master),

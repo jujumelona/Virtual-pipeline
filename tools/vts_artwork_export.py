@@ -445,6 +445,7 @@ def _guide_md(edition: str, scope: str, asset_kind: str | None,
         "- metadata/integrity_report.json: 자동 확인 범위\n"
         "- metadata/texture_budget.json 및 TEXTURE_BUDGET.md: 실제 파츠 면적 예산; "
         "Editor 패킹 통과 증명이 아님\n"
+        "- logs/: 실행한 모델의 로그(해당할 경우)\n"
         "- QUALITY_REVIEW.md: 사람의 실제 그림 검수 목록\n"
         "- README_CUBISM.md: 간략 Editor 사용법\n\n"
         "## 세부 파츠 확인\n\n" + area + "\n\n"
@@ -534,6 +535,7 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     output.mkdir(parents=True, exist_ok=True)
     generated = []
     attempted = []
+    runtime_logs = []
     if qwen:
         if qwen_infer is None:
             from tools.vts_qwen_refine import infer as qwen_infer
@@ -569,6 +571,10 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
             if python_path is not None:
                 kw["python"] = python_path
             result = qwen_infer(source, run_dir, **kw)
+            if result.get("log"):
+                log_path = Path(result["log"])
+                if log_path.is_file():
+                    runtime_logs.append(("logs/" + stem + ".log", log_path.read_bytes()))
             proposed = _partition_part(item, result["layers"])
             accepted = bool(proposed and
                             (edition != "free" or len(layers) + len(proposed) - 1 <= FREE_LIMIT))
@@ -590,6 +596,7 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     extras = _reference_bundle(
         layers, edition=edition, scope=scope, asset_kind=asset_kind,
         qwen_attempts=attempted, split_names=generated, group_count=group_count)
+    extras.extend(runtime_logs)
     with ZipFile(package, "w", ZIP_DEFLATED, compresslevel=6) as z:
         z.write(psd_path, name + ".psd")
         z.writestr("README_CUBISM.md", readme)

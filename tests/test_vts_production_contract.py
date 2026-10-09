@@ -244,3 +244,17 @@ def test_generated_pro_handoff_uses_source_coordinate_frame(tmp_path, monkeypatc
         assert manifest["layers"][0]["canvas_xyxy_bbox"] == [16, 20, 46, 60]
         geometry = json.loads(z.read("metadata/input_vs_psd_geometry.json"))
         assert geometry["coordinate_transform"]["padding_removed_xy"] == [64, 0]
+
+
+def test_handoff_inventory_lists_all_final_companion_files(tmp_path):
+    from tools.vts_production import make_cubism_handoff
+    from psd_tools import PSDImage
+    from psd_tools.api.layers import PixelLayer
+    master = tmp_path / "master.png"
+    im = Image.new("RGBA", (256, 384)); im.paste((90, 80, 70, 255), (20, 30, 90, 100)); im.save(master)
+    psd = PSDImage.new("RGB", im.size)
+    PixelLayer.frompil(im, parent=psd, name="face")
+    path = tmp_path / "source.psd"; psd.save(path)
+    result = make_cubism_handoff(master, tmp_path / "out", edition="free", scope="upper", external_psd=path)
+    with ZipFile(result["package"]) as z:
+        assert set(result["supporting_files"]) == set(z.namelist()) - {"avatar.psd"}
