@@ -168,8 +168,8 @@ def test_ambiguous_auto_accessory_names_fail_before_model_loading(tmp_path, monk
 
 
 def test_character_mode_rejects_accessory_only_mode_in_ui_dispatch():
-    import json
     import ast
+    import json
     repo = Path(__file__).resolve().parents[1]
     notebook = json.loads((repo / "notebooks" /
                            "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
@@ -177,41 +177,46 @@ def test_character_mode_rejects_accessory_only_mode_in_ui_dispatch():
              if cell["cell_type"] == "code"]
     assert 'TASK = "캐릭터 생성"' in cells[1]
     assert 'ACCESSORY_ANCHOR = "AUTO"' in cells[1]
-    assert 'elif TASK == "액세서리 제작":' in cells[2]
-    tree = ast.parse(cells[2])
+    assert 'elif TASK == "액세서리 제작":' in cells[3]
+    tree = ast.parse(cells[3])
     branches = [node for node in ast.walk(tree) if isinstance(node, ast.If)]
     work = next(node for node in branches if
                 ast.unparse(node.test) == "TASK == '캐릭터 생성'")
     character_code = ast.unparse(ast.Module(body=work.body, type_ignores=[]))
     assert "accessory_anchor=" not in character_code
-    assert "accessory_base_path=" not in character_code
+    assert "accessory_image_paths=" not in character_code
 
 
-def test_v8_notebook_generation_failure_is_never_a_green_finished_cell():
+def test_v8_notebook_cells_are_independent_and_failure_is_not_success():
     import ast
     import json
-
     repo = Path(__file__).resolve().parents[1]
     notebook = json.loads((repo / "notebooks" /
                            "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
-    code_cells = ["".join(c["source"]) for c in notebook["cells"]
-                  if c["cell_type"] == "code"]
-    assert len(code_cells) == 4
-    generate_cell = code_cells[2]
-    final_diagnostics = code_cells[3]
-    ast.parse(generate_cell)
-    ast.parse(final_diagnostics)
-    assert "if not RESULT_FILE:" in generate_cell
-    assert "raise RuntimeError(" in generate_cell
-    assert "VTUBER_GENERATION_FAILED:" in generate_cell
-    assert "VTUBER_GENERATION_OUTPUT_MISSING:" in generate_cell
-    assert "VTUBER_GENERATION_FAILED:" not in final_diagnostics
-    assert "status.json" in final_diagnostics
-    assert "generation.log" in final_diagnostics
-    assert "재연결" in final_diagnostics
-    assert "완성" not in generate_cell.split("if not RESULT_FILE:", 1)[1].split(
-        "raise RuntimeError(", 1
-    )[0]
+    cells = ["".join(c["source"]) for c in notebook["cells"]
+             if c["cell_type"] == "code"]
+    assert len(cells) == 7
+    for cell in cells:
+        ast.parse(cell)
+    setup, selection, upload, build, download, diagnostics, last = cells
+    assert "files.upload" in upload
+    assert "_stored_uploads" in upload
+    assert "generate(" not in upload
+    assert "generate(" in build
+    assert "files.upload" not in build
+    assert "files.download" not in build
+    assert "if not RESULT_FILE:" in build
+    assert "raise RuntimeError(" in build
+    assert "DOWNLOAD_NOW = False" in download
+    assert "files.download(" in download
+    assert "generate(" not in download
+    assert "status.json" in diagnostics
+    assert "generation.log" in diagnostics
+    assert "generate(" not in diagnostics
+    assert "generate(" not in last
+    assert "files.download" not in last
+    assert "files.upload" not in last
+    assert "gradio" not in "\n".join(cells).lower()
 
 
 def test_notebook_event_printer_displays_unfiltered_logs_including_early_errors(capsys):
