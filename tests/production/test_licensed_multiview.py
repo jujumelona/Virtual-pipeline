@@ -109,3 +109,72 @@ def test_inferred_colors_cover_unobserved_uv_only():
     assert stats["surface_coverage_observed"] < 1
     assert texture[45, 45, 3] == 255
     assert texture[0, 0, 3] == 0
+
+
+def test_registered_views_cannot_be_rotated_again_by_global_icp(tmp_path):
+    from vtuber_pipeline.avatar.multiview_fitting import align_sources
+
+    front = trimesh.creation.icosphere(subdivisions=2)
+    coarse_path = tmp_path / "front.obj"
+    front.export(coarse_path)
+    observed = front.copy()
+    observed.apply_translation((.04, 0, 0))
+    combined = trimesh.util.concatenate((front, observed))
+    candidate = tmp_path / "combined.obj"
+    combined.export(candidate)
+    source = tmp_path / "original-view.png"
+    from PIL import Image
+    Image.new("RGB", (64, 64), "white").save(source)
+    depth_file = tmp_path / "depth.npy"
+    np.save(depth_file, np.ones((64, 64), dtype=np.float32))
+    depth_manifest = {
+        "units": "relative/no-metric-scale",
+        "views": {
+            role: {
+                "depth_npy": str(depth_file),
+                "image_size": [64, 64],
+                "observed_view": True,
+                "relative_depth": True,
+            } for role in ("front", "back")
+        },
+    }
+    references = {
+        "images": {role: {"path": str(source), "size": [64, 64]}
+                   for role in ("front", "back")}
+    }
+    provenance = {
+        "contract": "vtuber-commercial-triposr-multiview-v1",
+        "geometry_provider": "TripoSR",
+        "noncommercial_checkpoints_used": False,
+        "geometry_mesh": str(candidate.resolve()),
+        "registered_views": ["back"],
+        "views": {
+            "back": {
+                "status": "registered",
+                "input_view_observed": True,
+                "input_image": str(source.resolve()),
+            }
+        },
+    }
+    source_meta = tmp_path / "provenance.json"
+    source_meta.write_text(json.dumps(provenance))
+    out = align_sources(
+        str(coarse_path), str(candidate), depth_manifest,
+        references, str(tmp_path / "aligned"), source_metadata=str(source_meta),
+    )
+    report = json.loads(Path(out["constraints_json"]).read_text())
+    assert report["registration"]["source_frame_identity_verified"] is True
+    assert report["transform"]["scale"] == 1.0
+    assert np.allclose(report["transform"]["rotation_row_vector"], np.eye(3))
+    assert np.allclose(report["transform"]["translation"], [0, 0, 0])
+    assert report["independently_observed_roles"] == ["back"]
+    assert report["front_only_reconstruction"] is False
+
+    altered = combined.copy()
+    altered.apply_translation((.1, 0, 0))
+    altered.export(candidate)
+    with pytest.raises(ValueError, match="original front camera frame"):
+        align_sources(
+            str(coarse_path), str(candidate), depth_manifest,
+            references, str(tmp_path / "reject"), source_metadata=str(source_meta),
+        )
