@@ -6,7 +6,7 @@
 
 외부 이미지 생성 AI가 만든 캐릭터 이미지를 입력받아 **Inochi2D**, **Live2D**, **3D VRM** 모델을 제작합니다. 모드별 이미지 생성 사양과 프롬프트는 아래에 정리되어 있습니다.
 
-## VTube Studio / Live2D Cubism FREE 모드 — 신규 프롬프트·AI 모델 계획 (현재 미구현)
+## VTube Studio / Cubism FREE·PRO — 이미지 프롬프트 및 Colab 제작 경로 (최종 MOC3는 Editor 필요)
 
 **확정할 제작 방식:** FREE는 **신체·헤어·의상·액세서리를 모두 착용한 완성된 캐릭터 이미지 1장**을 생성하여 입력받는다. 고정된 헤어·의상·장식을 포함한 **단일 스타일의 완성 모델**을 목표로 한다. 머리카락 없는 신체 베이스·독립 헤어·독립 의상·액세서리 시트를 FREE 입력에 요구하지 않는다. 다만 눈·입·머리·소매 등을 **리깅용 레이어로 내부 분리**해야 하므로 그림 전체를 단일 ArtMesh로 평면화하는 것은 아니다.
 
@@ -158,7 +158,23 @@ must be inferred by the subsequent pipeline, not pre-drawn here.
 - `input_invalid` / `segmentation_failed` / `free_budget_exceeded` / `rigging_validation_failed` / `needs_editor_export` 등의 **제안된 상태명**을 사용해 실패 원인을 구별한다. 현재 코드에 이미 존재하는 상태라고 주장하지 않는다. **검증된 공식 MOC3가 있어야만** `complete`.
 - **한 번에 헤어·의상·액세서리를 모두 착용한 ONE 고정 스타일 모델**을 목표로 하며, 방송 중 독립 의상/헤어 스위치 지원을 FREE의 완료 조건에 넣지 않는다. 스타일이 다르면 별개 모델로 만든다.
 
-**구현 경계:** 이 페이지는 **FREE 모드용 새 프롬프트 및 모델 계획 문서**다. 현재 노트북·UI·파츠 코드에는 `free_upper_master.png` / `free_full_master.png` 처리, FREE 전용 자동 세분화·예산 최적화, Cubism 네이티브 자동 내보내기가 아직 구현되지 않았다. 다음의 독립 헤어·의상 모듈식 2D 입력 및 3D 입력은 기존 경로로 유지한다. **이 FREE 프롬프트를 `front_master.png`용 무모·무의상 프롬프트와 섞지 않는다.**
+**현재 연결 상태:** FREE·PRO 프롬프트 생성과 [Colab v8 노트북](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb)의 모델 설치·이미지 업로드·See-through NF4 → PSD → 실제 등록 RGBA 레이어 → 기존 메시·키폼·물리 → **Cubism Editor 전달 ZIP** 실행 경로가 추가됐다. **정식 `.moc3` 자동 생성과 완전한 Cubism 프로젝트 자동 리깅은 여전히 미구현**이다. PRO의 별도 의상·헤어·액세서리는 원본 ZIP에 보존되지만, Cubism에서 원클릭 교체 가능한 완료 파라미터는 아직 자동 연결되지 않는다. FREE의 ArtMesh **100개** 초과는 거부하지만, 디포머 50·파라미터 30·2048px 아틀라스 최종 검증은 정식 Cubism Editor에서 추가 확인해야 한다. **GPU T4 실기 추론 및 결과 품질도 미검증**이다.
+
+### Colab v8 실제 사용 흐름
+
+1. **①** GitHub 저장소 동기화.
+2. **②** `MODE = vts_free` 또는 `vts_pro`, `VTS_SCOPE = upper/full` 선택. 이 셀에서 외부 대형 이미지 AI용 정확한 프롬프트를 출력하고 ZIP으로 기록한다. FREE는 헤어·옷·장식까지 포함한 **완성 그림 1장**; PRO는 완성 외형 기준 + 헤어 없는 불투명 베이스 + 별도 헤어·의상 (+선택 액세서리)의 **4~5장**이다.
+3. **③** 선택 모드의 2D 얼굴 검출기, See-through V3 및 공식 NF4 체크포인트·필수 소프트웨어 준비. `VTS_QWEN=auto`에서는 **PRO만** 추가로 Qwen 4bit Transformer·Stable-Layers LoRA를 내려받는다. FREE는 필요하면 `on`, Qwen 제외 시 `off` 선택. **모델 설치/다운로드는 ③에서만 진행**한다.
+4. **④** 사용자 이미지 업로드. PRO는 프롬프트의 정확한 파일명으로 한 번에 업로드한다. FREE는 캐릭터 마스터 1장만 업로드한다.
+5. **⑤** 실 See-through NF4 분해 실행 → PSD 및 아트메쉬 후보 PNG → Cubism용 JSON/ZIP 구성. Qwen을 선택했으면 Stable-Layers GRPO LoRA로 4비트 후보 분해를 별도 실행하고 성공 시 보조 RGBA 파일을 ZIP에 추가한다. **Qwen 출력 4장과 고품질 리깅용 세부 파츠는 동일하지 않으며, 사용자 보완 검증을 거쳐야 한다.** 출력은 `vts_free_upper_cubism_handoff.zip` 등 **편집기 전달 자료**이고 방송용 모델이라고 주장하지 않는다.
+6. **⑥** 전달 ZIP 다운로드. **공식 Cubism Editor에서 리깅하고 내보낸** `.moc3` + `.model3.json` + 텍스처/물리 ZIP을 별도 준비해 `CUBISM_EXPORT_ZIP_PATH`에 지정하면, 이 셀에서 공식 산출물을 검사·수집한 ZIP을 다운로드할 수 있다.
+7. **⑦** 오류 및 제작 상태 확인. 실패한 GPU 단계는 `see_through_full.log`, `stable_layers_full.log`, `vts_status.json`에 기록. 단계가 성공해도 최종 Cubism 내보내기 전이면 상태는 **`needs_editor_export`**다.
+
+**CLI:** `vtuber-pipeline vts-prompts --edition free --scope upper ... --output ./prompts`; `vtuber-pipeline vts-build --edition free --scope upper --master ./free_upper_master.png --output ./vts-result`. 설치 후 원본 PSD가 이미 있다면 `--psd <path>`를 전달하여 GPU 분해를 재사용할 수 있다. PRO는 `--assets-dir <directory>`로 별도 원본 이미지들을 지정한다. `--qwen`은 고성능 GPU가 충분하고 모델이 ③에서 준비된 경우에만 사용한다.
+
+**외부 생성 모델:** FLUX.2 Klein을 무료/프로 기본 다운로드 목록에 넣지 않는다. See-through / SAM2.1 Large / Qwen 4bit + Stable-Layers는 각 실행 단계가 구분된다. Stable-Layers는 기본 LoRA이고 추가 소득 확인 UI는 없지만, [원래 라이선스](https://stability.ai/license) 및 해당하는 상업적 사용 등록 조건을 존중한다.
+
+**기존 모듈식 2D / Inochi2D / 3D VRM 경로는 변경 없이 유지한다. FREE 완성 캐릭터 마스터를 `front_master.png` 무모 베이스와 혼용하지 않는다.**
 
 ---
 
