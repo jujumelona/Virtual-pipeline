@@ -154,7 +154,8 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
 
 def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         external_psd: Path | None = None,
-                        third_party: Path | None = None) -> dict:
+                        third_party: Path | None = None,
+                        qwen: bool = False) -> dict:
     """Generate a real Cubism-editable artwork package and JSON rigging assets."""
     if edition not in ("free", "pro") or scope not in ("upper", "full"):
         raise ValueError("Invalid VTS edition or scope")
@@ -170,6 +171,12 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                    master, output / "decomposition",
                    third_party=(third_party or Path("/content/vtuber_builder/third_party/see-through"))
                ))
+        qwen_result = None
+        if qwen:
+            from tools.vts_qwen_refine import infer
+            print("[VTS] quantized Qwen + Stable-Layers Heun 50-step stage",flush=True)
+            qwen_result = infer(master, output / "qwen_refinement", third_party=(third_party or Path("/content/vtuber_builder/third_party/see-through")).parent,
+                                python=os.environ.get("VTUBER_SEETHROUGH_PYTHON"))
         source, layers, count = psd_to_registered_rgba(
             psd, output / "layers",
             artmesh_max=100 if edition == "free" else None,
@@ -192,6 +199,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
             **status, "state": "needs_editor_export", "psd_source": str(psd),
             "visible_artmesh_candidates": count, "source_master": str(master),
             "cubism_handoff": result.primary_path, "art_psd": result.secondary_path,
+            "qwen_refinement": qwen_result,
             "free_artmesh_within_limit": edition != "free" or count <= 100,
             "unverified_editor_limits": [
                 "Cubism parameter count", "deformer count", "part-folder count",
@@ -211,6 +219,11 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                 ("psd_composite.png", source),
             ):
                 archive.write(path, name)
+            if qwen_result:
+                for i, path in enumerate(qwen_result["layers"]):
+                    archive.write(path, f"qwen_4bit_stable_layers/layer_{i}.png")
+                archive.write(output/"qwen_refinement/qwen_stage.json",
+                              "qwen_4bit_stable_layers/qwen_stage.json")
         return {**report, "package": str(result_zip)}
     except Exception as exc:
         _write(state_path, {**status, "state": "failed", "error": str(exc)})
@@ -225,10 +238,11 @@ def main() -> None:
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--psd", type=Path, help="Pre-generated See-through PSD, skip GPU decomposition")
     ap.add_argument("--third-party", type=Path)
+    ap.add_argument("--qwen", action="store_true", help="Run quantized Qwen+Stable-Layers candidate refinement")
     args = ap.parse_args()
     out = make_cubism_handoff(
         args.master, args.output, edition=args.edition, scope=args.scope,
-        external_psd=args.psd, third_party=args.third_party,
+        external_psd=args.psd, third_party=args.third_party, qwen=args.qwen,
     )
     print(json.dumps({"status": out["state"], "package": out["package"],
                       "moc3_generated": False}, ensure_ascii=False))
