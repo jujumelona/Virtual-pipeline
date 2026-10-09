@@ -17,10 +17,12 @@ def execute(request: dict) -> dict:
     mode = request["mode"]
     source = request["sheet_zip"]
     folder = str(Path(request["output_dir"]).resolve())
-    if mode == "wardrobe_2d":
-        from tools.outfit_variant_pack import build_dressed_2d_assets
-        return build_dressed_2d_assets(
-            source,request["outfit_png"],folder,neural=True
+    if mode in ("wardrobe_2d","hair_2d"):
+        from tools.modular_avatar_pack import build_modular_2d_assets
+        return build_modular_2d_assets(
+            source,folder,
+            hair_png=request.get("hair_png"),
+            outfit_png=request.get("outfit_png"),neural=True
         )
     if mode in ("live2d","inochi2d"):
         master, layers = convert_2d_sheet_pack(
