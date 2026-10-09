@@ -146,6 +146,19 @@ class AnimeFaceDetector:
     """anime-face-detector 래퍼. bbox와 28개 랜드마크를 반환합니다."""
 
     def __init__(self):
+        # Colab v8 can keep the already verified face model loaded in a single
+        # one-shot GPU worker while unrelated checkpoints are still downloading.
+        # Only an actual generation worker may consume it; ordinary library
+        # consumers continue to use the pinned local model directly.
+        self._prewarmed = False
+        if __import__("os").environ.get("VTUBER_GENERATION_WORKER") == "1":
+            from tools.colab_gpu_warmup import available_face_worker
+            if available_face_worker():
+                self._prewarmed = True
+                self._detector = object()  # non-None contract, not a fake result
+                report_stage("face_model", "log",
+                             "reuse resident YOLO/HRNet GPU worker")
+                return
         # Never convert errors in a transitive import or model initialization
         # into "package not installed". The caller must see the real exception
         # (missing dependency, incompatible wheel, CUDA error, or model issue).
@@ -187,6 +200,11 @@ class AnimeFaceDetector:
         이미지에서 애니메이션 얼굴을 감지합니다.
         Returns: {"bbox": [x1,y1,x2,y2], "landmarks": [[x,y]*28], "score": float}
         """
+        if self._prewarmed:
+            from tools.colab_gpu_warmup import detect_warmed_face
+            # Single RPC performs real pinned model inference. The server
+            # exits immediately afterwards so later GPU workers cannot overlap.
+            return detect_warmed_face(image_path)
         if not NUMPY_AVAILABLE:
             raise ImportError("numpy가 설치되지 않았습니다. pip install numpy")
         if not PIL_AVAILABLE:
