@@ -1345,15 +1345,15 @@ def prepare_selected_workflow_ui(mode: str, usage: str):
         path = WORK_ROOT / "logs" / f"workflow_setup_{mode}.log"
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as output:
-            output.write(f"\\n[{datetime.now(timezone.utc).isoformat()}] {label} setup failure\\n")
-            output.write(traceback.format_exc() + "\\n")
+            output.write(f"\n[{datetime.now(timezone.utc).isoformat()}] {label} setup failure\n")
+            output.write(traceback.format_exc() + "\n")
         # The failed command's stdout/stderr is also persisted in
         # worker_envs/two_d/logs/dependency_setup.log or runtime_setup.log.
         print(f"[workflow] {label} FAILED: {exc} (traceback: {path})", flush=True)
         return (
-            f"{label} 환경/모델 준비 실패: {exc}\\n"
-            f"전체 호출 오류: {path}\\n"
-            f"pip 설치 상세: {WORK_ROOT / 'worker_envs' / 'two_d' / 'logs' / 'dependency_setup.log'}\\n"
+            f"{label} 환경/모델 준비 실패: {exc}\n"
+            f"전체 호출 오류: {path}\n"
+            f"pip 설치 상세: {WORK_ROOT / 'worker_envs' / 'two_d' / 'logs' / 'dependency_setup.log'}\n"
             "이미지는 계속 올릴 수 있습니다. 원인 수정 후 '환경·모델 준비 재시도'를 누르세요.",
             str(path),
         )
