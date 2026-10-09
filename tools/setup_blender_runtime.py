@@ -13,6 +13,15 @@ import urllib.request
 VERSION = "4.2.23"
 ARCHIVE = "blender-4.2.23-linux-x64.tar.xz"
 BASE = "https://download.blender.org/release/Blender4.2/"
+# The official CDN returns HTTP 403 to some noninteractive CI clients.
+# Pin the official published checksum *independently* of any download mirror.
+# Mirrors never get to supply their own authoritative hash.
+ARCHIVE_SHA256 = "bea0eb3146be13eae6225409a117b215184f41b7f79e799f97cb3abb8f6dc404"
+BLENDER_ARCHIVE_SOURCES = (
+    BASE + ARCHIVE,
+    "https://mirrors.aliyun.com/blender/release/Blender4.2/" + ARCHIVE,
+    "https://mirrors.nju.edu.cn/blender/release/Blender4.2/" + ARCHIVE,
+)
 EXTENSION = "https://github.com/saturday06/VRM-Addon-for-Blender/releases/download/v4.7.2/VRM_Addon_for_Blender-Extension-4_7_2.zip"
 EXTENSION_SHA256 = "e85588660bfbb4099910a86803fa87dc8348e65541a4ccdcaf40c538f60027dc"
 
@@ -84,10 +93,18 @@ def ensure_blender_runtime(cache_dir: str) -> str:
             and executable.is_file()):
         return str(executable)
     if not executable.is_file():
-        with urllib.request.urlopen(BASE + "blender-4.2.23.sha256", timeout=60) as reply:
-            digest = published_sha(reply.read(8192).decode("utf-8"), ARCHIVE)
-        archive = verified_download(BASE + ARCHIVE, cache / ARCHIVE,
-                                    digest, 600 * 1024 * 1024)
+        failures = []
+        archive = None
+        for url in BLENDER_ARCHIVE_SOURCES:
+            try:
+                archive = verified_download(
+                    url, cache / ARCHIVE, ARCHIVE_SHA256, 600 * 1024 * 1024)
+                break
+            except (OSError, RuntimeError, TimeoutError) as exc:
+                failures.append(f"{url}: {type(exc).__name__}: {exc}")
+        if archive is None:
+            raise RuntimeError("All verified Blender LTS mirrors failed: "
+                               + " | ".join(failures))
         checked_process(["tar", "-xJf", str(archive), "-C", str(cache)], timeout=1200)
     if not executable.is_file():
         raise RuntimeError("Publisher Blender binary is missing")
