@@ -6,6 +6,7 @@ on:
       - "tools/inochi_native/**"
       - "vtuber_pipeline/two_d/inochi_bridge.py"
       - "tests/production/test_inochi_native_compatibility.py"
+      - "ci/inochi_2d_fullgraph_e2e.py"
       - ".github/workflows/inochi-native.yml"
   workflow_dispatch:
 permissions:
@@ -31,7 +32,7 @@ jobs:
         env:
           VTUBER_INOCHI_NATIVE: tools/inochi_native/vtuber-inochi-native
         run: |
-          python -m pip install -q pytest pillow numpy
+          python -m pip install -q pytest pillow numpy scipy opencv-python-headless psd-tools==1.11.0
           export PYTHONPATH="$PWD"
           PYTHONPATH="$PWD" VTUBER_INOCHI_NATIVE="$PWD/tools/inochi_native/vtuber-inochi-native" \
             xvfb-run -a -s "-screen 0 1280x1024x24" \
@@ -39,6 +40,10 @@ jobs:
           VTUBER_INOCHI_NATIVE="$PWD/tools/inochi_native/vtuber-inochi-native" \
             xvfb-run -a -s "-screen 0 1280x1024x24" \
             python tools/inochi_native/smoke_native.py "$RUNNER_TEMP/inochi-multi-parameter"
+          PYTHONPATH="$PWD" VTUBER_REAL_2D_NATIVE_E2E_DIR="$RUNNER_TEMP/inochi-full-2d" \
+            VTUBER_INOCHI_NATIVE="$PWD/tools/inochi_native/vtuber-inochi-native" \
+            xvfb-run -a -s "-screen 0 1280x1024x24" \
+            python ci/inochi_2d_fullgraph_e2e.py
       - name: Verify D SDK producer's binary is not silently faked
         run: |
           python -m pytest -q tests/production/test_inochi_native_compatibility.py
@@ -51,5 +56,10 @@ jobs:
             ${{ runner.temp }}/inochi-multi-parameter/result/avatar.inp
             ${{ runner.temp }}/inochi-multi-parameter/result/native_export_report.json
             ${{ runner.temp }}/inochi-multi-parameter/result/inochi_native.log
+            ${{ runner.temp }}/inochi-full-2d/avatar.inp
+            ${{ runner.temp }}/inochi-full-2d/avatar.psd
+            ${{ runner.temp }}/inochi-full-2d/avatar.ora
+            ${{ runner.temp }}/inochi-full-2d/production_result.json
+            ${{ runner.temp }}/inochi-full-2d/native_export_report.json
           if-no-files-found: warn
           retention-days: 14
