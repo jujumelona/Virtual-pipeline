@@ -14,6 +14,7 @@ import queue
 import shlex
 import threading
 from datetime import datetime, timezone
+from collections import deque
 import inspect
 import os
 import pathlib
@@ -748,7 +749,7 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
     run_id = uuid.uuid4().hex[:10]
     log_file = WORK_ROOT / "logs" / f"generation-{run_id}.log"
     log_file.parent.mkdir(parents=True, exist_ok=True)
-    transcript: List[str] = []
+    transcript = deque(maxlen=250)  # Never retain unbounded pip/model stdout in UI RAM
     stage_names = [
         "reference_quality", "input_gate", "reference_reconstruction", "template_fitting",
         "texture_transfer", "rig", "expressions", "gaze", "springbone",
@@ -774,7 +775,7 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
         with log_file.open("a", encoding="utf-8") as out:
             out.write(entry + "\n")
         print(entry, flush=True)
-        return "\n".join(transcript[-250:])
+        return "\n".join(transcript)
 
     def show(message, logs, download=None, avatar_state=None):
         if count == 5:
@@ -828,16 +829,16 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
                 status, existing_log, output, new_avatar = result
                 if existing_log:
                     append(existing_log[-4000:])
-                yield show(status, "\n".join(transcript[-250:]), output, new_avatar)
+                yield show(status, "\n".join(transcript), output, new_avatar)
             else:
                 status, existing_log, output = result
                 if existing_log:
                     append(existing_log[-4000:])
-                yield show(status, "\n".join(transcript[-250:]), output)
+                yield show(status, "\n".join(transcript), output)
             break
         else:
             append("실행 예외: " + event[1])
-            yield show("❌ 생성 중 예외 발생", "\n".join(transcript[-250:]), avatar_state=preserve_avatar)
+            yield show("❌ 생성 중 예외 발생", "\n".join(transcript), avatar_state=preserve_avatar)
             break
 
 
