@@ -110,8 +110,9 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
     log = work / "see_through_full.log"
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
+    worker_python = os.environ.get("VTUBER_SEETHROUGH_PYTHON", sys.executable)
     command = [
-        sys.executable, "-u", str(program),
+        worker_python, "-u", str(program),
         "--srcp", str(unique_source), "--save_to_psd", "--resolution", "1024",
     ]
     print("[VTS] See-through NF4:", " ".join(command), flush=True)
