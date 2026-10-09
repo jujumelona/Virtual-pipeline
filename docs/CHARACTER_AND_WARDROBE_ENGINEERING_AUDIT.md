@@ -37,15 +37,15 @@ sufficient; exposing a nude human model is NOT a prerequisite.
 
 | Boundary | Actual code | Present behavior | Missing for wardrobe |
 |---|---|---|---|
-| Colab | `notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb` | TASK character/accessory | dedicated outfit task |
+| Colab | `notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb` | TASK character/accessory + ACCESSORY_SUBTYPE rigid prop / 2D outfit / 3D XWear | 3D outfit images -> automatic garment rig still missing |
 | 2D sheet | `vtuber_pipeline/sheet_contract.py` | 1 master + 7 sheets = 26 parts | per-costume replaceable sleeves/collar/hem |
 | 2D layer validation | `vtuber_pipeline/two_d/build.py` | 26 exact layers and PSD/ORA | wardrobe variant grouping/visibility |
 | Live2D | `vtuber_pipeline/two_d/cubism_handoff.py` | handoff PSD + spec | Cubism Editor import/parameterized outfit switch |
 | Inochi | `vtuber_pipeline/two_d/inochi_bridge.py` | only marks complete if SDK INP output validates | outfit parameter mapping/visibility keys |
 | 3D | `vtuber_pipeline/avatar/build.py` | 4 real view inputs -> TripoSR+canonical rig -> VRM | separated cloth mesh/body masking/skinning |
 | 3D weight | `vtuber_pipeline/avatar/rigging.py` | humanoid and hair mesh weights | independently skinned costume |
-| Static accessory | `vtuber_pipeline/accessory/bake.py` | rigid parent-bone GLB merge; rejects glTF skins | garment fitter/retarget/cloth clip, not rigid merge |
-| First outfit replacement utility | `tools/outfit_variant_pack.py` | can preserve base 2D PNG cells and replace two garment cells | UX connection and rig review |
+| Static accessory | `vtuber_pipeline/accessory/bake.py` | unchanged rigid parent-bone GLB merge; rejects glTF skins | proper garment fitter/retarget/cloth clip; never reuse prop baker for outfits |
+| 2D outfit utility | `tools/outfit_variant_pack.py` | integrated in Colab ④/⑤: preserve base body and replace front/back garment cells, then rerun 2D route | rich independent sleeve deformation and runtime wardrobe toggles |
 
 **Do not claim clothing support from the static-accessory baker.**
 **Do not claim an image-only 3D garment is production-ready skinned.**
@@ -103,11 +103,33 @@ topology, back-of-body surfaces, skin weights or missing layers.
    utility supports only 2 garment parts, not complex wardrobe auto-rigging.
 4. **3D costume**, distinct from static accessory despite sharing the user
    interface: for working wardrobe use an externally fitted garment asset
-   through VRoid XWear dress-up editor, with export/animation checks. A new
-   Python fitting + skin transfer + body mask + VRM merge backend would have
-   to be developed and actually validated before claiming automatic clothes
-   from source images.
+   through VRoid XWear dress-up editor, with export/animation checks. A new Python fitting + skin transfer + body mask + VRM merge backend still
+   needs implementation and actual validation before claiming automatic clothes
+   from source images. The implemented `tools/wardrobe_handoff.py` only packages
+   an existing VRM plus genuine XWear for an external editor; status is
+   `editor_import_required`, never `complete`.
 
 Do not delete legacy direct-layer PNG route blindly: it is still selected by
 the Colab `provided_layers` option. Remove only after a tested replacement
 and corresponding notebook changes.
+
+## Post-audit implementation checkpoints
+
+- `ACCESSORY_SUBTYPE=소품`: existing bone-parented rigid prop path unchanged.
+- `ACCESSORY_SUBTYPE=2D 교체 의상`: notebook accepts the original 2D
+  sheet ZIP plus `outfit_variant.png`, maintains the original body cell,
+  builds a variant full pack, then invokes Live2D or Inochi2D production.
+- `ACCESSORY_SUBTYPE=3D 교체 의상(XWear)`: notebook accepts a VRM and an
+  existing `costume.xwear`, packages both plus editing instructions as
+  `vroid_dressup_handoff.zip`. NOT a fitted/skinned final VRM.
+- The README contains one prompt per base sheet, one costume-variant prompt,
+  and two 3D costume orthographic-reference prompts plus optional closeup.
+- Uploads use source image *ratio* and cell geometry, not fabricated exact
+  4096 pixel native output claims. The interpreter normalizes after cropping.
+- CI test modules: `tests/test_colab_wardrobe_inputs.py`,
+  `tests/test_wardrobe_workflow.py`,
+  `tests/test_readme_sheet_prompts.py`, `tests/test_sheet_input_loader.py`.
+- **Still absent:** automatically reconstructed garment meshes with correct
+  bone skinning and clipping, single-model live wardrobe switches for all
+  sleeves/skirts and full broadcast pose QA. Claims of end-to-end wardrobe
+  completion are prohibited until those features actually pass runtime tests.
