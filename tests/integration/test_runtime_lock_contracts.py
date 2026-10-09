@@ -243,12 +243,13 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
 
     gradio = lock["tools"]["gradio"]["package_version"]
     assert _constants("tools/colab_app.py")["GRADIO_VERSION"] == gradio
-    # The notebook is serverless: it invokes ensure_runtime() in colab_app,
-    # where the locked Gradio wheel is actually installed. Do not demand
-    # a second, stale dependency installer embedded in the notebook.
-    assert f"gradio=={gradio}" in colab_source
+    # The serverless notebook delegates base dependency installation to
+    # ensure_runtime(), but deliberately never installs/starts Gradio. The
+    # legacy optional UI retains the matching locked version constant.
+    assert _constants("tools/colab_app.py")["GRADIO_VERSION"] == gradio
     assert "app['ensure_runtime']()" in notebook_code
     assert "runpy.run_path" in notebook_code
+    assert "import gradio" not in notebook_code
 
 
 
