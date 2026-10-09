@@ -270,8 +270,13 @@ def test_start_routes_to_exact_mode_with_selected_scope(ui, monkeypatch):
         assert [part["visible"] for part in selected[:-1]] == expected
         assert selected[-1] == "personalProfit"
 
-    assert setup_calls == ["2d", "inochi2d", "2d", "live2d",
-                           "3D TripoSR checkout", "3d"]
+    assert setup_calls == [
+        "2d", "inochi2d", "2d", "live2d",
+        "3D TripoSR checkout",
+        "3D alpha-only worker environment",
+        "3D Blender VRM operator verification",
+        "3d",
+    ]
     assert [v["visible"] for v in ui.return_to_workflow_choice()] == [
         True, False, False, False, False,
     ]
