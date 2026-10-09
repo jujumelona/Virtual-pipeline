@@ -300,7 +300,11 @@ def convert_2d_sheet_pack(pack: str, folder: str, *,
     manifest = output / "sheet_conversion.json"
     manifest.write_text(json.dumps({
         "scale":output_scale,"neural_sr":neural,"source":str(pack),
-        "master_size":list(size),"part_count":26,"registration":"fixed ROI",
+        "master_size":list(size),
+        "part_count":sum(len(sheet.tiles) for sheet in SHEETS_2D),
+        "base_character_only":True,
+        "outfit_meshes_embedded":False,
+        "registration":"normalized ROI",
     },indent=2),encoding="utf-8")
     return str(master_path),str(result_zip)
 
