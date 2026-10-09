@@ -71,6 +71,47 @@ def _expected_size(mode: str, filename: str):
     return next(s.size for s in VIEWS_3D if s.filename == filename)
 
 
+def _valid_aspect(actual: tuple[int, int], expected: tuple[int, int]) -> bool:
+    """Image AI may choose resolution, but never change semantic grid ratio."""
+    w, h = actual
+    ew, eh = expected
+    return (
+        min(w, h) >= 256
+        and max(w, h) <= 8192
+        and abs(w * eh - h * ew) / (h * ew) <= 0.015
+    )
+
+
+def _tile_box(image_size: tuple[int,int], sheet, row: int, col: int):
+    """Use observed pixels, never assume the AI emitted target resolution."""
+    width, height = image_size
+    if width % sheet.columns or height % sheet.rows:
+        raise ValueError(
+            f"{sheet.filename}: width/height must divide into exactly "
+            f"{sheet.columns}x{sheet.rows} cells without fractional pixels"
+        )
+    cw, ch = width // sheet.columns, height // sheet.rows
+    return (col*cw,row*ch,(col+1)*cw,(row+1)*ch)
+
+
+def _upscale_to(image: Image.Image, target: tuple[int,int], upscaler,
+                *, neural: bool) -> Image.Image:
+    """AI enlarge before any final geometric resampling; never call interpolation AI."""
+    if image.size == target:
+        return image.copy()
+    factor = max(target[0]/image.width, target[1]/image.height)
+    if neural and factor > 1:
+        # The checkpoint performs a genuine neural 4x prediction. Large source
+        # deficits are reported instead of pretending Lanczos invented detail.
+        use = 4 if factor > 2 else 2
+        output = upscaler(image, use)
+    else:
+        output = image
+    if output.size != target:
+        output = output.resize(target, Image.Resampling.LANCZOS)
+    return output
+
+
 def inspect_sheet_archive(archive_path: str, mode: str) -> dict:
     """CPU-only admission gate used in Colab cell ④, before GPU jobs."""
     src = Path(archive_path)
@@ -85,14 +126,22 @@ def inspect_sheet_archive(archive_path: str, mode: str) -> dict:
             data = z.read(entry)
             try:
                 with Image.open(BytesIO(data)) as im:
-                    if im.format != "PNG" or im.size != _expected_size(mode, name):
+                    if im.format != "PNG":
+                        raise ValueError(f"{name}: only PNG is supported")
+                    target = _expected_size(mode, name)
+                    if not _valid_aspect(im.size, target):
                         raise ValueError(
-                            f"{name}: expected {_expected_size(mode,name)} PNG, "
-                            f"actual {im.format} {im.size}"
+                            f"{name}: wrong aspect ratio {im.size}. "
+                            f"Expected width:height={target[0]}:{target[1]} "
+                            f"(any sufficient pixel dimensions with this ratio). "
+                            "Upscaling cannot repair a sideways or distorted grid."
                         )
                     if (mode in ("2d", "live2d", "inochi2d")
                             and name != "front_master.png" and im.mode != "RGBA"):
-                        raise ValueError(f"{name}: true RGBA with alpha required")
+                        raise ValueError(
+                            f"{name}: actual RGBA transparent layers required; "
+                            "RGB/color-background images cannot become rig layers by upscaling"
+                        )
                     im.load()
                     if name.startswith("sheet_") and mode != "3d":
                         for sheet in SHEETS_2D:
@@ -101,8 +150,7 @@ def inspect_sheet_archive(archive_path: str, mode: str) -> dict:
                             used = {(t.row,t.col) for t in sheet.tiles}
                             for row in range(sheet.rows):
                                 for col in range(sheet.columns):
-                                    box = (col*sheet.cell_size[0],row*sheet.cell_size[1],
-                                           (col+1)*sheet.cell_size[0],(row+1)*sheet.cell_size[1])
+                                    box = _tile_box(im.size,sheet,row,col)
                                     alpha = im.crop(box).getchannel("A")
                                     if (row,col) in used and not alpha.getbbox():
                                         raise ValueError(
@@ -190,7 +238,7 @@ def convert_2d_sheet_pack(pack: str, folder: str, *,
     with ZipFile(pack) as z:
         members = _members(z,"live2d")
         master = _read(z, members, "front_master.png").convert("RGBA")
-        master = upscaler(master,output_scale)
+        master = _upscale_to(master,size,upscaler,neural=neural)
         if master.size != size:
             raise RuntimeError("Upscaler changed master geometry")
         master.save(master_path)
@@ -200,25 +248,30 @@ def convert_2d_sheet_pack(pack: str, folder: str, *,
             for sheet in SHEETS_2D:
                 source = _read(z,members,sheet.filename)
                 for tile in sheet.tiles:
-                    cell = source.crop(sheet.box(tile)).convert("RGBA")
+                    cell = source.crop(
+                        _tile_box(source.size,sheet,tile.row,tile.col)
+                    ).convert("RGBA")
                     bbox = cell.getchannel("A").getbbox()
                     if bbox is None:
                         raise ValueError(f"{tile.name}: missing opaque artwork")
                     part = cell.crop(bbox)
-                    # Face cells already oversample the master ROI at 2x
-                    # resolution; preserve their pixels without resampling.
-                    # Large hair and garment tiles receive actual neural 2x SR.
-                    sample = sheet.cell_size[0] // (tile.roi[2]-tile.roi[0])
-                    factor = output_scale // sample
-                    if factor < 1 or factor * sample != output_scale:
-                        raise RuntimeError(f"{tile.name}: invalid atlas scale")
-                    upscale = (part.copy() if factor == 1
-                               else upscaler(part,factor))
-                    if upscale.size != (part.width*factor,
-                                       part.height*factor):
-                        raise RuntimeError(f"{tile.name}: SR pixel geometry changed")
-                    x = tile.roi[0]*output_scale + bbox[0]*factor
-                    y = tile.roi[1]*output_scale + bbox[1]*factor
+                    roi_w = tile.roi[2] - tile.roi[0]
+                    roi_h = tile.roi[3] - tile.roi[1]
+                    # Preserve source cell offsets and master-space ROI rather
+                    # than independently centering each generated component.
+                    rx = roi_w * output_scale / cell.width
+                    ry = roi_h * output_scale / cell.height
+                    if abs(rx/ry - 1) > 0.02:
+                        raise ValueError(f"{tile.name}: distorted source cell")
+                    x = tile.roi[0]*output_scale + round(bbox[0]*rx)
+                    y = tile.roi[1]*output_scale + round(bbox[1]*ry)
+                    max_x = (tile.roi[2]*output_scale)
+                    max_y = (tile.roi[3]*output_scale)
+                    desired = (
+                        min(max_x-x, max(1,round(part.width*rx))),
+                        min(max_y-y, max(1,round(part.height*ry)))
+                    )
+                    upscale = _upscale_to(part,desired,upscaler,neural=neural)
                     if (x < 0 or y < 0 or x + upscale.width > size[0]
                             or y + upscale.height > size[1]):
                         raise ValueError(f"{tile.name}: part outside final canvas")
@@ -229,8 +282,8 @@ def convert_2d_sheet_pack(pack: str, folder: str, *,
                     dest.writestr(tile.name+".png",payload.getvalue())
                     print("[sheet-part] "+tile.name+f": bbox={bbox} "
                           f"master_xy=({x},{y}) scale={output_scale}x "
-                          f"sample={sample}x output_factor={factor} "
-                          f"AI={'yes' if neural and factor>1 else 'no (native pixels)'}",
+                          f"source_cell={cell.size} target_bbox={desired} "
+                          f"neural_model={'yes' if neural else 'no'}",
                           flush=True)
                     del part,cell,upscale,layer,payload
                 del source
@@ -243,8 +296,9 @@ def convert_2d_sheet_pack(pack: str, folder: str, *,
     return str(master_path),str(result_zip)
 
 
-def convert_3d_sheet_pack(pack: str, folder: str) -> dict[str,str]:
-    """Non-generative lossless crop; preserves each view's true pixel geometry."""
+def convert_3d_sheet_pack(pack: str, folder: str,
+                          *, upscaler=None, neural: bool=False) -> dict[str,str]:
+    """Crop actual view cells and normalize their size, with optional AI SR."""
     inspect_sheet_archive(pack,"3d")
     output = Path(folder)
     output.mkdir(parents=True,exist_ok=True)
@@ -255,7 +309,10 @@ def convert_3d_sheet_pack(pack: str, folder: str) -> dict[str,str]:
             sheet = _read(z,members,sheet_spec.filename)
             for tile in sheet_spec.tiles:
                 destination = output / (tile.name+".png")
-                sheet.crop(sheet_spec.box(tile)).save(destination,"PNG")
+                view = sheet.crop(_tile_box(sheet.size,sheet_spec,tile.row,tile.col))
+                view = _upscale_to(view.convert("RGBA"), MASTER, upscaler,
+                                   neural=neural)
+                view.save(destination)
                 results[tile.name] = str(destination)
             del sheet
         face = _read(z,members,"face.png")
@@ -263,6 +320,6 @@ def convert_3d_sheet_pack(pack: str, folder: str) -> dict[str,str]:
         results["face"] = str(output/"face.png")
     (output/"sheet_conversion.json").write_text(json.dumps({
         "mode":"3d","source":pack,"views":results,
-        "registration":"fixed orthographic 2x2 tile",
+        "registration":"aspect-checked orthographic 2x1 paired sheets",
     },ensure_ascii=False,indent=2),encoding="utf-8")
     return results
