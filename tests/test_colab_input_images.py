@@ -67,7 +67,9 @@ def test_readme_is_the_only_colab_prompt_source():
                            "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
     code = "\n".join("".join(c["source"]) for c in notebook["cells"]
                      if c["cell_type"] == "code")
-    assert "## 캐릭터 이미지 제작: 비율 고정 · 자동 업스케일 · 분리형 의상" in readme
+    assert "## 모드별 이미지 생성 — 영구 베이스 캐릭터와 교체형 의상 분리" in readme
+    assert "sheet_body_base.png" in readme
+    assert "outfit_variant.png" in readme
     assert "front_master.png" in readme
     assert "sheet_hair.png" in readme
     assert "sheet_front_back.png" in readme
