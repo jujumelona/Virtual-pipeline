@@ -741,7 +741,7 @@ def _run_isolated_generation(mode: str, args, on_event=None):
     return run_isolated(mode, args, on_event=on_event)
 
 
-def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
+def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None, mode=None):
     """Bridge synchronous pipeline stages to live Gradio progress and log outputs."""
     # Import inside worker's try block. If any native package import fails,
     # report the traceback in Gradio instead of crashing its queue handler.
@@ -761,9 +761,9 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
         # All model installs, CUDA imports and neural inference take place in
         # a detached Python worker. Gradio itself never touches model code.
         try:
-            mode = "avatar" if count == 5 else "accessory"
+            task_mode = mode or ("avatar" if count == 5 else "accessory")
             events.put(("stage", "pipeline", "running", "독립 프로세스 준비"))
-            result = _run_isolated_generation(mode, args, on_event=events.put)
+            result = _run_isolated_generation(task_mode, args, on_event=events.put)
             events.put(("done", result))
         except Exception:
             events.put(("crash", traceback.format_exc()))
@@ -780,7 +780,9 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
     def show(message, logs, download=None, avatar_state=None):
         if count == 5:
             return (message, logs, download, avatar_state, str(log_file))
-        return (message, logs, download, str(log_file))
+        if count == 4:
+            return (message, logs, download, str(log_file))
+        return (message, logs, download)
 
     append(f"작업 시작 · {_gpu_snapshot()}")
     thread = threading.Thread(target=worker, daemon=True)
@@ -840,6 +842,27 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
             append("실행 예외: " + event[1])
             yield show("❌ 생성 중 예외 발생", "\n".join(transcript), avatar_state=preserve_avatar)
             break
+
+
+def stream_inochi2d_ui(image_path, commercial_usage, progress: gr.Progress = gr.Progress()):
+    """A live-response 2D handler: no long silent browser request."""
+    if not image_path:
+        yield ("원본 캐릭터 이미지를 업로드하세요.", "", None)
+        return
+    yield from _stream_ui_task(
+        build_inochi2d_ui, (image_path, commercial_usage), 3,
+        progress, mode="inochi2d",
+    )
+
+
+def stream_live2d_ui(image_path, commercial_usage, progress: gr.Progress = gr.Progress()):
+    if not image_path:
+        yield ("원본 캐릭터 이미지를 업로드하세요.", "", None)
+        return
+    yield from _stream_ui_task(
+        build_live2d_ui, (image_path, commercial_usage), 3,
+        progress, mode="live2d",
+    )
 
 
 def stream_avatar_ui(
@@ -1436,7 +1459,7 @@ def build_app() -> gr.Blocks:
                 interactive=False,
             )
             inochi_run.click(
-                fn=build_inochi2d_ui,
+                fn=stream_inochi2d_ui,
                 inputs=[inochi_image, selected_usage],
                 outputs=[inochi_status, inochi_report, inochi_result],
                 show_progress="full",
@@ -1473,7 +1496,7 @@ def build_app() -> gr.Blocks:
                 interactive=False,
             )
             two_d_run.click(
-                fn=build_live2d_ui,
+                fn=stream_live2d_ui,
                 inputs=[two_d_image, selected_usage],
                 outputs=[two_d_status, two_d_report, two_d_result],
                 show_progress="full",
