@@ -46,6 +46,7 @@ def prepare_selected_mode(
     mode: str, usage: str = "corporation", *,
     prewarm_first_gpu: bool = True,
     provided_2d_layers: bool = False,
+    sheet_pack: bool = False,
 ) -> None:
     # Accessory fitting starts with different 3D GPU work; prewarming the
     # face detector would block that stage behind an unused CUDA allocation.
@@ -59,6 +60,8 @@ def prepare_selected_mode(
     if provided_2d_layers and mode not in {"live2d", "inochi2d"}:
         raise ValueError("Provided layers only apply to 2D character modes")
     os.environ["VTUBER_SETUP_ONLY"] = "1"
+    # Download explicitly happens in cell ③; clear a stale generation flag.
+    os.environ.pop("VTUBER_NOTEBOOK_EXPLICIT_DOWNLOAD", None)
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     if prewarm_first_gpu:
@@ -115,6 +118,9 @@ def prepare_selected_mode(
             ("3D pinned model checkpoints / first GPU face loader",
              lambda: app["prepare_models"](mode)),
         ]
+    if sheet_pack:
+        from tools.sheet_super_resolution import prepare_weights
+        tasks.append(("Anime neural SR official model", prepare_weights))
     _run_parallel(tuple(tasks))
     ready_scope = "common_2d_layers" if provided_2d_layers else mode
     app["require_runtime_ready"](ready_scope)
@@ -138,6 +144,8 @@ def main() -> None:
     parser.add_argument("--usage",
                         choices=("corporation", "personalProfit", "personalNonProfit"),
                         default="corporation")
+    parser.add_argument("--sheet-pack", action="store_true",
+                        help="Download the anime neural upscaler for sheet input")
     parser.add_argument("--provided-2d-layers", action="store_true",
                         help="Skip FLUX/SAM worker installs; only face detector is needed")
     parser.add_argument("--no-first-gpu-prewarm", action="store_true",
@@ -145,7 +153,8 @@ def main() -> None:
     args = parser.parse_args()
     prepare_selected_mode(args.mode, args.usage,
                           prewarm_first_gpu=not args.no_first_gpu_prewarm,
-                          provided_2d_layers=args.provided_2d_layers)
+                          provided_2d_layers=args.provided_2d_layers,
+                          sheet_pack=args.sheet_pack)
 
 
 if __name__ == "__main__":
