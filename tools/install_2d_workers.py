@@ -26,7 +26,27 @@ PYTHON_PACKAGES = (
     "pytorch-lightning==2.5.6", "kornia==0.8.2",
     "timm==1.0.20", "accelerate==1.10.1",
     "hydra-core==1.3.2", "psd-tools==1.11.0",
+    # SAM2's upstream setup.py requires iopath>=0.1.10, which imports portalocker.
+    # The old SAM2 --no-deps editable install skipped these runtime requirements.
+    "portalocker==2.10.1",
 )
+SAM2_RUNTIME_PACKAGES = ("iopath==0.1.10",)
+
+# This must execute Hydra's configured backbone, not merely import build_sam2.
+# An import-only smoke misses missing imports inside hieradet.py (e.g. iopath).
+SAM2_CONSTRUCTION_SMOKE = (
+    "from iopath.common.file_io import g_pathmgr; "
+    "from sam2.modeling.backbones.hieradet import Hiera; "
+    "from sam2.build_sam import build_sam2; "
+    "from sam2.sam2_image_predictor import SAM2ImagePredictor; "
+    "model=build_sam2('configs/sam2.1/sam2.1_hiera_t.yaml', "
+    "ckpt_path=None, device='cpu', apply_postprocessing=False); "
+    "assert model is not None; "
+    "predictor=SAM2ImagePredictor(model); "
+    "assert predictor is not None; "
+    "print('[2d-env] sam2.1-hiera-t-hydra-construction-ok', flush=True)"
+)
+
 # The pinned Diffusers source requires Hub >=1.32. Keep these newer
 # packages ONLY in the FLUX worker, not in the shared Colab/3D runtime.
 FLUX_PYTHON_PACKAGES = (
@@ -172,6 +192,7 @@ def _smoke(python: Path, anime_source: Path, torch_version: str,
     env["VTUBER_EXPECT_TORCH"] = torch_version
     env["VTUBER_EXPECT_VISION"] = torchvision_version
     _exec([str(python), "-c", probe], env=env, timeout=180)
+    _exec([str(python), "-c", SAM2_CONSTRUCTION_SMOKE], env=env, timeout=240)
 
 
 def install_2d_environment() -> dict:
@@ -185,6 +206,8 @@ def install_2d_environment() -> dict:
     stamp_inputs = {
         "torch": torch_version, "torchvision": vision_version,
         "packages": PYTHON_PACKAGES,
+        "sam2_runtime_packages": SAM2_RUNTIME_PACKAGES,
+        "sam2_construction_smoke": SAM2_CONSTRUCTION_SMOKE,
         "flux_packages": FLUX_PYTHON_PACKAGES,
         "flux_smoke": FLUX_SMOKE,
         "sources": {name: _pinned_source(name, lock) for name in PIN_KEYS},
@@ -227,6 +250,14 @@ def install_2d_environment() -> dict:
            "--only-binary=:all:", *PYTHON_PACKAGES],
           env=env, timeout=1800)
     sources = {kind: _checkout_source(kind, lock) for kind in PIN_KEYS}
+    # Upstream SAM2 requires iopath>=0.1.10. PyPI distributes that exact
+    # release as a source archive, so it MUST NOT be inside the --only-binary
+    # install above; build only this pure-Python package without touching
+    # the pretrained Colab CUDA Torch ABI. Its portalocker requirement is
+    # installed explicitly in PYTHON_PACKAGES.
+    _exec([str(python), "-m", "pip", "install", "--no-deps",
+           "--no-build-isolation", *SAM2_RUNTIME_PACKAGES],
+          env=env, timeout=600)
     # Install source packages with dependencies explicitly disabled. The
     # standalone pip above already resolved Python libraries; never let an
     # external pyproject replace torch/torchvision.
