@@ -91,10 +91,20 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
     for layer in psd.descendants():
         if layer.is_group() or not layer.is_visible():
             continue
-        tile = layer.composite()  # compose PSD alpha/masks; topil() loses RGBA on RGB PSDs
+        # psd-tools stores RGBA layer alpha as USER_LAYER_MASK in RGB
+        # documents (including our own PSD exporter). composite() can return
+        # opaque RGB on such files, so restore the actual mask channel.
+        tile = layer.topil()
         if tile is None:
             continue
         tile = tile.convert("RGBA")
+        if layer.mask is not None:
+            actual_alpha = layer.mask.topil(layer_sized=True)
+            if actual_alpha is None:
+                raise ValueError("PSD layer mask cannot be decoded: "+str(layer.name))
+            if actual_alpha.size != tile.size:
+                raise ValueError("PSD layer alpha size mismatched: "+str(layer.name))
+            tile.putalpha(actual_alpha.convert("L"))
         if not tile.getchannel("A").getbbox():
             continue
         left, top = int(layer.left), int(layer.top)
