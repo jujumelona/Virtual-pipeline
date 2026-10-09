@@ -58,6 +58,10 @@ def test_avatar_rejects_unknown_and_invalid_options_before_models(tmp_path):
             "remove_background",
         ),
         ({"fitting": "defaults"}, "fitting config"),
+        ({"rigging": []}, "rigging must be an object"),
+        ({"rigging": {"provider": ["blender_heat"]}}, "rigging.provider"),
+        ({"rigging": {"provider": "unsupported"}}, "rigging.provider"),
+        ({"rigging": {"typo": "canonical"}}, "rigging must be an object"),
     ]
     for config, message in cases:
         result = _avatar(tmp_path, config)
