@@ -153,9 +153,14 @@ def run_isolated(
             status = 1
             tail.append(f"Invalid production output: {exc}")
         else:
+            # A callback may catch a model exception and return an explicit
+            # failure status. Preserve that diagnostic in Gradio without
+            # incorrectly recording the underlying job as successful.
+            failed = str(values[0]).startswith("❌") or " 제작 실패" in str(values[0])
             (folder / "status.json").write_text(json.dumps({
-                "mode": mode, "state": "complete", "pid": process.pid,
-            }), encoding="utf-8")
+                "mode": mode, "state": "failed" if failed else "complete",
+                "pid": process.pid, "callback_status": str(values[0])[:400],
+            }, ensure_ascii=False), encoding="utf-8")
             return tuple(values)
     (folder / "status.json").write_text(json.dumps({
         "mode": mode, "state": "failed", "pid": process.pid, "exit_code": status,
