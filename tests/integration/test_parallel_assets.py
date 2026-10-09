@@ -92,4 +92,8 @@ def test_colab_setup_runs_parallel_prefetch_only_after_package_installation():
     editable = source.index('str(REPO_DIR),', package)
     audit = source.index('str(REPO_DIR / "tools" / "audit_runtime_environment.py")')
     assert package < editable < audit < prefetch
-    assert 'def prepare_models() -> None:' in source
+    # Stage setup remains ordered, but checkpoint preparation is explicitly
+    # mode-scoped and invoked after the user chooses a workflow.
+    assert 'def prepare_models(mode: str = "3d") -> None:' in source
+    assert 'prepare_models(mode)' in source
+    assert '"--mode", scope' in source

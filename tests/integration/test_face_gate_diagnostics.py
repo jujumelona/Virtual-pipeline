@@ -151,8 +151,8 @@ def test_only_genuinely_absent_face_detector_package_gets_missing_label(monkeypa
 def test_model_preparation_must_instantiate_face_detector_before_cache_marker():
     root = pathlib.Path(__file__).resolve().parents[2]
     source = (root / "tools" / "colab_app.py").read_text(encoding="utf-8")
-    begin = source.index("def _prepare_models_checked()")
-    end = source.index("def prepare_models()", begin)
+    begin = source.index('def _prepare_models_checked(mode: str = "3d")')
+    end = source.index('def prepare_models(mode: str = "3d")', begin)
     function = source[begin:end]
     assert "face-detector-init-ok" in function
     assert "detector = AnimeFaceDetector()" in function

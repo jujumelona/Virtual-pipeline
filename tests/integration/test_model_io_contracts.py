@@ -461,6 +461,8 @@ def test_cli_avatar_options_reach_avatar_builder(
             "full_body": False,
             "face_image": None,
             "back_image": None,
+            "left_image": None,
+            "right_image": None,
             "texture_size": 2048,
         },
     }
