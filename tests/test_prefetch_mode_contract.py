@@ -8,7 +8,8 @@ def test_common_2d_downloads_only_common_2d_models():
     seen=[]
     with patch.object(assets,"run_model_task",side_effect=lambda label,code,timeout: seen.append(label)):
         assets.prefetch_mode("common_2d")
-    assert seen==list(assets.MODE_ASSETS["common_2d"])
+    assert len(seen) == len(assets.MODE_ASSETS["common_2d"])
+    assert set(seen) == set(assets.MODE_ASSETS["common_2d"])
     assert "triposr" not in seen
     assert "instantmesh_large" not in seen
 
@@ -22,7 +23,9 @@ def test_3d_prefetch_keeps_makehuman_and_nested_reconstruction_dependencies():
     # prefetch it until a license-cleared execution path exists.
     eligible = [name for name in assets.MODE_ASSETS["3d"]
                 if name != "instantmesh_large"]
-    assert seen[:len(eligible)] == eligible
+    # Bounded parallel verification intentionally does not guarantee order.
+    assert len(seen) == len(eligible) + 3
+    assert set(eligible) <= set(seen)
     assert "instantmesh_large" not in seen
     assert {"DINO", "MakeHuman", "u2net"} <= set(seen)
     assert "flux2_klein_4b" not in seen
