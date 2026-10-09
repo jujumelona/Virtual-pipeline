@@ -28,18 +28,20 @@ Status: verified against repository main and primary-source editor manuals,
   A rigidly bone-parented mesh will not bend at the elbow/knee.
   https://docs.blender.org/manual/en/latest/modeling/modifiers/deform/armature.html
 
-**Conclusion:** A FIRST character may wear its default clothes, but a reusable
-character must keep independent body/skin, clothing and any wardrobe-specific
-arms/leg/sleeves mesh. A neutral, covered underlayer under default outfit is
-sufficient; exposing a nude human model is NOT a prerequisite.
+**Current modular VTuber input contract:** Author a natural skin-colored,
+smooth, non-explicit adult base body with no garments, underlayer, collars,
+seams or bodysuit texture. 2D hair and wardrobe are separate art assets;
+3D current reconstruction may retain a consistent hairstyle, but future
+wearable fitting, skinning and wardrobe switching are not automated.
+No intimate anatomical details should appear in the base illustrations.
 
 ## Source-of-truth active code contract (reviewed)
 
 | Boundary | Actual code | Present behavior | Missing for wardrobe |
 |---|---|---|---|
 | Colab | `notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb` | TASK character/accessory + ACCESSORY_SUBTYPE rigid prop / 2D outfit / 3D XWear | 3D outfit images -> automatic garment rig still missing |
-| 2D sheet | `vtuber_pipeline/sheet_contract.py` | 1 master + 7 sheets = 26 parts | per-costume replaceable sleeves/collar/hem |
-| 2D layer validation | `vtuber_pipeline/two_d/build.py` | 26 exact layers and PSD/ORA | wardrobe variant grouping/visibility |
+| 2D sheet | `vtuber_pipeline/sheet_contract.py` | 1 master + 6 body/face sheets = 20 base parts | advanced costume motion and additional accessory parts |
+| 2D layer validation | `vtuber_pipeline/two_d/build.py` | 20 base semantic layers and PSD/ORA handoff | wardrobe variant grouping/visibility |
 | Live2D | `vtuber_pipeline/two_d/cubism_handoff.py` | handoff PSD + spec | Cubism Editor import/parameterized outfit switch |
 | Inochi | `vtuber_pipeline/two_d/inochi_bridge.py` | only marks complete if SDK INP output validates | outfit parameter mapping/visibility keys |
 | 3D | `vtuber_pipeline/avatar/build.py` | 4 real view inputs -> TripoSR+canonical rig -> VRM | separated cloth mesh/body masking/skinning |
@@ -52,10 +54,10 @@ sufficient; exposing a nude human model is NOT a prerequisite.
 **Current avatar/build.py merges the observed costume silhouette/texture into
 its canonical skinned avatar mesh rather than producing a detachable outfit
 mesh. A VRM with bulky baked-in clothing is not automatically wardrobe-ready.
-For future XWear dressing, prefer a neutral, fully covered, fitted base
-character reference and verify the resulting geometry in VRoid. Standard
-fully dressed base images are still valid if wardrobe switching is not a
-requirement. A nude reference is not required.**
+For future XWear dressing, first create a featureless, skin-colored
+neutral body reference rather than a gray fitted undersuit. Verify any
+separately authored real wearable mesh and skinning in VRoid or Blender.
+A skinned base avatar alone is NOT a dressed or wardrobe-ready VRM.**
 **Do not call prepared PSD/ORA a Live2D .moc3 or Inochi .inp.**
 
 ## Recommended minimum image INPUT per mode
@@ -65,10 +67,10 @@ depends on composition and detail, not merely the export resolution.
 
 | Task | Recommended source images | Ratios | What gets generated |
 |---|---|---|---|
-| 2D base | front reference 1 + current 7 semantically split sheets: **8 PNG** | front 2:3; eye/face 1:1; long hair 2:3; body/arms 4:3 | 26 underlying RGBA ArtMesh source parts |
-| 2D basic wardrobe variant | same base character + **1 costume-only 2×2 sheet** with two populated garment cells | sheet 4:3 | new front/back outfit and re-rig-ready full 2D input pack; sleeves and moving details need separate authored parts |
+| 2D base | front reference 1 + 6 semantically split sheets: **7 PNG** | front/body 2:3; face/eyes/mouth 1:1; arms/hands 4:3 | 20 skin-colored, hair-free, outfit-free RGBA base parts |
+| 2D basic wardrobe variant | same base character + **1 costume-only 2×2 sheet** with four garment cells | sheet 4:3 | 4 separate outfit parts (front/back + left/right sleeves), requiring movement and editor validation |
 | 2D elaborate outfit | body-proportional front/back garment plus independently moving left/right sleeve, collar, hem/skirt, ribbon | individual part sheets by need; don't crowd | requires extending base part taxonomy/rig, no fixed 2-layer guarantee |
-| 3D base | front/back/left/right orthographic full-body 4 views + face closeup = **5 views in 3 PNG files** | each body view 2:3, paired sheets 4:3, face 1:1 | one clothed 3D VRM, NOT interchangeable wardrobe |
+| 3D base | front/back/left/right skin-colored full-body 4 views + face closeup = **5 views in 3 PNG files** | each body view 2:3, paired sheets 4:3, face 1:1 | unclothed neutral-body VRM; independently skinned wardrobe NOT yet supported |
 | 3D outfit design references | front/back/left/right outfit on SAME T- or A-pose/body + optional fabric and collar/hem closeups = **4 views + 1–3 detail refs recommended** | body view 2:3, closeups 1:1 | *reference material* for mesh/texture construction, not a fitted .xwear |
 | 3D wearable import | base VRM (1) + a separately modeled **riggable garment** (.xwear for VRoid editor, or suitably skinned GLB through an implemented Blender adapter) | file formats, not image ratios | avatar fitting, skinning, clip/mask and motion validation before export |
 | Rigid accessory | base VRM 1 + 1–8 single-object image refs | square recommended for isolated props | rigid static bone-parented meshes; NO articulated wardrobe |
@@ -84,8 +86,8 @@ topology, back-of-body surfaces, skin weights or missing layers.
   image landmarks, direct design identity reference for remaining sheets.
 - 2D face/eyes: **1:1**, 2×2 grid, 1 part/cell, true transparent RGBA.
 - 2D back/front/left/right hair: **2:3** sheet, 2×2 grid.
-- 2D body and garment: **4:3** sheet, 2×2 grid, base body independent
-  from front/back cloth. No opaque fake transparency.
+- 2D body: **2:3** one-cell image. 2D arms/hands: **4:3** 2×2 grid.
+  Outfit-only variant: **4:3** 2×2 grid with four independent cloth parts.
 - 3D orthographic: two **4:3** sheets split into two **2:3** full-body
   cells, A-pose consistent across all views (not arbitrarily changing poses).
 - 3D face closeup: **1:1**, same character (not full-body pixel-coordinate match).
@@ -99,15 +101,15 @@ topology, back-of-body surfaces, skin weights or missing layers.
 
 ## Correct task taxonomy and success claims
 
-1. **Character creation**, with a default clothed appearance AND a distinct
-   under-body/skin for possible wardrobe workflows.
+1. **Character creation**: 2D base (20 separate skin-colored parts) or 3D
+   neutral skin-colored body VRM. Clothes must not be baked into the base.
 2. **Rigid accessory creation** (hats, glasses, solid hanging items) remains
    bone-parented. The current operation is unsuitable for sleeves, trousers,
    skirt or coats that follow multiple bones.
 3. **2D costume variant**: take the original 2D sheet ZIP and a *costume-only*
    source; reconstruct a new variant with unchanged body/face/hair, prepare PSD
    and explicit editor work for deformers/visibility keys. The current variant
-   utility supports only 2 garment parts, not complex wardrobe auto-rigging.
+   utility supports 4 garment cells; this does not prove rich automatic deformers.
 4. **3D costume**, distinct from static accessory despite sharing the user
    interface: for working wardrobe use an externally fitted garment asset
    through VRoid XWear dress-up editor, with export/animation checks. A new Python fitting + skin transfer + body mask + VRM merge backend still
@@ -130,7 +132,7 @@ and corresponding notebook changes.
   existing `costume.xwear`, packages both plus editing instructions as
   `vroid_dressup_handoff.zip`. NOT a fitted/skinned final VRM.
 - The README contains one prompt per base sheet, one costume-variant prompt,
-  and two 3D costume orthographic-reference prompts plus optional closeup.
+  and two 3D skin-colored orthographic-reference prompts plus a face closeup.
 - Uploads use source image *ratio* and cell geometry, not fabricated exact
   4096 pixel native output claims. The interpreter normalizes after cropping.
 - CI test modules: `tests/test_colab_wardrobe_inputs.py`,
