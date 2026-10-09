@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 
-INP2_MAGIC=b"TRNSRTS2"
+SDK_INP1_MAGIC=b"TRNSRTS\\x00"\nSDK_INP2_MAGIC=b"TRNSRTS2"
 
 def export_inp(puppet_spec_json: str, output_dir: str) -> dict:
     source=Path(puppet_spec_json).resolve()
@@ -37,14 +37,14 @@ def export_inp(puppet_spec_json: str, output_dir: str) -> dict:
     if not report.is_file():
         raise RuntimeError("Inochi SDK exporter did not provide a validation report")
     evidence=json.loads(report.read_text(encoding="utf-8"))
-    if (evidence.get("sdk_native_write") is not True or
+    if (evidence.get("sdk_native_write") is not True or\n        evidence.get("sdk_roundtrip_read") is not True or\n        evidence.get("sdk_reimport_binding_count", 0) < 1 or
         int(evidence.get("bound_keyforms_count",0))<1 or
         int(evidence.get("mesh_vertices_count",0))<3 or
         int(evidence.get("physics_bindings_count",0))<1):
         target.unlink(missing_ok=True)
         raise RuntimeError("native INP2 is not a functional rig: "
                            "mesh/keyforms/secondary physics must be serialized and bound")
-    if not target.is_file() or target.stat().st_size<128 or target.open("rb").read(8)!=INP2_MAGIC:
+    if not target.is_file() or target.stat().st_size<128:\n        target.unlink(missing_ok=True)\n        raise RuntimeError("native exporter did not emit a usable INP file")\n    reported_format = evidence.get("inp_format")\n    expected_magic = {"INP1": SDK_INP1_MAGIC, "INP2": SDK_INP2_MAGIC}.get(reported_format)\n    if expected_magic is None or target.open("rb").read(8) != expected_magic:
         target.unlink(missing_ok=True)
-        raise RuntimeError("native exporter did not emit a valid INP2 file header")
-    return {"inp":str(target),"editable":str(source),"native_report":str(report)}
+        raise RuntimeError("native SDK file format disagrees with its reported INP version")
+    return {"inp":str(target),"editable":str(source),"native_report":str(report),\n            "inp_format": reported_format, "sdk_version": evidence.get("sdk_version")}
