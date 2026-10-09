@@ -219,7 +219,8 @@ def test_sam2_constructed_in_both_fresh_and_cached_worker_checks(monkeypatch):
     assert 'timeout=240' in code
     code = inspect.getsource(installer.install_2d_environment)
     assert '"sam2_construction_smoke": SAM2_CONSTRUCTION_SMOKE' in code
-    assert code.count("_smoke(python, source, torch_version, vision_version)") == 2
+    assert "_smoke(python, source, torch_version, vision_version)" in code
+    assert '_smoke(python, sources["anime"], torch_version, vision_version)' in code
 
 
 def test_sam2_iopath_sdist_installed_separately_from_binary_only_python_wheels(
