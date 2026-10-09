@@ -28,6 +28,29 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 MAX_IMAGE_BYTES = 32 * 1024 * 1024
 
 
+def stop_legacy_server() -> None:
+    """Retire only the previous notebook's Gradio process if still running."""
+    import os
+    import signal
+
+    pid_file = WORK / "ui_server.pid"
+    if not pid_file.is_file():
+        return
+    try:
+        pid = int(pid_file.read_text(encoding="utf-8").strip())
+        command = Path(f"/proc/{pid}/cmdline").read_bytes()
+        if pid > 1 and b"/tools/colab_app.py" in command:
+            try:
+                os.killpg(pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                os.kill(pid, signal.SIGTERM)
+            print("이전 웹 UI 서버를 종료했습니다.", flush=True)
+    except (ValueError, OSError):
+        pass
+    finally:
+        pid_file.unlink(missing_ok=True)
+
+
 def _stored_uploads(upload, folder: Path, *, images: bool, multiple: bool) -> list[str]:
     """Store bytes returned by the Colab uploader in one job-specific folder."""
     selected = upload()
