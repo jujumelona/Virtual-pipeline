@@ -23,6 +23,8 @@ def png(size, *, rgba=True, box=None):
 def mini_layout(monkeypatch):
     monkeypatch.setattr(loader,"MASTER",(16,16))
     monkeypatch.setattr(loader,"FACE",(8,8))
+    monkeypatch.setattr(loader,"_valid_aspect",
+                        lambda observed,target: observed[0]*target[1] == observed[1]*target[0])
     sheets=(
         Sheet("sheet_face.png",(8,4),2,1,(
             Tile("face",0,0,(8,0,12,4)),
@@ -129,7 +131,10 @@ def test_3d_view_sheet_lossless_crop(tmp_path,monkeypatch):
         Tile("left",0,0,(0,0,8,8)),Tile("right",0,1,(0,0,8,8)),
     ))
     monkeypatch.setattr(loader,"VIEWS_3D",(front_back,sides))
+    monkeypatch.setattr(loader,"MASTER",(8,8))
     monkeypatch.setattr(loader,"FACE",(8,8))
+    monkeypatch.setattr(loader,"_valid_aspect",
+                        lambda observed,target: observed[0]*target[1] == observed[1]*target[0])
     src={}
     for sheet,palette in ((front_back,(35,70)),(sides,(105,140))):
         img=Image.new("RGB",(16,8))
@@ -154,6 +159,8 @@ def test_3d_view_sheet_lossless_crop(tmp_path,monkeypatch):
 def test_zoomed_face_cell_preserves_native_2x_pixels(tmp_path,monkeypatch):
     """An ROI sampled at 2x stays at 1:1 in the 2x output master."""
     monkeypatch.setattr(loader,"MASTER",(16,16))
+    monkeypatch.setattr(loader,"_valid_aspect",
+                        lambda observed,target: observed[0]*target[1] == observed[1]*target[0])
     zoom=Sheet("sheet_face_base.png",(8,8),1,1,(
         Tile("face",0,0,(4,4,8,8)),
     ))
@@ -182,3 +189,53 @@ def test_zoomed_face_cell_preserves_native_2x_pixels(tmp_path,monkeypatch):
         with Image.open(z.open("face.png")) as layer:
             assert layer.getpixel((4*2+2,4*2+3))==(255,10,30,255)
             assert layer.getpixel((4*2+4,4*2+3))[3]==0
+
+
+def test_ratio_only_uploaded_sheets_and_odd_dimensions(tmp_path,monkeypatch):
+    monkeypatch.setattr(loader,"MASTER",(8,8))
+    monkeypatch.setattr(loader,"FACE",(8,8))
+    face=Sheet("sheet_face_base.png",(8,8),2,2,(
+        Tile("face",0,0,(0,0,4,4)),
+    ))
+    monkeypatch.setattr(loader,"SHEETS_2D",(face,))
+    monkeypatch.setattr(loader,"sheet_names",lambda mode:frozenset({
+        "front_master.png","sheet_face_base.png"
+    }))
+    # Both expected 8x8 and actual 301x301 have the SAME ratio.
+    canvas=Image.new("RGBA",(301,301),(0,0,0,0))
+    ImageDraw.Draw(canvas).rectangle((20,20,45,55),fill=(200,50,50,255))
+    out=BytesIO();canvas.save(out,"PNG")
+    pack=tmp_path/"character_2d_sheet_pack.zip"
+    with ZipFile(pack,"w") as z:
+        z.writestr("front_master.png",png((512,512),box=(80,80,130,130)))
+        z.writestr("sheet_face_base.png",out.getvalue())
+    assert loader.inspect_sheet_archive(str(pack),"live2d")["verified"]
+    _,parts=loader.convert_2d_sheet_pack(
+        str(pack),str(tmp_path/"render"),neural=False,output_scale=2
+    )
+    with ZipFile(parts) as z:
+        with Image.open(z.open("face.png")) as image:
+            assert image.size==(16,16)
+            assert image.getchannel("A").getbbox() is not None
+
+
+def test_wrong_aspect_and_opaque_sprite_are_rejected(tmp_path,monkeypatch):
+    monkeypatch.setattr(loader,"MASTER",(512,768))
+    target=Sheet("sheet_face_base.png",(1024,1024),1,1,(
+        Tile("face",0,0,(0,0,512,512)),
+    ))
+    monkeypatch.setattr(loader,"SHEETS_2D",(target,))
+    monkeypatch.setattr(loader,"sheet_names",lambda _:frozenset({
+        "front_master.png","sheet_face_base.png"
+    }))
+    pack=tmp_path/"character_2d_sheet_pack.zip"
+    with ZipFile(pack,"w") as z:
+        z.writestr("front_master.png",png((512,768),box=(100,100,200,200)))
+        z.writestr("sheet_face_base.png",png((600,400),box=(1,1,35,35)))
+    with pytest.raises(ValueError,match="wrong aspect ratio"):
+        loader.inspect_sheet_archive(str(pack),"live2d")
+    with ZipFile(pack,"w") as z:
+        z.writestr("front_master.png",png((512,768),box=(100,100,200,200)))
+        z.writestr("sheet_face_base.png",png((512,512),box=(0,0,511,511)))
+    with pytest.raises(ValueError,match="opaque"):
+        loader.inspect_sheet_archive(str(pack),"live2d")
