@@ -13,6 +13,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import uuid
 
 DEFAULT_ROOT=Path("/content/vtuber_builder/third_party")
 BASE="Qwen/Qwen-Image-Layered"
@@ -67,6 +68,9 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
         raise ValueError("Qwen per-pass layer count must be between 2 and 10")
     from huggingface_hub import snapshot_download
     from PIL import Image
+    input_image = input_image.expanduser().resolve()
+    output_dir = output_dir.expanduser().resolve()
+    third_party = third_party.expanduser().resolve()
     if not input_image.is_file():
         raise FileNotFoundError(input_image)
     script=third_party/"Stable-Layers"/"decompose.py"
@@ -82,9 +86,12 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
     patched.write_text(_patch_pinned_official(
         script.read_text(encoding="utf-8"),
         quant_dir=str(quant_path),lora_dir=str(lora_path)),encoding="utf-8")
+    # Keep previous runs for inspection; only this fresh directory can
+    # satisfy the current worker's output contract.
+    candidate_root = output_dir / "qwen_layers" / ("run_" + uuid.uuid4().hex)
     cmd=[
         python or sys.executable, "-u", str(patched),
-        "--input",str(input_image.resolve()),"--output",str(output_dir/"qwen_layers"),
+        "--input",str(input_image.resolve()),"--output",str(candidate_root),
         "--base-model",str(base_path),"--lora",str(lora_path),
         "--steps","50","--guidance-scale","1.0","--num-layers",str(layer_count),
         "--size","640","--transparent","--device","cuda",
@@ -98,7 +105,7 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
                         log_path=log,timeout_seconds=timeout)
     if exitcode:
         raise RuntimeError(f"Qwen NF4/Stable-Layers exited {exitcode}; log={log}")
-    folder=output_dir/"qwen_layers"/input_image.stem
+    folder=candidate_root/input_image.stem
     produced=[folder/f"layer_{i}.png" for i in range(layer_count)]
     if not all(f.is_file() for f in produced):
         raise RuntimeError(f"Qwen reported success but didn't provide {layer_count} RGBA layers")
