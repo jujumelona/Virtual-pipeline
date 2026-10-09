@@ -49,10 +49,10 @@ def test_character_base_is_20_parts_no_hair_no_outfit():
         assert "{skin_color}" in p, name
         assert "{base_layer}" not in p, name
         assert "Neutral fitted UNDERLAYER" not in p, name
-        assert "NO gray/flesh-colored bodysuit" in p or "Do NOT draw a bodysuit" in p, name
-        assert ("NO costume" in p or "NO detachable costume" in p
-                or "NO detachable clothing" in p or "NO jacket" in p
-                or "OUTFIT-FREE" in p),name
+        assert ("FULLY COVERED MODULAR VTUBER PRODUCTION CONTRACT" in p
+                or "THIS IS A FULLY COVERED ADULT ANIME VTUBER" in p), name
+        assert "opaque" in p.lower(), name
+        assert "nude" not in p.lower(), name
     a=section().split("### ① 캐릭터 생성 — 2D",1)[1].split(
         "### ① 캐릭터 생성 — 3D",1
     )[0]
@@ -88,8 +88,9 @@ def test_3d_base_prompts_keep_skin_tone_without_integrated_outfit():
     for view in VIEWS_3D:
         prompt=p[view.filename]
         assert "{skin_color}" in prompt
-        assert "PRODUCTION PURPOSE — 3D VTUBER BASE" in prompt
-        assert "NO garment of any kind" in prompt
+        assert "PRODUCTION PURPOSE — FULLY COVERED 3D VTUBER" in prompt
+        assert "FULLY OPAQUE" in prompt
+        assert "seamless" in prompt
         assert "DEFAULT INTEGRATED OUTFIT" not in prompt
         assert "SAME COMPLETE DEFAULT OUTFIT" not in prompt
         assert "4:3" in prompt
@@ -100,7 +101,7 @@ def test_3d_base_prompts_keep_skin_tone_without_integrated_outfit():
     assert "{skin_color}" in face
     assert "PRODUCTION PURPOSE — MATCH THE 3D VTUBER BASE IDENTITY" in face
     assert "width:height=1:1" in face
-    assert "NO costume collar" in face
+    assert "shoulders covered" in face
     assert "character_3d_sheet_pack.zip" in section()
     assert "3D 의상 자동 교체는 제공하지 않습니다" in section()
     assert "정적 소품" in section()
@@ -108,8 +109,8 @@ def test_3d_base_prompts_keep_skin_tone_without_integrated_outfit():
 
 def test_every_master_and_body_prompt_is_a_modular_vtuber_base():
     p=prompts()
-    assert "MODULAR ADULT VTUBER AVATAR BASE" in p["front_master.png"]
-    assert "NO gray/flesh-colored bodysuit" in p["sheet_body_base.png"]
-    assert "NO gray/flesh-colored bodysuit" in p["sheet_arms_hands.png"]
+    assert "FULLY COVERED ADULT ANIME VTUBER" in p["front_master.png"]
+    assert "opaque" in p["sheet_body_base.png"].lower()
+    assert "opaque" in p["sheet_arms_hands.png"].lower()
     assert "TRUE transparent RGBA" in p["outfit_variant.png"]
     assert "alpha=0" in p["hair_variant.png"]
