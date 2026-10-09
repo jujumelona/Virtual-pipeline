@@ -48,7 +48,8 @@ def _ribbons(mesh):
     return trimesh.util.concatenate(parts)
 
 def refine_anatomy(fitted_mesh: str, constraints_json: str,
-                   reference_images_json: str, output_dir: str) -> dict:
+                   reference_images_json: str, output_dir: str,
+                   *, front_rgba_path: str | None = None) -> dict:
     import trimesh
     from scipy.sparse import coo_matrix, diags, eye
     from scipy.sparse.linalg import spsolve
@@ -122,6 +123,19 @@ def refine_anatomy(fitted_mesh: str, constraints_json: str,
         constraints, references,
     )
     mesh.vertices = corrected
+
+    # The actual observed foreground alpha, not a synthetic mesh silhouette,
+    # supplies a second weak, bounded image-space anatomical constraint.
+    from vtuber_pipeline.avatar.observed_silhouette_constraint import (
+        correct_observed_front_silhouette,
+    )
+    silhouette_source = front_rgba_path or references.get("images", {}).get("front", {}).get("path")
+    corrected, silhouette_evidence = correct_observed_front_silhouette(
+        np.asarray(mesh.vertices, dtype=float),
+        np.asarray(mesh.vertex_normals, dtype=float),
+        silhouette_source,
+    )
+    mesh.vertices = corrected
     # Preserve template face connectivity and vertex indices for humanoid skinning.
     if len(mesh.vertices)!=count or len(mesh.faces)<100:raise RuntimeError("lost template topology")
     hair=_ribbons(mesh)
@@ -135,6 +149,7 @@ def refine_anatomy(fitted_mesh: str, constraints_json: str,
             "ribbon_count":7,"ribbons_are_approximate":True,
             "registered_multiview_confidence":confidence,
             "front_depth_evidence":depth_evidence,
+            "front_silhouette_evidence":silhouette_evidence,
             "multiview_constrained_vertex_count":int(np.count_nonzero(selected)),
             "mean_multiview_correction_mesh_units":float(np.mean(np.linalg.norm(proposed, axis=1))),
             "maximum_surface_displacement_mesh_units":float(np.max(np.linalg.norm(mesh.vertices-verts,axis=1))),
