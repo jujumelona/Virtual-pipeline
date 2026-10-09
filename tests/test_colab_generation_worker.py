@@ -85,3 +85,78 @@ def test_live2d_failed_callback_emits_failed_event_not_complete(
     assert '"kind": "failed"' in output
     assert '"kind": "complete"' not in output
     assert "exit=-9" in output
+
+
+def test_sheet_generation_isolated_gpu_worker_handoff(tmp_path, monkeypatch):
+    import json
+    import subprocess
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    source = tmp_path / "character_2d_sheet_pack.zip"
+    source.write_bytes(b"fake zipped inputs; native routing only")
+    invoked = []
+
+    def fake_process(command, **kwargs):
+        invoked.append(command)
+        assert Path(command[2]).name == "sheet_prepare_worker.py"
+        assert "--request" in command and "--result" in command
+        request = json.loads(Path(command[4]).read_text())
+        assert request["sheet_zip"] == str(source)
+        assert request["mode"] == "live2d"
+        Path(command[6]).write_text(json.dumps({
+            "front": "/output/front_master.png",
+            "layers": "/output/registered_parts.internal.zip",
+        }))
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_process)
+    actual = worker.materialize_sheet_request({
+        "mode": "live2d", "_sheet_workdir": str(tmp_path / "stage")
+    }, [str(source), "corporation", "__sheet_pack__"])
+    assert actual == ["/output/front_master.png", "corporation",
+                      "/output/registered_parts.internal.zip"]
+    assert len(invoked) == 1
+
+
+def test_3d_sheet_handoff_preserves_all_native_avatar_arguments(
+    tmp_path, monkeypatch,
+):
+    import json
+    import subprocess
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    source = tmp_path / "character_3d_sheet_pack.zip"
+    source.write_bytes(b"dummy")
+    def fake_process(command, **kwargs):
+        Path(command[-1]).write_text(json.dumps({
+            "front": "/out/front.png", "back": "/out/back.png",
+            "left": "/out/left.png", "right": "/out/right.png",
+            "face": "/out/face_enhanced.png",
+        }))
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(subprocess, "run", fake_process)
+    result = worker.materialize_sheet_request({
+        "mode": "avatar", "_sheet_workdir": str(tmp_path / "process")
+    }, [str(source), "corporation", "__sheet_pack__", None, None,
+        True, 2048, None, None, "canonical"])
+    assert result == [
+        "/out/front.png", "corporation", None, "/out/face_enhanced.png",
+        "/out/back.png", True, 2048, "/out/left.png", "/out/right.png",
+        "canonical",
+    ]
+
+
+def test_sheet_gpu_process_sigkill_is_a_hard_failure(tmp_path, monkeypatch):
+    import subprocess
+    from types import SimpleNamespace
+
+    source = tmp_path / "character_2d_sheet_pack.zip"
+    source.write_bytes(b"placeholder")
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **k: SimpleNamespace(returncode=-9))
+    with pytest.raises(RuntimeError, match="exit=-9"):
+        worker.materialize_sheet_request({
+            "mode": "live2d", "_sheet_workdir": str(tmp_path / "proc")
+        }, [str(source), "corporation", "__sheet_pack__"])
