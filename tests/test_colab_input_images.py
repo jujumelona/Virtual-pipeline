@@ -67,7 +67,7 @@ def test_readme_is_the_only_colab_prompt_source():
                            "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
     code = "\n".join("".join(c["source"]) for c in notebook["cells"]
                      if c["cell_type"] == "code")
-    assert "## 모드별 외부 이미지 AI 제작 프롬프트" in readme
+    assert "## 모드별 이미지 생성 프롬프트 — 고해상도 시트 방식" in readme
     assert "front_master.png" in readme
     assert "hair_front.png" in readme
     assert "right.png" in readme
@@ -75,7 +75,8 @@ def test_readme_is_the_only_colab_prompt_source():
     assert "write_prompt_package" not in code
     assert "Identity(" not in code
     assert "HAIR_COLOR =" not in code
-    assert "prepare_2d_image_uploads(" in code
+    assert "store_uploaded_zip(" in code
+    assert "sheet_zip_path=" in code
     assert "files.upload()" in code
 
 
