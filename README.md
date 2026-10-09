@@ -576,7 +576,7 @@ character_3d_sheet_pack.zip
 
 ### ② 액세서리 제작 — 소품과 교체형 의상은 별개
 
-정적 소품은 기존 액세서리 경로를 사용합니다. **옷은 정적 소품으로 붙이지 않습니다.** 2D는 별도 이미지 파츠+변형 메시, 3D는 별도 입체 의상 메시+본 스키닝이 필요합니다. <Link url="https://docs.live2d.com/en/cubism-editor-manual/psd-import/" title="Live2D PSD 파츠 교체"/> · <Link url="https://vroid.pixiv.help/hc/en-us/articles/39513162810649-What-is-XAvatar" title="VRoid XAvatar"/>.
+정적 소품은 기존 액세서리 경로를 사용합니다. **옷은 정적 소품으로 붙이지 않습니다.** 2D는 별도 이미지 파츠+변형 메시, 3D는 별도 입체 의상 메시+본 스키닝이 필요합니다. [Live2D PSD 파츠 교체](https://docs.live2d.com/en/cubism-editor-manual/psd-import/) · [VRoid XAvatar](https://vroid.pixiv.help/hc/en-us/articles/39513162810649-What-is-XAvatar).
 
 #### ②-1. 정적 소품 PNG (1~8장)
 
