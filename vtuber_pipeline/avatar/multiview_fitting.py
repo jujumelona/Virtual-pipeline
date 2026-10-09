@@ -176,7 +176,34 @@ def align_sources(
                 raise ValueError(f"{role}: license provenance is not supported by an actual observed image/depth")
         independent_roles = roles
 
-    registration = _best_similarity(np.asarray(generated.vertices), np.asarray(coarse.vertices))
+    if licensed_source is not None:
+        # This file was already assembled in the front camera frame by
+        # register_observed_geometry. Running unconstrained ICP here can
+        # silently reverse a side/back observation and destroy camera-role
+        # registration. Validate the ORIGINAL front mesh prefix instead.
+        from scipy.spatial import cKDTree
+        front = np.asarray(coarse.vertices, dtype=np.float64)
+        fused = np.asarray(generated.vertices, dtype=np.float64)
+        if len(fused) < len(front):
+            raise ValueError("Licensed multiview mesh lost its canonical front vertices")
+        ref_height = max(float(np.ptp(front[:, 1])), 1e-8)
+        prefix_error = float(np.max(np.linalg.norm(fused[:len(front)] - front, axis=1)))
+        if not np.isfinite(prefix_error) or prefix_error > ref_height * 5e-4:
+            raise ValueError(
+                "Licensed multiview mesh is not in the original front camera frame"
+            )
+        distances, _ = cKDTree(front).query(fused, k=1)
+        residual = float(np.mean(np.sort(distances)[:max(16, int(len(distances) * .75))]))
+        registration = {
+            "rotation": np.eye(3),
+            "scale": 1.0,
+            "translation": np.zeros(3),
+            "trimmed_error": residual,
+            "yaw_initial_radians": 0.0,
+        }
+    else:
+        # Legacy independent geometry has no attested shared camera frame.
+        registration = _best_similarity(np.asarray(generated.vertices), np.asarray(coarse.vertices))
     rotation = registration["rotation"]
     scale = registration["scale"]
     translation = registration["translation"]
@@ -220,6 +247,7 @@ def align_sources(
             "initial_yaw_radians": registration["yaw_initial_radians"],
             "orientation_verified_by_calibrated_camera": False,
             "observed_camera_alignment": False,
+            "source_frame_identity_verified": licensed_source is not None,
             "confidence": raw_confidence * evidence_scale,
             "confidence_evidence_multiplier": evidence_scale,
         },
