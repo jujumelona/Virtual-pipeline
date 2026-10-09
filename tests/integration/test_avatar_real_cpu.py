@@ -144,3 +144,26 @@ def test_real_cpu_avatar_post_reconstruction_chain(tmp_path):
     }
     assert validation["status"] == "complete", failed_checks
     assert validation["passed"] is True, failed_checks
+
+
+def test_face_crop_bbox_is_not_misinterpreted_as_full_front_canvas(tmp_path):
+    """Independent face images have a different pixel coordinate system."""
+    from PIL import Image
+    from vtuber_pipeline.avatar.texture_transfer import transfer_texture
+
+    mesh_path = tmp_path / "face_frame_mesh.glb"
+    front = tmp_path / "front.png"
+    face = tmp_path / "enlarged_face.png"
+    _write_dense_avatar_seed(mesh_path)
+    _write_source_image(front)
+    Image.new("RGBA", (512, 512), (90, 110, 200, 255)).save(face)
+
+    # Face coordinates are valid on the 512x512 crop, not the 256x256 front.
+    crop_bbox = [180.0, 100.0, 410.0, 390.0]
+    result = transfer_texture(
+        str(front), str(mesh_path), str(tmp_path / "face_frame_texture"),
+        face_bbox=crop_bbox, face_image_path=str(face), texture_size=1024,
+    )
+    assert result["status"] == "complete", result
+    assert result["projection_mode"] == "centered_fallback_unregistered_face"
+    assert pathlib.Path(result["texture_png"]).is_file()
