@@ -36,3 +36,38 @@ def test_main_routes_mode_without_download_when_mocked():
         assets.main(["--mode","common_2d"])
     scoped.assert_called_once_with("common_2d",timeout=2400)
     legacy.assert_not_called()
+
+
+
+def test_mode_prefetch_uses_three_bounded_workers():
+    import threading
+    barrier = threading.Barrier(3, timeout=8)
+    active, peak = 0, 0
+    lock = threading.Lock()
+    first = set(assets.MODE_ASSETS["common_2d"][:3])
+
+    def simulate_download(label, code, timeout):
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        try:
+            if label in first:
+                barrier.wait()
+        finally:
+            with lock:
+                active -= 1
+
+    with patch.object(assets, "run_model_task", side_effect=simulate_download):
+        assets.prefetch_mode("common_2d")
+    assert peak == 3
+
+
+def test_mode_prefetch_propagates_checkpoint_verification_failures():
+    def simulate_download(label, code, timeout):
+        if label == "florence2_base":
+            raise ValueError("checkpoint SHA mismatch")
+    with patch.object(assets, "run_model_task", side_effect=simulate_download):
+        import pytest
+        with pytest.raises(RuntimeError, match="florence2_base: checkpoint SHA mismatch"):
+            assets.prefetch_mode("common_2d")
