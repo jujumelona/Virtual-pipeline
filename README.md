@@ -974,7 +974,7 @@ export TRIPOSR_DIR="$PWD/TripoSR"
 ### ① 캐릭터 / 얼굴 만들기
 
 - 기본 다중 시점 모드: `character_3d_sheet_pack.zip` 1개 업로드 (정면·후면 2뷰 시트 1장 + 좌·우 측면 2뷰 시트 1장 + 얼굴 확대 1장)
-- 2D 모드: `character_2d_sheet_pack.zip` 1개 업로드 (정면 기준 1장 + 얼굴·양쪽 눈·입·머리·의상·팔/손 총 7개 고해상도 시트)
+- 2D 모드: `character_2d_sheet_pack.zip` 1개 업로드 (정면 기준 1장 + 얼굴·양쪽 눈·입·머리·중립 신체·팔/손 총 7개 고해상도 시트)
 - 출력 사용 범위 선택
 - 얼굴/머리/상체 fitting
 - blink / viseme / emotion morph
