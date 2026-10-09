@@ -127,6 +127,11 @@ def test_live2d_pro_builds_each_asset_without_batch_companions(tmp_path, asset):
         assert zipfile.read("source_psd/see_through_layers.psd")[:4] == b"8BPS"
         if asset != "body":
             assert "input_reference/body_base.png" in zipfile.namelist()
+            assert "preview/pro_body_asset_overlay.png" in zipfile.namelist()
+            assert "metadata/pro_reference_alignment.json" in zipfile.namelist()
+            import json
+            align = json.loads(zipfile.read("metadata/pro_reference_alignment.json"))
+            assert align["automatic_pose_landmark_alignment_verified"] is False
         assert "metadata/layer_manifest.json" in zipfile.namelist()
         assert "metadata/manual_rig_reference.json" in zipfile.namelist()
         assert "avatar.moc3" not in zipfile.namelist()

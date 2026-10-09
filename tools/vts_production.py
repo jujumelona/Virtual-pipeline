@@ -281,7 +281,8 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
     command = [
         worker_python, "-u", str(program),
         "--srcp", str(unique_source), "--save_dir", str(base),
-        "--save_to_psd", "--resolution", "1024",
+        "--save_to_psd", "--resolution", "1280",
+        "--num_inference_steps", "30", "--resolution_depth", "768",
     ]
     print("[VTS] See-through NF4:", " ".join(command), flush=True)
     from tools.vts_subprocess import run_logged
@@ -370,6 +371,35 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
             archive.write(psd, "source_psd/see_through_layers.psd")
             if reference_image is not None:
                 archive.write(reference_image, "input_reference/body_" + reference_image.name)
+                # Visual registration evidence, NOT automatic feature matching.
+                # Cap review resolution without altering output PSD/PNG pixels.
+                from PIL import Image
+                from io import BytesIO
+                with Image.open(reference_image) as original, Image.open(master) as asset:
+                    original.load()
+                    asset.load()
+                    preview = original.convert("RGBA")
+                    overlay = asset.convert("RGBA")
+                    preview.thumbnail((1400, 1400), Image.Resampling.LANCZOS)
+                    overlay = overlay.resize(preview.size, Image.Resampling.LANCZOS)
+                    mixed = Image.blend(preview, overlay, 0.5)
+                    stream = BytesIO()
+                    mixed.save(stream, format="PNG")
+                    archive.writestr("preview/pro_body_asset_overlay.png", stream.getvalue())
+                    report_align = {
+                        "schema": "vtuber/pro-manual-registration-v1",
+                        "input_canvas_identical": original.size == asset.size,
+                        "input_size": list(original.size),
+                        "method": "50-percent visual overlay only",
+                        "automatic_pose_landmark_alignment_verified": False,
+                        "automatic_character_identity_verified": False,
+                        "warning": "Visually inspect hair/outfit/accessory boundaries "
+                                   "before importing into Cubism Editor.",
+                    }
+                    archive.writestr(
+                        "metadata/pro_reference_alignment.json",
+                        json.dumps(report_align, ensure_ascii=False, indent=2),
+                    )
         report = {
             **status, **produced, "state": "artwork_ready_editor_rig_required",
             "psd_source": str(psd), "source_master": str(master),
