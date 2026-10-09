@@ -1,0 +1,31 @@
+name: Blender VRM Native E2E
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ci/blender_vrm_live_e2e.py"
+      - "tools/setup_blender_runtime.py"
+      - "tools/blender_jobs/**"
+      - "vtuber_pipeline/avatar/blender_bridge.py"
+      - "vtuber_pipeline/avatar/vrm_export.py"
+      - ".github/workflows/blender-vrm-native.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-blender-vrm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Install real CPU production mesh/UV and validator packages
+        run: |
+          python -m pip install --disable-pip-version-check --only-binary=:all: \
+            numpy scipy pillow==12.3.0 trimesh==4.12.2 \
+            pygltflib==1.16.5 scikit-image==0.26.0 xatlas==0.0.11
+          python -m pip install --disable-pip-version-check --no-deps -e .
+      - name: Download and verify official Blender VRM extension and run real import-export
+        run: PYTHONPATH="$PWD" python -u ci/blender_vrm_live_e2e.py
