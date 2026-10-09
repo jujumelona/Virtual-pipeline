@@ -7,4 +7,4 @@ dependency "inochi2d" version="==0.8.7"
 # The released SDK 0.8.7 includes functional DeformationParameterBinding.
 # SDK 0.9 main currently has that class disabled; never silently upgrade.
 subConfiguration "inochi2d" "full"
-lflags "-lSDL2" "-lz" "-lGL"
+lflags "-lSDL2" "-lz" "-lz" "-lGL"
