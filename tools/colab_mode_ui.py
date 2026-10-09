@@ -94,11 +94,70 @@ def input_profile(task: str, mode: str, subtype: str, two_d_input: str,
     return "standard"
 
 
+def selection_signature(values: dict) -> tuple:
+    """Only the active task's settings determine the current selection."""
+    task, usage = values.get("TASK"), values.get("USAGE")
+    if usage not in USAGE_LABELS:
+        raise ValueError("사용 범위를 확인하세요.")
+    if task == "캐릭터 생성":
+        mode = values.get("MODE")
+        if mode not in MODE_LABELS:
+            raise ValueError("캐릭터 모드를 확인하세요.")
+        if mode == "live2d":
+            edition, framing, qwen = (values.get("LIVE2D_EDITION"), values.get("LIVE2D_FRAMING"),
+                                      values.get("LIVE2D_QWEN"))
+            if edition not in EDITION_LABELS or framing not in FRAMING_LABELS or qwen not in QWEN_LABELS:
+                raise ValueError("Live2D 등급·제작 범위·Qwen 옵션을 확인하세요.")
+            expected = qwen == "on" or (qwen == "auto" and edition == "pro")
+            if values.get("LIVE2D_USE_QWEN") != expected:
+                raise ValueError("Qwen 옵션이 변경되었습니다.")
+            return (task, mode, usage, edition, framing, qwen,
+                    values.get("EXISTING_IMAGE_PATH", ""))
+        if mode == "inochi2d":
+            setting = values.get("TWO_D_INPUT")
+            if setting not in TWO_D_LABELS:
+                raise ValueError("Inochi2D 입력 방식을 확인하세요.")
+            return (task, mode, usage, setting, values.get("EXISTING_IMAGE_PATH", ""))
+        return (task, mode, usage, bool(values.get("MULTI_REFERENCE_3D")),
+                values.get("EXISTING_IMAGE_PATH", ""))
+    if task == "액세서리 제작":
+        subtype = values.get("ACCESSORY_SUBTYPE")
+        if subtype not in ACCESSORY_LABELS:
+            raise ValueError("액세서리 작업 종류를 확인하세요.")
+        if subtype == "소품":
+            anchor = values.get("ACCESSORY_ANCHOR")
+            if anchor not in ANCHOR_LABELS:
+                raise ValueError("소품 부착 위치를 확인하세요.")
+            return (task, subtype, usage, anchor, values.get("ACCESSORY_BASE_VRM_PATH", ""))
+        if subtype == "2D 교체 의상":
+            target = values.get("OUTFIT_2D_TARGET")
+            if target not in ("live2d", "inochi2d"):
+                raise ValueError("교체 의상 대상을 확인하세요.")
+            return (task, subtype, usage, target, values.get("WARDROBE_2D_BASE_ZIP_PATH", ""))
+        return (task, subtype, usage, values.get("ACCESSORY_BASE_VRM_PATH", ""),
+                values.get("WARDROBE_XWEAR_PATH", ""))
+    raise ValueError("작업 종류를 선택하세요.")
+
+
+def require_confirmed_selection(values: dict) -> tuple:
+    """Prevent Run All from downloading default models before widget selection."""
+    if not values.get("MODE_SELECTION_CONFIRMED"):
+        raise RuntimeError(
+            "② 설정 미확정: ② 셀에서 작업·모드를 선택하고 '② 설정 확정' 버튼을 "
+            "누른 다음 이 셀을 다시 실행하세요. 선택 전 다운로드·업로드·제작은 금지됩니다."
+        )
+    current = selection_signature(values)
+    if values.get("MODE_SELECTION_SNAPSHOT") != current:
+        values["MODE_SELECTION_CONFIRMED"] = False
+        raise RuntimeError("② 확정 후 옵션이 바뀌었습니다. '② 설정 확정'을 다시 누르세요.")
+    return current
+
+
 def render_notebook_controls(values: dict) -> bool:
     """Render dynamically scoped widgets, update notebook globals on change.
 
-    The only Colab #@param is TASK (which requires rerunning this cell).
-    Every other input is dynamically visible only in its relevant branch.
+    TASK and every subordinate option are task-scoped widgets.
+    Confirming is mandatory before any later download, upload or build.
     """
     try:
         import ipywidgets as w
@@ -108,6 +167,15 @@ def render_notebook_controls(values: dict) -> bool:
         # On Colab, missing widgets must be fixed instead of silently using
         # defaults. Cell ③ performs an explicit runtime check.
         return False
+
+    values["MODE_SELECTION_CONFIRMED"] = False
+    values.pop("MODE_SELECTION_SNAPSHOT", None)
+    status = w.HTML(value="<b>미확정:</b> 모드를 고르고 아래 '② 설정 확정'을 누르세요.")
+
+    def dirty():
+        values["MODE_SELECTION_CONFIRMED"] = False
+        values.pop("MODE_SELECTION_SNAPSHOT", None)
+        status.value = "<b>미확정:</b> 옵션이 변경됐습니다. '② 설정 확정'을 다시 누르세요."
 
     def select(key, choices: dict, *, name: str, description: str):
         options = [(label, value) for value, label in choices.items()]
@@ -122,6 +190,7 @@ def render_notebook_controls(values: dict) -> bool:
                 values[key] = change["new"]
                 if key in ("LIVE2D_EDITION", "LIVE2D_QWEN"):
                     refresh_qwen(values)
+                dirty()
         control.observe(update, names="value")
         return w.VBox([control, w.HTML(value=description)])
 
@@ -131,13 +200,19 @@ def render_notebook_controls(values: dict) -> bool:
             style={"description_width": "initial"},
             layout=w.Layout(width="min(100%, 860px)"),
         )
-        control.observe(lambda change: values.__setitem__(key, change["new"]), names="value")
+        def on_text(change):
+            values[key] = change["new"]
+            dirty()
+        control.observe(on_text, names="value")
         return w.VBox([control, w.HTML(value=description)])
 
     def bool_input(key: str, *, name: str, description: str):
         control = w.Checkbox(value=values[key], description=name,
                              indent=False, layout=w.Layout(width="min(100%, 860px)"))
-        control.observe(lambda change: values.__setitem__(key, change["new"]), names="value")
+        def on_check(change):
+            values[key] = change["new"]
+            dirty()
+        control.observe(on_check, names="value")
         return w.VBox([control, w.HTML(value=description)])
 
     def paragraph(body: str):
@@ -214,26 +289,53 @@ def render_notebook_controls(values: dict) -> bool:
 
     pane = w.VBox()
     shared = common()
-    if values["TASK"] == "캐릭터 생성":
-        main = select("MODE", MODE_LABELS, name="캐릭터 제작 모드",
-                      description="Live2D 아래에서 FREE·PRO를 선택합니다. "
-                                  "3D는 VRM, Inochi2D는 INP, Live2D는 Cubism 전달 자료를 목표로 합니다.")
-        chooser = main.children[0]
-        def redraw(change=None):
-            pane.children = tuple(mode_options(values["MODE"]))
-        chooser.observe(redraw, names="value")
-        redraw()
-        display(w.VBox([paragraph("<b>캐릭터 생성 설정</b>"), main, *shared, pane]))
-    else:
-        main = select("ACCESSORY_SUBTYPE", ACCESSORY_LABELS, name="액세서리·의상 작업",
-                      description="소품/2D 의상/XWear 중 하나만 선택합니다. "
-                                  "선택하지 않은 작업의 상세 설정은 표시되지 않습니다.")
-        chooser = main.children[0]
-        def redraw(change=None):
-            pane.children = tuple(accessory_options(values["ACCESSORY_SUBTYPE"]))
-        chooser.observe(redraw, names="value")
-        redraw()
-        display(w.VBox([paragraph("<b>액세서리·의상 제작 설정</b>"), main, *shared, pane]))
+    task_picker = select("TASK", {
+        "캐릭터 생성": "캐릭터 생성 — Live2D / Inochi2D / 3D VRM",
+        "액세서리 제작": "액세서리 제작 — 소품 / 교체 의상",
+    }, name="① 작업 종류",
+       description="작업을 바꾸면 아래 옵션이 즉시 전환됩니다. 셀을 다시 실행할 필요는 없습니다.")
+
+    def redraw_task(change=None):
+        if values["TASK"] == "캐릭터 생성":
+            detail = w.VBox()
+            mode_picker = select("MODE", MODE_LABELS, name="② 캐릭터 제작 모드",
+                                 description="Live2D를 고른 뒤 FREE / PRO를 선택합니다.")
+            def redraw_mode(change=None):
+                detail.children = tuple(mode_options(values["MODE"]))
+            mode_picker.children[0].observe(redraw_mode, names="value")
+            redraw_mode()
+            pane.children = (paragraph("<b>캐릭터 생성 설정</b>"), mode_picker, detail)
+        else:
+            detail = w.VBox()
+            subtype_picker = select("ACCESSORY_SUBTYPE", ACCESSORY_LABELS,
+                                    name="② 액세서리·의상 작업",
+                                    description="선택한 소품·의상 작업의 옵션만 표시합니다.")
+            def redraw_subtype(change=None):
+                detail.children = tuple(accessory_options(values["ACCESSORY_SUBTYPE"]))
+            subtype_picker.children[0].observe(redraw_subtype, names="value")
+            redraw_subtype()
+            pane.children = (paragraph("<b>액세서리·의상 제작 설정</b>"), subtype_picker, detail)
+
+    task_picker.children[0].observe(redraw_task, names="value")
+    redraw_task()
+    confirm = w.Button(description="② 설정 확정 — ③ 진행 허용",
+                       button_style="success", icon="check",
+                       layout=w.Layout(width="330px"))
+    def on_confirm(_):
+        try:
+            refresh_qwen(values)
+            snapshot = selection_signature(values)
+        except ValueError as exc:
+            dirty()
+            status.value = "<b>설정 오류:</b> " + str(exc)
+            return
+        values["MODE_SELECTION_SNAPSHOT"] = snapshot
+        values["MODE_SELECTION_CONFIRMED"] = True
+        status.value = ("<b>설정 확정 완료.</b> ③ 모델 다운로드 셀을 실행하세요. "
+                        "선택값을 바꾸면 다시 확정해야 합니다.")
+        print("[② 설정 확정]", " / ".join(map(str, snapshot[:4])), flush=True)
+    confirm.on_click(on_confirm)
+    display(w.VBox([task_picker, *shared, pane, confirm, status]))
     return True
 
 
