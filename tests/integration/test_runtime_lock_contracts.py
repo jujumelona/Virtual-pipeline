@@ -306,13 +306,22 @@ def test_colab_notebook_has_separate_environment_models_and_ui_cells():
     setup, models, launch = code_cells
     assert '"fetch", "--prune", "origin", "main"' in setup
     assert '"reset", "--hard", "origin/main"' in setup
-    assert "REPO_DIR / 'tools' / 'colab_app.py'" in setup
+    # Resolve the actual three-cell flow: pinned runtime bootstrap,
+    # static Colab mode selection, then a finite native subprocess.
+    assert "runpy.run_path" in setup
+    assert "colab_app.py" in setup
     assert "app['ensure_runtime']()" in setup
-    assert 'run([sys.executable, "-u", "-c", setup_python], 9000)' in setup
-    assert "prepare_models" in models
+    assert 'run([sys.executable, "-u", "-c", setup_code], 9000)' in setup
+    assert "from tools.colab_native import stop_legacy_server" in setup
+    assert 'TASK = "캐릭터 생성"' in models
+    assert 'MODE = "3d"' in models
+    assert 'USAGE = "corporation"' in models
+    assert "ACCESSORY_ANCHOR" in models
+    assert "prepare_models(" not in models
     assert '"pip", "install"' not in models
-    assert "runpy.run_path" in launch
-    assert 'run_name="__main__"' in launch
+    assert "from tools.colab_native import generate" in launch
+    assert 'RESULT_FILE = generate(' in launch
+    assert 'elif TASK == "액세서리 제작":' in launch
     assert "ensure_runtime" not in launch
     assert '"pip", "install"' not in launch
 
