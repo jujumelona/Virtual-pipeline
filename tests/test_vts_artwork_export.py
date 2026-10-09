@@ -332,3 +332,21 @@ def test_free_single_flattened_character_is_not_reported_as_separated_artwork(tm
     source = make_layers(tmp_path / "in", count=1)
     with pytest.raises(ValueError, match="flattened"):
         build_artwork_package(source, tmp_path / "out", edition="free", scope="upper")
+
+
+def test_cubism_psd_bakes_alpha_without_remaining_layer_masks(tmp_path):
+    from psd_tools import PSDImage
+    from tools.vts_artwork_export import _write_psd
+    import numpy as np
+    source = Image.new('RGBA', (256, 384))
+    source.paste((70, 150, 210, 128), (20, 30, 100, 130))
+    parts = [{'name': 'hair.front', 'image': source, 'depth': 0}]
+    path = tmp_path / 'alpha.psd'
+    _write_psd(parts, path, free=False)
+    psd = PSDImage.open(path)
+    leaves = [x for x in psd.descendants() if not x.is_group()]
+    assert psd.color_mode.name == 'RGB'
+    assert psd.depth == 8
+    assert len(leaves) == 1
+    assert leaves[0].mask is None  # Cubism official Apply Layer Mask prerequisite
+    assert np.array_equal(np.asarray(leaves[0].topil().convert('RGBA')), np.asarray(source))

@@ -9,7 +9,7 @@ def prepare_detached_asset(master: Path, work: Path, *, asset_kind: str,
                            qwen: bool, layer_count: int, pass_budget: int,
                            third_party: Path, python: str | None = None):
     from psd_tools import PSDImage
-    from psd_tools.api.layers import PixelLayer
+    from tools.vts_psd_layer import create_import_layer
 
     with Image.open(master) as source:
         source.load()
@@ -57,7 +57,7 @@ def prepare_detached_asset(master: Path, work: Path, *, asset_kind: str,
     if not rgba.getchannel("A").getbbox():
         raise ValueError("Detached asset has no drawable pixels")
     psd = PSDImage.new("RGB", rgba.size)
-    PixelLayer.frompil(rgba, psd, name=asset_kind + ".source")
+    create_import_layer(rgba, psd, name=asset_kind + ".source")
     target = work / "asset_source.psd"
     psd.save(target)
     (work / "asset_preparation.json").write_text(

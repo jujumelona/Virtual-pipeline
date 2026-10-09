@@ -163,7 +163,7 @@ def _write_psd(parts, target: Path, *, free: bool):
     globally changes interleaved eyes/bangs/face drawing order.
     """
     from psd_tools import PSDImage
-    from psd_tools.api.layers import PixelLayer
+    from tools.vts_psd_layer import create_import_layer
     psd = PSDImage.new("RGB", parts[0]["image"].size, depth=8)
     group = None
     active_family = None
@@ -178,8 +178,8 @@ def _write_psd(parts, target: Path, *, free: bool):
             raise RuntimeError("No PSD group for part")
         # psd-tools 1.14.x exposes PixelLayer.frompil(parent=group).
         # Some versions do not expose Group.create_pixel_layer.
-        PixelLayer.frompil(part["image"], parent=group,
-                           name=part["name"], top=0, left=0)
+        create_import_layer(part["image"], parent=group,
+                            name=part["name"], top=0, left=0)
     target.parent.mkdir(parents=True, exist_ok=True)
     psd.save(str(target))
     if target.read_bytes()[:4] != b"8BPS":
@@ -188,6 +188,8 @@ def _write_psd(parts, target: Path, *, free: bool):
     leaves = [x for x in document.descendants() if not x.is_group()]
     if len(leaves) != len(parts):
         raise RuntimeError("PSD lost drawable layers on serialization")
+    if any(x.mask is not None for x in leaves):
+        raise RuntimeError("Cubism import PSD retains an unapplied layer mask")
     return groups
 
 
