@@ -1,100 +1,120 @@
-"""Create a replaceable 2D outfit ZIP without modifying the original body.
+"""Independent 2D wardrobe model: neutral 24-part avatar + four costume parts.
 
-Input: verified full character_2d_sheet_pack.zip plus NEW isolated garment
-sheet (front/back clothing cells only). Base body, face, arms and hair are
-copied unchanged. The result goes through the normal Colab sheet pipeline,
-which re-builds/re-rigs the editable character; this is not a live outfit
-toggle nor a per-sleeve skinning system.
+This builds an editor-riggable 28-part package (front, back, left/right
+sleeves), NEVER a rigid prop and NEVER a live parameter-toggle. To wear a
+different outfit, rebuild the 2D model from identical neutral base + garment.
 """
 from __future__ import annotations
-import argparse
 from io import BytesIO
-import json
 from pathlib import Path
-from zipfile import ZipFile,ZIP_DEFLATED
+from zipfile import ZipFile, ZIP_DEFLATED
+import json
+
 from PIL import Image
 from tools.sheet_input_loader import (
-    inspect_sheet_archive,_members,_read,_tile_box,_valid_aspect,
+    inspect_sheet_archive,convert_2d_sheet_pack,_tile_box,_valid_aspect,
+    _upscale_to,MASTER,
 )
-from vtuber_pipeline.sheet_contract import SHEETS_2D
+from vtuber_pipeline.wardrobe_contract import GARMENT_SHEET,GARMENT_PARTS
 
-OUTFIT="sheet_body_outfit.png"
 
-def change_outfit(source_zip: str, new_outfit_png: str, result_zip: str) -> str:
-    inspect_sheet_archive(source_zip,"live2d")
-    sheet=next(s for s in SHEETS_2D if s.filename==OUTFIT)
-    src=Path(source_zip).resolve()
-    dest=Path(result_zip).resolve()
-    if src==dest:
-        raise ValueError("Output must not overwrite original sheet ZIP")
-    with Image.open(new_outfit_png) as candidate:
-        if candidate.format!="PNG" or candidate.mode!="RGBA":
-            raise ValueError("New clothing sheet must be a truly transparent RGBA PNG")
-        candidate.load()
-        variant=candidate.copy()
-    if not _valid_aspect(variant.size,sheet.size):
-        raise ValueError("New clothing sheet needs a 4:3 canvas ratio")
-    # Body cell must stay totally blank in the *new* sheet; it is supplied
-    # solely by original ZIP. No change to skin/bodysuit is ever accepted.
-    for row,col in ((0,0),(1,1)):
-        box=_tile_box(variant.size,sheet,row,col)
-        if variant.crop(box).getchannel("A").getbbox():
+def inspect_garment_image(filename: str) -> dict:
+    path=Path(filename)
+    if path.name != "outfit_variant.png":
+        raise ValueError("Outfit filename must be exactly outfit_variant.png")
+    with Image.open(path) as image:
+        if image.format != "PNG" or image.mode != "RGBA":
+            raise ValueError("Outfit must be a real RGBA PNG, never an RGB background")
+        image.load()
+        if not _valid_aspect(image.size, GARMENT_SHEET.size):
             raise ValueError(
-                f"New outfit sheet row{row+1} col{col+1} must be FULLY "
-                "transparent; body comes unchanged from original sheet"
+                f"outfit_variant.png: expected WIDTH:HEIGHT 4:3 (got {image.size})"
             )
-    for row,col in ((0,1),(1,0)):
-        box=_tile_box(variant.size,sheet,row,col)
-        alpha=variant.crop(box).getchannel("A")
-        if not alpha.getbbox():
-            raise ValueError("Both new outfit_front and outfit_back must be nonempty")
-        if alpha.histogram()[255] >= alpha.width*alpha.height*.97:
-            raise ValueError("Garment cell is a filled background, not transparent art")
-
-    with ZipFile(src) as z:
-        members=_members(z,"live2d")
-        previous=_read(z,members,OUTFIT).convert("RGBA")
-        # Retain higher native sampling where possible. The overall sheet
-        # will receive AI SR only AFTER per-cell extraction in cell ⑤.
-        target=(max(previous.width,variant.width),max(previous.height,variant.height))
-        merged=Image.new("RGBA",target,(0,0,0,0))
-        for row,col,sample in ((0,0,previous),(0,1,variant),(1,0,variant)):
-            region=sample.crop(_tile_box(sample.size,sheet,row,col))
-            x0,y0,x1,y1=_tile_box(target,sheet,row,col)
-            if region.size!=(x1-x0,y1-y0):
-                region=region.resize((x1-x0,y1-y0),Image.Resampling.LANCZOS)
-            merged.paste(region,(x0,y0))
-        payload=BytesIO()
-        merged.save(payload,"PNG")
-        dest.parent.mkdir(parents=True,exist_ok=True)
-        temporary=dest.with_name(dest.stem + ".pending.zip")
-        try:
-            with ZipFile(temporary,"w",compression=ZIP_DEFLATED) as out:
-                for name,item in members.items():
-                    blob=payload.getvalue() if name==OUTFIT else z.read(item)
-                    out.writestr("character_2d_sheet_pack/"+name,blob)
-            inspect_sheet_archive(str(temporary),"live2d")
-            temporary.replace(dest)
-        finally:
-            temporary.unlink(missing_ok=True)
-    receipt=dest.with_suffix(".wardrobe.json")
-    receipt.write_text(json.dumps({
-        "mode":"rerig_required",
-        "new_zip":str(dest),
-        "unchanged_semantic_part":"body",
-        "replaced_semantic_parts":["outfit_front","outfit_back"],
-        "note":"Sleeves have no separate deformation meshes in v1; manual editor rigging may be needed",
-    },ensure_ascii=False,indent=2),encoding="utf-8")
-    return str(dest)
+        for t in GARMENT_SHEET.tiles:
+            alpha=image.crop(_tile_box(image.size,GARMENT_SHEET,t.row,t.col)).getchannel("A")
+            if not alpha.getbbox():
+                raise ValueError(f"outfit_variant.png: missing part {t.name}")
+            if alpha.histogram()[255] >= alpha.width*alpha.height*.97:
+                raise ValueError(
+                    f"outfit_variant.png: {t.name} is almost fully opaque; "
+                    "remove the painted/background grid first"
+                )
+        return {"file":path.name,"size":list(image.size),
+                "parts":sorted(GARMENT_PARTS),"valid":True}
 
 
-def main():
-    parser=argparse.ArgumentParser(description="Replace outfit only in a full 2D sheet ZIP")
-    parser.add_argument("--source",required=True,help="Original full character_2d_sheet_pack.zip")
-    parser.add_argument("--outfit",required=True,help="New RGBA 2x2 garment-only PNG")
-    parser.add_argument("--output",required=True,help="Destination full variant sheet ZIP")
-    args=parser.parse_args()
-    print(change_outfit(args.source,args.outfit,args.output),flush=True)
+def build_dressed_2d_assets(base_zip: str, outfit_png: str,
+                            output_dir: str, *, neural: bool=True,
+                            upscaler=None) -> dict:
+    """Return master and 28 full-canvas layer ZIP, preserving all base pixels.
 
-if __name__=="__main__":
-    main()
+    The neural checkpoint is loaded ONCE per disposable worker. Neither
+    upscaling nor the atlas grid invents correct sleeve shape/occlusion.
+    """
+    inspect_sheet_archive(base_zip,"live2d")
+    inspect_garment_image(outfit_png)
+    folder=Path(output_dir)
+    folder.mkdir(parents=True,exist_ok=True)
+    if neural and upscaler is None:
+        from tools.sheet_super_resolution import load_model,upscale_rgba
+        model=load_model()
+        upscaler=lambda im,factor:upscale_rgba(im,model,output_scale=factor)
+    if upscaler is None:
+        upscaler=lambda im,factor:im.resize(
+            (im.width*factor,im.height*factor),Image.Resampling.LANCZOS
+        )
+    master,base_layers=convert_2d_sheet_pack(
+        base_zip,str(folder/"base"),output_scale=2,
+        neural=neural,upscaler=upscaler
+    )
+    final_size=(MASTER[0]*2,MASTER[1]*2)
+    output=folder/"wearable_layers.internal.zip"
+    temporary=output.with_suffix(".part")
+    with Image.open(outfit_png) as im:
+        sheet=im.copy()
+    try:
+        with ZipFile(base_layers) as existing,ZipFile(
+                temporary,"w",compression=ZIP_DEFLATED,compresslevel=1) as layers:
+            names=existing.namelist()
+            if len(names)!=24 or len(set(names))!=24:
+                raise RuntimeError("Base avatar is not the 24-layer neutral contract")
+            if any(p+".png" in names for p in GARMENT_PARTS):
+                raise RuntimeError("Permanent base layers contain garment artwork")
+            for name in names:
+                layers.writestr(name,existing.read(name))
+            for tile in GARMENT_SHEET.tiles:
+                cell=sheet.crop(_tile_box(sheet.size,GARMENT_SHEET,
+                                          tile.row,tile.col))
+                bbox=cell.getchannel("A").getbbox()
+                assert bbox is not None  # validated already
+                part=cell.crop(bbox)
+                roi=tile.roi
+                dx=(roi[2]-roi[0])*2/cell.width
+                dy=(roi[3]-roi[1])*2/cell.height
+                if abs(dx/dy-1)>.02:
+                    raise ValueError(f"{tile.name}: garment tile distorted")
+                x=roi[0]*2+round(bbox[0]*dx)
+                y=roi[1]*2+round(bbox[1]*dy)
+                target=(min(roi[2]*2-x,max(1,round(part.width*dx))),
+                        min(roi[3]*2-y,max(1,round(part.height*dy))))
+                refined=_upscale_to(part,target,upscaler,neural=neural)
+                layer=Image.new("RGBA",final_size,(0,0,0,0))
+                layer.paste(refined,(x,y))
+                data=BytesIO()
+                layer.save(data,"PNG")
+                layers.writestr(tile.name+".png",data.getvalue())
+                print("[outfit] rig layer "+tile.name+" -> "+
+                      str(target)+" at "+str((x,y)),flush=True)
+        temporary.replace(output)
+    finally:
+        temporary.unlink(missing_ok=True)
+    manifest=folder/"wearable_manifest.json"
+    manifest.write_text(json.dumps({
+        "schema":"vtuber/2d-outfit-v2",
+        "master":master,"layers_zip":str(output),
+        "permanent_base_parts":24,"independent_garment_parts":list(sorted(GARMENT_PARTS)),
+        "total_parts":28,
+        "runtime_toggle_supported":False,
+        "dynamic_sleeves_require_motion_validation":True,
+    },indent=2),encoding="utf-8")
+    return {"front":master,"layers":str(output),"manifest":str(manifest)}
