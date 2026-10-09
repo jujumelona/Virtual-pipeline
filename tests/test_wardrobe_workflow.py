@@ -36,7 +36,7 @@ def test_garment_4_cells_normalized_and_base_unmodified(tmp_path,monkeypatch):
     from tools import modular_avatar_pack as modular
     from vtuber_pipeline.sheet_contract import Sheet, Tile
 
-    fake=Sheet("outfit_variant.png",(128,64),2,2,(
+    fake=Sheet("outfit_variant.png",(512,256),2,2,(
         Tile("outfit_front",0,0,(0,10,64,42)),
         Tile("outfit_back",0,1,(0,10,64,42)),
         Tile("outfit_sleeve_left",1,0,(0,20,64,52)),
@@ -59,7 +59,7 @@ def test_garment_4_cells_normalized_and_base_unmodified(tmp_path,monkeypatch):
     monkeypatch.setattr(modular,"convert_2d_sheet_pack",fake_convert)
     source=tmp_path/"character_2d_sheet_pack.zip"
     source.write_bytes(b"mock source - preflight is patched for CPU test")
-    garment=Image.new("RGBA",(128,64),(0,0,0,0))
+    garment=Image.new("RGBA",(512,256),(0,0,0,0))
     for tile in fake.tiles:
         x0,y0,x1,y1=fake.box(tile)
         ImageDraw.Draw(garment).rectangle(
