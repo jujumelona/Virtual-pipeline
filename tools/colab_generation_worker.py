@@ -22,11 +22,62 @@ def emit(kind: str, **details) -> None:
     print(EVENT_PREFIX + json.dumps({"kind": kind, **details}, ensure_ascii=False), flush=True)
 
 
+def materialize_sheet_request(request: dict, values: list) -> list:
+    """GPU super-resolution exits BEFORE running other model stages."""
+    import subprocess
+    kind = request["mode"]
+    if not (
+        (kind in {"live2d", "inochi2d"} and len(values) == 3
+         and values[2] == "__sheet_pack__")
+        or (kind == "avatar" and len(values) == 10
+            and values[2] == "__sheet_pack__")
+    ):
+        return values
+    path = Path(values[0]).resolve(strict=True)
+    output = Path(request.get("_sheet_workdir", path.parent / "sheet_generated"))
+    output.mkdir(parents=True, exist_ok=True)
+    stage_request = output / "request.json"
+    stage_result = output / "result.json"
+    stage_result.unlink(missing_ok=True)
+    stage_request.write_text(json.dumps({
+        "mode": "3d" if kind == "avatar" else kind,
+        "sheet_zip": str(path), "output_dir": str(output / "rendered"),
+    }, ensure_ascii=False), encoding="utf-8")
+    emit("stage", stage="sheet-extract-neural-sr", status="running",
+         detail="real GPU-tiled anime super-resolution in disposable PID")
+    try:
+        proc = subprocess.run([
+            sys.executable, "-u", str(ROOT / "tools" / "sheet_prepare_worker.py"),
+            "--request", str(stage_request), "--result", str(stage_result),
+        ], timeout=7200, check=False)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("Sheet neural SR timed out after 7200s") from exc
+    if proc.returncode:
+        raise RuntimeError(
+            f"Sheet extraction/neural SR failed: exit={proc.returncode}; "
+            f"input={stage_request}; output={stage_result}; "
+            "checkpoint must be prepared in cell ③; no silent interpolation"
+        )
+    if not stage_result.is_file():
+        raise RuntimeError("Sheet SR stage reported zero output manifest")
+    result = json.loads(stage_result.read_text(encoding="utf-8"))
+    emit("stage", stage="sheet-extract-neural-sr", status="complete",
+         detail="SR model PID exited and CUDA memory released")
+    if kind in {"live2d", "inochi2d"}:
+        return [result["front"], values[1], result["layers"]]
+    return [
+        result["front"], values[1], None,
+        result["face"], result["back"], True,
+        values[6], result["left"], result["right"], values[9],
+    ]
+
+
 def run_request(request: dict) -> list:
     kind = request.get("mode")
     values = request.get("args")
     if kind not in MODES or not isinstance(values, list):
         raise ValueError("Unknown production mode or invalid arguments")
+    values = materialize_sheet_request(request, values)
     # runpy's setup-only entrypoint suppresses the Gradio import even if
     # the subprocess is missing/changing server-side UI dependencies.
     app = runpy.run_path(str(ROOT / "tools" / "colab_app.py"), run_name="vtuber_prepare")
@@ -72,6 +123,7 @@ def main() -> int:
             pass
         os.environ["VTUBER_GENERATION_WORKER"] = "1"
         request = json.loads(request_path.read_text(encoding="utf-8"))
+        request["_sheet_workdir"] = str(request_path.parent / "sheet_generated")
         result = run_request(request)
         if len(result) != (4 if request["mode"] == "avatar" else 3):
             raise RuntimeError("Production callback result dimension mismatch")
