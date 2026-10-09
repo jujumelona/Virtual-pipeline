@@ -68,12 +68,14 @@ class Identity:
     eye_color: str
     face_description: str
     outfit: str
+    gender: str = ""
     palette: str = ""
     accessories: str = ""
     extra: str = ""
 
     def describe(self) -> str:
         data = {
+            "gender": self.gender,
             "hair_color": self.hair_color, "hairstyle": self.hairstyle,
             "eye_color": self.eye_color, "face_description": self.face_description,
             "outfit": self.outfit, "palette": self.palette,
@@ -150,11 +152,10 @@ def build_prompts(mode: str, identity: Identity) -> dict:
                            "purpose": "part", "semantic_id": key,
                            "prompt": general + "\n" + prompt})
         packaging = (
-            "Save the 26 semantic PNG layers named exactly as listed and put "
-            "them in a ZIP with no extra PNGs or directories. Also deliver "
-            "front_master.png separately. Each layer MUST be 2048x3072 RGBA, "
-            "same exact origin/coordinate system. No sprite sheet. All "
-            "occluded parts completed. JPEG is NOT accepted."
+            "Deliver 27 separate PNG images: front_master.png and the 26 "
+            "named RGBA semantic layers. Every layer uses the same 2048x3072 "
+            "full canvas and exact origin. No sprite sheet. Complete all "
+            "occluded areas; JPEG is not accepted."
         )
     else:
         w, h = CANVAS_3D
