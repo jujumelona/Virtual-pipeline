@@ -60,6 +60,22 @@ def _semantic_family(name: str) -> str:
         "head": "body.head", "hair": "hair.general",
         "face": "face", "ears": "ear",
     }
+    split_aliases = {"hairf": "hair.front", "hairb": "hair.back",
+                     "eyel": "eye.left", "eyer": "eye.right",
+                     "browl": "eyebrow.left", "browr": "eyebrow.right",
+                     "earl": "ear.left", "earr": "ear.right"}
+    if raw in split_aliases:
+        return split_aliases[raw]
+    # part_lr_split emits e.g. irides-l and handwear-r. These suffixes
+    # describe the upstream semantic side; preserve them rather than infer
+    # anatomical left/right again from image position.
+    stem, _, suffix = raw.rpartition(".")
+    if suffix in ("l", "r") and stem in exact_upstream | {"eyebrow": "eyebrow"}:
+        family = (exact_upstream | {"eyebrow": "eyebrow"})[stem]
+        side = "left" if suffix == "l" else "right"
+        if family.startswith("eye."):
+            return "eye." + side + "." + family.split(".", 1)[1]
+        return family + "." + side
     if raw in exact_upstream:
         return exact_upstream[raw]
     # The See-through / Qwen layer name is a semantic identity, not just an
@@ -179,6 +195,42 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
             label = _semantic_family(name)
             archive.writestr(f"{label}.{index:03d}.png", buf.getvalue())
     return source, out_zip, len(leaves)
+
+
+def restore_source_canvas(registered: Path, source_size: tuple[int, int], target: Path):
+    """Invert the pinned See-through center-square-pad/resize transform.
+
+    Use only for this model's generated PSD, never guess external PSD geometry.
+    Resampling does not recover source RGB detail lost during inference.
+    """
+    from io import BytesIO
+    from PIL import Image
+    width, height = source_size
+    edge = max(width, height)
+    pad_x, pad_y = (edge - width) // 2, (edge - height) // 2
+    observed_size = None
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with ZipFile(registered) as src, ZipFile(target, "w", ZIP_DEFLATED) as dst:
+        for name in src.namelist():
+            with Image.open(BytesIO(src.read(name))) as im:
+                im.load()
+                if im.mode != "RGBA" or im.width != im.height:
+                    raise ValueError("Pinned See-through output must be square RGBA")
+                if observed_size is not None and im.size != observed_size:
+                    raise ValueError("Inconsistent inference layer canvas")
+                observed_size = im.size
+                square = im if im.size == (edge, edge) else im.resize(
+                    (edge, edge), Image.Resampling.LANCZOS)
+                layer = square.crop((pad_x, pad_y, pad_x + width, pad_y + height))
+                buf = BytesIO(); layer.save(buf, format="PNG")
+                dst.writestr(name, buf.getvalue())
+    return target, {
+        "method": "inverse_pinned_center_square_pad_resize",
+        "inference_canvas": list(observed_size) if observed_size else None,
+        "source_canvas": list(source_size), "padding_removed_xy": [pad_x, pad_y],
+        "resampled": observed_size != (edge, edge),
+        "source_rgb_fidelity_verified": False,
+    }
 
 
 def _observed_split_tags(metadata: Path, *, depth: bool) -> list[str]:
@@ -377,6 +429,15 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
         _, registered, count = psd_to_registered_rgba(
             psd, output / "layers", artmesh_max=100 if edition == "free" else None,
         )
+        registration = {"method": "external_psd_already_registered"}
+        if external_psd is None:
+            registered, registration = restore_source_canvas(
+                registered, canvas, output / "layers/source_frame_layers.zip")
+        else:
+            from psd_tools import PSDImage
+            if PSDImage.open(psd).size != canvas:
+                raise ValueError("External PSD must match the input reference canvas; "
+                                 "cannot infer its crop/padding transform")
         from tools.vts_artwork_export import build_artwork_package
         produced = build_artwork_package(
             registered, output / "artwork", edition=edition, scope=scope,
@@ -421,6 +482,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                     "source_canvas": list(original.size),
                     "output_psd_canvas": list(final.size),
                     "same_pixel_canvas": original.size == final.size,
+                    "coordinate_transform": registration,
                     "source_fidelity_verified": False,
                     "visible_rgb_original_resolution_guaranteed": False,
                     "note": "Review the two visual images. Inference may resize or "
@@ -450,6 +512,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                     report_align = {
                         "schema": "vtuber/pro-manual-registration-v1",
                         "input_canvas_identical": original.size == asset.size,
+                        "output_psd_canvas": produced["canvas"],
+                        "output_canvas_matches_body": list(original.size) == produced["canvas"],
                         "input_size": list(original.size),
                         "method": "50-percent visual overlay only",
                         "automatic_pose_landmark_alignment_verified": False,

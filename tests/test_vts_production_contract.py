@@ -188,3 +188,59 @@ def test_eye_and_face_parts_eligible_for_real_left_right_split(tmp_path):
 ])
 def test_anatomy_detail_ids_survive_import(name, expected):
     assert _semantic_family(name) == expected
+
+@pytest.mark.parametrize("name,expected", [
+    ("eyebrow-l", "eyebrow.left"), ("irides-r", "eye.right.iris"),
+    ("eyewhite-l", "eye.left.sclera"), ("eyelash-r", "eye.right.lash"),
+    ("hairb", "hair.back"), ("hairf", "hair.front"),
+    ("earr", "ear.right"), ("eyer", "eye.right"),
+    ("browl", "eyebrow.left"), ("handwear-r", "cloth.gloves.right"),
+])
+def test_pinned_upstream_split_ids_are_preserved(name, expected):
+    assert _semantic_family(name) == expected
+
+
+def test_generated_square_layers_return_to_source_frame(tmp_path):
+    from tools.vts_production import restore_source_canvas
+    from io import BytesIO
+    registered = tmp_path / "registered.zip"
+    # Original portrait 256x384 pads by 64px on the left, with no scaling.
+    with ZipFile(registered, "w") as z:
+        im = Image.new("RGBA", (384, 384))
+        im.paste((100, 150, 200, 255), (80, 20, 110, 60))
+        buf = BytesIO(); im.save(buf, format="PNG")
+        z.writestr("eye.left.000.png", buf.getvalue())
+    restored, geometry = restore_source_canvas(registered, (256, 384), tmp_path / "restored.zip")
+    assert geometry["padding_removed_xy"] == [64, 0]
+    with ZipFile(restored) as z:
+        layer = Image.open(BytesIO(z.read("eye.left.000.png")))
+        assert layer.size == (256, 384)
+        assert layer.getchannel("A").getbbox() == (16, 20, 46, 60)
+        assert layer.getpixel((20, 30)) == (100, 150, 200, 255)
+
+
+def test_generated_pro_handoff_uses_source_coordinate_frame(tmp_path, monkeypatch):
+    import json
+    from psd_tools import PSDImage
+    from psd_tools.api.layers import PixelLayer
+    from tools import vts_production as production
+    master = tmp_path / "hair.png"
+    body = tmp_path / "body.png"
+    Image.new("RGBA", (256, 384)).save(master)
+    Image.new("RGBA", (256, 384)).save(body)
+    psd = PSDImage.new("RGB", (384, 384))
+    layer = Image.new("RGBA", (384, 384))
+    layer.paste((100, 150, 200, 255), (80, 20, 110, 60))
+    PixelLayer.frompil(layer, parent=psd, name="front hair")
+    path = tmp_path / "generated.psd"; psd.save(path)
+    monkeypatch.setattr(production, "run_see_through", lambda *a, **kw: path)
+    result = production.make_cubism_handoff(master, tmp_path / "out", edition="pro", scope="upper",
+                                           asset_kind="hair", reference_image=body)
+    assert PSDImage.open(result["art_psd"]).size == (256, 384)
+    with ZipFile(result["package"]) as z:
+        report = json.loads(z.read("metadata/pro_reference_alignment.json"))
+        assert report["output_canvas_matches_body"] is True
+        manifest = json.loads(z.read("metadata/layer_manifest.json"))
+        assert manifest["layers"][0]["canvas_xyxy_bbox"] == [16, 20, 46, 60]
+        geometry = json.loads(z.read("metadata/input_vs_psd_geometry.json"))
+        assert geometry["coordinate_transform"]["padding_removed_xy"] == [64, 0]
