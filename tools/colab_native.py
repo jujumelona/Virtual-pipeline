@@ -232,7 +232,14 @@ def _event_printer(event):
                 stripped.startswith(("Traceback (most recent call last):",
                                      "Error:", "ERROR:", "RuntimeError:",
                                      "ImportError:", "FileNotFoundError:",
-                                     "subprocess.CalledProcessError:"))
+                                     "subprocess.CalledProcessError:",
+                                     "/usr/bin/ld:", "/usr/bin/ld.gold:",
+                                     "ld:", "ld.lld:", "collect2:"))
+                or any(phrase in stripped.casefold() for phrase in (
+                    "undefined reference", "cannot find -l", "cannot find library",
+                    "dso missing from command line", "file format not recognized",
+                    "linker command failed", "fatal error:", "linker error",
+                    "error: /usr/bin/cc failed", "native_build.log"))
                 or "[setup]" in stripped and "FAILED" in stripped
                 or "[inochi-sdk]" in stripped and "unavailable" in stripped
                 or re.search(r"(worker-import-smoke-ok|flux-transformers-hub-import-ok|실패|준비 완료)", stripped)
