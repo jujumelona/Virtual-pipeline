@@ -124,6 +124,17 @@ def run_stage(*, worker: str, request_json: str, result_json: str,
                 'executable': str(Path(executable).resolve()), 'cwd': str(Path(cwd).resolve())}
     fingerprint = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     result_path.parent.mkdir(parents=True, exist_ok=True)
+    # If a cached face-gate skipped the prewarmed first model, it must NOT
+    # monopolize the GPU lock while another model stage needs CUDA.
+    # A real face-gate uses its resident worker directly, not run_stage().
+    if os.environ.get("VTUBER_GENERATION_WORKER") == "1":
+        from tools.colab_gpu_warmup import available_face_worker, stop_face_worker
+
+        if available_face_worker():
+            print("[gpu-handoff] face gate skipped or cached; "
+                  "unload unused resident detector before next GPU worker",
+                  flush=True)
+            stop_face_worker()
     with _GPU_LOCK, _process_gpu_lock(timeout_sec):
         if provenance.is_file() and result_path.is_file():
             try:
