@@ -74,14 +74,15 @@ def checked_process(args: list[str], *, env: dict | None = None, timeout: int) -
 def ensure_blender_runtime(cache_dir: str) -> str:
     """Install only for 3D and verify the actual import/export operators."""
     configured = os.environ.get("VTUBER_BLENDER_BINARY")
-    if configured:
-        if not Path(configured).is_file():
-            raise FileNotFoundError(configured)
-        return configured
-
     cache = Path(cache_dir).expanduser().resolve()
     cache.mkdir(parents=True, exist_ok=True)
-    executable = cache / "blender-4.2.23-linux-x64" / "blender"
+    executable = (Path(configured).expanduser().resolve() if configured else
+                  cache / "blender-4.2.23-linux-x64" / "blender")
+    if configured and not executable.is_file():
+        raise FileNotFoundError(configured)
+    if (os.environ.get("VTUBER_BLENDER_VERIFIED_BINARY") == str(executable)
+            and executable.is_file()):
+        return str(executable)
     if not executable.is_file():
         with urllib.request.urlopen(BASE + "blender-4.2.23.sha256", timeout=60) as reply:
             digest = published_sha(reply.read(8192).decode("utf-8"), ARCHIVE)
@@ -108,4 +109,18 @@ def ensure_blender_runtime(cache_dir: str) -> str:
         raise RuntimeError("VRM extension import/export operators unavailable")
     os.environ["VTUBER_BLENDER_BINARY"] = str(executable)
     os.environ["BLENDER_USER_CONFIG"] = env["BLENDER_USER_CONFIG"]
+    # A configured path is never proof of the official VRM operators.
+    # Set readiness only after the exact Blender process has passed the probe.
+    os.environ["VTUBER_BLENDER_VERIFIED_BINARY"] = str(executable)
     return str(executable)
+
+
+def require_blender_runtime_ready() -> str:
+    """Generation-only contract: never install or fetch Blender here."""
+    executable = os.environ.get("VTUBER_BLENDER_BINARY")
+    verified = os.environ.get("VTUBER_BLENDER_VERIFIED_BINARY")
+    if not executable or not verified or verified != str(Path(executable).expanduser().resolve()):
+        raise RuntimeError("3D Blender/VRM extension must be verified during workflow setup")
+    if not Path(executable).is_file():
+        raise FileNotFoundError(executable)
+    return executable
