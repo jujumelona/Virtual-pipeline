@@ -191,3 +191,87 @@ def test_2d_installer_pins_flux_hub_without_modifying_shared_cuda(patched_root, 
     )
     saved = json.loads((work / "environment.ready.json").read_text())
     assert saved["fingerprint"] == result["fingerprint"]
+
+
+def test_pinned_sam2_upstream_runtime_requirements_not_skipped():
+    """Official SAM2 setup.py requires iopath; --no-deps is permitted only
+    when the pipeline explicitly supplies that runtime dependency.
+    """
+    assert "iopath==0.1.10" in installer.SAM2_RUNTIME_PACKAGES
+    assert "portalocker==2.10.1" in installer.PYTHON_PACKAGES
+    smoke = installer.SAM2_CONSTRUCTION_SMOKE
+    assert "from iopath.common.file_io import g_pathmgr" in smoke
+    assert "from sam2.modeling.backbones.hieradet import Hiera" in smoke
+    assert "build_sam2('configs/sam2.1/sam2.1_hiera_t.yaml'" in smoke
+    assert "ckpt_path=None" in smoke
+    assert "device='cpu'" in smoke
+    assert "SAM2ImagePredictor(model)" in smoke
+    compile(smoke, "<sam2-actual-hydra-smoke>", "exec")
+
+
+def test_sam2_constructed_in_both_fresh_and_cached_worker_checks(monkeypatch):
+    """The setup and cached ready-marker path both call a real construction,
+    not a function import. The latter catches already-corrupt worker venvs.
+    """
+    import inspect
+    code = inspect.getsource(installer._smoke)
+    assert "SAM2_CONSTRUCTION_SMOKE" in code
+    assert 'timeout=240' in code
+    code = inspect.getsource(installer.install_2d_environment)
+    assert '"sam2_construction_smoke": SAM2_CONSTRUCTION_SMOKE' in code
+    assert code.count("_smoke(python, source, torch_version, vision_version)") == 2
+
+
+def test_sam2_iopath_sdist_installed_separately_from_binary_only_python_wheels(
+    patched_root, monkeypatch,
+):
+    import sys
+    from types import SimpleNamespace
+    _, work, _ = patched_root
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(__version__="2.11.0+cu130"))
+    monkeypatch.setitem(sys.modules, "torchvision", SimpleNamespace(__version__="0.26.0+cu130"))
+    seen = []
+    monkeypatch.setattr(installer, "_prepare_venv",
+                        lambda folder: work / folder / "bin" / "python")
+    def checkout(kind, lock):
+        path = work / "upstream" / kind
+        path.mkdir(parents=True, exist_ok=True)
+        if kind == "anime":
+            (path / "train.py").write_text("pass")
+        return path
+    monkeypatch.setattr(installer, "_checkout_source", checkout)
+    monkeypatch.setattr(installer, "_smoke", lambda *a, **k: None)
+    monkeypatch.setattr(installer, "_exec", lambda args, **k: seen.append(args))
+    installer.install_2d_environment()
+    sam_install = [args for args in seen if "iopath==0.1.10" in args]
+    assert len(sam_install) == 1
+    assert "--no-deps" in sam_install[0]
+    assert "--no-build-isolation" in sam_install[0]
+    assert "--only-binary=:all:" not in sam_install[0]
+    deps = [args for args in seen if "portalocker==2.10.1" in args]
+    assert len(deps) == 1
+    assert "--only-binary=:all:" in deps[0]
+    assert seen.index(deps[0]) < seen.index(sam_install[0])
+
+
+def test_cache_fingerprint_contains_sam2_build_contract(patched_root, monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    _, work, _ = patched_root
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(__version__="2.11.0+cu130"))
+    monkeypatch.setitem(sys.modules, "torchvision", SimpleNamespace(__version__="0.26.0+cu130"))
+    monkeypatch.setattr(installer, "_prepare_venv",
+                        lambda folder: work / folder / "bin" / "python")
+    def checkout(kind, lock):
+        folder = work / "upstream" / kind
+        folder.mkdir(parents=True, exist_ok=True)
+        if kind == "anime":
+            (folder / "train.py").write_text("pass")
+        return folder
+    monkeypatch.setattr(installer, "_checkout_source", checkout)
+    monkeypatch.setattr(installer, "_smoke", lambda *a, **k: None)
+    monkeypatch.setattr(installer, "_exec", lambda *a, **k: None)
+    result = installer.install_2d_environment()
+    import hashlib
+    assert len(result["fingerprint"]) == 64
+    assert (work / "environment.ready.json").exists()
