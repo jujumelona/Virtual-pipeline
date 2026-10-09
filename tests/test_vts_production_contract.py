@@ -452,3 +452,18 @@ def test_opaque_detached_asset_uses_only_qwen_foreground_alpha_and_original_rgb(
         preparation = json.loads(z.read('metadata/asset_preparation.json'))
         assert preparation['method'] == 'qwen_foreground_mask_original_rgb'
         assert preparation['mask_visual_accuracy_verified'] is False
+
+
+def test_external_psd_cannot_silently_relabel_an_incompatible_icc_profile(tmp_path):
+    from PIL import ImageCms
+    from psd_tools import PSDImage
+    from psd_tools.constants import Resource
+    from psd_tools.psd.image_resources import ImageResource
+    from psd_tools.api.layers import PixelLayer
+    psd = PSDImage.new('RGB', (256, 384))
+    PixelLayer.frompil(Image.new('RGBA', (32, 32), (120, 20, 80, 255)), psd, name='face')
+    psd.image_resources[Resource.ICC_PROFILE] = ImageResource(key=Resource.ICC_PROFILE,
+        data=ImageCms.ImageCmsProfile(ImageCms.createProfile('LAB')).tobytes())
+    path = tmp_path / 'profile.psd'; psd.save(path)
+    with pytest.raises(ValueError, match='sRGB'):
+        psd_to_registered_rgba(path, tmp_path / 'out', artmesh_max=100)

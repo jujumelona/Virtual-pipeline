@@ -163,8 +163,8 @@ def _write_psd(parts, target: Path, *, free: bool):
     globally changes interleaved eyes/bangs/face drawing order.
     """
     from psd_tools import PSDImage
-    from tools.vts_psd_layer import create_import_layer
-    psd = PSDImage.new("RGB", parts[0]["image"].size, depth=8)
+    from tools.vts_psd_layer import create_import_layer, new_import_psd
+    psd = new_import_psd(parts[0]["image"].size)
     group = None
     active_family = None
     groups = 0

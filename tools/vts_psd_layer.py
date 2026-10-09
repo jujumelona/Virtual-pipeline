@@ -1,6 +1,36 @@
 """RGB/8-bit import layers with baked transparency, as Cubism requires."""
 
 
+
+def validate_srgb_profile(data):
+    """Refuse silently retagging an embedded profile while retaining RGB bytes."""
+    if not data:
+        return
+    from io import BytesIO
+    from PIL import ImageCms
+    try:
+        profile = ImageCms.ImageCmsProfile(BytesIO(data))
+        description = ImageCms.getProfileDescription(profile).lower()
+    except (OSError, ValueError, ImageCms.PyCMSError) as exc:
+        raise ValueError("Invalid input ICC profile; convert artwork to sRGB") from exc
+    if "srgb" not in description or profile.profile.xcolor_space.strip() != "RGB":
+        raise ValueError("Convert the input artwork to sRGB before production; "
+                         "refusing to silently reinterpret a different ICC color space")
+
+
+def new_import_psd(size):
+    from PIL import ImageCms
+    from psd_tools import PSDImage
+    from psd_tools.constants import Resource
+    from psd_tools.psd.image_resources import ImageResource
+
+    psd = PSDImage.new("RGB", size, depth=8)
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    psd.image_resources[Resource.ICC_PROFILE] = ImageResource(
+        key=Resource.ICC_PROFILE, data=profile)
+    return psd
+
+
 def create_import_layer(image, parent, *, name, top=0, left=0):
     from psd_tools.api.layers import PixelLayer
     from psd_tools.constants import ChannelID

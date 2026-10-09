@@ -47,3 +47,23 @@ print('CPU wrapper fixture completed')
     assert result.is_absolute() and result.is_file()
     assert result.read_bytes().startswith(b"8BPS")
     assert (Path("out") / "see_through_full.log").read_text().strip() == "CPU wrapper fixture completed"
+
+
+def test_non_srgb_profile_is_rejected_before_model_inference(tmp_path, monkeypatch):
+    from PIL import ImageCms
+    master = tmp_path / 'non_srgb.png'
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile('LAB')).tobytes()
+    Image.new('RGB', (256, 384)).save(master, icc_profile=profile)
+    monkeypatch.setattr(production, 'run_see_through', lambda *a, **k: pytest.fail('model called'))
+    with pytest.raises(ValueError, match='sRGB'):
+        production.make_cubism_handoff(master, tmp_path / 'out', edition='free', scope='upper')
+    assert not (tmp_path / 'out').exists()
+
+
+def test_valid_srgb_profile_retains_original_dimensions(tmp_path):
+    from PIL import Image, ImageCms
+    from tools.vts_production import _image
+    path = tmp_path / "srgb.png"
+    Image.new("RGBA", (256, 384), (15, 80, 120, 128)).save(path,
+        icc_profile=ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes())
+    assert _image(path) == (256, 384)

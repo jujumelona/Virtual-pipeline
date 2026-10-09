@@ -32,6 +32,8 @@ def _image(path: Path):
         raise ValueError("Master is not a supported raster image: " + str(path))
     with Image.open(path) as im:
         im.load()
+        from tools.vts_psd_layer import validate_srgb_profile
+        validate_srgb_profile(im.info.get("icc_profile"))
         if im.width < 256 or im.height < 256:
             raise ValueError("Master is too small for rigging")
         if im.width * im.height > 32_000_000:
@@ -138,6 +140,9 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
 
     dest.mkdir(parents=True, exist_ok=True)
     psd = PSDImage.open(psd_path)
+    from psd_tools.constants import Resource
+    from tools.vts_psd_layer import validate_srgb_profile
+    validate_srgb_profile(psd.image_resources.get_data(Resource.ICC_PROFILE))
     size = (psd.width, psd.height)
     if size[0] < 256 or size[1] < 256:
         raise ValueError("PSD canvas is too small")
@@ -146,7 +151,7 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
         if layer.is_group() or not layer.is_visible():
             continue
         # psd-tools stores RGBA layer alpha as USER_LAYER_MASK in RGB
-        # documents (including our own PSD exporter). composite() can return
+        # documents from external writers. composite() can return
         # opaque RGB on such files, so restore the actual mask channel.
         tile = layer.topil()
         if tile is None:

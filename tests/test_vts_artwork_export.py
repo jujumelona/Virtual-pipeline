@@ -350,3 +350,17 @@ def test_cubism_psd_bakes_alpha_without_remaining_layer_masks(tmp_path):
     assert len(leaves) == 1
     assert leaves[0].mask is None  # Cubism official Apply Layer Mask prerequisite
     assert np.array_equal(np.asarray(leaves[0].topil().convert('RGBA')), np.asarray(source))
+
+
+def test_cubism_psd_declares_the_official_srgb_profile(tmp_path):
+    from io import BytesIO
+    from PIL import ImageCms
+    from psd_tools import PSDImage
+    from psd_tools.constants import Resource
+    from tools.vts_artwork_export import _write_psd
+    source = Image.new('RGBA', (256, 384), (20, 80, 170, 128))
+    path = tmp_path / 'profile.psd'
+    _write_psd([{'name': 'hair.front', 'image': source, 'depth': 0}], path, free=False)
+    profile = PSDImage.open(path).image_resources.get_data(Resource.ICC_PROFILE)
+    assert profile
+    assert 'srgb' in ImageCms.getProfileName(ImageCms.ImageCmsProfile(BytesIO(profile))).lower()
