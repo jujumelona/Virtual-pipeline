@@ -147,6 +147,10 @@ def test_native_notebook_setup_isolated_and_selector_downloads_no_models():
     assert len(cells) == 3
     assert "VTUBER_SETUP_ONLY" in cells[0]
     assert "subprocess.Popen" not in cells[1]
+    assert 'TASK = "캐릭터 생성"' in cells[1]
+    assert "ACCESSORY_ANCHOR = \"AUTO\"" in cells[1]
+    assert "if TASK == \"캐릭터 생성\":" in cells[2]
+    assert "elif TASK == \"액세서리 제작\":" in cells[2]
     assert "MODE =" in cells[1]
     assert "generate(" in cells[2]
     assert "colab_ui_launcher" not in "".join(cells)
@@ -214,6 +218,10 @@ def test_readme_canonical_notebook_uses_native_colab_cells():
     assert "colab_bootstrap.log" in cells[0]
     assert "start_new_session=True" in cells[0]
     assert "stop_legacy_server()" in cells[0]
+    assert 'TASK = "캐릭터 생성"' in cells[1]
+    assert "ACCESSORY_ANCHOR = \"AUTO\"" in cells[1]
+    assert "if TASK == \"캐릭터 생성\":" in cells[2]
+    assert "elif TASK == \"액세서리 제작\":" in cells[2]
     assert "MODE =" in cells[1]
     assert "files.download(RESULT_FILE)" in cells[2]
     assert "colab_native import generate" in cells[2]
@@ -232,7 +240,7 @@ def test_native_mode_picker_does_not_download_unselected_models(monkeypatch, cap
         raise AssertionError("mode selection must not spawn any process")
     monkeypatch.setattr(subprocess, "Popen", forbidden)
     exec(compile(cells[1], "<colab-mode>", "exec"), {})
-    assert "선택:" in capsys.readouterr().out
+    assert "작업 종류: 캐릭터 생성" in capsys.readouterr().out
 
 
 def test_model_prepare_entrypoint_dumps_unmodified_traceback(tmp_path, capsys):
