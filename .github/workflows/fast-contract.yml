@@ -62,5 +62,6 @@ jobs:
             tests/test_colab_generation_process.py \
             tests/test_colab_generation_worker.py \
             tests/test_colab_native.py \
+            tests/test_inochi_setup.py \
             tests/integration/test_colab_bootstrap_imports.py \
             tests/test_cli_production_registration.py
