@@ -253,8 +253,8 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
 
 
 
-def test_readme_open_in_colab_badge_targets_canonical_three_step_notebook():
-    """Keep README's primary Colab launch button wired to the updated file."""
+def test_readme_open_in_colab_badge_targets_canonical_separate_cells_notebook():
+    """The public Colab link targets the native multi-step notebook."""
     readme = _read("README.md")
     notebook_file = "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb"
     badge = (
@@ -268,34 +268,37 @@ def test_readme_open_in_colab_badge_targets_canonical_three_step_notebook():
     assert badge + "(" + launch_url + ")" in readme
     assert readme.count(launch_url) == 1
     notebook = json.loads(_read(notebook_file))
-    code_cells = [
-        "".join(cell.get("source", []))
-        for cell in notebook["cells"]
-        if cell.get("cell_type") == "code"
-    ]
-    assert len(code_cells) == 4
-    assert "generation.log" in code_cells[3]
-    assert "status.json" in code_cells[3]
-    assert "generate(" not in code_cells[3]
-    assert "subprocess" not in code_cells[3]
-    # The canonical notebook now has finite-lifetime native cells, not a
-    # persistent Gradio iframe server. The first cell still delegates all
-    # dependency installation to the single pinned runtime installer.
-    assert "setup_code" in code_cells[0]
-    assert "colab_app.py" in code_cells[0]
-    assert "app['ensure_runtime']()" in code_cells[0]
-    assert "stop_legacy_server()" in code_cells[0]
-    # Choosing a mode must not pre-install every neural checkpoint.
-    assert 'TASK = "캐릭터 생성"' in code_cells[1]
-    assert 'MODE = "3d"' in code_cells[1]
-    assert "prepare_models(" not in code_cells[1]
-    assert "subprocess.Popen(" not in code_cells[1]
+    cells = ["".join(c.get("source", [])) for c in notebook["cells"]
+             if c.get("cell_type") == "code"]
+    assert len(cells) == 7
+    setup, selection, upload, generate, download, diagnostics, final = cells
+    assert "setup_code" in setup
+    assert "colab_app.py" in setup
+    assert "app['ensure_runtime']()" in setup
+    assert "stop_legacy_server()" in setup
+    assert 'TASK = "캐릭터 생성"' in selection
+    assert 'MODE = "3d"' in selection
+    assert "prepare_models(" not in selection
+    assert "subprocess.Popen(" not in selection
+    assert "files.upload" in upload
+    assert "generate(" not in upload
+    assert "from tools.colab_native import generate" in generate
+    assert "RESULT_FILE = generate(" in generate
+    assert "files.upload" not in generate
+    assert "files.download(" not in generate
+    assert "colab_ui_launcher.py" not in generate
+    assert "DOWNLOAD_NOW = False" in download
+    assert "files.download(" in download
+    assert "generate(" not in download
+    assert "generation.log" in diagnostics
+    assert "status.json" in diagnostics
+    assert "generate(" not in diagnostics
+    assert "subprocess" not in diagnostics
+    assert "files.upload" not in final
+    assert "files.download(" not in final
     app = _read("tools/colab_app.py")
     assert "prepare_models(mode)" in app
     assert "_model_marker(scope)" in app
-    assert "from tools.colab_native import generate" in code_cells[2]
-    assert "RESULT_FILE = generate(" in code_cells[2]
-    assert "colab_ui_launcher.py" not in code_cells[2]
 
 
 def test_colab_notebook_has_separate_environment_models_and_ui_cells():
