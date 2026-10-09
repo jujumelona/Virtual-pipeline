@@ -47,6 +47,7 @@ jobs:
             tests/production/test_depth_pinned_worker.py \
             tests/production/test_relative_depth_constraint.py \
             tests/production/test_observed_silhouette_constraint.py \
+            tests/production/test_observed_multiview_silhouette.py \
             tests/production/test_project_all_views_contract.py \
             tests/production/test_observed_facial_subparts.py \
             tests/production/test_observed_hair_islands.py \
