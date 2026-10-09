@@ -1,0 +1,10 @@
+name "vtuber-inochi-native"
+description "SDK-native Inochi2D v0.8 puppet producer with parameter and physics bindings"
+license "MIT"
+targetType "executable"
+targetName "vtuber-inochi-native"
+dependency "inochi2d" version="==0.8.7"
+# The released SDK 0.8.7 includes functional DeformationParameterBinding.
+# SDK 0.9 main currently has that class disabled; never silently upgrade.
+subConfiguration "inochi2d" "full"
+lflags "-lSDL2"
