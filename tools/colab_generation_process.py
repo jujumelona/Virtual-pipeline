@@ -109,7 +109,42 @@ def run_isolated(
             on_event(("log", "\n".join(pending_lines[-12:])))
         pending_lines.clear()
 
-    # Do not hold an open pipe or read model weights into the UI process.
+    # Colab's stop/interruption must terminate this exact process group.
+    # start_new_session=True otherwise leaves an orphan model running after
+    # the notebook cell is stopped.
+    try:
+        return _await_worker_completion(
+            process, mode, folder, log_path, result_path, deadline,
+            tail, pending_lines, relay_line, flush_pending,
+        )
+    except BaseException:
+        import signal
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait(timeout=10)
+        (folder / "status.json").write_text(json.dumps({
+            "mode": mode, "state": "cancelled",
+            "pid": process.pid, "exit_code": process.returncode,
+        }), encoding="utf-8")
+        raise
+
+
+def _await_worker_completion(
+    process, mode, folder, log_path, result_path, deadline,
+    tail, pending_lines, relay_line, flush_pending,
+):
+    cursor = 0
+    # Do not hold a pipe open to the notebook kernel.
     while True:
         if log_path.is_file():
             with log_path.open("r", encoding="utf-8", errors="replace") as stream:
