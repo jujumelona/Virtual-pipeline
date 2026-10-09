@@ -89,3 +89,51 @@ def test_generation_worker_never_imports_gradio_or_torch_at_module_load():
     assert "VTUBER_GENERATION_WORKER" in text
     assert "import gradio" not in text
     assert "import torch" not in text
+
+
+def test_notebook_stop_cancels_separate_stage_session_not_only_top_worker(tmp_path, monkeypatch):
+    """stage_runner launches child model processes with start_new_session=True.
+
+    Simulate pressing Stop while that grandchild holds GPU resources. It must
+    receive a signal even though it is in a different process group.
+    """
+    import time
+
+    _fake_worker(tmp_path, """
+        import subprocess, time
+        stage = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(90)"],
+            start_new_session=True,
+        )
+        (request.parent / "stage_pid").write_text(str(stage.pid))
+        print('VTUBER_GENERATION_EVENT ' + json.dumps({
+            'kind': 'progress', 'fraction': 0.1,
+            'description': 'stage-running'
+        }), flush=True)
+        time.sleep(90)
+    """, monkeypatch)
+
+    def stop_on_stage(event):
+        if event[0] == "progress":
+            raise KeyboardInterrupt("Colab stop button")
+
+    with pytest.raises(KeyboardInterrupt, match="Colab stop button"):
+        process.run_isolated(
+            "live2d", ["picture.png", "corporation"],
+            root=tmp_path / "jobs", timeout=10, on_event=stop_on_stage,
+        )
+    folder = next((tmp_path / "jobs").iterdir())
+    assert json.loads((folder / "status.json").read_text())["state"] == "cancelled"
+    grandchild = int((folder / "stage_pid").read_text())
+    # On Linux, a killed child may briefly be a zombie until init reaps it;
+    # either absence or zombie means no live model/GPU resources remain.
+    state_path = pathlib.Path(f"/proc/{grandchild}/status")
+    for _ in range(40):
+        if not state_path.exists():
+            break
+        state = state_path.read_text()
+        if "State:\tZ" in state or "State: Z" in state:
+            break
+        time.sleep(0.05)
+    else:
+        pytest.fail("Independent GPU-stage grandchild survived notebook stop")
