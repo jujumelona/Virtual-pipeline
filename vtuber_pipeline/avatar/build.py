@@ -654,10 +654,12 @@ class AvatarPipeline:
             try:
                 refined = self._run_stage(
                     "surface_refine",
-                    (fitted_mesh, constraints_path, references["report_path"]),
+                    (fitted_mesh, constraints_path, references["report_path"],
+                     input_digest(reconstruction_image)),
                     lambda: refine_anatomy(
                         fitted_mesh, constraints_path, references["report_path"],
                         str(pathlib.Path(output_dir) / "surface_refine"),
+                        front_rgba_path=reconstruction_image,
                     ),
                 )
             except Exception as exc:
