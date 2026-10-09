@@ -122,7 +122,7 @@ def prefetch_mode(mode: str, *, cache_dir: str | None = None, timeout: int = 240
     The active model process will subsequently import/verify its own code dependencies.
     A network error raises, without writing a success marker or treating a partial file as ready.
     """
-    if mode not in ("common_2d", "3d"):
+    if mode not in ("common_2d", "common_2d_layers", "3d"):
         raise ValueError("unsupported prefetch mode")
     # CPU-only checkpoint verification processes are independent. Reuse the
     # bounded executor instead of serially waiting through HF downloads.
@@ -185,7 +185,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     """Explicit mode prefetch without auto-installing unrelated model families."""
     import argparse
     parser = argparse.ArgumentParser(description="VTuber mode-scoped model prefetch")
-    parser.add_argument("--mode", choices=("common_2d", "3d", "legacy"), default="legacy")
+    parser.add_argument("--mode", choices=("common_2d", "common_2d_layers", "3d", "legacy"), default="legacy")
     parser.add_argument("--timeout", type=int, default=2400)
     arguments = parser.parse_args(argv)
     if arguments.timeout < 1:
