@@ -35,6 +35,9 @@ jobs:
           PYTHONPATH="$PWD" VTUBER_INOCHI_NATIVE="$PWD/tools/inochi_native/vtuber-inochi-native" \
             xvfb-run -a -s "-screen 0 1280x1024x24" \
             python ci/inochi_native_sdk_e2e.py
+          VTUBER_INOCHI_NATIVE="$PWD/tools/inochi_native/vtuber-inochi-native" \
+            xvfb-run -a -s "-screen 0 1280x1024x24" \
+            python tools/inochi_native/smoke_native.py "$RUNNER_TEMP/inochi-multi-parameter"
       - name: Verify D SDK producer's binary is not silently faked
         run: |
           python -m pytest -q tests/production/test_inochi_native_compatibility.py
