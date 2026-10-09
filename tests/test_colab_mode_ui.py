@@ -8,6 +8,7 @@ import pytest
 from tools.colab_mode_ui import (
     MODE_LABELS, EDITION_LABELS, FRAMING_LABELS, QWEN_LABELS,
     ACCESSORY_LABELS, ANCHOR_LABELS, internal_scope, input_profile, refresh_qwen,
+    selection_signature, require_confirmed_selection,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,7 +68,13 @@ def test_notebook_has_task_scoped_controls_without_prompt_creation():
     for cell in cells:
         ast.parse(cell)
     select, setup, upload, build = cells[1:5]
-    assert 'TASK = "캐릭터 생성" #@param ["캐릭터 생성", "액세서리 제작"]' in select
+    assert 'TASK = "캐릭터 생성"' in select
+    assert 'TASK = "캐릭터 생성" #@param' not in select
+    assert "require_confirmed_selection(globals())" in setup
+    assert "require_confirmed_selection(globals())" in upload
+    assert "require_confirmed_selection(globals())" in build
+    assert "MODEL_DOWNLOAD_SELECTION = CONFIRMED_SELECTION" in setup
+    assert "MODE_SELECTION_CONFIRMED" in select or "render_notebook_controls(globals())" in select
     assert 'MODE = "3d"' in select
     assert "render_notebook_controls(globals())" in select
     assert '"vts_free"' not in select and '"vts_pro"' not in select
@@ -99,3 +106,58 @@ def test_readme_is_external_prompt_reference_and_explains_all_scopes():
 def test_bad_edition_rejected():
     with pytest.raises(ValueError):
         internal_scope("캐릭터 생성", "live2d", "enterprise", "소품", "live2d")
+
+
+def _values(**overrides):
+    d = {
+        "TASK": "캐릭터 생성", "MODE": "live2d",
+        "USAGE": "personalNonProfit", "LIVE2D_EDITION": "free",
+        "LIVE2D_FRAMING": "upper", "LIVE2D_QWEN": "auto",
+        "LIVE2D_USE_QWEN": False, "EXISTING_IMAGE_PATH": "",
+        "ACCESSORY_SUBTYPE": "소품", "OUTFIT_2D_TARGET": "live2d",
+        "ACCESSORY_ANCHOR": "AUTO",
+        "ACCESSORY_BASE_VRM_PATH": "", "WARDROBE_2D_BASE_ZIP_PATH": "",
+        "WARDROBE_XWEAR_PATH": "", "MULTI_REFERENCE_3D": True,
+        "TWO_D_INPUT": "sheets", "MODE_SELECTION_CONFIRMED": False,
+    }
+    d.update(overrides)
+    return d
+
+
+def test_run_all_does_not_download_models_before_explicit_confirmation():
+    vals = _values()
+    with pytest.raises(RuntimeError, match="② 설정 미확정"):
+        require_confirmed_selection(vals)
+    vals["MODE_SELECTION_SNAPSHOT"] = selection_signature(vals)
+    vals["MODE_SELECTION_CONFIRMED"] = True
+    assert require_confirmed_selection(vals) == vals["MODE_SELECTION_SNAPSHOT"]
+    vals["LIVE2D_FRAMING"] = "full"
+    with pytest.raises(RuntimeError, match="다시 누르세요"):
+        require_confirmed_selection(vals)
+    assert vals["MODE_SELECTION_CONFIRMED"] is False
+
+
+def test_task_switch_changes_active_signature():
+    vals = _values()
+    before = selection_signature(vals)
+    vals.update(TASK="액세서리 제작", ACCESSORY_SUBTYPE="소품")
+    after = selection_signature(vals)
+    assert after != before
+    # Changing hidden Live2D values while working on accessories must
+    # not invalidate the unrelated accessory selection.
+    vals["LIVE2D_EDITION"] = "pro"
+    assert selection_signature(vals) == after
+
+
+def test_notebook_has_confirmation_guard_before_download_and_upload():
+    nb = json.loads(NB.read_text(encoding="utf-8"))
+    cells = ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
+    selection, setup, upload, build = cells[1:5]
+    assert '#@param ["캐릭터 생성", "액세서리 제작"]' not in selection
+    assert "render_notebook_controls(globals())" in selection
+    assert "② 설정 확정" in selection
+    for code in (setup, upload, build):
+        assert "require_confirmed_selection(globals())" in code
+    assert setup.index("require_confirmed_selection(globals())") < setup.index("run(command")
+    assert upload.index("require_confirmed_selection(globals())") < upload.index("files.upload()")
+    assert build.index("require_confirmed_selection(globals())") < build.index("make_cubism_handoff(")
