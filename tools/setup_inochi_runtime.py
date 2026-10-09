@@ -96,8 +96,15 @@ def ensure_inochi_native_runtime() -> str:
     sources = sorted((PROJECT / "source").glob("*.d"))
     if not compiler.is_file() or not sources:
         raise RuntimeError("Official Inochi SDK exporter sources are missing")
+    dependency_lock = PROJECT / "dub.selections.json"
+    if not dependency_lock.is_file():
+        raise RuntimeError("Native Inochi SDK DUB dependency lock is missing")
+    lock = json.loads(dependency_lock.read_text(encoding="utf-8"))
+    if lock.get("versions", {}).get("inochi2d") != "0.8.7":
+        raise RuntimeError("Native Inochi SDK must use locked version 0.8.7")
     fingerprint = hashlib.sha256(
-        compiler.read_bytes() + b"".join(src.read_bytes() for src in sources)
+        compiler.read_bytes() + dependency_lock.read_bytes()
+        + b"".join(src.read_bytes() for src in sources)
         + b"inochi2d-sdk-v0.8.7-full-sdl2"
     ).hexdigest()
     binary = CACHE / "vtuber-inochi-native"
