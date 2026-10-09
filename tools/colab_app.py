@@ -1386,6 +1386,14 @@ def ensure_workflow_for_generation(mode: str, usage: str) -> Tuple[str, List[str
     try:
         result = require_runtime_ready(mode)
     except RuntimeError as exc:
+        # The v8 notebook has a dedicated dependency/checkpoint download cell.
+        # Never silently install models during its generation cell.
+        if os.environ.get("VTUBER_NOTEBOOK_EXPLICIT_DOWNLOAD") == "1":
+            raise RuntimeError(
+                "모델/의존성 다운로드가 완료되지 않았습니다. "
+                "③ 프로그램·AI 모델 다운로드 셀을 먼저 성공적으로 실행하세요. "
+                f"검증 실패: {exc}"
+            ) from exc
         if "② 모델 다운로드·검증을 먼저 완료하세요." not in str(exc):
             raise
         print(f"[workflow] {mode}: preparing missing models automatically", flush=True)
