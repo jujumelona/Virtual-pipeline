@@ -49,8 +49,15 @@ def install(directory: Path, torch_index: str) -> dict:
     _base_gpu_check()
     uv = shutil.which("uv")
     git = shutil.which("git")
-    if not uv or not git:
-        raise RuntimeError("git and uv are required; install uv in the setup cell first")
+    if not git:
+        raise RuntimeError("git is required for pinned SkinTokens setup")
+    if not uv:
+        # This is an explicit setup operation, not an inference-time install.
+        _run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check",
+              "uv==0.9.10"], timeout=300)
+        uv = shutil.which("uv")
+    if not uv:
+        raise RuntimeError("uv installation did not expose a runnable binary")
     directory = directory.expanduser().resolve()
     directory.parent.mkdir(parents=True, exist_ok=True)
     if not directory.exists():
