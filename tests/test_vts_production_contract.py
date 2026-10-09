@@ -125,6 +125,10 @@ def test_live2d_pro_builds_each_asset_without_batch_companions(tmp_path, asset):
         assert "input_reference/source_asset.png" in zipfile.namelist()
         assert "source_psd/see_through_layers.psd" in zipfile.namelist()
         assert zipfile.read("source_psd/see_through_layers.psd")[:4] == b"8BPS"
+        assert "preview/input_vs_psd_comparison.png" in zipfile.namelist()
+        import json
+        meta = json.loads(zipfile.read("metadata/input_vs_psd_geometry.json"))
+        assert meta["source_fidelity_verified"] is False
         if asset != "body":
             assert "input_reference/body_base.png" in zipfile.namelist()
             assert "preview/pro_body_asset_overlay.png" in zipfile.namelist()

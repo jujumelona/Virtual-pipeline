@@ -306,6 +306,7 @@ def _editor_readme(edition, asset_kind, count, qwen_count):
         "- layers_png/: every registered transparent full-canvas RGBA layer.\n"
         "- alpha_masks/: grayscale alpha masks for each layer.\n"
         "- preview/composite.png: top-to-bottom layer composite for checking.\n"
+        "- preview/input_vs_psd_comparison.png: original/input vs split PSD check.\n"
         "- metadata/layer_manifest.json: observed IDs, coordinates, alpha coverage.\n"
         "- metadata/manual_rig_reference.json: non-native reference ONLY.\n"
         "- metadata/segmentation_trace.json: applied/rejected Qwen splits.\n"

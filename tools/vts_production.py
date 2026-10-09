@@ -388,6 +388,46 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
         with ZipFile(produced["package"], "a", ZIP_DEFLATED) as archive:
             archive.write(master, "input_reference/source_" + master.name)
             archive.write(psd, "source_psd/see_through_layers.psd")
+            # Side-by-side visual check: source may be a higher resolution
+            # portrait while See-through renders square 1280px internally.
+            # Never silently claim the returned layer pixels are native
+            # master-resolution RGB.
+            from PIL import Image, ImageDraw
+            from io import BytesIO
+            with Image.open(master) as original:
+                original.load()
+                final = Image.open(BytesIO(archive.read("preview/composite.png")))
+                final.load()
+                thumb = (720, 720)
+                source_t = original.convert("RGBA")
+                result_t = final.convert("RGBA")
+                source_t.thumbnail(thumb, Image.Resampling.LANCZOS)
+                result_t.thumbnail(thumb, Image.Resampling.LANCZOS)
+                panel = Image.new("RGBA", (1440, 770), (235, 235, 235, 255))
+                sx, sy = (720 - source_t.width) // 2, (720 - source_t.height) // 2 + 35
+                rx, ry = 720 + (720 - result_t.width) // 2, (720 - result_t.height) // 2 + 35
+                panel.alpha_composite(source_t, (sx, sy))
+                panel.alpha_composite(result_t, (rx, ry))
+                draw = ImageDraw.Draw(panel)
+                draw.text((16, 12), "INPUT ORIGINAL", fill=(0, 0, 0, 255))
+                draw.text((736, 12), "EXTRACTED PSD COMPOSITE", fill=(0, 0, 0, 255))
+                stream = BytesIO()
+                panel.convert("RGB").save(stream, format="PNG")
+                archive.writestr("preview/input_vs_psd_comparison.png", stream.getvalue())
+                geometry = {
+                    "schema": "vtuber/artwork-source-comparison-v1",
+                    "source_canvas": list(original.size),
+                    "output_psd_canvas": list(final.size),
+                    "same_pixel_canvas": original.size == final.size,
+                    "source_fidelity_verified": False,
+                    "visible_rgb_original_resolution_guaranteed": False,
+                    "note": "Review the two visual images. Inference may resize or "
+                            "inpaint pixels; source file is preserved separately.",
+                }
+                archive.writestr(
+                    "metadata/input_vs_psd_geometry.json",
+                    json.dumps(geometry, ensure_ascii=False, indent=2),
+                )
             if reference_image is not None:
                 archive.write(reference_image, "input_reference/body_" + reference_image.name)
                 # Visual registration evidence, NOT automatic feature matching.
