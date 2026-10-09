@@ -140,6 +140,22 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
         raise FileNotFoundError(
             f"See-through quantized entrypoint missing: {program}. Run Colab cell ③ first."
         )
+    # Turing GPUs (T4, compute capability 7.5) do not provide native BF16.
+    # Adapt the pinned quantized script's requested math dtype only; weights
+    # remain the upstream pre-quantized NF4 snapshots.
+    import torch
+    if not torch.cuda.is_available():
+        raise RuntimeError("See-through NF4 decomposition requires a CUDA GPU")
+    capability = torch.cuda.get_device_capability(0)
+    if capability[0] < 8:
+        source_program = program.read_text(encoding="utf-8")
+        if source_program.count("torch.bfloat16") < 8:
+            raise RuntimeError("See-through upstream BF16 patch contract changed")
+        patched = source_program.replace("torch.bfloat16", "torch.float16")
+        program = program.with_name("inference_psd_quantized_vts_fp16.py")
+        program.write_text(patched, encoding="utf-8")
+        print("[VTS] T4/older GPU: NF4 weights retained, compute dtype FP16. "
+              "FP16 correctness remains subject to image QA.",flush=True)
     work.mkdir(parents=True, exist_ok=True)
     # Upstream writes to a fixed workspace relative to its cwd. A unique source
     # filename and input-only checksum avoid accepting a stale PSD from past jobs.
