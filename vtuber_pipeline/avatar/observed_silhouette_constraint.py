@@ -91,3 +91,119 @@ def correct_observed_front_silhouette(
         "projection_assumption": "uncalibrated front orthographic",
     })
     return corrected, report
+
+
+def correct_observed_multiview_silhouettes(
+    vertices, normals, observed_rgba_by_role: dict[str, str],
+    *, maximum_relative_displacement: float = .003,
+):
+    """Use actually segmented front/back/left/right observations as weak constraints.
+
+    Photographs are not metrically camera-calibrated. Fit only the silhouette
+    (not texture pixels) in the corresponding orthographic projection,
+    recording each per-view source and never treating inferred views as seen.
+    The shape keeps its existing vertex indexing and topology.
+    """
+    coords = np.asarray(vertices, dtype=np.float64)
+    surface_normals = np.asarray(normals, dtype=np.float64)
+    if (coords.ndim != 2 or coords.shape[1] != 3
+            or surface_normals.shape != coords.shape
+            or not np.isfinite(coords).all() or not np.isfinite(surface_normals).all()):
+        raise ValueError("Multi-view silhouette requires finite matching XYZ and normals")
+    if not observed_rgba_by_role:
+        return coords.copy(), {"roles": {}, "constraint": "no_observed_alpha_views"}
+    if set(observed_rgba_by_role) - {"front", "back", "left", "right"}:
+        raise ValueError("Only independently observed camera roles are valid")
+    # The view normal is the actual outward canonical direction. The horizontal
+    # projection flips between front/back and left/right; camera poses are
+    # orthographic conventions, NOT calibration evidence.
+    cameras = {
+        "front": (0, 1, 2, +1, +1),
+        "back": (0, 1, 2, -1, -1),
+        "left": (2, 1, 0, +1, -1),
+        "right": (2, 1, 0, -1, +1),
+    }
+    result = coords.copy()
+    output = {}
+    height = float(np.ptp(coords[:, 1]))
+    if height <= 1e-6:
+        raise ValueError("Unusable canonical model height")
+    for role in ("front", "back", "left", "right"):
+        if role not in observed_rgba_by_role:
+            continue
+        file = Path(observed_rgba_by_role[role])
+        if not file.is_file():
+            raise FileNotFoundError(f"{role}: observed silhouette cutout missing: {file}")
+        with Image.open(file) as image:
+            if image.mode != "RGBA":
+                raise ValueError(f"{role}: observed model input must be alpha-cutout RGBA")
+            alpha = np.asarray(image.getchannel("A"))
+        foreground = alpha > 32
+        if not foreground.any() or not (~foreground).any():
+            output[role] = {
+                "status": "skipped_no_alpha", "observed": True,
+                "modified_vertex_count": 0,
+            }
+            continue
+        ys, xs = np.nonzero(foreground)
+        lx, rx = float(xs.min()), float(xs.max()+1)
+        ty, by = float(ys.min()), float(ys.max()+1)
+        horiz, vertical, facing_axis, flip, normal_sign = cameras[role]
+        origin = result.min(axis=0)
+        span = np.ptp(result, axis=0)
+        if span[horiz] <= 1e-8:
+            raise ValueError(f"{role}: degenerate model camera-plane extent")
+        candidates = np.flatnonzero(surface_normals[:, facing_axis] * normal_sign > .30)
+        if len(candidates) < 16:
+            output[role] = {
+                "status": "skipped_no_visible_surface", "observed": True,
+                "modified_vertex_count": 0,
+            }
+            continue
+        proportion = (result[candidates, horiz] - origin[horiz]) / span[horiz]
+        if flip < 0:
+            proportion = 1 - proportion
+        screen_x = lx + proportion * (rx-lx)
+        screen_y = by - (result[candidates, vertical] - origin[vertical]) / span[vertical] * (by-ty)
+        cx = np.clip(np.rint(screen_x).astype(int), 0, foreground.shape[1]-1)
+        cy = np.clip(np.rint(screen_y).astype(int), 0, foreground.shape[0]-1)
+        outside = ~foreground[cy, cx]
+        if not outside.any():
+            output[role] = {
+                "status": "inside_observed_alpha", "observed": True,
+                "modified_vertex_count": 0,
+            }
+            continue
+        dist, nearest = distance_transform_edt(~foreground, return_indices=True)
+        row, col = cy[outside], cx[outside]
+        dx = (nearest[1, row, col].astype(float) - screen_x[outside])
+        dy = (nearest[0, row, col].astype(float) - screen_y[outside])
+        plane = np.column_stack((
+            dx * span[horiz] / max(rx - lx, 1) * flip,
+            -dy * span[vertical] / max(by - ty, 1),
+        )) * .18
+        cap = maximum_relative_displacement * height
+        magnitude = np.linalg.norm(plane, axis=1)
+        plane *= np.minimum(1.0, cap / np.maximum(magnitude, 1e-8))[:, None]
+        current = result[candidates[outside]].copy()
+        current[:, horiz] += plane[:, 0]
+        current[:, vertical] += plane[:, 1]
+        result[candidates[outside]] = current
+        output[role] = {
+            "status": "bounded_observed_silhouette",
+            "observed": True,
+            "source_rgba": str(file.resolve()),
+            "modified_vertex_count": int(np.count_nonzero(np.linalg.norm(plane, axis=1) > 1e-12)),
+            "outside_vertices": int(np.count_nonzero(outside)),
+            "mean_original_silhouette_error_pixels": float(dist[row, col].mean()),
+            "max_displacement_mesh_units": float(np.max(np.linalg.norm(plane, axis=1))),
+        }
+    if not np.isfinite(result).all():
+        raise RuntimeError("Nonfinite 3D multi-view silhouette result")
+    return result, {
+        "constraint": "observed_orthographic_rgba_multiview",
+        "camera_calibrated": False,
+        "metric_depth_calibrated": False,
+        "model_topology_changed": False,
+        "roles": output,
+    }
