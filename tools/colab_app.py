@@ -1282,7 +1282,7 @@ def choose_workflow(mode: str, usage: str):
     # before checkpoint fetch and before the generation button is enabled.
     if mode in {"inochi2d", "live2d"}:
         from tools.install_2d_workers import activate_2d_environment
-        activate_2d_environment()
+        _setup_stage("2D alpha/SAM/FLUX worker environment", activate_2d_environment)
         if mode == "inochi2d":
             # Build the official SDK puppet exporter only for users who
             # selected Inochi; never burden Live2D/3D with DUB/SDL2.
