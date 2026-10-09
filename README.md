@@ -35,7 +35,7 @@ Exact palette / HEX swatches: {palette}
 Accessories / locations: {accessories}
 Other permanent character details: {other_details}
 
-TASK: Generate one original anime VTuber FRONT reference image.
+TASK: Generate and save as front_master.png: one original anime VTuber FRONT reference image.
 ASPECT RATIO: portrait WIDTH:HEIGHT = 2:3.
 Do not require a specific pixel resolution; render at the model's best
 native supported quality. Neutral upright pose, consistent scale,
