@@ -75,11 +75,17 @@ def test_gradio_real_update_routes_without_refreshing_installed_packages():
             assert [value["visible"] for value in selection[:-1]] == visible
             assert selection[-1] == "personalNonProfit"
             prepare.assert_any_call(mode)
-        assert two_d_setup.call_count == 2
+        # The test stubs the stage runner to prevent real pip/git downloads.
+        # Each 2D callback is supplied to the labeled runner unchanged.
+        assert two_d_setup.call_count == 0
+        assert stage.call_args_list[0].args[1] is two_d_setup
+        assert stage.call_args_list[2].args[1] is two_d_setup
         # 3D selects TripoSR source plus a minimal alpha worker, not the
         # entire 2D SAM/FLUX dependency environment.
         assert [call.args[0] for call in stage.call_args_list] == [
+            "2D alpha/SAM/FLUX worker environment",
             "Inochi SDK native rig exporter",
+            "2D alpha/SAM/FLUX worker environment",
             "3D TripoSR checkout",
             "3D alpha-only worker environment",
             "3D Blender VRM operator verification",
