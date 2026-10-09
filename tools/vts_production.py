@@ -339,6 +339,20 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
         if source_program.count("torch.bfloat16") < 8:
             raise RuntimeError("See-through upstream BF16 patch contract changed")
         patched = source_program.replace("torch.bfloat16", "torch.float16")
+        from inspect import getsource
+        from tools.vts_quantization import set_4bit_compute_dtype
+        # Serialized NF4 configs keep a separate BF16 compute dtype. Adapt
+        # actual quantized layers before the first prompt-cache forward.
+        for owner, names in (("pipeline", ("unet", "text_encoder", "text_encoder_2")),
+                             ("marigold_pipe", ("unet", "text_encoder"))):
+            anchor = f"        {owner}.cache_tag_embeds()"
+            if patched.count(anchor) != 2:
+                raise RuntimeError("See-through quantized prompt-cache contract changed")
+            adaptation = "".join(
+                f"        set_4bit_compute_dtype({owner}.{name}, torch.float16)\n"
+                for name in names)
+            patched = patched.replace(anchor, adaptation + anchor)
+        patched = getsource(set_4bit_compute_dtype) + "\n" + patched
         program = program.with_name("inference_psd_quantized_vts_fp16.py")
         program.write_text(patched, encoding="utf-8")
         print("[VTS] T4/older GPU: NF4 weights retained, compute dtype FP16. "

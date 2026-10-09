@@ -28,6 +28,11 @@ def test_see_through_relative_paths_survive_worker_cwd(tmp_path, monkeypatch):
     script.write_text("# " + "torch.bfloat16 " * 8 + '''
 import argparse
 from pathlib import Path
+def unused_pinned_cache_contract():
+        pipeline.cache_tag_embeds()
+        pipeline.cache_tag_embeds()
+        marigold_pipe.cache_tag_embeds()
+        marigold_pipe.cache_tag_embeds()
 p=argparse.ArgumentParser(); p.add_argument('--srcp'); p.add_argument('--save_dir')
 a, _=p.parse_known_args()
 assert Path(a.srcp).is_file()

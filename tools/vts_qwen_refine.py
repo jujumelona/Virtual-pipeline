@@ -40,10 +40,14 @@ def _patch_pinned_official(code: str, *, quant_dir: str, lora_dir: str) -> str:
         trust_remote_code=True, cache_dir=args.cache_dir,
     )
     transformer = pipe.transformer.eval()
+    set_4bit_compute_dtype(transformer, torch.float16)
     vae = pipe.vae.to(device).eval()"""
     if code.count(before)!=1:
         raise RuntimeError("Stable-Layers upstream model loader changed: refuse unverified patch")
     code=code.replace(before,after)
+    from inspect import getsource
+    from tools.vts_quantization import set_4bit_compute_dtype
+    code = getsource(set_4bit_compute_dtype) + "\n" + code
     if code.count('text_encoder = text_encoder.to(device).eval()')!=1:
         raise RuntimeError("Stable-Layers text encoder binding changed")
     code=code.replace('text_encoder = text_encoder.to(device).eval()',
