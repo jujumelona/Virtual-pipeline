@@ -163,6 +163,39 @@ def _ensure_base_lists(base) -> None:
             setattr(base, name, [])
 
 
+def _has_native_root_transform(node) -> bool:
+    """A non-identity GLB root transform must survive bone attachment."""
+    import math
+
+    if getattr(node, "matrix", None) is not None:
+        matrix = list(node.matrix)
+        identity = [1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0]
+        return (
+            len(matrix) != 16
+            or any(not math.isfinite(float(a))
+                   or not math.isclose(float(a), b, abs_tol=1e-8)
+                   for a, b in zip(matrix, identity))
+        )
+    for name, identity in (
+        ("translation", [0.0, 0.0, 0.0]),
+        ("rotation", [0.0, 0.0, 0.0, 1.0]),
+        ("scale", [1.0, 1.0, 1.0]),
+    ):
+        values = getattr(node, name, None)
+        if values is None:
+            continue
+        if len(values) != len(identity) or any(
+            not math.isfinite(float(a))
+            or not math.isclose(float(a), b, abs_tol=1e-8)
+            for a, b in zip(values, identity)
+        ):
+            return True
+    return False
+
+
 def bake_accessories(
     base_vrm: str,
     accessory_paths: List[str],
@@ -339,14 +372,34 @@ def bake_accessories(
             if parent_node.children is None:
                 parent_node.children = []
 
-            for root in roots:
-                root_idx = node_offset + root
-                root_node = base.nodes[root_idx]
-                root_node.translation = [float(v) for v in translation]
-                root_node.rotation = [float(v) for v in rotation]
-                root_node.scale = [float(v) for v in scale]
-                if root_idx not in parent_node.children:
-                    parent_node.children.append(root_idx)
+            # GLB sources may already encode an orientation, pivot or
+            # coordinate-space transform on the root node. Overwriting it
+            # silently relocates/rotates the accessory after merging.
+            # An attachment wrapper composes the requested bone-relative
+            # TRS with the original root transform without mutating it.
+            if any(_has_native_root_transform(acc.nodes[root]) for root in roots):
+                from pygltflib import Node
+
+                wrapper_idx = len(base.nodes)
+                base.nodes.append(Node(
+                    name=f"vtuber_attachment_{i}",
+                    children=[node_offset + root for root in roots],
+                    translation=[float(v) for v in translation],
+                    rotation=[float(v) for v in rotation],
+                    scale=[float(v) for v in scale],
+                ))
+                if wrapper_idx not in parent_node.children:
+                    parent_node.children.append(wrapper_idx)
+            else:
+                wrapper_idx = None
+                for root in roots:
+                    root_idx = node_offset + root
+                    root_node = base.nodes[root_idx]
+                    root_node.translation = [float(v) for v in translation]
+                    root_node.rotation = [float(v) for v in rotation]
+                    root_node.scale = [float(v) for v in scale]
+                    if root_idx not in parent_node.children:
+                        parent_node.children.append(root_idx)
 
             binary.extend(acc_binary)
             merged.append({
@@ -358,6 +411,7 @@ def bake_accessories(
                     node_offset + root
                     for root in roots
                 ],
+                "attachment_wrapper_node": wrapper_idx,
                 "nodes_added": len(acc.nodes or []),
                 "meshes_added": len(acc.meshes or []),
                 "binary_size": len(acc_binary),
