@@ -18,7 +18,10 @@ ROOT = Path("/content/vtuber_builder/third_party")
 TIMEOUT = 5400
 
 def checked(args, *, cwd=None, timeout=TIMEOUT, env=None):
-    from tools.vts_subprocess import run_logged
+    if __package__:
+        from .vts_subprocess import run_logged
+    else:
+        from vts_subprocess import run_logged
     print("[VTS setup]", " ".join(map(str, args)), flush=True)
     code = run_logged(args, cwd=cwd, env=env, timeout_seconds=timeout)
     if code:
