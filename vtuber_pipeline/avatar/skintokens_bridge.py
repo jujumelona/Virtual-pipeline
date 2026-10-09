@@ -128,7 +128,14 @@ def graft_weights(baseline_file: str, candidate_file: str, output_file: str) -> 
         raise ValueError("SkinTokens joints refer outside their skin palette")
     remap = np.array([lookup[n] for n in other_names], dtype=np.uint16)
     index_data = remap[joints.astype(np.int64)]
-    weight_data = (weights / row_sums[:, None]).astype("<f4")
+    # Preserve already-normalized source rows byte-for-byte. In particular
+    # Blender body-only grafts must not perturb protected facial/hair weights
+    # merely because float32 summation differs from one by one ULP.
+    weight_data = weights.astype("<f4")
+    needs_normalizing = np.abs(row_sums - 1.0) > 1e-6
+    weight_data[needs_normalizing] = (
+        weights[needs_normalizing] / row_sums[needs_normalizing, None]
+    ).astype("<f4")
 
     # Independently authored hair strands must remain bound to head/hair bones,
     # or the downstream SpringBone chain would animate detached hair.
