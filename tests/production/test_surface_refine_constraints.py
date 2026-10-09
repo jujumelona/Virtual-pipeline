@@ -35,7 +35,8 @@ def _run(tmp_path, confidence):
         "registration": {"confidence": confidence},
     }))
     result = refine_anatomy(str(source), str(constraints), str(references),
-                            str(tmp_path / "result"))
+                            str(tmp_path / "result"),
+                            front_rgba_path=str(source_png.resolve()))
     refined = trimesh.load(result["refined_glb"], force="mesh")
     report = json.loads(Path(result["report_json"]).read_text())
     return base, refined, report
