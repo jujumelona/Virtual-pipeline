@@ -43,6 +43,9 @@ jobs:
             tests/test_vts_production_contract.py \
             tests/test_vts_artwork_export.py \
             tests/test_vts_subprocess.py \
+            tests/test_vts_qwen_runtime.py \
+            tests/test_vts_preflight.py \
+            tests/test_vts_setup_contract.py \
             tests/test_colab_mode_ui.py \
             tests/test_psd_layer_roundtrip.py \
             tests/test_prefetch_mode_contract.py \

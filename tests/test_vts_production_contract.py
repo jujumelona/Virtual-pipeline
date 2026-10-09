@@ -280,3 +280,39 @@ def test_native_already_sided_tags_are_not_left_right_split_again(tmp_path):
     path.write_text(json.dumps({"parts": {"irides-l-0": {}, "eyebrow-r": {}, "hairb-0": {}}}))
     assert _observed_split_tags(path, depth=False) == ["hairb-0"]
     assert _observed_split_tags(path, depth=True) == ["irides-l-0", "eyebrow-r", "hairb-0"]
+
+@pytest.mark.parametrize("scope", ["upper", "full"])
+@pytest.mark.parametrize("edition,asset", [("free", None), ("pro", "body"), ("pro", "hair"),
+                                           ("pro", "outfit"), ("pro", "accessory")])
+def test_all_ten_public_modes_make_registered_psd_handoffs(tmp_path, scope, edition, asset):
+    import json
+    from psd_tools import PSDImage
+    from psd_tools.api.layers import PixelLayer
+    from tools.vts_production import make_cubism_handoff
+    # Real external PSD skips GPU inference only, exercising the complete
+    # selected-mode import, package, reference and Editor-guide boundary.
+    source = tmp_path / "source.png"
+    body = tmp_path / "body.png"
+    rgba = Image.new("RGBA", (256, 384)); rgba.paste((120, 100, 80, 255), (20, 30, 90, 100))
+    rgba.save(source); rgba.save(body)
+    psd = PSDImage.new("RGB", rgba.size)
+    PixelLayer.frompil(rgba, parent=psd, name="face")
+    original_psd = tmp_path / "original.psd"; psd.save(original_psd)
+    result = make_cubism_handoff(source, tmp_path / "output", edition=edition, scope=scope,
+                                asset_kind=asset, external_psd=original_psd,
+                                reference_image=body if edition == "pro" and asset != "body" else None)
+    assert result["edition"] == edition and result["scope"] == scope and result["asset_kind"] == asset
+    assert result["moc3_generated"] is False
+    output_name = (asset if edition == "pro" else "avatar") + ".psd"
+    with ZipFile(result["package"]) as archive:
+        assert output_name in archive.namelist()
+        assert not any(name.endswith(".moc3") for name in archive.namelist())
+        manifest = json.loads(archive.read("metadata/layer_manifest.json"))
+        assert manifest["edition"] == edition and manifest["scope"] == scope
+        assert manifest["asset_kind"] == asset
+        assert (manifest["canvas_width"], manifest["canvas_height"]) == (256, 384)
+        assert ("상반신" if scope == "upper" else "전신") in archive.read("LIVE2D_ARTWORK_GUIDE.md").decode()
+        assert set(result["supporting_files"]) == set(archive.namelist()) - {output_name}
+    final = PSDImage.open(result["art_psd"])
+    assert final.size == (256, 384)
+    assert len([x for x in final.descendants() if not x.is_group()]) == 1
