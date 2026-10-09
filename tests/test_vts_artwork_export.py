@@ -268,3 +268,36 @@ def test_qwen_runtime_logs_are_in_final_package(tmp_path):
     with ZipFile(result["package"]) as z:
         assert z.read("logs/qwen_000.log") == b"model completed: native worker evidence\n"
     assert "logs/qwen_000.log" in result["supporting_files"]
+
+
+def test_thin_part_accepts_published_16_pixel_inference_rounding(tmp_path):
+    from tools.vts_artwork_export import _partition_part
+    source = Image.new("RGBA", (4, 100), (90, 80, 70, 255))
+    paths = []
+    # compute_aspect_resize(4, 100, 640) in pinned decompose.py -> 32x640.
+    for index in range(2):
+        image = Image.new("RGBA", (32, 640))
+        image.paste((10, 20, 30, 255), (16 * index, 0, 16 * (index + 1), 640))
+        path = tmp_path / f"layer{index}.png"; image.save(path); paths.append(path)
+    children = _partition_part({"name": "hair.strand", "image": source, "depth": 0}, paths)
+    assert children is not None and len(children) == 2
+    reconstructed = Image.new("RGBA", source.size)
+    for child in children:
+        reconstructed.alpha_composite(child["image"])
+    assert reconstructed.tobytes() == source.tobytes()
+
+
+def test_foreground_proposal_wins_equal_alpha_overlap(tmp_path):
+    from tools.vts_artwork_export import _partition_part
+    source = Image.new("RGBA", (40, 40), (90, 80, 70, 255))
+    masks = [Image.new("RGBA", source.size, (0, 0, 0, 255)),
+             Image.new("RGBA", source.size, (0, 0, 0, 255)),
+             Image.new("RGBA", source.size)]
+    masks[-1].paste((0, 0, 0, 255), (20, 0, 40, 40))
+    paths = []
+    for index, mask in enumerate(masks):
+        path = tmp_path / f"layer{index}.png"; mask.save(path); paths.append(path)
+    children = _partition_part({"name": "hair.front", "image": source, "depth": 0}, paths)
+    assert children is not None and len(children) == 2
+    assert {child["image"].getchannel("A").getbbox() for child in children} == {
+        (0, 0, 20, 40), (20, 0, 40, 40)}

@@ -81,6 +81,9 @@ def _partition_part(part, suggestions):
     if ow < 4 or oh < 4:
         return None
     proposal_masks = []
+    inference_scale = 640 / max(ow, oh)
+    rounded_size = tuple(max(int(round(dim * inference_scale / 16)) * 16, 16)
+                         for dim in (ow, oh))
     for path in suggestions:
         with Image.open(path) as im:
             im.load()
@@ -89,7 +92,10 @@ def _partition_part(part, suggestions):
             # Reject a prediction with a changed aspect, rather than
             # silently stretching a different character's output.
             ratio_error = abs(im.width / im.height - ow / oh) / (ow / oh)
-            if ratio_error > .08:
+            # The pinned worker rounds each dimension to a multiple of 16.
+            # Thin strands can therefore differ in aspect by much more than
+            # 8%, while still being registered to this exact source crop.
+            if ratio_error > .08 and im.size != rounded_size:
                 return None
             region = im.getchannel("A").resize((ow, oh), Image.Resampling.BILINEAR)
             proposal_masks.append(np.asarray(region, dtype=np.uint8))
@@ -106,7 +112,9 @@ def _partition_part(part, suggestions):
     # so a plain argmax would absorb foreground into the background.
     objects = candidate[1:]
     object_best = np.max(objects, axis=0)
-    index = (np.argmax(objects, axis=0) + 1).astype(np.int32)
+    # Foreground objects are ordered back-to-front. Equal alpha must go
+    # to the last (frontmost) proposal, not swallow it into an opaque rear.
+    index = (len(objects) - np.argmax(objects[::-1], axis=0)).astype(np.int32)
     index[object_best <= 24] = 0
     distribution = [int(np.count_nonzero(valid & (index == i)))
                     for i in range(len(proposal_masks))]
