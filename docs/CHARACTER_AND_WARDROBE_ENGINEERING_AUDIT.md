@@ -28,12 +28,13 @@ Status: verified against repository main and primary-source editor manuals,
   A rigidly bone-parented mesh will not bend at the elbow/knee.
   https://docs.blender.org/manual/en/latest/modeling/modifiers/deform/armature.html
 
-**Current modular VTuber input contract:** Author a natural skin-colored,
-smooth, non-explicit adult base body with no garments, underlayer, collars,
-seams or bodysuit texture. 2D hair and wardrobe are separate art assets;
-3D current reconstruction may retain a consistent hairstyle, but future
-wearable fitting, skinning and wardrobe switching are not automated.
-No intimate anatomical details should appear in the base illustrations.
+**Current modular VTuber input contract:** Author a fully covered adult
+anime VTuber wearing an opaque, seamless production base cover matching the
+natural face/hand skin color. The cover must be plain, with no gray suit,
+zipper, collar or seam. This is NOT an exposed-body illustration.
+2D hair and future fashion outfits remain separate assets; 3D reconstruction
+keeps a consistent hairstyle across views. 3D garment fitting and automated
+wardrobe switching are not implemented.
 
 ## Source-of-truth active code contract (reviewed)
 
@@ -54,10 +55,12 @@ No intimate anatomical details should appear in the base illustrations.
 **Current avatar/build.py merges the observed costume silhouette/texture into
 its canonical skinned avatar mesh rather than producing a detachable outfit
 mesh. A VRM with bulky baked-in clothing is not automatically wardrobe-ready.
-For future XWear dressing, first create a featureless, skin-colored
-neutral body reference rather than a gray fitted undersuit. Verify any
-separately authored real wearable mesh and skinning in VRoid or Blender.
-A skinned base avatar alone is NOT a dressed or wardrobe-ready VRM.**
+For future XWear dressing, use a fully covered neutral production reference
+with a skin-tone opaque cover, not an undressed or gray-fabric body.
+The cover is baked into the current base image / resulting 3D appearance;
+it is not an automatically detachable garment. Verify any subsequently
+fitted real wearable mesh and skinning in VRoid or Blender.
+A skinned base alone is NOT an automatically switchable-wardrobe VRM.**
 **Do not call prepared PSD/ORA a Live2D .moc3 or Inochi .inp.**
 
 ## Recommended minimum image INPUT per mode
@@ -67,10 +70,10 @@ depends on composition and detail, not merely the export resolution.
 
 | Task | Recommended source images | Ratios | What gets generated |
 |---|---|---|---|
-| 2D base | front reference 1 + 6 semantically split sheets: **7 PNG** | front/body 2:3; face/eyes/mouth 1:1; arms/hands 4:3 | 20 skin-colored, hair-free, outfit-free RGBA base parts |
+| 2D base | front reference 1 + 6 semantically split sheets: **7 PNG** | front/body 2:3; face/eyes/mouth 1:1; arms/hands 4:3 | 20 fully covered, hair-free, separate-wardrobe RGBA base parts |
 | 2D basic wardrobe variant | same base character + **1 costume-only 2×2 sheet** with four garment cells | sheet 4:3 | 4 separate outfit parts (front/back + left/right sleeves), requiring movement and editor validation |
 | 2D elaborate outfit | body-proportional front/back garment plus independently moving left/right sleeve, collar, hem/skirt, ribbon | individual part sheets by need; don't crowd | requires extending base part taxonomy/rig, no fixed 2-layer guarantee |
-| 3D base | front/back/left/right skin-colored full-body 4 views + face closeup = **5 views in 3 PNG files** | each body view 2:3, paired sheets 4:3, face 1:1 | unclothed neutral-body VRM; independently skinned wardrobe NOT yet supported |
+| 3D base | front/back/left/right skin-colored full-body 4 views + face closeup = **5 views in 3 PNG files** | each body view 2:3, paired sheets 4:3, face 1:1 | fully covered skin-tone basewear VRM; independently skinned wardrobe NOT yet supported |
 | 3D outfit design references | front/back/left/right outfit on SAME T- or A-pose/body + optional fabric and collar/hem closeups = **4 views + 1–3 detail refs recommended** | body view 2:3, closeups 1:1 | *reference material* for mesh/texture construction, not a fitted .xwear |
 | 3D wearable import | base VRM (1) + a separately modeled **riggable garment** (.xwear for VRoid editor, or suitably skinned GLB through an implemented Blender adapter) | file formats, not image ratios | avatar fitting, skinning, clip/mask and motion validation before export |
 | Rigid accessory | base VRM 1 + 1–8 single-object image refs | square recommended for isolated props | rigid static bone-parented meshes; NO articulated wardrobe |
@@ -101,8 +104,9 @@ topology, back-of-body surfaces, skin weights or missing layers.
 
 ## Correct task taxonomy and success claims
 
-1. **Character creation**: 2D base (20 separate skin-colored parts) or 3D
-   neutral skin-colored body VRM. Clothes must not be baked into the base.
+1. **Character creation**: 2D base (20 separate covered rigging parts) or
+   3D skin-tone covered VRM. The permanent smooth production cover may be
+   part of the base; fashion outfits remain separate future assets.
 2. **Rigid accessory creation** (hats, glasses, solid hanging items) remains
    bone-parented. The current operation is unsuitable for sleeves, trousers,
    skirt or coats that follow multiple bones.
@@ -132,7 +136,7 @@ and corresponding notebook changes.
   existing `costume.xwear`, packages both plus editing instructions as
   `vroid_dressup_handoff.zip`. NOT a fitted/skinned final VRM.
 - The README contains one prompt per base sheet, one costume-variant prompt,
-  and two 3D skin-colored orthographic-reference prompts plus a face closeup.
+  and two 3D fully covered orthographic-reference prompts plus a face closeup.
 - Uploads use source image *ratio* and cell geometry, not fabricated exact
   4096 pixel native output claims. The interpreter normalizes after cropping.
 - CI test modules: `tests/test_colab_wardrobe_inputs.py`,
