@@ -14,6 +14,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT / "tools" / "inochi_native"
@@ -89,6 +90,40 @@ def _install_compiler() -> None:
         raise RuntimeError("D compiler or SDL2/OpenGL/GLU/zlib link-time dependencies are missing")
 
 
+def _verify_native_linker() -> None:
+    """Exercise the *actual* cc and LDC link steps before compiling the SDK.
+
+    pkg-config alone checks metadata. The Colab failure occurs in the final
+    /usr/bin/cc link, which can still lack development symlinks, D runtime,
+    architecture-compatible libraries or link symbols.
+    """
+    with tempfile.TemporaryDirectory(prefix="inochi-link-", dir=CACHE) as folder:
+        probe = Path(folder)
+        c_source = probe / "link_probe.c"
+        c_source.write_text(
+            "#include <SDL2/SDL.h>\n"
+            "#include <GL/gl.h>\n"
+            "#include <GL/glu.h>\n"
+            "#include <zlib.h>\n"
+            "int main(void) { "
+            "return (int)(SDL_Init(0) + (glGetString == 0) "
+            "+ (gluErrorString == 0) + (zlibVersion() == 0)); }\n",
+            encoding="utf-8",
+        )
+        _run([
+            "cc", str(c_source), "-o", str(probe / "c_link_probe"),
+            "-lSDL2", "-lGL", "-lGLU", "-lz",
+        ], timeout=120, cwd=PROJECT)
+        d_source = probe / "link_probe.d"
+        d_source.write_text(
+            'import std.stdio; void main() { writeln("ldc-link-smoke-ok"); }\n',
+            encoding="utf-8",
+        )
+        _run(["ldc2", str(d_source), "-of=" + str(probe / "d_link_probe"),
+              "-v"], timeout=120, cwd=PROJECT)
+    print("[inochi-sdk] native C and D linker smoke passed", flush=True)
+
+
 def ensure_inochi_native_runtime() -> str:
     """Build and verify the real D executable, returning a headless wrapper."""
     CACHE.mkdir(parents=True, exist_ok=True)
@@ -124,8 +159,9 @@ def ensure_inochi_native_runtime() -> str:
     _install_compiler()
     _run(["ldc2", "--version"], timeout=30, cwd=PROJECT)
     _run(["dub", "--version"], timeout=30, cwd=PROJECT)
+    _verify_native_linker()
     _run(["dub", "build", "--build=release", "--compiler=ldc2",
-          "--force"], timeout=1800, cwd=PROJECT)
+          "--force", "--verbose"], timeout=1800, cwd=PROJECT)
     built = PROJECT / "vtuber-inochi-native"
     if not built.is_file() or not os.access(built, os.X_OK):
         raise RuntimeError("Official SDK DUB build did not emit a runnable exporter")
