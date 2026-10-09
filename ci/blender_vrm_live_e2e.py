@@ -15,6 +15,7 @@ from PIL import Image
 from tools.setup_blender_runtime import ensure_blender_runtime
 from vtuber_pipeline.avatar.texture_transfer import transfer_texture
 from vtuber_pipeline.avatar.rigging import rig_avatar
+from vtuber_pipeline.avatar.blender_heat_bridge import run_blender_heat
 from vtuber_pipeline.avatar.expressions import generate_expressions, validate_expressions
 from vtuber_pipeline.avatar.gaze import configure_gaze
 from vtuber_pipeline.avatar.springbone import generate_springbone_config
@@ -47,6 +48,13 @@ def main():
         rig = rig_avatar(str(mesh_path), str(root / "rigged.glb"),
                          texture_path=transfer["texture_png"],
                          uv_path=transfer["uv_path"])
+        # Actual headless Blender ARMATURE_AUTO pass, not mocked/test-only
+        # prediction. The optimized skin must survive the entire official
+        # VRM Add-on import/export and product validation sequence below.
+        heat = run_blender_heat(rig, str(root / "heat_skin"))
+        assert heat["status"] == "complete", heat
+        assert heat["changed_body_vertices"] > 0, heat
+        rig = heat["rigged_mesh"]
         generated = generate_expressions(rig)
         assert generated["status"] == "complete", generated
         expressions = generated["expressions"]
@@ -71,6 +79,8 @@ def main():
         assert Path(final["vrm_path"]).read_bytes().startswith(b"glTF")
         print(json.dumps({
             "REAL_BLENDER_NATIVE_VRM_E2E": "PASS",
+            "REAL_BLENDER_BONE_HEAT_SKIN": "PASS",
+            "bone_heat_modified_body_vertices": heat["changed_body_vertices"],
             "blender": blender,
             "final_vrm_bytes": Path(final["vrm_path"]).stat().st_size,
             "editable_blend_bytes": Path(final["blend"]).stat().st_size,
