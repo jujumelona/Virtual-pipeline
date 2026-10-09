@@ -49,7 +49,8 @@ def _ribbons(mesh):
 
 def refine_anatomy(fitted_mesh: str, constraints_json: str,
                    reference_images_json: str, output_dir: str,
-                   *, front_rgba_path: str | None = None) -> dict:
+                   *, front_rgba_path: str | None = None,
+                   observed_rgba_by_role: dict[str, str] | None = None) -> dict:
     import trimesh
     from scipy.sparse import coo_matrix, diags, eye
     from scipy.sparse.linalg import spsolve
@@ -138,6 +139,19 @@ def refine_anatomy(fitted_mesh: str, constraints_json: str,
         silhouette_source,
     )
     mesh.vertices = corrected
+
+    from vtuber_pipeline.avatar.observed_silhouette_constraint import (
+        correct_observed_multiview_silhouettes,
+    )
+    observed_views = dict(observed_rgba_by_role or {})
+    if observed_views and not set(observed_views).issubset({"back", "left", "right"}):
+        raise ValueError("Side/back silhouette sources must be independently observed")
+    multiview_corrected, multiview_silhouette_evidence = correct_observed_multiview_silhouettes(
+        np.asarray(mesh.vertices, dtype=float),
+        np.asarray(mesh.vertex_normals, dtype=float),
+        observed_views,
+    )
+    mesh.vertices = multiview_corrected
     # Preserve template face connectivity and vertex indices for humanoid skinning.
     if len(mesh.vertices)!=count or len(mesh.faces)<100:raise RuntimeError("lost template topology")
     hair=_ribbons(mesh)
@@ -152,6 +166,7 @@ def refine_anatomy(fitted_mesh: str, constraints_json: str,
             "registered_multiview_confidence":confidence,
             "front_depth_evidence":depth_evidence,
             "front_silhouette_evidence":silhouette_evidence,
+            "independent_multiview_silhouettes":multiview_silhouette_evidence,
             "multiview_constrained_vertex_count":int(np.count_nonzero(selected)),
             "mean_multiview_correction_mesh_units":float(np.mean(np.linalg.norm(proposed, axis=1))),
             "maximum_surface_displacement_mesh_units":float(np.max(np.linalg.norm(mesh.vertices-verts,axis=1))),
