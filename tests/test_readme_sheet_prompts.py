@@ -58,7 +58,12 @@ def test_character_base_is_20_parts_no_hair_no_outfit():
     )[0]
     assert "character_2d_sheet_pack.zip" in a
     assert "sheet_hair.png" not in a
-    assert "hair_variant.png" not in a
+    # The text may mention hair_variant.png as a future separate asset;
+    # only the base ZIP contents must exclude this optional hair sheet.
+    base_zip = a.split("character_2d_sheet_pack.zip", 1)[1].split(
+        "```", 1
+    )[0]
+    assert "hair_variant.png" not in base_zip
     assert "sheet_body_base.png" in a
 
 def test_hairstyle_and_costume_are_optional_distinct_artwork():
