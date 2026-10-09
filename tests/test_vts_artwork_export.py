@@ -92,3 +92,13 @@ def test_free_rejects_more_than_100_parts(tmp_path):
     archive = make_layers(tmp_path / "in", 101)
     with pytest.raises(ValueError, match="FREE ArtMesh"):
         build_artwork_package(archive, tmp_path / "out", edition="free", scope="full")
+
+
+def test_pro_keeps_incorrectly_classified_pixels_without_mixing_other_assets(tmp_path):
+    archive = make_layers(tmp_path / "in")
+    out = build_artwork_package(archive, tmp_path / "out", edition="pro",
+                                scope="upper", asset_kind="hair")
+    from psd_tools import PSDImage
+    actual = PSDImage.open(out["art_psd"])
+    assert all(layer.name.startswith("hair.") for layer in actual)
+    assert len(actual) == 2

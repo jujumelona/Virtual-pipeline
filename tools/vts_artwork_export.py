@@ -194,6 +194,21 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     if not 2 <= per_pass_layers <= 10 or not 0 <= max_qwen_passes <= 12:
         raise ValueError("Invalid Qwen recursion budget")
     layers, canvas = _read_registered(registered_zip)
+    if edition == "pro":
+        # One asset is the complete input here. See-through's classifier may
+        # call hair a clothing layer or label basewear as removable clothing.
+        # Keep ALL of this one asset's pixels; do not erase mistaken classes.
+        prefixes = {
+            "body": ("body", "face", "eye", "eyebrow", "mouth", "nose",
+                     "ear", "neck", "arm", "hand", "leg", "foot", "head"),
+            "hair": ("hair",),
+            "outfit": ("cloth", "sleeve", "shoe", "boot", "outfit"),
+            "accessory": ("ornament", "accessory", "hat"),
+        }[asset_kind]
+        for layer in layers:
+            family = layer["name"].split(".", 1)[0]
+            if family not in prefixes:
+                layer["name"] = asset_kind + ".other." + layer["name"]
     if edition == "free" and len(layers) > FREE_LIMIT:
         raise ValueError("FREE ArtMesh budget exceeded by source PSD; no silent merging")
     output.mkdir(parents=True, exist_ok=True)

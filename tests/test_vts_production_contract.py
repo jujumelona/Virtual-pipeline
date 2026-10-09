@@ -94,3 +94,31 @@ def test_see_through_heuristic_uses_only_observed_metadata(tmp_path):
         "hair_side", "arm_left", "cloth"
     ]
     assert _observed_split_tags(path, depth=False) == ["hair_side", "cloth"]
+
+
+@pytest.mark.parametrize("asset", ["body", "hair", "outfit", "accessory"])
+def test_live2d_pro_builds_each_asset_without_batch_companions(tmp_path, asset):
+    from tools.vts_production import make_cubism_handoff
+    from vtuber_pipeline.two_d.layer_export import write_psd_and_ora
+    folder = tmp_path / "source"
+    folder.mkdir()
+    png = folder / "asset.png"
+    reference = folder / "base.png"
+    Image.new("RGBA", (256, 384), (0, 0, 0, 0)).save(reference)
+    im = Image.new("RGBA", (256, 384), (0, 0, 0, 0))
+    im.paste((255, 180, 200, 255), (32, 30, 180, 180))
+    im.save(png)
+    mask = folder / "mask.png"
+    im.getchannel("A").save(mask)
+    part = Part("hair.front", str(png), str(mask), None,
+                [32, 30, 180, 180], 7, [], "user")
+    psd = write_psd_and_ora(PartsDocument(256, 384, [part], None, ""), str(folder))
+    result = make_cubism_handoff(
+        png, tmp_path / ("output_" + asset), edition="pro", scope="upper",
+        asset_kind=asset, reference_image=None if asset == "body" else reference,
+        external_psd=Path(psd["psd"]), qwen=False)
+    with ZipFile(result["package"]) as zipfile:
+        assert asset + ".psd" in zipfile.namelist()
+        assert "README_CUBISM.md" in zipfile.namelist()
+        assert "avatar.moc3" not in zipfile.namelist()
+    assert result["state"] == "artwork_ready_editor_rig_required"

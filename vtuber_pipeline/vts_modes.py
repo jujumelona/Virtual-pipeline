@@ -207,7 +207,16 @@ def build_vts_brief(
             ),
         }
         filename, task = prompt_by_asset[asset_kind]
-        images.append(_prompt(data, frame, filename, task, free=False))
+        # A detachable asset occupies the SAME canvas as its body reference.
+        # Do not instruct image AI to draw the whole body inside an outfit
+        # or hair-only sheet.
+        asset_frame = frame if asset_kind == "body" else (
+            "CANVAS FRAME: same portrait dimensions and reference origin as "
+            f"the supplied {source}. Render ONLY the specified asset in its "
+            "matching location, with no unrelated anatomy, garments or hair. "
+            "Keep the full asset within the canvas, no label/grid."
+        )
+        images.append(_prompt(data, asset_frame, filename, task, free=False))
     qwen_usage = "on_demand_if_quality_insufficient" if edition == "free" else "primary_high_detail_refinement"
     brief = {
         "schema": "vtuber/vts-artwork-brief-v1",
