@@ -33,6 +33,7 @@ FLUX_PYTHON_PACKAGES = (
     "accelerate==1.10.1",
     "huggingface-hub==1.33.0",
     "transformers==5.0.0",
+    "torchao==0.16.0",
     "sentencepiece>=0.2.0",
     "protobuf>=5,<7",
 )
@@ -40,7 +41,9 @@ FLUX_SMOKE = (
     "import importlib.metadata as md, huggingface_hub; "
     "assert md.version('huggingface-hub')=='1.33.0'; "
     "assert md.version('transformers')=='5.0.0'; "
+    "assert md.version('torchao')=='0.16.0'; "
     "assert callable(huggingface_hub.resolve_revision); "
+    "from torchao.quantization import FqnToConfig, quantize_; "
     "from transformers import Qwen2TokenizerFast, Qwen3ForCausalLM; "
     "from diffusers import Flux2KleinPipeline; "
     "print('[2d-env] flux-transformers-hub-import-ok', flush=True)"
