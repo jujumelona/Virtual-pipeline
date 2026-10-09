@@ -21,14 +21,15 @@ jobs:
       - name: Install pinned D toolchain and software OpenGL libraries
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ldc dub libsdl2-dev libgl1-mesa-dev xvfb xauth
+          sudo apt-get install -y -qq ldc dub libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev zlib1g-dev pkg-config xvfb xauth
       - name: Compile genuine Inochi SDK 0.8.7 exporter
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP/inochi-compiler"
           ldc2 --version | tee "$RUNNER_TEMP/inochi-compiler/toolchain.log"
           dub --version | tee -a "$RUNNER_TEMP/inochi-compiler/toolchain.log"
-          dub build --root=tools/inochi_native --compiler=ldc2 --build=release --force 2>&1 | tee "$RUNNER_TEMP/inochi-compiler/native_build.log"
+          VTUBER_INOCHI_RUNTIME_DIR="$RUNNER_TEMP/inochi-runtime" \\
+            python tools/setup_inochi_runtime.py 2>&1 | tee "$RUNNER_TEMP/inochi-compiler/native_build.log"
       - name: Verify native exporter is executable
         run: |
           file tools/inochi_native/vtuber-inochi-native
