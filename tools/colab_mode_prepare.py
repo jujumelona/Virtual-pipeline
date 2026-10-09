@@ -62,6 +62,11 @@ def prepare_selected_mode(
         os.environ["VTUBER_GPU_PREWARM"] = "1"
     else:
         os.environ.pop("VTUBER_GPU_PREWARM", None)
+        # If a user changes from portrait to full-body/accessories while a
+        # detector is waiting, unload it before the actual first GPU stage.
+        from tools.colab_gpu_warmup import stop_face_worker
+
+        stop_face_worker()
     app = runpy.run_path(str(ROOT / "tools" / "colab_app.py"),
                          run_name="vtuber_prepare")
     # The base Python dependencies are shared and must NOT be installed
