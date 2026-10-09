@@ -54,3 +54,26 @@ def test_link_dependencies_fail_closed_without_pkg_config(monkeypatch):
 def test_existing_sdk_check_requires_native_binary_not_just_a_marker(tmp_path, monkeypatch):
     monkeypatch.setattr(setup, "CACHE", tmp_path)
     assert not (tmp_path / "ready.json").exists()
+
+
+def test_dub_dependency_lock_matches_known_good_native_build():
+    import json
+    versions = json.loads((setup.PROJECT / "dub.selections.json").read_text())["versions"]
+    assert versions == {
+        "bindbc-loader": "1.0.3",
+        "fghj": "1.0.2",
+        "i2d-opengl": "1.0.0",
+        "imagefmt": "2.1.2",
+        "inmath": "1.3.2",
+        "inochi2d": "0.8.7",
+        "mir-algorithm": "3.22.4",
+        "mir-core": "1.7.4",
+        "numem": "0.20.1",
+        "silly": "1.1.1",
+    }
+
+
+def test_native_runtime_hash_includes_dependency_lock():
+    import inspect
+    assert "dependency_lock.read_bytes()" in inspect.getsource(
+        setup.ensure_inochi_native_runtime)
