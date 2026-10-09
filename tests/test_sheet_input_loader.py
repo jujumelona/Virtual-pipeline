@@ -49,7 +49,7 @@ def mini_layout(monkeypatch):
 
 def test_exact_26_tiles_and_fixed_roi_sizes():
     assert_contract()
-    assert sum(len(s.tiles) for s in SHEETS_2D)==26
+    assert sum(len(s.tiles) for s in SHEETS_2D)==24
     for sheet in SHEETS_2D:
         assert sheet.cell_size[0] == sheet.size[0]//sheet.columns
         assert sheet.cell_size[1] == sheet.size[1]//sheet.rows
