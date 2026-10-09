@@ -1256,6 +1256,11 @@ def choose_workflow(mode: str, usage: str):
     if mode in {"inochi2d", "live2d"}:
         from tools.install_2d_workers import activate_2d_environment
         activate_2d_environment()
+        if mode == "inochi2d":
+            # Build the official SDK puppet exporter only for users who
+            # selected Inochi; never burden Live2D/3D with DUB/SDL2.
+            from tools.setup_inochi_runtime import ensure_inochi_native_runtime
+            _setup_stage("Inochi SDK native rig exporter", ensure_inochi_native_runtime)
     else:
         # 3D workers actually require this exact source revision; neither
         # the 2D models nor shared Colab startup require the checkout.
