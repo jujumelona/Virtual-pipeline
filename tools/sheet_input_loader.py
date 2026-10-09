@@ -334,9 +334,9 @@ def convert_3d_sheet_pack(pack: str, folder: str,
     (output/"sheet_conversion.json").write_text(json.dumps({
         "mode":"3d","source":pack,"views":results,
         "registration":"aspect-checked orthographic 2x1 paired sheets",
-        "default_outfit":None, "body_base":"neutral_natural_skin",
+        "default_outfit":None, "body_base":"opaque_skin_tone_production_cover",
         "separate_garment_mesh":False,
         "automatic_outfit_swapping":False,
-        "notes":"Source views must depict the same neutral skin-colored body without garments. Hair remains consistent; wardrobe auto-fitting is unavailable.",
+        "notes":"Source views depict one fully covered VTuber character wearing the same plain opaque skin-tone rigging cover; hair is consistent; removable wardrobe fitting is unavailable.",
     },ensure_ascii=False,indent=2),encoding="utf-8")
     return results
