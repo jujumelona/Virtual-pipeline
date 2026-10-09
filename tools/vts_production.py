@@ -38,6 +38,41 @@ def _image(path: Path):
         return im.size
 
 
+def _semantic_family(name: str) -> str:
+    """Choose an evidenced functional rig family from a PSD layer title.
+
+    Unknown layers become fixed clothing/decoration graphics, not invented eyes.
+    This classification needs validation before a production-quality rig claim.
+    """
+    name = name.casefold().replace("_", " ").replace("-", " ")
+    checks = (
+        ("hair.back", ("back hair", "hair back", "rear hair")),
+        ("hair.front", ("bang", "fringe", "front hair", "hair front")),
+        ("hair.side", ("side hair", "hair side", "twintail", "ponytail")),
+        ("hair", ("hair",)),
+        ("eye", ("eye", "iris", "pupil", "eyelash", "eyelid", "sclera")),
+        ("eyebrow", ("eyebrow", "brow")),
+        ("mouth", ("mouth", "lip", "tongue", "teeth")),
+        ("face", ("face", "skin", "cheek", "forehead")),
+        ("nose", ("nose",)),
+        ("ear", ("ear",)),
+        ("neck", ("neck",)),
+        ("hand", ("hand", "finger")),
+        ("arm", ("arm",)),
+        ("leg", ("leg", "thigh", "knee")),
+        ("shoe", ("shoe", "boot", "sock", "foot")),
+        ("body", ("torso", "body")),
+        ("cloth", ("cloth", "skirt", "shirt", "coat", "sleeve", "dress",
+                   "outfit", "fabric", "jacket", "trouser", "pants")),
+        ("ornament", ("accessory", "accessories", "ornament", "jewel",
+                      "pendant", "ribbon", "clip", "pin", "hat")),
+    )
+    for family, keys in checks:
+        if any(key in name for key in keys):
+            return family
+    return "cloth"
+
+
 def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | None):
     """Losslessly register PSD pixel layers onto a common canvas.
 
@@ -66,6 +101,11 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
         if (left >= size[0] or top >= size[1]
                 or left + tile.width <= 0 or top + tile.height <= 0):
             continue
+        # Exclude opaque painted scene backgrounds: VTuber ArtMeshes only.
+        coverage = sum(1 for pixel in tile.getchannel("A").getdata() if pixel > 0)
+        if coverage / (size[0] * size[1]) > 0.85:
+            print("[VTS PSD] skipping near-full-canvas background:",layer.name,flush=True)
+            continue
         leaves.append((str(layer.name or "layer"), tile, left, top))
     if not leaves:
         raise ValueError("See-through PSD contains no visible pixel ArtMeshes")
@@ -87,7 +127,8 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
             from io import BytesIO
             buf = BytesIO()
             canvas.save(buf, format="PNG")
-            archive.writestr(f"source_layer_{index:03d}.png", buf.getvalue())
+            label = _semantic_family(name)
+            archive.writestr(f"{label}.{index:03d}.png", buf.getvalue())
     return source, out_zip, len(leaves)
 
 
@@ -188,7 +229,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
         try:
             result = build_live2d(SourceSet(
                 "live2d", str(source), user_layers_zip=str(layers),
-                output_dir=str(output / "cubism"),
+                output_dir=str(output / "cubism"), artwork_profile="vts_auto",
             ))
         finally:
             if previous is not None:
