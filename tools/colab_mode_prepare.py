@@ -45,6 +45,7 @@ def _run_parallel(tasks: tuple[tuple[str, Callable[[], object]], ...]) -> None:
 def prepare_selected_mode(
     mode: str, usage: str = "corporation", *,
     prewarm_first_gpu: bool = True,
+    provided_2d_layers: bool = False,
 ) -> None:
     # Accessory fitting starts with different 3D GPU work; prewarming the
     # face detector would block that stage behind an unused CUDA allocation.
@@ -55,6 +56,8 @@ def prepare_selected_mode(
         raise ValueError(f"Unknown preparation mode: {mode}")
     if usage not in {"corporation", "personalProfit", "personalNonProfit"}:
         raise ValueError(f"Invalid usage: {usage}")
+    if provided_2d_layers and mode not in {"live2d", "inochi2d"}:
+        raise ValueError("Provided layers only apply to 2D character modes")
     os.environ["VTUBER_SETUP_ONLY"] = "1"
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
@@ -73,16 +76,22 @@ def prepare_selected_mode(
     # concurrently with another base pip invocation.
     app["ensure_runtime"]()
     if mode in {"inochi2d", "live2d"}:
-        from tools.install_2d_workers import activate_2d_environment
+        if provided_2d_layers:
+            # Every part and its hidden regions is generated upstream by the
+            # user's external image model. Only face landmarks are inferred.
+            tasks: list[tuple[str, Callable[[], object]]] = [
+                ("2D pinned face-detector checkpoint only (no FLUX/SAM)",
+                 lambda: app["prepare_models"]("common_2d_layers")),
+            ]
+        else:
+            from tools.install_2d_workers import activate_2d_environment
 
-        # The base runtime already contains HF and the pinned face detector.
-        # Checkpoint transfers are independent of the isolated SAM/FLUX pip
-        # installs; run both at once instead of waiting for package setup.
-        tasks: list[tuple[str, Callable[[], object]]] = [
-            ("2D alpha/SAM/FLUX worker software", activate_2d_environment),
-            ("2D pinned model checkpoints / first GPU face loader",
-             lambda: app["prepare_models"](mode)),
-        ]
+            # Model transfers and isolated worker pip environments overlap.
+            tasks = [
+                ("2D alpha/SAM/FLUX worker software", activate_2d_environment),
+                ("2D pinned checkpoints / first GPU face model",
+                 lambda: app["prepare_models"](mode)),
+            ]
         if mode == "inochi2d":
             # The official SDK uses an independent native build root. Its
             # failure remains visible and cannot imply a completed INP puppet.
@@ -107,7 +116,8 @@ def prepare_selected_mode(
              lambda: app["prepare_models"](mode)),
         ]
     _run_parallel(tuple(tasks))
-    app["require_runtime_ready"](mode)
+    ready_scope = "common_2d_layers" if provided_2d_layers else mode
+    app["require_runtime_ready"](ready_scope)
     # Model-cache hits return early; ensure that the next real face inference
     # can still reuse a resident model when previous downloads already exist.
     if prewarm_first_gpu:
@@ -128,11 +138,14 @@ def main() -> None:
     parser.add_argument("--usage",
                         choices=("corporation", "personalProfit", "personalNonProfit"),
                         default="corporation")
+    parser.add_argument("--provided-2d-layers", action="store_true",
+                        help="Skip FLUX/SAM worker installs; only face detector is needed")
     parser.add_argument("--no-first-gpu-prewarm", action="store_true",
                         help="Do not load unused face detector before a full-body 3D job")
     args = parser.parse_args()
     prepare_selected_mode(args.mode, args.usage,
-                          prewarm_first_gpu=not args.no_first_gpu_prewarm)
+                          prewarm_first_gpu=not args.no_first_gpu_prewarm,
+                          provided_2d_layers=args.provided_2d_layers)
 
 
 if __name__ == "__main__":
