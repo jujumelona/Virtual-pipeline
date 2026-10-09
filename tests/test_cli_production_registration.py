@@ -28,7 +28,9 @@ def test_cli_reports_all_actual_3d_stages_in_production_order(tmp_path, monkeypa
     source.write_bytes(b"image")
     names = [
         ("reference_quality", {"status": "complete"}),
+        ("relative_depth", {"status": "cached"}),
         ("licensed_multiview", {"status": "complete"}),
+        ("surface_refine", {"status": "skipped"}),
         ("blender_vrm_export", {"status": "complete"}),
         ("future_stage", {"status": "error", "error": "stage-boundary-mismatch"}),
     ]
@@ -48,5 +50,8 @@ def test_cli_reports_all_actual_3d_stages_in_production_order(tmp_path, monkeypa
     assert result.exit_code != 0
     assert "observed TripoSR multi-view reconstruction" in result.output
     assert "Blender native VRM 1.0 export" in result.output
+    assert "verified cached" in result.output
+    assert "(skipped)" in result.output
+    assert "✗ per-observed-view relative depth" not in result.output
     assert "future_stage: stage-boundary-mismatch" in result.output
     assert result.output.index("observed TripoSR") < result.output.index("Blender native")
