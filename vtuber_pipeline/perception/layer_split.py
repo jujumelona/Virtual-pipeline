@@ -67,6 +67,10 @@ def split_semantic_layers(original_rgba: str, masks_json: str,
     semantic_parts = split_facial_subparts(
         original_rgba, masks["parts"], str(out / "facial_subparts"),
     )
+    from vtuber_pipeline.perception.hair_strands import split_observed_hair_islands
+    semantic_parts = split_observed_hair_islands(
+        semantic_parts, str(out / "hair_islands"),
+    )
     observed = []
     for entry in semantic_parts:
         identity = entry["semantic_id"]
