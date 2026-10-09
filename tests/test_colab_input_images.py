@@ -24,35 +24,35 @@ def small_png_set(monkeypatch):
     return {name: _make_png() for name in inputs.EXPECTED}
 
 
-def test_25_neutral_pngs_are_verified_and_packed_internally(tmp_path, small_png_set):
+def test_21_neutral_pngs_are_verified_and_packed_internally(tmp_path, small_png_set):
     master, internal = inputs.prepare_2d_image_uploads(small_png_set, str(tmp_path))
     assert Image.open(master).size == (64, 96)
     with zipfile.ZipFile(internal) as z:
         assert set(z.namelist()) == inputs.EXPECTED - {"front_master.png"}
-        assert len(z.namelist()) == 24
+        assert len(z.namelist()) == 20
     assert set(tmp_path.glob("*")) == {tmp_path / "front_master.png",
                                         tmp_path / "verified_layers.internal.zip"}
 
 
 def test_missing_or_misnamed_png_rejected_before_any_archive(tmp_path, small_png_set):
-    small_png_set.pop("hair_front.png")
-    with pytest.raises(ValueError, match="hair_front.png"):
+    small_png_set.pop("eye_left_white.png")
+    with pytest.raises(ValueError, match="eye_left_white.png"):
         inputs.prepare_2d_image_uploads(small_png_set, str(tmp_path))
     assert not list(tmp_path.iterdir())
 
 
 def test_wrong_size_and_non_rgba_rejected(tmp_path, small_png_set):
-    small_png_set["hair_back.png"] = _make_png(size=(80, 96))
+    small_png_set["brow_left.png"] = _make_png(size=(80, 96))
     with pytest.raises(ValueError, match="2048|64x96"):
         inputs.prepare_2d_image_uploads(small_png_set, str(tmp_path))
 
-    small_png_set["hair_back.png"] = _make_png(opaque_layer=False)
+    small_png_set["brow_left.png"] = _make_png(opaque_layer=False)
     with pytest.raises(ValueError, match="완전히 투명"):
         inputs.prepare_2d_image_uploads(small_png_set, str(tmp_path))
 
     png = BytesIO()
     Image.new("RGB", (64, 96), "white").save(png, "PNG")
-    small_png_set["hair_back.png"] = png.getvalue()
+    small_png_set["brow_left.png"] = png.getvalue()
     with pytest.raises(ValueError, match="RGBA"):
         inputs.prepare_2d_image_uploads(small_png_set, str(tmp_path))
 
@@ -71,7 +71,7 @@ def test_readme_is_the_only_colab_prompt_source():
     assert "sheet_body_base.png" in readme
     assert "outfit_variant.png" in readme
     assert "front_master.png" in readme
-    assert "sheet_hair.png" in readme
+    assert "hair_variant.png" in readme
     assert "sheet_front_back.png" in readme
     assert "sheet_side_views.png" in readme
     assert "sheet_eye_left.png" in readme
@@ -96,9 +96,9 @@ def test_every_external_2d_layer_name_has_a_valid_rig_semantic():
 
     actual = {name.removesuffix(".png") for name in inputs.EXPECTED
               if name != "front_master.png"}
-    assert len(actual) == 24
+    assert len(actual) == 20
     semantic = [KNOWN.get(name, name.replace("_", ".")) for name in sorted(actual)]
-    assert len(set(semantic)) == 24
+    assert len(set(semantic)) == 20
     assert all(isinstance(z_order(part), int) for part in semantic)
 
 
@@ -125,6 +125,6 @@ def test_generated_colab_2d_layer_pack_resolves_to_all_real_parts(tmp_path, monk
                        user_layers_zip=archive, output_dir=str(tmp_path / "rig"))
     result = _layers(source, tmp_path / "resolved")
     assert result is not None
-    assert len(result.parts) == 24
+    assert len(result.parts) == 20
     assert all(part.hidden_fill_mask_png is None for part in result.parts)
-    assert len({part.semantic_id for part in result.parts}) == 24
+    assert len({part.semantic_id for part in result.parts}) == 20
