@@ -14,7 +14,7 @@ from PIL import Image
 from vtuber_pipeline.prompt_contract import CANVAS_2D, LAYER_PARTS
 
 MAX_IMAGE_BYTES = 32 * 1024 * 1024
-MAX_TOTAL_BYTES = 256 * 1024 * 1024
+MAX_TOTAL_BYTES = 1024 * 1024 * 1024
 EXPECTED = frozenset({"front_master.png"} | {name + ".png" for name, _ in LAYER_PARTS})
 
 
@@ -40,7 +40,7 @@ def prepare_2d_image_uploads(uploaded: dict[str, bytes], output_dir: str) -> tup
             raise ValueError(f"{name}: 32MiB 이미지 크기 제한 초과")
         total += len(payload)
         if total > MAX_TOTAL_BYTES:
-            raise ValueError("2D 입력 이미지 합계는 256MiB 이하로 준비하세요")
+            raise ValueError("2D 입력 이미지 합계는 1GiB 이하로 준비하세요")
         try:
             with Image.open(BytesIO(payload)) as raw:
                 if raw.format != "PNG":
