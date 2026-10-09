@@ -43,7 +43,7 @@ def main():
         png = root / "reference.png"
         Image.fromarray(rgba, "RGBA").save(png)
         transfer = transfer_texture(str(png), str(mesh_path),
-                                    str(root / "texture"), texture_size=512)
+                                    str(root / "texture"), texture_size=1024)
         assert transfer["status"] == "complete", transfer
         rig = rig_avatar(str(mesh_path), str(root / "rigged.glb"),
                          texture_path=transfer["texture_png"],
