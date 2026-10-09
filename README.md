@@ -305,11 +305,11 @@ Save/download as the exact filename sheet_mouth.png even if your AI's
 automatically generated download name is different.
 ```
 
-#### `sheet_body_base.png` — 의상 없는 신체 베이스
+#### `sheet_body_base.png` — 불투명 심리스 신체 커버 베이스
 
 **비율 2:3 · 1 column x 1 row.** 모델이 직접 출력 가능한 고해상도로 생성하고, 픽셀 크기는 Colab에서 정규화합니다.
 
-![의상 없는 신체 베이스 시트 배치 가이드](docs/sheet_guides/sheet_body_base_layout.svg)
+![신체 베이스 시트 배치 가이드](docs/sheet_guides/sheet_body_base_layout.svg)
 
 [배치 가이드 별도로 열기](docs/sheet_guides/sheet_body_base_layout.svg)
 
@@ -364,11 +364,11 @@ Save/download as the exact filename sheet_body_base.png even if your AI's
 automatically generated download name is different.
 ```
 
-#### `sheet_arms_hands.png` — 의상 없는 양팔·양손
+#### `sheet_arms_hands.png` — 동일한 피부색 커버 양팔·피부색 양손
 
 **비율 4:3 · 2 columns x 2 rows.** 모델이 직접 출력 가능한 고해상도로 생성하고, 픽셀 크기는 Colab에서 정규화합니다.
 
-![의상 없는 양팔·양손 시트 배치 가이드](docs/sheet_guides/sheet_arms_hands_layout.svg)
+![양팔·양손 시트 배치 가이드](docs/sheet_guides/sheet_arms_hands_layout.svg)
 
 [배치 가이드 별도로 열기](docs/sheet_guides/sheet_arms_hands_layout.svg)
 
