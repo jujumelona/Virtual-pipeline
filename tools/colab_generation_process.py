@@ -22,6 +22,48 @@ EVENT_PREFIX = "VTUBER_GENERATION_EVENT "
 MAX_SECONDS = 6 * 60 * 60
 
 
+def _process_tree_groups(root_pid: int) -> set[int]:
+    """Find model grandchildren even when an individual stage used setsid().
+
+    Killing only the top Popen group leaves stage_runner's start_new_session
+    model subprocesses on the GPU. The Linux /proc tree is read before
+    termination, while ancestry is still available.
+    """
+    seen = set()
+    groups = set()
+    pending = [root_pid]
+    while pending:
+        pid = pending.pop()
+        if pid in seen or pid <= 1:
+            continue
+        seen.add(pid)
+        try:
+            group = os.getpgid(pid)
+            if group != os.getpgrp():
+                groups.add(group)
+        except ProcessLookupError:
+            continue
+        tasks = Path(f"/proc/{pid}/task")
+        for child_file in tasks.glob("*/children"):
+            try:
+                pending.extend(int(x) for x in child_file.read_text().split())
+            except (OSError, ValueError):
+                continue
+    return groups
+
+
+def _terminate_worker_tree(process, signum: int, groups: set[int] | None = None) -> set[int]:
+    """Signal all independently sessioned descendant stage workers."""
+    import signal
+    groups = (groups or set()) | _process_tree_groups(process.pid)
+    for pgid in groups:
+        try:
+            os.killpg(pgid, signum)
+        except ProcessLookupError:
+            pass
+    return groups
+
+
 def _json_input(value):
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
@@ -119,19 +161,12 @@ def run_isolated(
         )
     except BaseException:
         import signal
-        if process.poll() is None:
-            try:
-                os.killpg(process.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-            try:
-                process.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                process.wait(timeout=10)
+        groups = _terminate_worker_tree(process, signal.SIGTERM)
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            _terminate_worker_tree(process, signal.SIGKILL, groups)
+            process.wait(timeout=10)
         (folder / "status.json").write_text(json.dumps({
             "mode": mode, "state": "cancelled",
             "pid": process.pid, "exit_code": process.returncode,
@@ -168,10 +203,7 @@ def _await_worker_completion(
         if time.monotonic() > deadline:
             # Stop the whole worker session, including its child model stages.
             import signal
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+            _terminate_worker_tree(process, signal.SIGKILL)
             process.wait(timeout=10)
             status = -signal.SIGKILL
             break
