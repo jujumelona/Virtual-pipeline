@@ -60,8 +60,15 @@ def split_semantic_layers(original_rgba: str, masks_json: str,
     if not masks.get("parts"):
         raise ValueError("SAM produced no semantic part masks")
 
+    # SAM's eye/mouth boxes do not inherently provide animator-facing
+    # iris, lid, sclera and lip parts. Split only when original RGB contrast
+    # supports it; otherwise keep the parent rather than inventing pixels.
+    from vtuber_pipeline.perception.facial_subparts import split_facial_subparts
+    semantic_parts = split_facial_subparts(
+        original_rgba, masks["parts"], str(out / "facial_subparts"),
+    )
     observed = []
-    for entry in masks["parts"]:
+    for entry in semantic_parts:
         identity = entry["semantic_id"]
         alpha = Image.open(entry["mask_png"]).convert("L")
         if alpha.size != (width, height):
