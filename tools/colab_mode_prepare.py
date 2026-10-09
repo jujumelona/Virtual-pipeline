@@ -96,13 +96,22 @@ def prepare_selected_mode(
             ("3D Blender VRM runtime",
              lambda: ensure_blender_runtime(
                  str(app["WORK_ROOT"] / "third_party" / "blender"))),
+            # Downloading the pinned TripoSR snapshot is independent of
+            # checking out its source. Both files are verified separately.
+            ("3D pinned model checkpoints / first GPU face loader",
+             lambda: app["prepare_models"](mode)),
         ]
     _run_parallel(tuple(tasks))
-    # 2D checkpoint downloads have already overlapped the independent package
-    # environments above. 3D retains its prerequisite TripoSR checkout first.
-    if mode == "3d":
-        app["prepare_models"](mode)
     app["require_runtime_ready"](mode)
+    # Model-cache hits return early; ensure that the next real face inference
+    # can still reuse a resident model when previous downloads already exist.
+    if prewarm_first_gpu:
+        from tools.colab_gpu_warmup import available_face_worker, start_face_worker
+
+        if not available_face_worker():
+            print("[gpu-prewarm] checkpoint cache was already ready; "
+                  "starting reusable face detector", flush=True)
+            start_face_worker()
     print(f"[downloads] {mode}: all mandatory downloads and checks complete",
           flush=True)
 
