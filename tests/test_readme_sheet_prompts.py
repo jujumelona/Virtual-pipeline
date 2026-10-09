@@ -1,63 +1,90 @@
-"""README-facing image prompts must map to actual production filenames."""
+"""README's real image input contract: modular 2D, clothed 3D.
+
+Every exported image prompt must be self-contained: filename, ratio, number
+of views/parts, reference attachment, and costume treatment. Do not make
+prompts pretend the model generates a fixed 4K file automatically.
+"""
 from pathlib import Path
 import re
 from vtuber_pipeline.sheet_contract import SHEETS_2D,VIEWS_3D
-from vtuber_pipeline.wardrobe_contract import GARMENT_PARTS
+from vtuber_pipeline.hair_contract import HAIR_PARTS,HAIR_SHEET
+from vtuber_pipeline.wardrobe_contract import GARMENT_PARTS,GARMENT_SHEET
 
-README=(Path(__file__).resolve().parents[1]/"README.md")
+README=Path(__file__).resolve().parents[1]/"README.md"
 
 def section():
-    return README.read_text(encoding="utf-8").split("## 모드별 이미지 생성",1)[1].split("## 작업 모드",1)[0]
+    return README.read_text(encoding="utf-8").split(
+        "## 모드별 이미지 생성",1
+    )[1].split("## 작업 모드",1)[0]
 
 def prompts():
-    content=section()
-    out={}
-    for m in re.finditer(
+    result={}
+    for match in re.finditer(
         r"#{4,5} `([^`]+)`[^\n]*\n[\s\S]*?```text\n([\s\S]*?)\n```",
-        content
+        section(),
     ):
-        if m.group(1).endswith(".png"):
-            out[m.group(1)]=m.group(2)
-    return out
+        if match.group(1).endswith(".png"):
+            result[match.group(1)]=match.group(2)
+    return result
 
-def test_base_avatar_has_only_neutral_image_prompts_and_exact_filenames():
-    p=prompts()
-    needed={"front_master.png","face.png"}|{
+def test_exact_input_artifacts_and_filename_in_each_prompt():
+    expected={"front_master.png","face.png","hair_variant.png",
+              "outfit_variant.png"}|{
         s.filename for s in (*SHEETS_2D,*VIEWS_3D)
     }
-    assert needed.issubset(p)
-    for name in needed:
-        data=p[name]
-        assert name in data and "{gender}" in data
-        assert "WIDTH:HEIGHT" in data
-        assert "4096x" not in data, name
-        assert "NO costume" in data or "NO detachable clothing" in data or "NO jacket" in data or "OUTFIT-FREE" in data
+    assert expected <= set(prompts())
+    for name in expected:
+        p=prompts()[name]
+        assert name in p,name
+        assert "{gender}" in p,name
+        assert "4096x" not in p,name
+        assert "WIDTH:HEIGHT" in p or "width:height" in p,name
 
-def test_sheet_grids_and_wardrobe_ownership():
+def test_character_base_is_20_parts_no_hair_no_outfit():
+    assert sum(len(s.tiles) for s in SHEETS_2D)==20
+    data=prompts()
+    core={"front_master.png"}|{s.filename for s in SHEETS_2D}
+    for name in core:
+        p=data[name]
+        assert "NO costume" in p or "NO detachable clothing" in p or "NO jacket" in p or "OUTFIT-FREE" in p,name
+    a=section().split("### ① 캐릭터 생성 — 2D",1)[1].split(
+        "### ① 캐릭터 생성 — 3D",1
+    )[0]
+    assert "character_2d_sheet_pack.zip" in a
+    assert "sheet_hair.png" not in a
+    assert "hair_variant.png" not in a
+    assert "sheet_body_base.png" in a
+
+def test_hairstyle_and_costume_are_optional_distinct_artwork():
     p=prompts()
-    for spec in SHEETS_2D:
-        data=p[spec.filename]
-        for tile in spec.tiles:
-            assert tile.name in data
-        if len(spec.tiles)>1:
-            assert "2 columns x 2 rows" in data
-        else:
-            assert "1 column x 1 row" in data
-    garment=p["outfit_variant.png"]
-    assert "WIDTH:HEIGHT = 4:3" in garment
-    assert "2 columns x 2 rows" in garment
+    hair=p["hair_variant.png"]
+    outfit=p["outfit_variant.png"]
+    assert "2 columns x 2 rows" in hair or "2 columns x 2 rows" in section()
+    for name in HAIR_PARTS:
+        assert name in hair
+    assert "WIDTH:HEIGHT=2:3" in hair
+    assert "WIDTH:HEIGHT = 4:3" in outfit
     for name in GARMENT_PARTS:
-        assert name in garment
-    assert "character_2d_sheet_pack.zip" in section()
-    assert "costume.xwear" in section()
-    assert "garment_front_back_ref.png" in section()
+        assert name in outfit
+    assert "hair_variant.png" in section()
+    assert "outfit_variant.png" in section()
+    assert "20파츠+의상 4파츠=24파츠" in section()
+    assert HAIR_SHEET.filename!="sheet_hair.png"
+    assert GARMENT_SHEET.filename=="outfit_variant.png"
 
-def test_every_costume_reference_has_explicit_filename_and_aspect():
+def test_3d_mainline_must_include_integrated_identical_outfit():
     p=prompts()
-    for name in ("outfit_variant.png","garment_front_back_ref.png",
-                 "garment_side_views_ref.png","garment_details_ref.png"):
-        assert name in p
-        assert "create and SAVE" in p[name]
-        assert "WIDTH:HEIGHT" in p[name]
-    assert "24파츠+의상 4파츠=28파츠" in section()
-    assert "착용 완료 VRM" in section() or "입힌 VRM 완성품이 아닙니다" in section()
+    for s in VIEWS_3D:
+        prompt=p[s.filename]
+        assert "DEFAULT INTEGRATED OUTFIT" in prompt
+        assert "SAME COMPLETE DEFAULT OUTFIT" in prompt
+        assert "4:3" in prompt
+        assert "2:3" in prompt
+        for tile in s.tiles:
+            assert tile.name.upper() in prompt
+    assert "DEFAULT INTEGRATED OUTFIT" in p["face.png"]
+    assert "width:height=1:1" in p["face.png"]
+    assert "character_3d_sheet_pack.zip" in section()
+    assert "다른 의상을 입힌 3D 아바타" in section()
+    assert "3D 의상 자동 교체는 제공하지 않습니다" in section()
+    assert "정적 소품" in section()
