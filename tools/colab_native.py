@@ -151,11 +151,16 @@ def _has_vrm_container(path: Path) -> bool:
             if chunk_type != 0x4E4F534A or chunk_length < 4 or chunk_length > length - 20:
                 return False
             payload = json.loads(handle.read(chunk_length).rstrip(b" \t\r\n\x00"))
-        vrm = payload.get("extensions", {}).get("VRMC_vrm")
+        if not isinstance(payload, dict):
+            return False
+        extensions = payload.get("extensions")
+        used = payload.get("extensionsUsed")
+        vrm = extensions.get("VRMC_vrm") if isinstance(extensions, dict) else None
         return (
             isinstance(vrm, dict)
             and vrm.get("specVersion") == "1.0"
-            and "VRMC_vrm" in payload.get("extensionsUsed", [])
+            and isinstance(used, list)
+            and "VRMC_vrm" in used
         )
     except (OSError, ValueError, TypeError, KeyError, struct.error, UnicodeDecodeError):
         return False
