@@ -18,7 +18,7 @@ CANVAS_FACE = (2048, 2048)
 # Filenames are direct semantic keys read by two_d.build.KNOWN. Variants are
 # supplied independently; every file is a full-canvas RGBA image.
 LAYER_PARTS = (
-    ("body", "Fully covered adult VTuber torso with smooth matte opaque seamless skin-tone {skin_color} production cover, visually simple and suitable for independent later wardrobe layers."),
+    ("body", "Fully covered adult VTuber torso with smooth matte opaque seamless skin-tone production cover, visually simple and suitable for independent later wardrobe layers."),
     ("neck", "Natural-skin-color neck from jaw to shoulders, complete underneath the face and hairstyle."),
     ("ear_left", "Character's left ear, fully drawn behind hair."),
     ("ear_right", "Character's right ear, fully drawn behind hair."),
@@ -186,7 +186,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
             "Same character center, head-to-foot framing, body height, "
             "body proportions and feet positions across views. "
             "The shoulders, chest, torso, arms, hips, legs and feet "
-            "are covered by the SAME opaque seamless {skin_color} "
+            "are covered by the SAME opaque seamless skin-tone "
             "production basewear in every view. "
             "Orthographic eye-level camera, neutral symmetric A-pose with "
             "arms slightly separated, visible hands and feet. "
