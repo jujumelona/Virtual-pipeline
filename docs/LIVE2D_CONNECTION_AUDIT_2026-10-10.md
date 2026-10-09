@@ -6,13 +6,13 @@ Source: supplied live2d_free_pro_chat_reference_updated.md. Scope remains layere
 
 | Requirement | Correction | Commit |
 |---|---|---|
-| §5 semantic identities | Check eyebrow before generic eye; preserve foot, ear, ornament and other canonical details | 98ef767 |
-| §4 recursive anatomy coverage | Arm, hand, leg, foot, ear, neck, nose, shoe and eyebrow eligible; FREE requests fit remaining 100-layer budget | 98ef767 |
-| §3 texture budget | Measure alpha bounding-rectangle areas and 2px margin estimate; emit TEXTURE_BUDGET.md and texture_budget.json without resizing artwork | 8082380 |
-| §2/§5 original coordinate frame | Invert the pinned See-through center-square padding/resizing; final FREE/PRO PSD uses input dimensions; external PSD mismatch fails explicitly | 281dea3 |
-| §5 native split identities | Preserve hairf/hairb, eyel/eyer, browl/browr, earl/earr and upstream -l/-r suffixes including iris/sclera/lash | 281dea3 |
-| §8 output completeness | Package actual Qwen and See-through logs when present; supporting_files lists every final ZIP companion | f5a06b6 |
-| §6 PRO registration review | Overlay the actual final PSD composite on the body reference, rather than only the submitted asset input | 6be5338 |
+| §5 semantic identities | Check eyebrow before generic eye; preserve foot, ear, ornament and other canonical details | 0eb80cf |
+| §4 recursive anatomy coverage | Arm, hand, leg, foot, ear, neck, nose, shoe and eyebrow eligible; FREE requests fit remaining 100-layer budget | 0eb80cf |
+| §3 texture budget | Measure alpha bounding-rectangle areas and 2px margin estimate; emit TEXTURE_BUDGET.md and texture_budget.json without resizing artwork | b63d9cc |
+| §2/§5 original coordinate frame | Invert the pinned See-through center-square padding/resizing; final FREE/PRO PSD uses input dimensions; external PSD mismatch fails explicitly | 2650dc6 |
+| §5 native split identities | Preserve hairf/hairb, eyel/eyer, browl/browr, earl/earr and upstream -l/-r suffixes including iris/sclera/lash | 2650dc6 |
+| §8 output completeness | Package actual Qwen and See-through logs when present; supporting_files lists every final ZIP companion | 5a36c24 |
+| §6 PRO registration review | Overlay the actual final PSD composite on the body reference, rather than only the submitted asset input | 58db393 |
 
 Coordinate mapping was checked against See-through revision df019de5129d6c4b406587a14c3501669441a783: inference/scripts/inference_psd_quantized.py run_layerdiff, common/utils/cv.py center_square_pad_resize and common/utils/inference_utils.py PSD assembly. Native inference restores head layers into the same square body canvas. Reverse the square resize, then crop original integer center padding. This restores geometry; interpolation cannot recover RGB details lost during inference.
 
@@ -22,23 +22,25 @@ FREE upper/full accepts one finished character image. PRO body/hair/outfit/acces
 
 ## Validation and limits
 
-Focused tests: 140 passed with the repository-pinned psd-tools 1.14.2 and trimesh 4.12.2. Tests read/write actual PSDs and ZIPs, reproduce importer failures, preserve source-mask pixels, verify FREE limits and confirm final PRO geometry. GPU calls are replaced only at the inference boundary in CPU integration tests.
+Focused tests: 146 passed with the repository-pinned psd-tools 1.14.2 and trimesh 4.12.2. Tests read/write actual PSDs and ZIPs, reproduce importer failures, preserve source-mask pixels, verify FREE limits and confirm final PRO geometry. GPU calls are replaced only at the inference boundary in CPU integration tests.
 
-Whole repository run: 602 passed, 2 skipped, 1 failed (test_preloaded_real_face_model_answers_first_request_then_unloads in tests/test_colab_gpu_prewarm.py). The environment rejects AF_UNIX socket bind with PermissionError [Errno 1] Operation not permitted, independently reproduced with a minimal socket program. A shorter temporary path did not resolve this. No production socket checks were disabled.
+Whole repository run: 608 passed, 2 skipped, 1 failed (test_preloaded_real_face_model_answers_first_request_then_unloads in tests/test_colab_gpu_prewarm.py). The environment rejects AF_UNIX socket bind with PermissionError [Errno 1] Operation not permitted, independently reproduced with a minimal socket program. A shorter temporary path did not resolve this. No production socket checks were disabled.
 
 Still unverified: real Colab T4 inference, actual occlusion reconstruction, anatomical accuracy of Qwen partitions, missing pupil/highlight/tongue layers for individual characters, original RGB fidelity, identity and pose matching, final Editor texture packing, actual Editor FREE object counts and MOC3 export. Area/edge bounds are necessary conditions only, not a packing witness. Generated detail IDs remain .qN mask partitions, not asserted anatomical labels. Do not call these items complete from CPU evidence.
 
 ## Follow-up implementation commits
 
-- 57a0aec: Qwen resolves worker paths and uses a fresh candidate directory per run; stale PNGs cannot satisfy a new inference.
-- 4d36a91: honor the pinned worker's 16px dimension rounding for thin parts; equal-alpha overlap goes to the foreground proposal.
-- 4c86f5a: shared request validation rejects wrong Qwen budgets before any model call; resolve See-through worker paths.
-- d89d7c8: model snapshots download in supervised subprocesses with wall deadlines and complete logs; invalidate stale setup readiness and publish the new manifest atomically; inference uses offline model caches.
-- 1ea0977: preserve combined depth and side suffixes such as irides-l-0; avoid splitting an already sided tag again.
-- 6802435: spend initial passes across observed semantic families before recursively subdividing one large hair region.
-- 33cd081: complete the selected-mode detail review (including sclera, highlights, teeth, tongue, hair roots, full-body feet and garment backs) and current CLI/README guidance.
-- 989f59d: exercise FREE upper/full and all four PRO assets in upper/full; wire new worker/preflight/setup tests into the existing fast gate.
-- b50e5ed: a FREE result with only one final raster leaf fails as a flattened character; independent one-layer PRO accessories remain valid.
+- f5be968: Qwen resolves worker paths and uses a fresh candidate directory per run; stale PNGs cannot satisfy a new inference.
+- 5fb5a60: honor the pinned worker's 16px dimension rounding for thin parts; equal-alpha overlap goes to the foreground proposal.
+- e6d469e: shared request validation rejects wrong Qwen budgets before any model call; resolve See-through worker paths.
+- 7df2cbc: model snapshots download in supervised subprocesses with wall deadlines and complete logs; invalidate stale setup readiness and publish the new manifest atomically; inference uses offline model caches.
+- cc7c512: preserve combined depth and side suffixes such as irides-l-0; avoid splitting an already sided tag again.
+- 5cdbaa6: spend initial passes across observed semantic families before recursively subdividing one large hair region.
+- 1d2830c: complete the selected-mode detail review (including sclera, highlights, teeth, tongue, hair roots, full-body feet and garment backs) and current CLI/README guidance.
+- 9071f56: exercise FREE upper/full and all four PRO assets in upper/full; wire new worker/preflight/setup tests into the existing fast gate.
+- ee6c43f: a FREE result with only one final raster leaf fails as a flattened character; independent one-layer PRO accessories remain valid.
+
+- 98f11c4: preserve enabled/disabled masks, mask canvas offsets and outside-mask defaults; multiply user masks with existing transparency; retain large foreground layers and exclude only explicitly named opaque backgrounds. Six real-PSD regressions cover these cases.
 
 ## MD coverage matrix
 
@@ -58,4 +60,6 @@ Still unverified: real Colab T4 inference, actual occlusion reconstruction, anat
 
 ## Publication
 
-Changes are committed locally on main. Automatic approval review again rejected GitHub push: it interpreted the user's follow-up “commit” instruction as authorization for local commits, not explicit external publication. No alternate upload, connector write or force-push was attempted. An explicit instruction to push to jujumelona/Virtual-pipeline main is still needed for remote publication.
+The user explicitly authorized continued push without another approval on 2026-10-09. Shell push lacked HTTPS credentials, so the authenticated GitHub connector published the 16 existing work units in order, followed by the PSD mask/foreground fix (98f11c428c23c71ddd48e66c99bd9383755bdc28). Each published tree SHA was verified against its local counterpart before updating main with an expected-head lease and without force. Connector-created commit SHAs differ because publication assigns new commit metadata; the commit references above use the published SHAs. Original local history is retained under refs/checkpoints/live2d-local-before-publication and refs/checkpoints/live2d-mask-local. The checkout is aligned with the fetched main history.
+
+The latest implementation tree on main is 30dbc36ebf9aff76fd54ab204cdaebf57298e6b8, verified by fetch and git rev-parse. Push-triggered Fast contract gate and CI were observed running/pending; this document does not claim they passed. Actual Colab GPU and Editor verification remain the boundaries listed above.
