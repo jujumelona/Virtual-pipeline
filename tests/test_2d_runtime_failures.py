@@ -70,3 +70,39 @@ def test_florence_prevents_part_segmentation_with_random_native_weights():
     assert 'load_info.get("missing_keys", [])' in source
     assert 'load_info.get("unexpected_keys", [])' in source
     assert 'model=model.to(device).eval()' in source
+
+
+def test_sigkill_reports_cgroup_oom_evidence(tmp_path, monkeypatch):
+    """An OS SIGKILL is not automatically evidence of an OOM killer."""
+    from vtuber_pipeline.common import stage_runner
+
+    memory_states = iter([
+        {"memory.max": 12 * 1048576, "events.oom_kill": 7},
+        {"memory.max": 12 * 1048576, "events.oom_kill": 8,
+         "memory.peak": 12 * 1048576},
+    ])
+    monkeypatch.setattr(stage_runner, "cgroup_memory_diagnostics",
+                        lambda: next(memory_states))
+    script = tmp_path / "worker.py"
+    script.write_text("import os,signal; os.kill(os.getpid(),signal.SIGKILL)\n")
+    request = tmp_path / "request.json"
+    request.write_text(json.dumps({"input": "unit-test"}))
+    with pytest.raises(RuntimeError, match="kernel_oom_confirmed") as error:
+        run_stage(worker=str(script), request_json=str(request),
+                  result_json=str(tmp_path / "result.json"),
+                  executable=sys.executable, cwd=str(tmp_path), timeout_sec=20)
+    assert "cgroup_oom_kill_delta=1" in str(error.value)
+    assert "exit=-9" in str(error.value)
+
+
+def test_sigkill_without_kernel_oom_delta_is_unconfirmed():
+    from vtuber_pipeline.common.stage_runner import cgroup_oom_summary
+
+    assert "SIGKILL_cause_unconfirmed" in cgroup_oom_summary(
+        {"events.oom_kill": 2},
+        {"events.oom_kill": 2, "memory.peak": 9 * 1048576},
+    )
+    assert "kernel_oom_confirmed" in cgroup_oom_summary(
+        {"events.oom_kill": 2},
+        {"events.oom_kill": 3},
+    )
