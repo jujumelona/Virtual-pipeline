@@ -13,7 +13,7 @@ def prompts():
     content=section()
     out={}
     for m in re.finditer(
-        r"#### `([^`]+)`[^\n]*\n[\s\S]*?```text\n([\s\S]*?)\n```",
+        r"#{4,5} `([^`]+)`[^\n]*\n[\s\S]*?```text\n([\s\S]*?)\n```",
         content
     ):
         if m.group(1).endswith(".png"):
