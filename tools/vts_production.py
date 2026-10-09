@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -60,32 +61,33 @@ def _semantic_family(name: str) -> str:
         "head": "body.head", "hair": "hair.general",
         "face": "face", "ears": "ear",
     }
-    split_aliases = {"hairf": "hair.front", "hairb": "hair.back",
-                     "eyel": "eye.left", "eyer": "eye.right",
-                     "browl": "eyebrow.left", "browr": "eyebrow.right",
-                     "earl": "ear.left", "earr": "ear.right"}
-    if raw in split_aliases:
-        return split_aliases[raw]
-    # part_lr_split emits e.g. irides-l and handwear-r. These suffixes
-    # describe the upstream semantic side; preserve them rather than infer
-    # anatomical left/right again from image position.
-    stem, _, suffix = raw.rpartition(".")
-    if suffix in ("l", "r") and stem in exact_upstream | {"eyebrow": "eyebrow"}:
-        family = (exact_upstream | {"eyebrow": "eyebrow"})[stem]
-        side = "left" if suffix == "l" else "right"
-        if family.startswith("eye."):
-            return "eye." + side + "." + family.split(".", 1)[1]
-        return family + "." + side
-    if raw in exact_upstream:
-        return exact_upstream[raw]
     # The See-through / Qwen layer name is a semantic identity, not just an
     # annotation. Never discard left/right, front/back, iris or lid suffixes.
     canonical = ("hair.", "eye.", "eyebrow.", "mouth.", "cloth.",
                  "body.", "arm.", "leg.", "hand.", "foot.", "shoe.", "accessory.",
                  "ornament.", "ear.", "neck.", "nose.", "face.", "head.",
                  "outfit.", "sleeve.")
-    if raw.startswith(canonical):
+    if raw.startswith(canonical) and not {"l", "r"}.intersection(raw.split(".")[1:]):
         return raw
+    split_aliases = {"hairf": "hair.front", "hairb": "hair.back",
+                     "eyel": "eye.left", "eyer": "eye.right",
+                     "browl": "eyebrow.left", "browr": "eyebrow.right",
+                     "earl": "ear.left", "earr": "ear.right"}
+    native_names = exact_upstream | split_aliases | {
+        "eyebrow": "eyebrow", "front hair": "hair.front", "back hair": "hair.back"}
+    tokens = raw.split(".")
+    if tokens[0] in native_names:
+        family = native_names[tokens[0]]
+        suffixes = tokens[1:]
+        side = next(("left" if x in ("l", "left") else "right"
+                     for x in suffixes if x in ("l", "r", "left", "right")), None)
+        rest = [x for x in suffixes if x not in ("l", "r", "left", "right")]
+        if side:
+            if family.startswith("eye."):
+                family = "eye." + side + "." + family.split(".", 1)[1]
+            else:
+                family += "." + side
+        return ".".join([family, *rest])
     name = raw.replace(".", " ")
     side = "left" if "left" in name else "right" if "right" in name else None
     if "iris" in name or "pupil" in name or "eyelid" in name or "sclera" in name:
@@ -250,8 +252,8 @@ def _observed_split_tags(metadata: Path, *, depth: bool) -> list[str]:
         if not isinstance(tag, str) or "," in tag:
             continue
         name = tag.lower()
-        if any(word in name for word in allowed) and (depth or
-            not any(x in name for x in ("left", "right", "_l", "_r"))):
+        has_side = bool({"left", "right", "l", "r"}.intersection(re.split(r"[_.-]", name)))
+        if any(word in name for word in allowed) and (depth or not has_side):
             result.append(tag)
     return result[:32]
 

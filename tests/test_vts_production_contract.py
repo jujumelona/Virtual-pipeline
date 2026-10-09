@@ -261,3 +261,22 @@ def test_handoff_inventory_lists_all_final_companion_files(tmp_path):
     result = make_cubism_handoff(master, tmp_path / "out", edition="free", scope="upper", external_psd=path)
     with ZipFile(result["package"]) as z:
         assert set(result["supporting_files"]) == set(z.namelist()) - {"avatar.psd"}
+
+@pytest.mark.parametrize("name,expected", [
+    ("irides-l-0", "eye.left.iris.0"),
+    ("eyewhite-2-r", "eye.right.sclera.2"),
+    ("hairb-0", "hair.back.0"),
+    ("headwear-1-l", "ornament.head.left.1"),
+    ("front hair-2", "hair.front.2"),
+])
+def test_depth_and_side_suffixes_survive_native_postprocessing(name, expected):
+    assert _semantic_family(name) == expected
+
+
+def test_native_already_sided_tags_are_not_left_right_split_again(tmp_path):
+    import json
+    from tools.vts_production import _observed_split_tags
+    path = tmp_path / "parts.json"
+    path.write_text(json.dumps({"parts": {"irides-l-0": {}, "eyebrow-r": {}, "hairb-0": {}}}))
+    assert _observed_split_tags(path, depth=False) == ["hairb-0"]
+    assert _observed_split_tags(path, depth=True) == ["irides-l-0", "eyebrow-r", "hairb-0"]
