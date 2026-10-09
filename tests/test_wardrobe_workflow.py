@@ -32,51 +32,59 @@ def test_outfit_png_rejects_missing_or_rgb_background(tmp_path):
         outfit_variant_pack.inspect_garment_image(str(source))
 
 def test_garment_4_cells_normalized_and_base_unmodified(tmp_path,monkeypatch):
-    # Use tiny aligned mock base; isolated outfits are RGBA input, not
-    # split out of the neutral torso. No network/GPU required.
-    monkeypatch.setattr(outfit_variant_pack,"MASTER",(64,64))
-    from vtuber_pipeline.sheet_contract import Sheet,Tile
+    """Verify the actual modular compositor; no fake old facade internals."""
+    from tools import modular_avatar_pack as modular
+    from vtuber_pipeline.sheet_contract import Sheet, Tile
+
     fake=Sheet("outfit_variant.png",(128,64),2,2,(
         Tile("outfit_front",0,0,(0,10,64,42)),
         Tile("outfit_back",0,1,(0,10,64,42)),
         Tile("outfit_sleeve_left",1,0,(0,20,64,52)),
         Tile("outfit_sleeve_right",1,1,(0,20,64,52)),
     ))
-    monkeypatch.setattr(outfit_variant_pack,"GARMENT_SHEET",fake)
-    monkeypatch.setattr(outfit_variant_pack,"_valid_aspect",lambda size,target:True)
-    monkeypatch.setattr(outfit_variant_pack,"inspect_sheet_archive",lambda *a,**k:None)
-    source=tmp_path/"character_2d_sheet_pack.zip"
-    source.write_bytes(b"mock source")
-    full=(128,128)
-    original=Image.new("RGBA",full,(0,0,0,0))
+    monkeypatch.setattr(modular,"MASTER",(64,64))
+    monkeypatch.setitem(modular.ASSETS,"outfit",(fake,GARMENT_PARTS))
+    monkeypatch.setattr(modular,"_valid_aspect",lambda size,target:True)
+    monkeypatch.setattr(modular,"inspect_sheet_archive",lambda *a,**kw:None)
+
+    original=Image.new("RGBA",(128,128),(0,0,0,0))
     ImageDraw.Draw(original).rectangle((18,20,38,66),fill=(30,60,100,255))
-    with ZipFile(tmp_path/"base_layers.zip","w") as z:
-        for i in range(24):
+    base=tmp_path/"base_layers.zip"
+    with ZipFile(base,"w") as z:
+        for i in range(20):
             z.writestr(f"part_{i}.png",_png(original))
-    def convert(*args,**kwargs):
-        return str(tmp_path/"front_master.png"),str(tmp_path/"base_layers.zip")
-    monkeypatch.setattr(outfit_variant_pack,"convert_2d_sheet_pack",convert)
+
+    def fake_convert(*args,**kwargs):
+        return str(tmp_path/"front_master.png"),str(base)
+    monkeypatch.setattr(modular,"convert_2d_sheet_pack",fake_convert)
+    source=tmp_path/"character_2d_sheet_pack.zip"
+    source.write_bytes(b"mock source - preflight is patched for CPU test")
     garment=Image.new("RGBA",(128,64),(0,0,0,0))
     for tile in fake.tiles:
         x0,y0,x1,y1=fake.box(tile)
-        ImageDraw.Draw(garment).rectangle((x0+8,y0+4,x0+18,y0+12),
-                                        fill=(130,20+20*tile.col,60,255))
-    costume=tmp_path/"outfit_variant.png";costume.write_bytes(_png(garment))
+        ImageDraw.Draw(garment).rectangle(
+            (x0+8,y0+4,x0+18,y0+12),
+            fill=(130,20+20*tile.col,60,255)
+        )
+    costume=tmp_path/"outfit_variant.png"
+    costume.write_bytes(_png(garment))
+
     generated=outfit_variant_pack.build_dressed_2d_assets(
-        str(source),str(costume),str(tmp_path/"output"),
-        neural=False
+        str(source),str(costume),str(tmp_path/"output"),neural=False
     )
     with ZipFile(generated["layers"]) as z:
-        assert len(z.namelist())==28
+        assert len(z.namelist())==24
         assert z.read("part_0.png")==_png(original)
         for part in GARMENT_PARTS:
             im=Image.open(BytesIO(z.read(part+".png")))
-            assert im.size==full
+            assert im.size==(128,128)
             assert im.getchannel("A").getbbox() is not None
     m=json.loads(Path(generated["manifest"]).read_text())
-    assert m["permanent_base_parts"]==24
-    assert m["total_parts"]==28
-    assert not m["runtime_toggle_supported"]
+    assert m["permanent_base_parts"]==20
+    assert m["detachable_outfit_parts"]==4
+    assert m["total_parts"]==24
+    assert not m["live_hot_swap_ready"]
+
 
 def test_3d_xwear_handoff_is_explicitly_not_a_finished_vrm(tmp_path,monkeypatch):
     from tools import colab_native
