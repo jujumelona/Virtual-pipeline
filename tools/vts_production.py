@@ -438,17 +438,27 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
               "state": "running", "moc3_generated": False, "editor_required": True}
     _write(state_path, status)
     try:
-        psd = (external_psd.resolve(strict=True) if external_psd
-               else run_see_through(
-                   master, output / "decomposition",
-                   third_party=(third_party or Path("/content/vtuber_builder/third_party/see-through"))
-               ))
+        asset_preparation = None
+        model_root = third_party or Path("/content/vtuber_builder/third_party/see-through")
+        if external_psd:
+            psd = external_psd.resolve(strict=True)
+        elif edition == "pro" and asset_kind != "body":
+            from tools.vts_asset_input import prepare_detached_asset
+            psd, asset_preparation = prepare_detached_asset(
+                master, output / "decomposition", asset_kind=asset_kind,
+                qwen=qwen, layer_count=qwen_layers, pass_budget=qwen_passes,
+                third_party=model_root.parent,
+                python=os.environ.get("VTUBER_SEETHROUGH_PYTHON"))
+        else:
+            psd = run_see_through(master, output / "decomposition", third_party=model_root)
         # PSD mask/alpha extraction preserves original See-through pixels.
         _, registered, count = psd_to_registered_rgba(
             psd, output / "layers", artmesh_max=100 if edition == "free" else None,
         )
         registration = {"method": "external_psd_already_registered"}
-        if external_psd is None:
+        if asset_preparation is not None:
+            registration = {"method": "direct_source_canvas", **asset_preparation}
+        elif external_psd is None:
             registered, registration = restore_source_canvas(
                 registered, canvas, output / "layers/source_frame_layers.zip")
         else:
@@ -460,7 +470,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
         produced = build_artwork_package(
             registered, output / "artwork", edition=edition, scope=scope,
             asset_kind=asset_kind, qwen=qwen,
-            per_pass_layers=qwen_layers, max_qwen_passes=qwen_passes,
+            per_pass_layers=qwen_layers, max_qwen_passes=qwen_passes - (
+                asset_preparation["qwen_passes_used"] if asset_preparation else 0),
             third_party=(third_party or Path("/content/vtuber_builder/third_party/see-through")).parent,
             python_path=os.environ.get("VTUBER_SEETHROUGH_PYTHON"),
         )
@@ -468,7 +479,11 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
         # registration checks and independent PRO asset re-import.
         with ZipFile(produced["package"], "a", ZIP_DEFLATED) as archive:
             archive.write(master, "input_reference/source_" + master.name)
-            archive.write(psd, "source_psd/see_through_layers.psd")
+            archive.write(psd, "source_psd/asset_source.psd" if asset_preparation
+                          else "source_psd/see_through_layers.psd")
+            if asset_preparation:
+                archive.writestr("metadata/asset_preparation.json",
+                                 json.dumps(asset_preparation, ensure_ascii=False, indent=2))
             # Side-by-side visual check: source may be a higher resolution
             # portrait while See-through renders square 1280px internally.
             # Never silently claim the returned layer pixels are native
@@ -545,7 +560,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         json.dumps(report_align, ensure_ascii=False, indent=2),
                     )
             for log_path in sorted((output / "decomposition").rglob("*.log")):
-                archive.write(log_path, "logs/see_through/" + str(
+                archive.write(log_path, ("logs/asset_input/" if asset_preparation
+                                        else "logs/see_through/") + str(
                     log_path.relative_to(output / "decomposition")))
             produced["supporting_files"] = [
                 name for name in archive.namelist()

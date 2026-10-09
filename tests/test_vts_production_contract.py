@@ -281,23 +281,23 @@ def test_generated_square_layers_return_to_source_frame(tmp_path):
         assert layer.getpixel((20, 30)) == (100, 150, 200, 255)
 
 
-def test_generated_pro_handoff_uses_source_coordinate_frame(tmp_path, monkeypatch):
+def test_generated_pro_body_handoff_uses_source_coordinate_frame(tmp_path, monkeypatch):
     import json
     from psd_tools import PSDImage
     from psd_tools.api.layers import PixelLayer
     from tools import vts_production as production
-    master = tmp_path / "hair.png"
+    master = tmp_path / "base.png"
     body = tmp_path / "body.png"
     Image.new("RGBA", (256, 384)).save(master)
     Image.new("RGBA", (256, 384)).save(body)
     psd = PSDImage.new("RGB", (384, 384))
     layer = Image.new("RGBA", (384, 384))
     layer.paste((100, 150, 200, 255), (80, 20, 110, 60))
-    PixelLayer.frompil(layer, parent=psd, name="front hair")
+    PixelLayer.frompil(layer, parent=psd, name="face")
     path = tmp_path / "generated.psd"; psd.save(path)
     monkeypatch.setattr(production, "run_see_through", lambda *a, **kw: path)
     result = production.make_cubism_handoff(master, tmp_path / "out", edition="pro", scope="upper",
-                                           asset_kind="hair", reference_image=body)
+                                           asset_kind="body", reference_image=body)
     assert PSDImage.open(result["art_psd"]).size == (256, 384)
     with ZipFile(result["package"]) as z:
         report = json.loads(z.read("metadata/pro_reference_alignment.json"))
@@ -382,3 +382,73 @@ def test_all_ten_public_modes_make_registered_psd_handoffs(tmp_path, scope, edit
     final = PSDImage.open(result["art_psd"])
     assert final.size == (256, 384)
     assert len([x for x in final.descendants() if not x.is_group()]) == 2
+
+
+@pytest.mark.parametrize('scope', ['upper', 'full'])
+@pytest.mark.parametrize('asset', ['hair', 'outfit', 'accessory'])
+def test_detached_transparent_asset_never_enters_head_body_model(tmp_path, monkeypatch, scope, asset):
+    import json
+    import numpy as np
+    from io import BytesIO
+    from tools import vts_production as production
+    image = Image.new('RGBA', (256, 384))
+    image.paste((115, 50, 220, 128), (64, 40, 192, 160))
+    master = tmp_path / 'asset.png'; image.save(master)
+    base = tmp_path / 'base.png'; Image.new('RGBA', image.size).save(base)
+    def reject(*args, **kwargs):
+        raise AssertionError('An isolated asset has no full-character head/body input')
+    monkeypatch.setattr(production, 'run_see_through', reject)
+    result = production.make_cubism_handoff(master, tmp_path / 'out', edition='pro',
+        scope=scope, asset_kind=asset, reference_image=base, qwen=False)
+    with ZipFile(result['package']) as z:
+        final = Image.open(BytesIO(z.read('preview/composite.png'))).convert('RGBA')
+        occupied = np.array(image)[:, :, 3] > 0
+        assert np.array_equal(np.array(final)[occupied], np.array(image)[occupied])
+        assert final.getpixel((0, 0))[3] == 0
+        preparation = json.loads(z.read('metadata/asset_preparation.json'))
+        assert preparation['method'] == 'registered_source_alpha'
+        assert preparation['inferred_hidden_pixels'] is False
+
+
+def test_opaque_detached_asset_needs_foreground_proposal_not_head_hallucination(tmp_path, monkeypatch):
+    from tools import vts_production as production
+    master = tmp_path / 'outfit.png'
+    Image.new('RGB', (256, 384), 'white').save(master)
+    base = tmp_path / 'base.png'; Image.new('RGB', (256, 384), 'white').save(base)
+    monkeypatch.setattr(production, 'run_see_through', lambda *a, **k: pytest.fail('wrong model'))
+    with pytest.raises(ValueError, match='opaque.*Qwen'):
+        production.make_cubism_handoff(master, tmp_path / 'out', edition='pro',
+            scope='full', asset_kind='outfit', reference_image=base, qwen=False)
+
+
+def test_opaque_detached_asset_uses_only_qwen_foreground_alpha_and_original_rgb(tmp_path, monkeypatch):
+    import json
+    from io import BytesIO
+    from tools import vts_production as production, vts_qwen_refine as qwen
+    master = tmp_path / 'outfit.png'
+    image = Image.new('RGB', (256, 384), 'white')
+    image.paste((120, 30, 220), (60, 40, 160, 180)); image.save(master)
+    base = tmp_path / 'base.png'; Image.new('RGBA', image.size).save(base)
+    calls = []
+    def infer(source, output, **kwargs):
+        calls.append(kwargs)
+        output.mkdir(parents=True)
+        background = output / 'layer_0.png'
+        foreground = output / 'layer_1.png'
+        Image.new('RGBA', image.size, (0, 0, 0, 255)).save(background)
+        mask = Image.new('RGBA', image.size)
+        mask.paste((0, 255, 0, 128), (60, 40, 160, 180)); mask.save(foreground)
+        return {'layers': [str(background), str(foreground)]}
+    monkeypatch.setattr(qwen, 'infer', infer)
+    monkeypatch.setattr(production, 'run_see_through', lambda *a, **k: pytest.fail('wrong model'))
+    result = production.make_cubism_handoff(master, tmp_path / 'out', edition='pro',
+        scope='full', asset_kind='outfit', reference_image=base, qwen=True,
+        qwen_passes=1, qwen_layers=4)
+    assert len(calls) == 1  # initial extraction counts against the pass budget
+    with ZipFile(result['package']) as z:
+        final = Image.open(BytesIO(z.read('preview/composite.png'))).convert('RGBA')
+        assert final.getpixel((80, 80)) == (120, 30, 220, 128)
+        assert final.getpixel((0, 0))[3] == 0
+        preparation = json.loads(z.read('metadata/asset_preparation.json'))
+        assert preparation['method'] == 'qwen_foreground_mask_original_rgb'
+        assert preparation['mask_visual_accuracy_verified'] is False
