@@ -599,6 +599,31 @@ def prepare_models(mode: str = "3d") -> None:
     print("[models] 준비·초기화 검증 완료", flush=True)
 
 
+def prepare_skintokens_ui():
+    """Explicit opt-in installer; never invoked by avatar inference itself."""
+    try:
+        require_runtime_ready("3d")
+        from vtuber_pipeline.avatar.skintokens_bridge import (
+            runtime_identity, check_gpu_compatibility,
+        )
+        directory = pathlib.Path("/content/third_party/SkinTokens")
+        _run(
+            [sys.executable, "-u", str(REPO_DIR / "tools" / "setup_skintokens_runtime.py"),
+             "--directory", str(directory)],
+            timeout=10800,
+        )
+        # A child process cannot export into the already-running Gradio server.
+        # Bind the isolated interpreter only after native setup has succeeded.
+        os.environ["VTUBER_SKINTOKENS_DIR"] = str(directory)
+        os.environ["VTUBER_SKINTOKENS_PYTHON"] = str(directory / ".venv/bin/python")
+        identity = runtime_identity()
+        check_gpu_compatibility(identity)
+        return ("SkinTokens 설치/검증 완료 · 이제 3D 자동 스키닝 엔진에서 "
+                "SkinTokens를 선택해 생성할 수 있습니다.")
+    except Exception as exc:
+        return "SkinTokens 준비 실패: " + str(exc) + " · 기본 리깅을 선택하세요."
+
+
 def _reload_pipeline_modules() -> None:
     for name in list(sys.modules):
         if name == "vtuber_pipeline" or name.startswith("vtuber_pipeline."):
@@ -1473,6 +1498,10 @@ def build_app() -> gr.Blocks:
                                  ("SkinTokens 실험적 스키닝 (별도 CUDA 환경 설치 필요)", "skintokens")],
                         value="canonical",
                     )
+                    avatar_skintokens_setup = gr.Button(
+                        "SkinTokens 별도 설치·검증 (T4 불가 · Ampere 이상 GPU)",
+                        size="sm", variant="secondary",
+                    )
                     with gr.Accordion("외부 이미지 생성 AI에 넣을 제작 프롬프트", open=False):
                         gr.Markdown("이 프롬프트를 외부 대형 이미지 AI에 복사해 이미지를 만든 다음 위에 업로드하세요. **AI 이미지 생성 기능은 이 프로그램에 포함되지 않습니다.**")
                         gr.Textbox(
@@ -1511,6 +1540,13 @@ def build_app() -> gr.Blocks:
                     avatar_log_file = gr.File(
                         label="전체 로그", interactive=False,
                     )
+
+            avatar_skintokens_setup.click(
+                fn=prepare_skintokens_ui,
+                inputs=[], outputs=[avatar_status],
+                show_progress="full",
+                concurrency_id="vtuber_gpu_pipeline", concurrency_limit=1,
+            )
 
             avatar_generation_event = avatar_run.click(
                 fn=stream_avatar_ui,
