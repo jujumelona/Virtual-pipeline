@@ -1112,19 +1112,25 @@ def build_accessories_ui(
         progress(0.30, desc="악세사리 3D 재구성")
         report_stage("accessory_reconstruction", "running", f"{len(slots)}개")
         source_paths = [slot["image"] for slot in slots]
+        unique_sources = list(dict.fromkeys(source_paths))
         recon_dir = OUTPUT_ROOT / f"accessory-recon-{uuid.uuid4().hex[:10]}"
-        reconstructed = reconstruct_accessories(
-            source_paths,
+        # ALL expands placements, not reconstruction calls. Reconstruct each
+        # uploaded photo once and reuse its verified GLB for every target.
+        unique_reconstruction = reconstruct_accessories(
+            unique_sources,
             str(recon_dir),
             profile="commercial",
         )
-        report_stage("accessory_reconstruction", "complete" if all(
-            item.get("status") == "complete" for item in reconstructed
-        ) else "error", f"{len(reconstructed)}개")
-        if len(reconstructed) != len(slots):
+        if len(unique_reconstruction) != len(unique_sources):
             raise RuntimeError(
-                f"Accessory reconstruction count mismatch: {len(reconstructed)} != {len(slots)}"
+                "Accessory reconstruction count mismatch: "
+                f"{len(unique_reconstruction)} != {len(unique_sources)}"
             )
+        report_stage("accessory_reconstruction", "complete" if all(
+            item.get("status") == "complete" for item in unique_reconstruction
+        ) else "error", f"{len(unique_sources)}개 이미지, {len(slots)}개 배치")
+        mapped = dict(zip(unique_sources, unique_reconstruction))
+        reconstructed = [mapped[source] for source in source_paths]
 
         current_vrm = base_path
         total = len(slots)
