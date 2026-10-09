@@ -160,17 +160,20 @@ must be inferred by the subsequent pipeline, not pre-drawn here.
 
 **현재 연결 상태:** FREE·PRO 프롬프트 원본은 이 README에서 제공하며, Colab v8 노트북은 모델 설치·이미지 업로드·See-through NF4 → PSD → 실제 등록 RGBA 레이어 → 기존 메시·키폼·물리 → **Cubism Editor 전달 ZIP** 실행 경로가 추가됐다. **정식 `.moc3` 자동 생성과 완전한 Cubism 프로젝트 자동 리깅은 여전히 미구현**이다. PRO의 별도 의상·헤어·액세서리는 원본 ZIP에 보존되지만, Cubism에서 원클릭 교체 가능한 완료 파라미터는 아직 자동 연결되지 않는다. FREE의 ArtMesh **100개** 초과는 거부하지만, 디포머 50·파라미터 30·2048px 아틀라스 최종 검증은 정식 Cubism Editor에서 추가 확인해야 한다. **GPU T4 실기 추론 및 결과 품질도 미검증**이다.
 
-### 기존에 열려 있던 Colab 노트북의 모드 선택 함수 오류
+### Colab ②~⑥ 기본 설정 폼 — 상위 모드와 하위 모드 완전 분리
 
-`ImportError: cannot import name 'render_notebook_controls'`는 **과거 노트북의 ② 셀**과 **새 `tools/colab_mode_ui.py`**의 함수명이 일치하지 않아 발생한 호환성 오류다. 현재 모듈은 **신규 `choose_notebook_controls`와 구버전 `render_notebook_controls`을 모두 지원**하며, 두 진입점 모두 버튼을 누를 때까지 ② 셀 내부에서 기다린다. 옛 노트북에서 ③으로 건너뛰거나 구버전 함수를 제거하지 않는다.
+**팝업·동적 위젯·확정 버튼 없음.** Colab 기본 `#@param` 옵션은 셀 **실행 전부터 코드 위의 폼에 표시**된다. 먼저 **② 상위 모드**에서 `live2d`, `inochi2d`, `3d`, `accessory` 중 하나를 선택한다. 그다음 해당하는 **③ Live2D / ④ Inochi2D / ⑤ 3D VRM / ⑥ 액세서리 제작** 셀의 하위 옵션을 선택해 실행한다. 다른 하위 모드 셀은 `TOP_MODE` 확인 후 **자동 건너뛰므로 모델 설치나 입력 변경을 수행하지 않는다.** `전체 실행(Run all)`은 선택한 모드의 하위 셀만 설정을 반영하고 **⑦에서 필요한 모델만** 준비한다. 별도 UI 프로그램을 설치하거나 HTML/JavaScript 확인 창에 응답할 필요가 없다.
 
-**복구 순서:** [README 상단 최신 Colab 배지]의 링크로 **새 노트북을 열고**, 이전 오류가 발생한 런타임이라면 **런타임 다시 시작** 후 **① 저장소 동기화 → ② 모드 선택**을 실행한다. 새 ① 셀은 Git 동기화 후 커널에 남은 구형 `tools.colab_mode_ui` 등 저장소 내부 Python 모듈을 다시 불러오고 신·구 함수가 모두 존재하는지 검사한다. **GitHub 저장소 파일을 수정해도 이미 브라우저에 열린 노트북 셀 본문과 커널에 캐시된 모듈이 자동으로 교체되지는 않는다.** 한 번 최신 노트북으로 전환한 후에는 ②에서 선택 완료까지 기다리는 방식으로 작동한다.
+| 셀 | 기본 Colab 폼 | 선택·실행 조건 |
+|---|---|---|
+| **② 상위 모드** | `TOP_MODE = live2d / inochi2d / 3d / accessory` | **항상**. 여기에는 하위 설정을 넣지 않는다 |
+| **③ Live2D** | `FREE/PRO`, `상반신/전신`, `Qwen auto/on/off`, 사용 범위·기존 이미지 경로 | `TOP_MODE == "live2d"` |
+| **④ Inochi2D** | 입력 `sheets/provided_layers/automatic`, 사용 범위·기존 이미지 경로 | `TOP_MODE == "inochi2d"` |
+| **⑤ 3D VRM** | 다중 시점 시트 사용 여부, 사용 범위·기존 이미지 경로 | `TOP_MODE == "3d"` |
+| **⑥ 액세서리·의상** | 소품/2D 교체 의상/3D XWear, 2D 대상, 부착 위치, 기존 VRM·시트·XWear 경로, 사용 범위 | `TOP_MODE == "accessory"` |
+| **⑦ 이후 공통** | 모델 다운로드 → 이미지 업로드 → 제작 → 결과 다운로드 → 상태 진단 | ②에서 선택한 상위 모드 및 해당 하위 셀 설정만 이용 |
 
-### Colab 모드 선택 및 옵션 설명 — Live2D의 FREE/PRO는 하위 선택
-
-**② 동기식 모드 선택:** ② 셀은 Colab 브라우저에 옵션 창을 표시하고 **`② 설정 확정 및 ③ 진행` 버튼이 눌릴 때까지 실행이 완료되지 않는다.** `전체 실행(Run all)`에서도 ③으로 자동 넘어가지 않고 ②에서 사용자의 선택을 기다린다. 작업 종류·제작 모드·FREE/PRO·범위와 해당 작업의 세부 옵션은 이 창에서만 표시하며, 선택 후 버튼을 누르면 Python이 값을 전달받고 ③으로 진행한다. ③·④·⑤는 유효한 선택 결과를 별도로 검증하며 임의 기본값으로 진행하지 않는다. 브라우저 입력창이 표시되지 않으면 대기하거나 기본값으로 진행하지 않고 오류 처리한다.
-
-노트북 **② 셀의 상위 작업 선택**은 `캐릭터 생성`과 `액세서리 제작`이다. **캐릭터 생성 시에만** `3D VRM` / `Inochi2D` / `Live2D` 선택을 표시하고, **Live2D를 선택한 경우에만** Cubism `FREE` / `PRO` 및 상반신/전신·Qwen 옵션을 표시한다. 액세서리 제작 시에만 소품·교체 의상·XWear 옵션을 표시한다. Colab의 고정 `#@param` 폼은 값에 따라 항목을 숨길 수 없으므로 나머지 설정은 **작업별 동적 위젯**으로 표시한다. 상위 `TASK`도 동적 위젯에서 변경하며, 하위 옵션이 자동으로 전환된다. 옵션 변경 시 확정이 취소되므로 ②의 **설정 확정**을 다시 눌러야 한다.
+각 하위 셀의 폼은 처음부터 표시되는 **독립 실행 셀**이다. 사용자는 ②와 자신이 선택한 하위 셀만 직접 실행해도 된다. 나머지 하위 셀은 실행하지 않아도 된다. 다만 **⑦ 모델 준비 전에 선택한 하위 설정 셀을 반드시 한 번 실행**해야 한다. `MODE_DETAILS_SELECTED` 및 `MODE_DETAILS_SNAPSHOT`을 검사하여 기존 실행의 설정이 다른 모드로 섞이는 것을 거부한다. `TOP_MODE=accessory`인 경우 내부 제작 계약은 기존 `TASK=액세서리 제작`으로 변환한다. Live2D FREE와 PRO는 둘 다 **Live2D의 하위 등급**이다.
 
 | 화면에 보이는 선택 | 내부 변수 | 옵션과 의미 |
 |---|---|---|
@@ -237,13 +240,14 @@ clothing. Skip this image if no detachable accessories are specified.
 
 ### Colab v8 실제 사용 흐름
 
-1. **①** GitHub 저장소 동기화.
-2. **②** 동적 위젯에서 `캐릭터 생성` → **Live2D** → **FREE/PRO** → **상반신/전신**을 선택한 뒤 반드시 **`② 설정 확정 및 ③ 진행`**을 클릭한다. 위젯이 표시되기 전에 `전체 실행`을 시작하면 ③부터는 다운로드 없이 중단되므로 선택 후 ③을 수동 실행한다. **노트북은 이미지 AI 프롬프트를 생성·출력하지 않는다.** FREE·PRO 프롬프트는 이 README에서 확인한다.
-3. **③** 선택 모드의 2D 얼굴 검출기, See-through V3 및 공식 NF4 체크포인트·필수 소프트웨어 준비. `LIVE2D_QWEN=auto`에서는 **PRO만** 추가로 Qwen 4bit Transformer·Stable-Layers LoRA를 내려받는다. FREE는 필요하면 `on`, Qwen 제외 시 `off` 선택. **모델 설치/다운로드는 ③에서만 진행**한다.
-4. **④** 사용자 이미지 업로드. PRO는 프롬프트의 정확한 파일명으로 한 번에 업로드한다. FREE는 캐릭터 마스터 1장만 업로드한다.
-5. **⑤** 실 See-through NF4 분해 실행 → PSD 및 아트메쉬 후보 PNG → Cubism용 JSON/ZIP 구성. Qwen을 선택했으면 Stable-Layers GRPO LoRA로 4비트 후보 분해를 별도 실행하고 성공 시 보조 RGBA 파일을 ZIP에 추가한다. **Qwen 출력 4장과 고품질 리깅용 세부 파츠는 동일하지 않으며, 사용자 보완 검증을 거쳐야 한다.** 출력은 `vts_free_upper_cubism_handoff.zip` 등 **편집기 전달 자료**이고 방송용 모델이라고 주장하지 않는다.
-6. **⑥** 전달 ZIP 다운로드. **공식 Cubism Editor에서 리깅하고 내보낸** `.moc3` + `.model3.json` + 텍스처/물리 ZIP을 별도 준비해 `CUBISM_EXPORT_ZIP_PATH`에 지정하면, 이 셀에서 공식 산출물을 검사·수집한 ZIP을 다운로드할 수 있다.
-7. **⑦** 오류 및 제작 상태 확인. 실패한 GPU 단계는 `see_through_full.log`, `stable_layers_full.log`, `vts_status.json`에 기록. 단계가 성공해도 최종 Cubism 내보내기 전이면 상태는 **`needs_editor_export`**다.
+1. **①** 저장소 최신 버전 동기화.
+2. **②** 상위 제작 모드 `live2d` / `inochi2d` / `3d` / `accessory`를 **셀 실행 전** Colab 기본 폼에서 선택하고 실행.
+3. **③~⑥** 해당 상위 모드에 맞는 **독립 하위 옵션 셀 하나**를 선택·실행. `전체 실행`하면 관련 없는 하위 셀은 자동 건너뜀. 프롬프트 생성 UI는 없음(README의 외부 이미지 AI 프롬프트 사용).
+4. **⑦** 선택 모드에 맞는 AI 모델·필요 프로그램만 설치·검증. Live2D Qwen `auto`는 FREE에서 기본 See-through, PRO에서 Qwen 4bit + Stable-Layers 추가. **GPU T4 실제 추론 결과는 별도 확인 필요.**
+5. **⑧** 모드에 맞는 이미지·자산 업로드. FREE는 완성 이미지 1장, PRO는 README 지정 독립 파일들.
+6. **⑨** 실제 See-through NF4 → PSD → RGBA 레이어 → Cubism Editor 전달 ZIP 제작. Qwen 사용 시 분해 보조 결과 포함. 이 경로만으로 완성 `.moc3`가 자동 생성되는 것은 아니다.
+7. **⑩** 결과 ZIP 다운로드 및 공식 Cubism Editor에서 내보낸 정식 MOC3 ZIP 재검증.
+8. **⑪~⑫** 진단 로그와 마지막 상태 확인.
 
 **CLI:** `vtuber-pipeline vts-prompts --edition free --scope upper ... --output ./prompts`; `vtuber-pipeline vts-build --edition free --scope upper --master ./free_upper_master.png --output ./vts-result`. 설치 후 원본 PSD가 이미 있다면 `--psd <path>`를 전달하여 GPU 분해를 재사용할 수 있다. PRO는 `--assets-dir <directory>`로 별도 원본 이미지들을 지정한다. `--qwen`은 고성능 GPU가 충분하고 모델이 ③에서 준비된 경우에만 사용한다.
 
