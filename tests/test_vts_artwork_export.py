@@ -31,7 +31,8 @@ def test_free_is_editable_psd_with_all_real_layers(tmp_path):
         assert len([n for n in z.namelist() if n.startswith("layers_png/")]) == 2
         assert "physics" in z.read("README_CUBISM.md").decode().lower()
         assert "moc3" in z.read("README_CUBISM.md").decode().lower()
-    assert len(PSDImage.open(result["art_psd"])) == 2
+    assert len([layer for layer in PSDImage.open(result["art_psd"]).descendants()
+                if not layer.is_group()]) == 2
 
 
 def test_pro_one_independent_asset_not_batch(tmp_path):
@@ -70,7 +71,8 @@ def test_qwen_splits_use_original_high_resolution_rgba(tmp_path):
     assert p["qwen_splits_accepted"] == ["hair.front.000"]
     assert p["layer_count"] == 5
     out = PSDImage.open(p["art_psd"])
-    children = [x for x in out if x.name.startswith("hair.front")]
+    children = [x for x in out.descendants() if not x.is_group()
+                and x.name.startswith("hair.front")]
     assert len(children) == 4
     # psd-tools uses USER_LAYER_MASK for RGBA in RGB PSDs. Use the
     # production importer that restores that native mask, not topil alone.
@@ -100,5 +102,6 @@ def test_pro_keeps_incorrectly_classified_pixels_without_mixing_other_assets(tmp
                                 scope="upper", asset_kind="hair")
     from psd_tools import PSDImage
     actual = PSDImage.open(out["art_psd"])
-    assert all(layer.name.startswith("hair.") for layer in actual)
-    assert len(actual) == 2
+    assert all(layer.name.startswith("hair.") for layer in actual.descendants()
+               if not layer.is_group())
+    assert len([x for x in actual.descendants() if not x.is_group()]) == 2

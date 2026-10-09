@@ -132,19 +132,35 @@ def _partition_part(part, suggestions):
     return children
 
 
-def _write_psd(parts, target: Path):
+def _write_psd(parts, target: Path, *, free: bool):
+    """Preserve the original visual z-order while adding navigable part groups.
+
+    Group by contiguous semantic runs only. Consolidating all "hair" parts
+    globally changes interleaved eyes/bangs/face drawing order.
+    """
     from psd_tools import PSDImage
     psd = PSDImage.new("RGB", parts[0]["image"].size, depth=8)
-    # Our list is top-to-bottom; PSD creation appends bottom-to-top.
-    for part in reversed(parts):
-        psd.create_pixel_layer(part["image"], name=part["name"], top=0, left=0)
+    group = None
+    active_family = None
+    groups = 0
+    for part in reversed(parts):  # input is top-to-bottom, PSD appends bottom-up
+        family = part["name"].split(".", 1)[0].upper()
+        if family != active_family and (not free or groups < 30):
+            group = psd.create_group(name=family)
+            active_family = family
+            groups += 1
+        if group is None:
+            raise RuntimeError("No PSD group for part")
+        group.create_pixel_layer(part["image"], name=part["name"], top=0, left=0)
     target.parent.mkdir(parents=True, exist_ok=True)
     psd.save(str(target))
     if target.read_bytes()[:4] != b"8BPS":
         raise RuntimeError("Output is not a native layered PSD")
     document = PSDImage.open(str(target))
-    if len(list(document.descendants())) != len(parts):
-        raise RuntimeError("PSD lost layers on serialization")
+    leaves = [x for x in document.descendants() if not x.is_group()]
+    if len(leaves) != len(parts):
+        raise RuntimeError("PSD lost drawable layers on serialization")
+    return groups
 
 
 def _editor_readme(edition, asset_kind, count, qwen_count):
@@ -252,7 +268,7 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         raise ValueError("FREE ArtMesh ceiling exceeded")
     name = "avatar" if edition == "free" else asset_kind
     psd_path = output / (name + ".psd")
-    _write_psd(layers, psd_path)
+    group_count = _write_psd(layers, psd_path, free=edition == "free")
     package = output / ("Live2D_" + edition.upper() +
                          ("_" + scope if edition == "free" else "_" + asset_kind)
                          + ".zip")
@@ -267,7 +283,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     return {
         "status": "artwork_ready_editor_rig_required",
         "package": str(package), "art_psd": str(psd_path),
-        "layer_count": len(layers), "edition": edition, "scope": scope,
+        "layer_count": len(layers), "psd_group_count": group_count,
+        "edition": edition, "scope": scope,
         "asset_kind": asset_kind, "canvas": list(canvas),
         "qwen_attempts": attempted, "qwen_splits_accepted": generated,
         "moc3_generated": False, "editor_required": True,
