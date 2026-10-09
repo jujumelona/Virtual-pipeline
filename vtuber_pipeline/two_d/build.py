@@ -39,20 +39,24 @@ def _layers(source: SourceSet, folder: Path) -> PartsDocument | None:
             + ", ".join(missing)
         )
     if __import__("os").environ.get("VTUBER_2D_STRICT_LAYER_INPUT") == "1":
-        expected = {name for name, _ in LAYER_PARTS}
-        base_expected = expected - {"outfit_front", "outfit_back"}
-        # New sheet character mode has 24 permanent body/face/hair layers.
-        # Outfit-only layers can be added through the wardrobe route.
-        # Character generation itself never requires detachable clothing.
         from vtuber_pipeline.wardrobe_contract import GARMENT_PARTS
-        dressed_expected = base_expected | GARMENT_PARTS
-        if provided_names not in (base_expected, dressed_expected):
-            unexpected = sorted(provided_names - expected)
-            missing_full = sorted(base_expected - provided_names)
+        from vtuber_pipeline.hair_contract import HAIR_PARTS
+        base_expected = {name for name, _ in LAYER_PARTS}
+        combinations = (
+            base_expected,
+            base_expected | HAIR_PARTS,
+            base_expected | GARMENT_PARTS,
+            base_expected | HAIR_PARTS | GARMENT_PARTS,
+        )
+        if provided_names not in combinations:
+            allowed = base_expected | GARMENT_PARTS | HAIR_PARTS
+            unexpected = sorted(provided_names - allowed)
+            missing_base = sorted(base_expected - provided_names)
             raise ValueError(
-                f"2D artwork must contain either {len(base_expected)} neutral "
-                f"base parts or {len(dressed_expected)} base + independent garment "
-                f"parts; missing_base={missing_full}; unexpected={unexpected}"
+                "2D modular artwork requires all 20 permanent body/face "
+                "layers and optionally all 4 hair or 4 garment layers; "
+                f"missing_base={missing_base}; unexpected={unexpected}; "
+                f"observed_count={len(provided_names)}"
             )
         expected = (CANVAS_2D, (CANVAS_2D[0]*2, CANVAS_2D[1]*2))
         if base.size not in expected:
