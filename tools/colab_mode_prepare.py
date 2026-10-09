@@ -42,9 +42,15 @@ def _run_parallel(tasks: tuple[tuple[str, Callable[[], object]], ...]) -> None:
         raise RuntimeError("Model/program setup failed: " + " | ".join(failures))
 
 
-def prepare_selected_mode(mode: str, usage: str = "corporation") -> None:
+def prepare_selected_mode(
+    mode: str, usage: str = "corporation", *,
+    prewarm_first_gpu: bool = True,
+) -> None:
+    # Accessory fitting starts with different 3D GPU work; prewarming the
+    # face detector would block that stage behind an unused CUDA allocation.
     if mode == "accessory":
         mode = "3d"
+        prewarm_first_gpu = False
     if mode not in {"3d", "inochi2d", "live2d"}:
         raise ValueError(f"Unknown preparation mode: {mode}")
     if usage not in {"corporation", "personalProfit", "personalNonProfit"}:
@@ -52,6 +58,10 @@ def prepare_selected_mode(mode: str, usage: str = "corporation") -> None:
     os.environ["VTUBER_SETUP_ONLY"] = "1"
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
+    if prewarm_first_gpu:
+        os.environ["VTUBER_GPU_PREWARM"] = "1"
+    else:
+        os.environ.pop("VTUBER_GPU_PREWARM", None)
     app = runpy.run_path(str(ROOT / "tools" / "colab_app.py"),
                          run_name="vtuber_prepare")
     # The base Python dependencies are shared and must NOT be installed
@@ -60,8 +70,13 @@ def prepare_selected_mode(mode: str, usage: str = "corporation") -> None:
     if mode in {"inochi2d", "live2d"}:
         from tools.install_2d_workers import activate_2d_environment
 
+        # The base runtime already contains HF and the pinned face detector.
+        # Checkpoint transfers are independent of the isolated SAM/FLUX pip
+        # installs; run both at once instead of waiting for package setup.
         tasks: list[tuple[str, Callable[[], object]]] = [
             ("2D alpha/SAM/FLUX worker software", activate_2d_environment),
+            ("2D pinned model checkpoints / first GPU face loader",
+             lambda: app["prepare_models"](mode)),
         ]
         if mode == "inochi2d":
             # The official SDK uses an independent native build root. Its
@@ -83,9 +98,10 @@ def prepare_selected_mode(mode: str, usage: str = "corporation") -> None:
                  str(app["WORK_ROOT"] / "third_party" / "blender"))),
         ]
     _run_parallel(tuple(tasks))
-    # Already downloads independent model snapshots concurrently (<=3).
-    # Face-detector initialization and ready marker follow the downloads.
-    app["prepare_models"](mode)
+    # 2D checkpoint downloads have already overlapped the independent package
+    # environments above. 3D retains its prerequisite TripoSR checkout first.
+    if mode == "3d":
+        app["prepare_models"](mode)
     app["require_runtime_ready"](mode)
     print(f"[downloads] {mode}: all mandatory downloads and checks complete",
           flush=True)
@@ -98,8 +114,11 @@ def main() -> None:
     parser.add_argument("--usage",
                         choices=("corporation", "personalProfit", "personalNonProfit"),
                         default="corporation")
+    parser.add_argument("--no-first-gpu-prewarm", action="store_true",
+                        help="Do not load unused face detector before a full-body 3D job")
     args = parser.parse_args()
-    prepare_selected_mode(args.mode, args.usage)
+    prepare_selected_mode(args.mode, args.usage,
+                          prewarm_first_gpu=not args.no_first_gpu_prewarm)
 
 
 if __name__ == "__main__":
