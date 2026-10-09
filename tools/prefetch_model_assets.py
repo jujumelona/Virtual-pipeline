@@ -127,8 +127,28 @@ def prefetch_mode(mode: str, *, cache_dir: str | None = None, timeout: int = 240
     # CPU-only checkpoint verification processes are independent. Reuse the
     # bounded executor instead of serially waiting through HF downloads.
     # Actual neural inference remains strictly serialized by the UI queue.
+    import os
+
+    warm_first_face = os.environ.get("VTUBER_GPU_PREWARM") == "1"
     work: list[tuple[str, str]] = []
+    if warm_first_face:
+        # Launch verified YOLO/HRNet on GPU as soon as THEIR checkpoints
+        # arrive, while two other CPU-only asset download slots continue.
+        # The persistent one-shot worker is reused by real face inference;
+        # it is not a throwaway CUDA smoke test.
+        work.append((
+            "first-gpu-face-detector",
+            "from vtuber_pipeline.avatar.face_detector import "
+            "resolve_anime_face_model_paths; "
+            "resolve_anime_face_model_paths(); "
+            "from tools.colab_gpu_warmup import start_face_worker; "
+            "print('[gpu-prewarm] resident=' + str(start_face_worker()),flush=True)",
+        ))
     for name in MODE_ASSETS[mode]:
+        if warm_first_face and name in (
+            "anime_face_yolov3", "anime_face_hrnetv2"
+        ):
+            continue
         # The InstantMesh model checkpoint is not a clearance to execute the
         # bundled CC-BY-NC Zero123++/Nvidia source renderer. Delay this large
         # download until a permitted end-to-end runtime is explicitly verified.
