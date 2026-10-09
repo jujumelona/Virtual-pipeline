@@ -273,18 +273,24 @@ def test_readme_open_in_colab_badge_targets_canonical_three_step_notebook():
         if cell.get("cell_type") == "code"
     ]
     assert len(code_cells) == 3
-    assert "setup_python" in code_cells[0]
-    # The second cell is intentionally lazy: the model set is determined by
-    # choosing Inochi2D, Live2D or VRM in the third-cell Gradio UI.
-    assert "모드별 모델 준비" in code_cells[1]
+    # The canonical notebook now has finite-lifetime native cells, not a
+    # persistent Gradio iframe server. The first cell still delegates all
+    # dependency installation to the single pinned runtime installer.
+    assert "setup_code" in code_cells[0]
+    assert "colab_app.py" in code_cells[0]
+    assert "app['ensure_runtime']()" in code_cells[0]
+    assert "stop_legacy_server()" in code_cells[0]
+    # Choosing a mode must not pre-install every neural checkpoint.
+    assert 'TASK = "캐릭터 생성"' in code_cells[1]
+    assert 'MODE = "3d"' in code_cells[1]
     assert "prepare_models(" not in code_cells[1]
     assert "subprocess.Popen(" not in code_cells[1]
     app = _read("tools/colab_app.py")
     assert "prepare_models(mode)" in app
     assert "_model_marker(scope)" in app
-    assert "colab_ui_launcher.py" in code_cells[2]
-    assert 'run_name="__main__"' in code_cells[2]
-    assert "del _launcher_globals" in code_cells[2]
+    assert "from tools.colab_native import generate" in code_cells[2]
+    assert "RESULT_FILE = generate(" in code_cells[2]
+    assert "colab_ui_launcher.py" not in code_cells[2]
 
 
 def test_colab_notebook_has_separate_environment_models_and_ui_cells():
