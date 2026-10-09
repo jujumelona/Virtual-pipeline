@@ -4,16 +4,17 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
-외부 AI가 만든 캐릭터 이미지를 사용자가 업로드합니다. **Inochi2D**, **Live2D**, **3D VRM**의 세 가지 모드를 제공합니다. 이미지 생성 AI는 파이프라인에 포함하지 않으며, **모드별 이미지 제작 프롬프트는 README에서 제공하고 Colab에는 완성된 PNG만 업로드합니다.**
+외부 이미지 생성 AI가 만든 캐릭터 이미지를 입력받아 **Inochi2D**, **Live2D**, **3D VRM** 모델을 제작합니다. 모드별 이미지 생성 사양과 프롬프트는 아래에 정리되어 있습니다.
 
-## 모드별 외부 이미지 AI 제작 프롬프트 — Colab에는 PNG만 업로드
+## 모드별 이미지 생성 프롬프트
 
-**프롬프트·머리색·눈색·의상·캔버스 규격은 이 README에서만 안내합니다.** Colab에는 프롬프트 입력칸도, 사용자가 만들 ZIP도 필요 없습니다. 먼저 아래 공통 캐릭터 설정을 채우고 외부 이미지 생성 AI에 프롬프트를 입력합니다. 이후 결과 **PNG 파일만** Colab ④ 셀에 업로드하세요. 기준 이미지를 먼저 생성한 후, 나머지 파일을 만들 때마다 실제 이미지 참조로 첨부합니다.
+공통 캐릭터 정보를 작성한 뒤 각 모드의 기준 이미지를 먼저 생성합니다. 나머지 이미지에는 해당 기준 이미지를 시각적 참조로 첨부하고, 개별 파일의 제작 사양을 적용합니다.
 
-### 캐릭터 외형 — 사용자가 중괄호 항목만 채우기
+### 캐릭터 외형 설정
 
 ```text
-ORIGINAL VTUBER CHARACTER IDENTITY (USER-EDITABLE):
+ORIGINAL VTUBER CHARACTER IDENTITY:
+Gender: {gender}
 Hair color: {hair_color}
 Hairstyle, length, bangs and decorations: {hairstyle}
 Eye color, shape, iris and pupil details: {eyes}
@@ -35,7 +36,7 @@ No text, logos, watermarks, fake checkerboard transparency, or clipping.
 
 ### Live2D / Inochi2D — 이미지 **27장** (원본 1장 + 개별 파츠 26장)
 
-**모든 파일에 적용하는 크기·좌표·투명도 프롬프트 (위 캐릭터 정보와 함께 입력):**
+**공통 캔버스·좌표·투명도 사양**
 
 ```text
 OUTPUT CANVAS: exactly 2048 x 3072 pixels, width x height, PNG.
@@ -63,7 +64,7 @@ a second mouth that should overlay the neutral closed-mouth master.
 Clean antialiased edges and consistent lighting.
 ```
 
-**각 이미지를 따로 생성:** 매번 위 공통 캐릭터 정보 + 좌표·투명도 공통문 + 아래 행의 개별 지시를 함께 사용합니다. 파일명을 정확히 저장합니다.
+각 이미지는 **캐릭터 외형 설정 + 공통 사양 + 개별 지시**를 결합하여 독립된 파일로 생성합니다.
 
 | 순서 | 파일명 | 외부 AI에 추가할 개별 제작 지시 |
 |---|---|---|
@@ -95,7 +96,7 @@ Clean antialiased edges and consistent lighting.
 | 26 | `outfit_front.png` | Output only the complete outfit_front layer. Outer upper-body garment panel, detachable and complete beneath accessories. Keep exact reference coordinates; all other pixels actual alpha=0. |
 | 27 | `outfit_back.png` | Output only the complete outfit_back layer. Outer rear garment panel, complete underneath front panels and arms. Keep exact reference coordinates; all other pixels actual alpha=0. |
 
-**Colab:** `live2d` 또는 `inochi2d` + 2D 입력 `provided_layers` → ④ 셀에서 **27장 PNG를 한 번에 선택**. ZIP·프롬프트·외형 정보를 Colab에 따로 입력하지 않습니다. 코드가 수량·파일명·해상도·알파를 검증한 뒤 파츠를 바로 사용하는 경로로 제작하므로 **FLUX/SAM/Florence 복원은 실행하지 않습니다.** Live2D의 공식 `.moc3` 출력은 Cubism Editor가 별도로 필요합니다.
+**입력 파일:** `front_master.png` 1장과 투명 파츠 PNG 26장, 총 27장. 모든 파일은 표의 이름과 지정된 캔버스 크기를 따릅니다.
 
 ### 3D VRM — 이미지 **5장** (정면·후면·좌측·우측·얼굴 확대)
 
@@ -109,13 +110,13 @@ Clean antialiased edges and consistent lighting.
 | `right.png` | Orthographic full-body RIGHT side, exactly 90° rotation, same body scale, hairstyle, garments and height anchors. |
 | `face.png` | Exactly 2048×2048 PNG of the same character's ORTHOGRAPHIC FRONT FACE close-up; face center x≈1024, y≈1050; visible complete hairline, eyes, eyebrows, nose, lips and ears. |
 
-**Colab:** `3d`, `MULTI_REFERENCE_3D=True` → ④ 셀에서 **PNG 다섯 장만** 업로드합니다. 3D 등록 알고리즘이 실제 기하·화풍 차이를 별도로 확인합니다.
+**입력 파일:** 정면·후면·좌·우 측면 및 얼굴 확대 PNG 각 1장, 총 5장.
 
 ### 액세서리 — 이미지 **1~8장**
 
-외부 AI 개별 프롬프트: `Draw ONE original {accessory_type}, {material}, {color}, {ornaments}, perfectly isolated on transparent PNG, all components/attachment surfaces fully visible, 3D geometry legible, crisp silhouette, consistent character style, centered product view, no body, no mannequin, no text, no watermark, no cut-off geometry.` 각각 한 물건의 이미지만 만들고 파일명을 알아보기 쉽게 저장합니다. Colab에는 기준 VRM과 액세서리 PNG(1~8장)만 입력합니다.
+개별 프롬프트: `Draw ONE original {accessory_type}, {material}, {color}, {ornaments}, perfectly isolated on transparent PNG, all components/attachment surfaces fully visible, 3D geometry legible, crisp silhouette, consistent character style, centered product view, no body, no mannequin, no text, no watermark, no cut-off geometry.` 각 파일은 물건 한 개만 묘사합니다.
 
-**보증 범위:** 위 좌표·정렬·알파 문장은 생성 AI에 대한 명세이며 픽셀 단위 정합의 절대 보증은 아닙니다. 파일 크기·파일명·개수·RGBA 알파는 코드가 검사하지만, 캐릭터가 실제로 동일한지·가려진 부분이 자연스러운지·시점이 기하학적으로 일치하는지는 추가 품질 검증이 필요합니다.
+**품질 검증:** 이미지 규격은 파일 개수·이름·크기·알파로 확인하며, 외형 일치·가려진 부위의 자연스러움·시점 간 기하 정합성은 별도 검사 대상입니다.
 
 ## 작업 모드
 
@@ -129,7 +130,7 @@ Clean antialiased edges and consistent lighting.
 
 ### Inochi2D
 
-- 입력: 외부 AI 기준 이미지 1장 + 개별 투명 파츠 PNG 26장 (Colab에서 ZIP 불필요). 프롬프트는 Inochi2D용으로 분리합니다.
+- 입력: 외부 AI 기준 이미지 1장 + 개별 투명 파츠 PNG 26장. 관련 이미지 사양은 위 프롬프트에 정의되어 있습니다.
 - 현재 출력: `avatar.psd`, `avatar.ora`, `meshes2d.json`, `keyforms.json`, `physics2d.json`, `puppet_spec.json`. SDK 네이티브 출력에 성공한 경우에만 `avatar.inp`를 `complete`로 보고합니다.
 - 네이티브 자동화: 공식 BSD-2 **Inochi2D SDK 0.8.7**의 실제 `MeshData`·`Part`·`DeformationParameterBinding`·`SimplePhysics`를 구성하고 SDK의 `inWriteINPPuppet`로 **실제 INP1**을 출력합니다. SDK로 다시 읽어 애니메이션·물리 바인딩을 검사합니다. 0.9 개발판은 현재 변형 바인딩이 비활성화되어 본선에 사용하지 않습니다.
 - 실제 컴파일+SDK 네이티브 INP 재임포트 검증: [GitHub Actions PASS](https://github.com/jujumelona/Virtual-pipeline/actions/runs/37878238975). 이 검증은 SDK 프로그램의 정상 작동을 증명하며 **사용자별 AI 파츠 품질을 보증하지는 않습니다.**
