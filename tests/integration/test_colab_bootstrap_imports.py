@@ -59,25 +59,18 @@ print("colab-runpy-import-ok", flush=True)
     assert "colab-runpy-import-ok" in proc.stdout
 
 
-def test_third_notebook_cell_launches_fresh_python_server():
+def test_third_notebook_cell_generates_without_starting_any_server():
     notebook = json.loads(
         (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab.ipynb").read_text(
-            encoding="utf-8"
-        )
-    )
-    cells = [
-        "".join(c["source"])
-        for c in notebook["cells"]
-        if c["cell_type"] == "code"
-    ]
+            encoding="utf-8"))
+    cells = ["".join(x["source"]) for x in notebook["cells"] if x["cell_type"] == "code"]
     assert len(cells) == 3
-    assert 'prepare_models' in cells[1]
-    launch = cells[2]
-    assert 'colab_ui_launcher.py' in launch
-    assert 'run_name="__main__"' in launch
-    assert 'sys.path.insert' not in launch
-    assert 'import gradio' not in launch
-    assert 'import numpy' not in launch
+    assert 'colab_native import generate' in cells[2]
+    assert "RESULT_FILE = generate(" in cells[2]
+    assert 'colab_ui_launcher' not in "\\n".join(cells)
+    assert 'gradio' not in "\\n".join(cells).casefold()
+    assert 'serve_kernel_port' not in "\\n".join(cells)
+    assert 'VTUBER_SETUP_ONLY' in cells[0]
 
 
 def test_gradio_6_theme_and_css_are_only_set_during_launch():
@@ -116,56 +109,47 @@ print('setup-import-without-gradio-ok')
 
 
 def test_notebook_setup_captures_child_traceback_and_writes_full_log(tmp_path):
-    """A subprocess crash cannot produce only an unexplained CalledProcessError."""
+    """An aborted setup child leaves an explicit error in the local log."""
     import ast
-    import collections
-    import threading
+    import os
+    import signal
+    import time
+    import pytest
 
     notebook = json.loads(
         (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab.ipynb").read_text(
-            encoding="utf-8"
-        )
-    )
-    # Use only the first code cell, never execute git/pip in the test.
+            encoding="utf-8"))
     first = next(c for c in notebook["cells"] if c["cell_type"] == "code")
-    source = "".join(first["source"])
-    tree = ast.parse(source)
-    runner = next(
-        node for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name == "run"
-    )
-    definition = ast.Module(body=[runner], type_ignores=[])
+    tree = ast.parse("".join(first["source"]))
+    runner = next(node for node in tree.body
+                  if isinstance(node, ast.FunctionDef) and node.name == "run")
     namespace = {
         "SETUP_LOG": tmp_path / "logs" / "setup.log",
-        "subprocess": subprocess,
-        "collections": collections,
-        "threading": threading,
+        "subprocess": subprocess, "os": os, "signal": signal, "time": time,
     }
-    exec(compile(definition, "<notebook-runner>", "exec"), namespace)
-    import pytest
+    exec(compile(ast.Module(body=[runner], type_ignores=[]),
+                 "<notebook-runner>", "exec"), namespace)
     with pytest.raises(RuntimeError, match="child-crash-diagnostic"):
-        namespace["run"](
-            [
-                sys.executable, "-u", "-c",
-                "import sys; print('child-crash-diagnostic', file=sys.stderr); sys.exit(3)",
-            ],
-            15,
-        )
-    log = namespace["SETUP_LOG"].read_text(encoding="utf-8")
-    assert "child-crash-diagnostic" in log
-    assert "sys.exit(3)" in log
+        namespace["run"]([
+            sys.executable, "-u", "-c",
+            "import sys; print('child-crash-diagnostic', file=sys.stderr); sys.exit(3)",
+        ], 15)
+    text = namespace["SETUP_LOG"].read_text(encoding="utf-8")
+    assert "child-crash-diagnostic" in text
+    assert "sys.exit(3)" in text
 
 
-def test_two_prepare_cells_bypass_gradio_but_ui_imports_real_package():
+def test_native_notebook_setup_isolated_and_selector_downloads_no_models():
     notebook = json.loads(
         (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab.ipynb").read_text(
-            encoding="utf-8"
-        )
-    )
+            encoding="utf-8"))
     cells = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
     assert len(cells) == 3
-    assert all("VTUBER_SETUP_ONLY" in code for code in cells[:2])
-    assert "VTUBER_SETUP_ONLY" not in cells[2]
+    assert "VTUBER_SETUP_ONLY" in cells[0]
+    assert "subprocess.Popen" not in cells[1]
+    assert "MODE =" in cells[1]
+    assert "generate(" in cells[2]
+    assert "colab_ui_launcher" not in "".join(cells)
     for code in cells:
         compile(code, "<colab-cell>", "exec")
 
@@ -219,50 +203,36 @@ def test_setup_stage_prints_and_persists_exception(tmp_path, capsys):
     assert "forced-setup-failure-marker" in logged
 
 
-def test_readme_canonical_notebook_uses_fresh_cell_source():
-    """The README route must not target the previously cached Colab path."""
+def test_readme_canonical_notebook_uses_native_colab_cells():
     notebook_path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v8.ipynb"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb" in readme
-    cells = [
-        "".join(c["source"])
-        for c in json.loads(notebook_path.read_text(encoding="utf-8"))["cells"]
-        if c["cell_type"] == "code"
-    ]
+    cells = ["".join(c["source"]) for c in json.loads(
+        notebook_path.read_text(encoding="utf-8"))["cells"] if c["cell_type"] == "code"]
     assert len(cells) == 3
     assert "subprocess.Popen(" in cells[0]
     assert "colab_bootstrap.log" in cells[0]
-    assert "VTUBER_SETUP_ONLY" in cells[0]
-    # Models must only be downloaded after the UI has selected a mode.
-    assert "모드별 모델 준비" in cells[1]
-    assert "prepare_models(" not in cells[1]
-    assert "subprocess.Popen(" not in cells[1]
-    app_source = (ROOT / "tools" / "colab_app.py").read_text(encoding="utf-8")
-    assert "prepare_models(mode)" in app_source
-    assert "VTUBER_WORKER_FLUX" in (ROOT / "tools" / "install_2d_workers.py").read_text(encoding="utf-8")
-    assert 'run_name="__main__"' in cells[2]
-    assert "colab_ui_launcher.py" in cells[2]
-    assert "import gradio" not in cells[2]
+    assert "start_new_session=True" in cells[0]
+    assert "stop_legacy_server()" in cells[0]
+    assert "MODE =" in cells[1]
+    assert "files.download(RESULT_FILE)" in cells[2]
+    assert "colab_native import generate" in cells[2]
+    assert "colab_ui_launcher" not in "".join(cells)
 
 
-def test_model_step_does_not_launch_unselected_models(tmp_path, monkeypatch, capsys):
-    """The notebook's second cell is a note, not a hidden multi-GB download."""
+def test_native_mode_picker_does_not_download_unselected_models(monkeypatch, capsys):
     notebook = json.loads(
         (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v8.ipynb")
-        .read_text(encoding="utf-8")
-    )
-    cells = [
-        "".join(c["source"]) for c in notebook["cells"]
-        if c["cell_type"] == "code"
-    ]
+        .read_text(encoding="utf-8"))
+    cells = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
     assert len(cells) == 3
     assert "prepare_models(" not in cells[1]
     assert "subprocess." not in cells[1]
     def forbidden(*args, **kwargs):
-        raise AssertionError("model setup must wait for mode selection")
+        raise AssertionError("mode selection must not spawn any process")
     monkeypatch.setattr(subprocess, "Popen", forbidden)
-    exec(compile(cells[1], "<colab-model-cell>", "exec"), {})
-    assert "모드별 모델 준비" in capsys.readouterr().out
+    exec(compile(cells[1], "<colab-mode>", "exec"), {})
+    assert "선택:" in capsys.readouterr().out
 
 
 def test_model_prepare_entrypoint_dumps_unmodified_traceback(tmp_path, capsys):
@@ -294,28 +264,17 @@ def test_model_prepare_entrypoint_dumps_unmodified_traceback(tmp_path, capsys):
     ).read_text(encoding="utf-8")
 
 
-def test_all_colab_launch_cells_hide_runpy_namespace_from_ipython():
-    """Colab must not display runpy's giant __builtins__ mapping as cell output."""
+def test_all_colab_notebooks_use_native_cell_lifetimes():
     import ast
 
     for suffix in ("", "_v2", "_v3", "_v4", "_v5", "_v6", "_v7", "_v8"):
-        notebook_path = (
-            ROOT / "notebooks" / f"VTuber_Commercial_Pipeline_Colab{suffix}.ipynb"
-        )
+        notebook_path = ROOT / "notebooks" / f"VTuber_Commercial_Pipeline_Colab{suffix}.ipynb"
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
-        code = [
-            "".join(cell["source"])
-            for cell in notebook["cells"] if cell["cell_type"] == "code"
-        ][2]
-        tree = ast.parse(code)
-        # An expression as the final cell statement makes IPython display
-        # runpy.run_path's massive dictionary. Keep it assigned and discard it.
-        assert isinstance(tree.body[-1], ast.Delete), notebook_path
-        assert any(
-            isinstance(node, ast.Assign)
-            and isinstance(node.value, ast.Call)
-            and isinstance(node.value.func, ast.Attribute)
-            and node.value.func.attr == "run_path"
-            for node in tree.body
-        ), notebook_path
-        assert "del _launcher_globals" in code
+        cells = ["".join(cell["source"]) for cell in notebook["cells"]
+                 if cell["cell_type"] == "code"]
+        assert len(cells) == 3, notebook_path
+        assert "run_name=\"__main__\"" not in cells[2]
+        assert "RESULT_FILE = generate(" in cells[2]
+        assert "gradio" not in "\\n".join(cells).lower()
+        ast.parse(cells[2])
+
