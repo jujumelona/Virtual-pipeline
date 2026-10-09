@@ -1,6 +1,19 @@
 {
   "version": "2.0",
   "tools": {
+    "skintokens": {
+      "source_commit": "273b691d35989d71cd17ff2895fdc735097b92d1",
+      "source_url": "https://github.com/VAST-AI-Research/SkinTokens",
+      "model_id": "VAST-AI/SkinTokens",
+      "model_weights_license": "MIT (upstream model card)",
+      "license": "MIT",
+      "commercial_safe": true,
+      "optional": true,
+      "hardware": "CUDA GPU Ampere+ with BF16 and >=14 GiB free VRAM; T4 unsupported",
+      "model_revision": null,
+      "artifact_sha256": null,
+      "description": "Optional autoregressive skin-only prediction; explicit local checksum and native VRM contract required"
+    },
     "triposr": {
       "source_commit": "107cefdc244c39106fa830359024f6a2f1c78871",
       "model_id": "stabilityai/TripoSR",
