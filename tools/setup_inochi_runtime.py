@@ -23,9 +23,35 @@ CACHE = Path(os.environ.get(
 
 
 def _run(command: list[str], *, timeout: int, cwd: Path | None = None) -> None:
-    print("[inochi-sdk] " + " ".join(command), flush=True)
-    subprocess.run(command, check=True, timeout=timeout,
-                   cwd=str(cwd) if cwd else None)
+    """Persist complete D compiler output; never discard the actual diagnostics.
+
+    The old check=True call exposed only CalledProcessError(exit=2), making
+    source/API mismatches indistinguishable from linker and missing packages.
+    """
+    log = CACHE / "logs" / "native_build.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    print("[inochi-sdk] " + " ".join(command) + f" · log={log}", flush=True)
+    with log.open("a", encoding="utf-8") as stream:
+        stream.write("\n$ " + subprocess.list2cmdline(command) + "\n")
+        stream.flush()
+        try:
+            result = subprocess.run(command, timeout=timeout,
+                cwd=str(cwd) if cwd else None, stdout=stream,
+                stderr=subprocess.STDOUT, check=False)
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"Inochi SDK command exceeded {timeout}s; full output: {log}"
+            ) from exc
+    if result.returncode:
+        # Tail is bounded for notebook output, full source error is on disk.
+        with log.open("r", encoding="utf-8", errors="replace") as stream:
+            from collections import deque
+            tail = "".join(deque(stream, maxlen=95))
+        raise RuntimeError(
+            f"Inochi SDK command failed (exit={result.returncode}): "
+            + subprocess.list2cmdline(command)
+            + f"\n{tail[-11000:]}\nFull compiler output: {log}"
+        )
 
 
 def _install_compiler() -> None:
@@ -70,6 +96,8 @@ def ensure_inochi_native_runtime() -> str:
         return str(wrapper)
 
     _install_compiler()
+    _run(["ldc2", "--version"], timeout=30, cwd=PROJECT)
+    _run(["dub", "--version"], timeout=30, cwd=PROJECT)
     _run(["dub", "build", "--build=release", "--compiler=ldc2",
           "--force"], timeout=1800, cwd=PROJECT)
     built = PROJECT / "vtuber-inochi-native"
