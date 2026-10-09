@@ -49,6 +49,13 @@ sufficient; exposing a nude human model is NOT a prerequisite.
 
 **Do not claim clothing support from the static-accessory baker.**
 **Do not claim an image-only 3D garment is production-ready skinned.**
+**Current avatar/build.py merges the observed costume silhouette/texture into
+its canonical skinned avatar mesh rather than producing a detachable outfit
+mesh. A VRM with bulky baked-in clothing is not automatically wardrobe-ready.
+For future XWear dressing, prefer a neutral, fully covered, fitted base
+character reference and verify the resulting geometry in VRoid. Standard
+fully dressed base images are still valid if wardrobe switching is not a
+requirement. A nude reference is not required.**
 **Do not call prepared PSD/ORA a Live2D .moc3 or Inochi .inp.**
 
 ## Recommended minimum image INPUT per mode
