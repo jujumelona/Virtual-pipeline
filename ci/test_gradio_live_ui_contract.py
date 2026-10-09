@@ -44,7 +44,8 @@ def test_gradio_6_builds_named_2d_and_3d_workflows():
     assert visible["workflow-start"] is True
 
     handlers = {getattr(fn, "fn", None) for fn in demo.fns.values()}
-    assert ui.choose_workflow in handlers
+    assert ui.select_workflow_view in handlers
+    assert ui.prepare_selected_workflow_ui in handlers
     assert ui.return_to_workflow_choice in handlers
     assert ui.stream_avatar_ui in handlers
     assert ui.stream_accessories_ui in handlers
@@ -180,3 +181,54 @@ def test_real_gradio_native_file_route_serves_verified_avatar_bytes(tmp_path):
     assert TestClient(test_app).get(
         "/vtuber-download/..%2f..%2fetc/avatar.vrm"
     ).status_code != 200
+
+
+def test_upload_panels_open_before_any_heavy_mode_setup():
+    """Navigation must not invoke pip, source checkout, or model prefetch."""
+    from unittest.mock import patch
+    ui = _app()
+    with patch.object(ui, "choose_workflow", side_effect=AssertionError("unexpected setup")):
+        for mode, expected in (
+            ("inochi2d", (False, True, False, False, False)),
+            ("live2d", (False, False, True, False, False)),
+            ("3d", (False, False, False, True, False)),
+        ):
+            selection = ui.select_workflow_view(mode, "corporation")
+            assert tuple(item["visible"] for item in selection[:5]) == expected
+            assert selection[5] == "corporation"
+            assert selection[6] == mode
+            assert "이미지 업로드" in selection[7]
+            assert selection[8] is None
+
+
+def test_failed_3d_alpha_setup_keeps_upload_panel_and_provides_log(tmp_path):
+    from unittest.mock import patch
+    ui = _app()
+    ui.WORK_ROOT = tmp_path
+    with patch.object(ui, "choose_workflow", side_effect=RuntimeError(
+        "pip install failed: No matching distribution found"
+    )):
+        status, log = ui.prepare_selected_workflow_ui("3d", "corporation")
+    assert "3D VRM" in status
+    assert "No matching distribution" in status
+    assert "재시도" in status
+    assert pathlib.Path(log).exists()
+    assert "RuntimeError" in pathlib.Path(log).read_text(encoding="utf-8")
+
+
+def test_real_gradio_mode_selection_wires_upload_then_background_preparation():
+    ui = _app()
+    config = ui.build_app().get_config_file()
+    registry = {component["id"]: component for component in config["components"]}
+    deps = {entry.get("api_name"): entry for entry in config["dependencies"]}
+    navigation = deps["select_workflow_view"]
+    setup = deps["prepare_selected_workflow_ui"]
+    assert setup["trigger_after"] == navigation["id"] or any(
+        isinstance(trigger, (list, tuple)) and trigger[0] == navigation["id"]
+        for trigger in setup.get("targets", [])
+    )
+    first_outputs = [registry[i]["props"].get("label") for i in navigation["outputs"]]
+    assert "선택한 모드의 환경·모델 준비 상태" in first_outputs
+    for name in ("Inochi2D 캐릭터 그림", "2D 캐릭터 원본 일러스트 (필수)",
+                 "전신 정면 이미지 (필수)"):
+        assert name in {item["props"].get("label") for item in registry.values()}
