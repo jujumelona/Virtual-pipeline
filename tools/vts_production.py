@@ -214,11 +214,26 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
 def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         external_psd: Path | None = None,
                         third_party: Path | None = None,
-                        qwen: bool = False) -> dict:
+                        qwen: bool = False,
+                        assets_dir: Path | None = None) -> dict:
     """Generate a real Cubism-editable artwork package and JSON rigging assets."""
     if edition not in ("free", "pro") or scope not in ("upper", "full"):
         raise ValueError("Invalid VTS edition or scope")
     _image(master)
+    companion_assets = []
+    if edition == "pro":
+        if assets_dir is None:
+            raise ValueError("PRO requires separately generated base/hair/outfit asset images")
+        required = [f"pro_{scope}_{name}.png" for name in
+                    ("base_master", "hair_variant", "outfit_variant")]
+        for name in required:
+            path = assets_dir/name
+            _image(path)
+            companion_assets.append(path)
+        extra = assets_dir/f"pro_{scope}_accessories_variant.png"
+        if extra.is_file():
+            _image(extra)
+            companion_assets.append(extra)
     output.mkdir(parents=True, exist_ok=True)
     state_path = output / "vts_status.json"
     status = {"edition": edition, "scope": scope, "state": "running",
@@ -259,6 +274,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
             "visible_artmesh_candidates": count, "source_master": str(master),
             "cubism_handoff": result.primary_path, "art_psd": result.secondary_path,
             "qwen_refinement": qwen_result,
+            "pro_companion_artworks": [str(p) for p in companion_assets],
             "free_artmesh_within_limit": edition != "free" or count <= 100,
             "unverified_editor_limits": [
                 "Cubism parameter count", "deformer count", "part-folder count",
@@ -278,6 +294,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                 ("psd_composite.png", source),
             ):
                 archive.write(path, name)
+            for companion in companion_assets:
+                archive.write(companion, "pro_original_assets/"+companion.name)
             if qwen_result:
                 for i, path in enumerate(qwen_result["layers"]):
                     archive.write(path, f"qwen_4bit_stable_layers/layer_{i}.png")
@@ -298,10 +316,12 @@ def main() -> None:
     ap.add_argument("--psd", type=Path, help="Pre-generated See-through PSD, skip GPU decomposition")
     ap.add_argument("--third-party", type=Path)
     ap.add_argument("--qwen", action="store_true", help="Run quantized Qwen+Stable-Layers candidate refinement")
+    ap.add_argument("--assets-dir", type=Path, help="PRO companion original asset directory")
     args = ap.parse_args()
     out = make_cubism_handoff(
         args.master, args.output, edition=args.edition, scope=args.scope,
         external_psd=args.psd, third_party=args.third_party, qwen=args.qwen,
+        assets_dir=args.assets_dir,
     )
     print(json.dumps({"status": out["state"], "package": out["package"],
                       "moc3_generated": False}, ensure_ascii=False))
