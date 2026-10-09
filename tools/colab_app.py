@@ -1197,7 +1197,7 @@ def build_2d_ui(image_path, layers_zip, commercial_usage, target="live2d"):
         elif result.status == "needs_editor_export":
             message = "Live2D: Cubism 편집·정식 MOC3 출력이 필요합니다"
         elif result.status == "prepared":
-            message = "Inochi2D: PSD/ORA/리깅 자료 준비 완료. 네이티브 INP2 내보내기 미완료"
+            message = "Inochi2D: PSD/ORA/리깅 자료 준비 완료. 공식 SDK INP 내보내기 미완료"
         else:
             message = f"{target}: 제작 실패 (임시 그림 파일을 모델 완성으로 표시하지 않음)"
         return message, details, result.primary_file if result.primary_file and pathlib.Path(result.primary_file).is_file() else None
