@@ -288,7 +288,8 @@ def test_avatar_components_declared_before_gradio_callback_registration():
 def test_3d_view_exposes_real_upload_status_and_download_components():
     ui = _app()
     config = ui.build_app().get_config_file()
-    labels = {item.get("props", {}).get("label") for item in config["components"]}
+    labels = {item.get("props", {}).get("label") or item.get("props", {}).get("value")
+              for item in config["components"]}
     for label in (
         "전신 정면 이미지 (필수)",
         "얼굴 확대 이미지 (전신 고품질 모드 필수)",
