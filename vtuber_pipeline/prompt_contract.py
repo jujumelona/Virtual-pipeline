@@ -18,7 +18,6 @@ CANVAS_FACE = (2048, 2048)
 # Filenames are direct semantic keys read by two_d.build.KNOWN. Variants are
 # supplied independently; every file is a full-canvas RGBA image.
 LAYER_PARTS = (
-    ("hair_back", "Complete back-of-head hair, including hidden roots and hair behind shoulders."),
     ("body", "Unclothed neutral covered body/undersuit base only. Never bake the removable garment into anatomy."),
     ("neck", "Entire neck from jaw to collar, even under chin and garment."),
     ("ear_left", "Character's left ear, fully drawn behind hair."),
@@ -35,16 +34,13 @@ LAYER_PARTS = (
     ("nose", "Nose line and shadow on transparent canvas; only nose pixels."),
     ("mouth_closed", "Closed mouth lip outline in resting pose."),
     ("mouth_open", "Open mouth shape including teeth, tongue and interior; separate animation variant."),
-    ("hair_left", "Complete left side-hair tuft/strand groups, including roots behind face."),
-    ("hair_right", "Complete right side-hair tuft/strand groups, including roots behind face."),
-    ("hair_front", "Full bangs/forelock with complete roots, preserving the front reference."),
     ("arm_left", "Complete character-left neutral base arm with body-hidden shoulder. No removable sleeves or clothing cuffs."),
     ("arm_right", "Complete character-right neutral base arm with body-hidden shoulder. No removable sleeves or clothing cuffs."),
     ("hand_left", "Character-left hand, fully modeled even when sleeve obscures wrist."),
     ("hand_right", "Character-right hand, fully modeled even when sleeve obscures wrist."),
 )
 REQUIRED_2D = (
-    "hair_back", "body", "face", "hair_front", "eye_left_white",
+    "body", "face", "eye_left_white",
     "eye_left_iris", "eye_right_white", "eye_right_iris",
     "brow_left", "brow_right", "mouth_closed", "mouth_open",
     "neck", "arm_left", "arm_right",
@@ -150,7 +146,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
                            "purpose": "part", "semantic_id": key,
                            "prompt": general + "\n" + prompt})
         packaging = (
-             "Deliver 25 separate PNG images: front_master.png and the 24 "
+             "Deliver 21 separate PNG images: front_master.png and the 20 "
             "named RGBA semantic layers. Every layer uses the same 2048x3072 "
             "full canvas and exact origin. No sprite sheet. Complete all "
             "occluded areas; JPEG is not accepted."
@@ -163,7 +159,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
             "shoulder line y=730; waist y=1550; knees y=2330; "
             "feet contact line y=2930. Occupies the same scale and exactly "
             "the same registered coordinates in front, back, left, right. "
-             "Entire outfit-free body and feet visible. NO perspective, orthographic camera "
+             "Entire hair-free and outfit-free body and feet visible. NO perspective, orthographic camera "
             "at level height, neutral symmetric A-pose with arms separated "
             "from torso, fingers distinguishable. "
         )
