@@ -124,3 +124,64 @@ def test_worker_dependency_failure_contains_actual_pip_stderr(
     assert logfile.is_file()
     assert "No matching distribution found" in logfile.read_text(encoding="utf-8")
     assert "No matching distribution found" in capsys.readouterr().out
+
+
+def test_pinned_diffusers_uses_isolated_hub_and_transformers_compatible_api():
+    """Pinned Diffusers imports resolve_revision (not exported by Hub 0.36.2)."""
+    assert "huggingface-hub==1.33.0" in installer.FLUX_PYTHON_PACKAGES
+    assert "transformers==5.0.0" in installer.FLUX_PYTHON_PACKAGES
+    assert "resolve_revision" in installer.FLUX_SMOKE
+    assert "Qwen3ForCausalLM" in installer.FLUX_SMOKE
+    assert "Flux2KleinPipeline" in installer.FLUX_SMOKE
+    assert not any("huggingface-hub" in name or "transformers" in name
+                   for name in installer.PYTHON_PACKAGES)
+    # The smoke is a valid Python statement, not an inert comment.
+    compile(installer.FLUX_SMOKE, "<flux-import-check>", "exec")
+
+
+def test_2d_installer_pins_flux_hub_without_modifying_shared_cuda(patched_root, monkeypatch):
+    """Regress the exact broken Colab install sequence with mocked external I/O."""
+    from types import SimpleNamespace
+    import sys
+    _, work, _ = patched_root
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(__version__="2.11.0+cu130"))
+    monkeypatch.setitem(sys.modules, "torchvision", SimpleNamespace(__version__="0.26.0+cu130"))
+    calls = []
+    monkeypatch.setattr(installer, "_prepare_venv",
+                        lambda folder: work / folder / "bin" / "python")
+
+    def checkout(kind, lock):
+        path = work / "upstream" / kind
+        path.mkdir(parents=True, exist_ok=True)
+        if kind == "anime":
+            (path / "train.py").write_text("class AnimeSegmentation: pass")
+        return path
+
+    monkeypatch.setattr(installer, "_checkout_source", checkout)
+    monkeypatch.setattr(installer, "_smoke", lambda *a, **kw: None)
+    monkeypatch.setattr(installer, "_exec",
+                        lambda args, **kw: calls.append((args, kw)))
+    result = installer.install_2d_environment()
+    assert result["flux_python"].endswith("/venv_flux/bin/python")
+    assert (work / "environment.ready.json").is_file()
+    flux_pip = [
+        args for args, _kw in calls
+        if args[:5] == [
+            str(work / "venv_flux" / "bin" / "python"),
+            "-m", "pip", "install", "--prefer-binary",
+        ]
+    ]
+    assert len(flux_pip) == 1
+    assert "huggingface-hub==1.33.0" in flux_pip[0]
+    assert "transformers==5.0.0" in flux_pip[0]
+    assert "torch" not in " ".join(flux_pip[0])
+    assert (work / "cuda_constraints.txt").read_text().splitlines() == [
+        "torch==2.11.0", "torchvision==0.26.0",
+    ]
+    assert any(
+        args == [str(work / "venv_flux" / "bin" / "python"),
+                 "-c", installer.FLUX_SMOKE]
+        for args, _kw in calls
+    )
+    saved = json.loads((work / "environment.ready.json").read_text())
+    assert saved["fingerprint"] == result["fingerprint"]
