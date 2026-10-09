@@ -78,6 +78,7 @@ def test_gradio_real_update_routes_without_refreshing_installed_packages():
         # 3D selects TripoSR source plus a minimal alpha worker, not the
         # entire 2D SAM/FLUX dependency environment.
         assert [call.args[0] for call in stage.call_args_list] == [
+            "Inochi SDK native rig exporter",
             "3D TripoSR checkout",
             "3D alpha-only worker environment",
             "3D Blender VRM operator verification",
