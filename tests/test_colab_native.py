@@ -185,3 +185,31 @@ def test_character_mode_rejects_accessory_only_mode_in_ui_dispatch():
     character_code = ast.unparse(ast.Module(body=work.body, type_ignores=[]))
     assert "accessory_anchor=" not in character_code
     assert "accessory_base_path=" not in character_code
+
+
+def test_notebook_event_printer_displays_unfiltered_logs_including_early_errors(capsys):
+    from tools.colab_native import _event_printer
+    lines = (
+        "ERROR: pip's dependency resolver does not currently take into account...\n"
+        "source/app.d(120,55): Error: undefined reference to symbol\n"
+        + "Z" * 1200 + "\n"
+        + "/usr/bin/cc failed with status: 1\n"
+    )
+    _event_printer(("log", lines))
+    assert capsys.readouterr().out == lines
+
+
+def test_notebook_prints_entire_failure_details_not_last_2200_only(
+    tmp_path, monkeypatch, capsys,
+):
+    monkeypatch.setattr(native, "WORK", tmp_path)
+    image = tmp_path / "picture.png"
+    image.write_bytes(b"input")
+    early = "EARLY LINKER ERROR: undefined reference"
+    details = early + "\n" + ("verbose-build-line\n" * 400)
+    def failed(_mode, _args, *, on_event):
+        return ("inochi2d 제작 실패", details, None)
+    assert native.generate("inochi2d", image_path=str(image), runner=failed) is None
+    output = capsys.readouterr().out
+    assert early in output
+    assert output.count("verbose-build-line") == 400
