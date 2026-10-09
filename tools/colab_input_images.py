@@ -1,7 +1,7 @@
-"""Accept raw image files from the Colab uploader; never ask for archives.
+"""Optional legacy raw 21-image uploader; high-quality default uses sheet ZIP.
 
 An internal ZIP adapts the validated images to the stable 2D builder contract.
-Users provide only 25 individual PNGs (neutral master + 24 parts). Original filenames, geometry and
+Users provide only 21 individual PNGs (neutral master + 20 permanent parts). Original filenames, geometry and
 alpha are validated before writing any generation-ready receipt.
 """
 from __future__ import annotations
