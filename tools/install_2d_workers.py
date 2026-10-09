@@ -27,6 +27,24 @@ PYTHON_PACKAGES = (
     "timm==1.0.20", "accelerate==1.10.1",
     "hydra-core==1.3.2", "psd-tools==1.11.0",
 )
+# The pinned Diffusers source requires Hub >=1.32. Keep these newer
+# packages ONLY in the FLUX worker, not in the shared Colab/3D runtime.
+FLUX_PYTHON_PACKAGES = (
+    "accelerate==1.10.1",
+    "huggingface-hub==1.33.0",
+    "transformers==5.0.0",
+    "sentencepiece>=0.2.0",
+    "protobuf>=5,<7",
+)
+FLUX_SMOKE = (
+    "import importlib.metadata as md, huggingface_hub; "
+    "assert md.version('huggingface-hub')=='1.33.0'; "
+    "assert md.version('transformers')=='5.0.0'; "
+    "assert callable(huggingface_hub.resolve_revision); "
+    "from transformers import Qwen2TokenizerFast, Qwen3ForCausalLM; "
+    "from diffusers import Flux2KleinPipeline; "
+    "print('[2d-env] flux-transformers-hub-import-ok', flush=True)"
+)
 
 
 def _exec(args: list[str], *, cwd: Path | None = None, timeout: int = 600,
@@ -164,6 +182,8 @@ def install_2d_environment() -> dict:
     stamp_inputs = {
         "torch": torch_version, "torchvision": vision_version,
         "packages": PYTHON_PACKAGES,
+        "flux_packages": FLUX_PYTHON_PACKAGES,
+        "flux_smoke": FLUX_SMOKE,
         "sources": {name: _pinned_source(name, lock) for name in PIN_KEYS},
     }
     fingerprint = hashlib.sha256(json.dumps(stamp_inputs, sort_keys=True).encode()).hexdigest()
@@ -180,7 +200,7 @@ def install_2d_environment() -> dict:
         if saved.get("fingerprint") == fingerprint:
             try:
                 _smoke(python, source, torch_version, vision_version)
-                _exec([str(flux_python), "-c", "from diffusers import Flux2KleinPipeline"], timeout=120)
+                _exec([str(flux_python), "-c", FLUX_SMOKE], timeout=180)
             except Exception as exc:
                 print(f"[2d-env] stale worker cache failed smoke: {exc}; repairing", flush=True)
                 marker.unlink(missing_ok=True)
@@ -213,8 +233,7 @@ def install_2d_environment() -> dict:
            "--no-build-isolation", "--editable", str(sources["sam"])],
           env=env, timeout=1800)
     _exec([str(flux_python), "-m", "pip", "install", "--prefer-binary",
-           "--only-binary=:all:", "accelerate==1.10.1",
-           "sentencepiece>=0.2.0", "protobuf>=5,<7"],
+           "--only-binary=:all:", *FLUX_PYTHON_PACKAGES],
           env=env, timeout=1200)
     _exec([str(flux_python), "-m", "pip", "install", "--no-deps",
            "--no-build-isolation", "--editable", str(sources["diffusers"])],
@@ -222,7 +241,7 @@ def install_2d_environment() -> dict:
     if not (sources["anime"] / "train.py").is_file():
         raise RuntimeError("pinned Anime Segmentation train.py is missing")
     _smoke(python, sources["anime"], torch_version, vision_version)
-    _exec([str(flux_python), "-c", "from diffusers import Flux2KleinPipeline"], timeout=120)
+    _exec([str(flux_python), "-c", FLUX_SMOKE], timeout=180)
     marker.write_text(json.dumps({"fingerprint": fingerprint, "base_cuda_preserved": True},
                                  indent=2), encoding="utf-8")
     return {"python": str(python), "flux_python": str(flux_python),
