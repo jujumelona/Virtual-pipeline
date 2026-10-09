@@ -65,7 +65,9 @@ def _semantic_family(name: str) -> str:
     # The See-through / Qwen layer name is a semantic identity, not just an
     # annotation. Never discard left/right, front/back, iris or lid suffixes.
     canonical = ("hair.", "eye.", "eyebrow.", "mouth.", "cloth.",
-                 "body.", "arm.", "leg.", "hand.", "shoe.", "accessory.")
+                 "body.", "arm.", "leg.", "hand.", "foot.", "shoe.", "accessory.",
+                 "ornament.", "ear.", "neck.", "nose.", "face.", "head.",
+                 "outfit.", "sleeve.")
     if raw.startswith(canonical):
         return raw
     name = raw.replace(".", " ")
@@ -73,10 +75,10 @@ def _semantic_family(name: str) -> str:
     if "iris" in name or "pupil" in name or "eyelid" in name or "sclera" in name:
         detail = next(x for x in ("iris", "pupil", "eyelid", "sclera") if x in name)
         return ("eye." + side + "." + detail) if side else ("eye." + detail)
-    if "eye" in name and side:
-        return "eye." + side
     if ("eyebrow" in name or "brow" in name) and side:
         return "eyebrow." + side
+    if "eye" in name and side:
+        return "eye." + side
     if "hair" in name and side:
         return "hair.side." + side
     checks = (

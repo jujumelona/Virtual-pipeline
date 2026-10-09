@@ -49,9 +49,11 @@ def _read_registered(path: Path):
 
 def _candidate_score(part):
     name = part["name"].lower()
-    group = next((k for k in ("hair", "eye", "mouth", "face", "cloth", "body",
-                              "ornament", "accessory", "sleeve")
-                  if name.startswith(k)), "")
+    group = name.split(".", 1)[0]
+    if group not in {"hair", "eye", "eyebrow", "mouth", "face", "cloth", "body",
+                     "ornament", "accessory", "sleeve", "arm", "hand", "leg",
+                     "foot", "ear", "neck", "nose", "shoe", "outfit", "head"}:
+        return -1
     if not group:
         return -1
     alpha = np.asarray(part["image"].getchannel("A"))
@@ -510,6 +512,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
                          "cloth": 6, "sleeve": 4, "ornament": 4,
                          "accessory": 4}.get(family, 4)
             requested = max(2, min(per_pass_layers, suggested))
+            if edition == "free":
+                requested = min(requested, FREE_LIMIT - len(layers) + 1)
             kw = {"layer_count": requested}
             if third_party is not None:
                 kw["third_party"] = third_party

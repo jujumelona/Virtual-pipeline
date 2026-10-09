@@ -177,3 +177,14 @@ def test_eye_and_face_parts_eligible_for_real_left_right_split(tmp_path):
     assert "ears" in observed
     assert "nose" not in observed
     assert "mouth" not in observed
+
+@pytest.mark.parametrize("name,expected", [
+    ("left eyebrow", "eyebrow.left"),
+    ("right brow", "eyebrow.right"),
+    ("foot.left.toes", "foot.left.toes"),
+    ("ornament.eyes.left", "ornament.eyes.left"),
+    ("ear.right.inner", "ear.right.inner"),
+    ("mouth.inner.tongue", "mouth.inner.tongue"),
+])
+def test_anatomy_detail_ids_survive_import(name, expected):
+    assert _semantic_family(name) == expected

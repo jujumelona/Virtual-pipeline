@@ -190,3 +190,28 @@ def test_qwen_invalid_recursion_parameters_rejected(tmp_path):
     with pytest.raises(ValueError, match="Invalid Qwen"):
         build_artwork_package(archive, tmp_path / "wrong2", edition="pro",
                               scope="upper", asset_kind="hair", max_qwen_passes=13)
+
+@pytest.mark.parametrize("family", ["eyebrow", "arm", "hand", "leg", "foot", "ear", "neck", "nose", "shoe"])
+def test_observed_anatomy_is_eligible_for_refinement(family):
+    from tools.vts_artwork_export import _candidate_score
+    part = {"name": family + ".left.000", "image": Image.new("RGBA", (16, 16), (80, 90, 100, 255)), "depth": 0}
+    assert _candidate_score(part) > 0
+
+
+def test_free_request_respects_remaining_layer_budget(tmp_path):
+    archive = make_layers(tmp_path / "in", 99)
+    def infer(source, output, **kw):
+        assert kw["layer_count"] == 2
+        output.mkdir(parents=True)
+        im = Image.open(source).convert("RGBA")
+        a = Image.new("RGBA", im.size)
+        b = Image.new("RGBA", im.size)
+        a.paste((50, 50, 50, 255), (0, 0, im.width // 2, im.height))
+        b.paste((50, 50, 50, 255), (im.width // 2, 0, im.width, im.height))
+        paths = [output / "a.png", output / "b.png"]
+        a.save(paths[0]); b.save(paths[1])
+        return {"layers": list(map(str, paths))}
+    result = build_artwork_package(archive, tmp_path / "out", edition="free", scope="upper",
+                                   qwen=True, qwen_infer=infer, per_pass_layers=8, max_qwen_passes=1)
+    assert result["layer_count"] == 100
+    assert result["qwen_attempts"][0]["accepted"] is True
