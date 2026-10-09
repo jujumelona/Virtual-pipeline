@@ -25,20 +25,20 @@ def execute(request: dict) -> dict:
         )
         return {"front":master,"layers":layers}
     if mode == "3d":
-        result = convert_3d_sheet_pack(source,folder)
-        # A larger facial reference can improve eye/skin texture density. Do
-        # NOT super-resolve geometry views: TripoSR geometry has fixed inference
-        # resolution and hallucinated details may corrupt multiview alignment.
+        # Reuse ONE GPU model for the sheet's individual views and face.
         from PIL import Image
         from tools.sheet_super_resolution import load_model, upscale_rgba
+        from tools.sheet_input_loader import _upscale_to
         model = load_model()
+        ai = lambda image,factor: upscale_rgba(image,model,output_scale=factor)
+        result = convert_3d_sheet_pack(source,folder,upscaler=ai,neural=True)
         with Image.open(result["face"]) as face:
-            sr = upscale_rgba(face.convert("RGBA"),model,output_scale=2)
+            sr = _upscale_to(face.convert("RGBA"), (4096,4096),ai,neural=True)
             enhanced = Path(folder)/"face_enhanced.png"
             sr.save(enhanced)
             result["face"] = str(enhanced)
-        print("[sheet-sr] 3D face enhanced; full-body geometry views unchanged",
-              flush=True)
+        print("[sheet-sr] 3D views and face aspect-normalized with AI SR; "
+              "source viewpoints preserved",flush=True)
         return result
     raise ValueError(f"Unknown sheet generation mode: {mode}")
 
