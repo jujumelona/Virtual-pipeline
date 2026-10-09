@@ -364,5 +364,52 @@ def live2d_import_export(official_export_dir, output):
     click.echo(__import__("json").dumps(result.__dict__,ensure_ascii=False))
 
 
+@cli.command("vts-prompts")
+@click.option("--edition", type=click.Choice(["free", "pro"]), required=True)
+@click.option("--scope", type=click.Choice(["upper", "full"]), required=True)
+@click.option("--hair-color", required=True)
+@click.option("--hairstyle", required=True)
+@click.option("--eyes", required=True)
+@click.option("--face", "face_description", required=True)
+@click.option("--outfit", required=True)
+@click.option("--gender", default="")
+@click.option("--skin-color", default="")
+@click.option("--accessories", default="")
+@click.option("--palette", default="")
+@click.option("--extra", default="")
+@click.option("--stability-license",
+              type=click.Choice(["not-accepted", "community-eligible", "enterprise-licensed"]),
+              default="not-accepted",
+              help="Your OWN eligibility/enterprise status; free distribution alone does not qualify.")
+@click.option("--output", required=True, type=click.Path())
+def vts_prompts(edition, scope, hair_color, hairstyle, eyes, face_description,
+                outfit, gender, skin_color, accessories, palette, extra,
+                stability_license, output):
+    """Write separate FREE/PRO, upper/full external-image prompts and model plan."""
+    from vtuber_pipeline.prompt_contract import Identity
+    from vtuber_pipeline.vts_modes import build_vts_brief, write_vts_brief_package
+    identity = Identity(
+        hair_color=hair_color, hairstyle=hairstyle, eye_color=eyes,
+        face_description=face_description, outfit=outfit, gender=gender,
+        skin_color=skin_color, accessories=accessories, palette=palette,
+        extra=extra,
+    )
+    try:
+        brief = build_vts_brief(edition, scope, identity,
+                                stability_license=stability_license)
+        path = write_vts_brief_package(brief, output)
+    except (ValueError, TypeError, OSError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(__import__("json").dumps({
+        "status": brief["status"], "edition": edition, "scope": scope,
+        "requested_image_count": brief["image_count"],
+        "prompt_package": path,
+        "stable_layers_enabled_for_planning":
+            brief["models"]["stable_layers"]["enabled_for_planning"],
+        "cubism_moc3_produced": False,
+    }, ensure_ascii=False))
+    click.echo("External images + native Cubism Editor work still required. NOT a .moc3 model.")
+
+
 if __name__ == "__main__":
     cli()
