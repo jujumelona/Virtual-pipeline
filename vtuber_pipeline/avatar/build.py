@@ -821,9 +821,24 @@ class AvatarPipeline:
         if validation.get("status") != "complete" or not validation.get("passed"):
             return self._fail(results, "validator", validation.get("error") or "strict VRM validation failed")
 
+        # MD 6.10: write the SAME validated production-result contract as the
+        # Inochi2D and Live2D routes. No invalid .vrm may be marked complete.
+        from vtuber_pipeline.common.schemas import BuildResult
+        try:
+            completion = BuildResult(
+                mode="3d", status="complete",
+                primary_file=vrm_path,
+                editable_file=results.get("blend_path"),
+                intermediate_dir=output_dir,
+            )
+            completion_path = completion.write(output_dir)
+        except Exception as exc:
+            return self._fail(results, "completion_contract", str(exc))
         results["status"] = "complete"
         results["vrm_path"] = vrm_path
         results["validation"] = validation
+        results["production_result_json"] = completion_path
+        results["build_result"] = completion.__dict__
         return results
 
 
