@@ -101,6 +101,13 @@ def build_prompts(mode: str, identity: Identity) -> dict:
     if mode not in ("live2d", "inochi2d", "3d"):
         raise ValueError("unsupported prompt mode: " + mode)
     general = _common(identity)
+    if mode == "3d":
+        general += (
+            "\\n3D DEFAULT INTEGRATED COSTUME: "
+            + identity.outfit.strip()
+            + ". Render identical clothing on every orthographic view; "
+              "not an outfit-free mannequin and not a standalone garment."
+        )
     result: list[dict] = []
     if mode in ("live2d", "inochi2d"):
         w, h = CANVAS_2D
@@ -153,21 +160,26 @@ def build_prompts(mode: str, identity: Identity) -> dict:
         )
     else:
         w, h = CANVAS_3D
+        # Legacy five-file image brief. The default v8 Colab route uses two
+        # multiview sheets + face; both describe an ALREADY CLOTHED avatar.
         geometry = (
-            "CANVAS EXACTLY 2048x3072 pixels W x H, origin top-left. "
-            "Character centerline x=1024; crown y=150; neck y=600; "
-            "shoulder line y=730; waist y=1550; knees y=2330; "
-            "feet contact line y=2930. Occupies the same scale and exactly "
-            "the same registered coordinates in front, back, left, right. "
-             "Entire hair-free and outfit-free body and feet visible. NO perspective, orthographic camera "
-            "at level height, neutral symmetric A-pose with arms separated "
-            "from torso, fingers distinguishable. "
+            "PORTRAIT width:height=2:3, render at native image AI quality. "
+            "Same character center, head-to-foot framing, body height, "
+            "costume proportions and shoe positions across every view. "
+            "Entire DEFAULT OUTFIT (top/bottom or dress, collar, sleeves, "
+            "cuffs, outer garment, shoes, fabric colors, seams) stays "
+            "ON the character in FRONT/BACK/LEFT/RIGHT. "
+            "The outfit is part of this initial 3D avatar and is NOT "
+            "exported as a separate removable garment. "
+            "Orthographic eye-level camera, neutral symmetric A-pose with "
+            "arms slightly separated, visible hands and feet. "
+            "Do not mirror images or change clothes between views. "
         )
         for key, description in VIEWS_3D:
             if key == "face":
                 geo = (
-                    "2048x2048 PNG close-up. Front facing and orthographic. "
-                    "Face centered x=1024 y=1050; crop hairline to collar, "
+                    "SQUARE width:height=1:1 PNG face close-up, native resolution. "
+                    "Front facing and orthographic. Include hairline, jaw and collar, "
                     "eyelids fully visible. This FACE CROP IS A SEPARATE "
                     "VIEW; do not treat it as full-body registered coordinates."
                 )
@@ -182,10 +194,13 @@ def build_prompts(mode: str, identity: Identity) -> dict:
                 "fixed lighting and character details in every view.",
             })
         packaging = (
-            "Deliver exactly FIVE separate image files: front.png, back.png, "
-            "left.png, right.png (each 2048x3072) and face.png (2048x2048). "
-            "Never produce a multi-view contact sheet or change the character "
-            "identity between images."
+            "Legacy single-view upload: exactly FIVE separate PNG files: "
+            "front.png, back.png, left.png, right.png (portrait 2:3) "
+            "and face.png (square 1:1). Save exact filenames. "
+            "For default Colab 3D v8 use TWO paired-view sheets "
+            "(sheet_front_back.png, sheet_side_views.png; each 4:3) "
+            "plus face.png, zipped as character_3d_sheet_pack.zip. "
+            "ALL views are of the SAME CLOTHED avatar with identical outfit."
         )
     return {
         "schema": "vtuber-external-image-contract-v1", "mode": mode,
