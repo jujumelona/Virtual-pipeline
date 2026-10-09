@@ -249,9 +249,24 @@ def install_2d_environment() -> dict:
     # Hydra pins antlr4-python3-runtime==4.9.*, which is source-only on
     # PyPI. Keep binary preference, but permit this pure-Python dependency
     # to build. PIP_CONSTRAINT still locks the existing Torch/Torchvision ABI.
-    _exec([str(python), "-m", "pip", "install", "--prefer-binary",
-           *PYTHON_PACKAGES],
-          env=env, timeout=1800)
+    # Distinct venv directories have independent pip databases. Install
+    # 2D/SAM and FLUX dependency sets concurrently without ever running two
+    # pip resolvers against the *same* Python environment.
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        sam_packages = executor.submit(
+            _exec, [str(python), "-m", "pip", "install", "--prefer-binary",
+                    *PYTHON_PACKAGES], env=env, timeout=1800,
+        )
+        flux_packages = executor.submit(
+            _exec, [str(flux_python), "-m", "pip", "install", "--prefer-binary",
+                    "--only-binary=:all:", *FLUX_PYTHON_PACKAGES],
+            env=env, timeout=1200,
+        )
+        # Wait for both dependencies before installing editable sources.
+        sam_packages.result()
+        flux_packages.result()
     sources = {kind: _checkout_source(kind, lock) for kind in PIN_KEYS}
     # SAM2 requires iopath>=0.1.10, which is sdist-only on PyPI.
     # iopath itself requires typing_extensions, tqdm and portalocker.
@@ -270,9 +285,6 @@ def install_2d_environment() -> dict:
     _exec([str(python), "-m", "pip", "install", "--no-deps",
            "--no-build-isolation", "--editable", str(sources["sam"])],
           env=env, timeout=1800)
-    _exec([str(flux_python), "-m", "pip", "install", "--prefer-binary",
-           "--only-binary=:all:", *FLUX_PYTHON_PACKAGES],
-          env=env, timeout=1200)
     _exec([str(flux_python), "-m", "pip", "install", "--no-deps",
            "--no-build-isolation", "--editable", str(sources["diffusers"])],
           env=env, timeout=1800)
