@@ -153,193 +153,183 @@ def require_confirmed_selection(values: dict) -> tuple:
     return current
 
 
-def render_notebook_controls(values: dict) -> bool:
-    """Render dynamically scoped widgets, update notebook globals on change.
-
-    TASK and every subordinate option are task-scoped widgets.
-    Confirming is mandatory before any later download, upload or build.
-    """
-    try:
-        import ipywidgets as w
-        from IPython.display import display
-    except ImportError:
-        # Plain-Python CI can execute the selection cell without Colab.
-        # On Colab, missing widgets must be fixed instead of silently using
-        # defaults. Cell ③ performs an explicit runtime check.
-        return False
-
-    values["MODE_SELECTION_CONFIRMED"] = False
-    values.pop("MODE_SELECTION_SNAPSHOT", None)
-    status = w.HTML(value="<b>미확정:</b> 모드를 고르고 아래 '② 설정 확정'을 누르세요.")
-
-    def dirty():
-        values["MODE_SELECTION_CONFIRMED"] = False
-        values.pop("MODE_SELECTION_SNAPSHOT", None)
-        status.value = "<b>미확정:</b> 옵션이 변경됐습니다. '② 설정 확정'을 다시 누르세요."
-
-    def select(key, choices: dict, *, name: str, description: str):
-        options = [(label, value) for value, label in choices.items()]
-        current = values[key]
-        control = w.Dropdown(
-            options=options, value=current, description=name,
-            style={"description_width": "initial"},
-            layout=w.Layout(width="min(100%, 860px)"),
-        )
-        def update(change):
-            if change["name"] == "value":
-                values[key] = change["new"]
-                if key in ("LIVE2D_EDITION", "LIVE2D_QWEN"):
-                    refresh_qwen(values)
-                dirty()
-        control.observe(update, names="value")
-        return w.VBox([control, w.HTML(value=description)])
-
-    def text_input(key: str, *, name: str, description: str):
-        control = w.Text(
-            value=values[key], description=name,
-            style={"description_width": "initial"},
-            layout=w.Layout(width="min(100%, 860px)"),
-        )
-        def on_text(change):
-            values[key] = change["new"]
-            dirty()
-        control.observe(on_text, names="value")
-        return w.VBox([control, w.HTML(value=description)])
-
-    def bool_input(key: str, *, name: str, description: str):
-        control = w.Checkbox(value=values[key], description=name,
-                             indent=False, layout=w.Layout(width="min(100%, 860px)"))
-        def on_check(change):
-            values[key] = change["new"]
-            dirty()
-        control.observe(on_check, names="value")
-        return w.VBox([control, w.HTML(value=description)])
-
-    def paragraph(body: str):
-        return w.HTML(value="<div style='padding:6px 0;opacity:.85'>" + body + "</div>")
-
-    def common():
-        return [
-            select("USAGE", USAGE_LABELS, name="사용 범위",
-                   description="선택한 결과의 이용 목적입니다. 무료 배포/개인용이어도 외부 모델의 실제 라이선스를 따릅니다."),
-        ]
-
-    def mode_options(mode: str):
-        if mode == "live2d":
-            return [
-                paragraph("<b>Live2D → Cubism FREE / PRO</b>. 둘 다 VTube Studio 호환 Live2D용입니다. "
-                          "FREE/PRO는 VTube Studio 버전이 아닌 Cubism Editor의 제작 등급입니다."),
-                select("LIVE2D_EDITION", EDITION_LABELS, name="Cubism 등급",
-                       description="FREE: 헤어·의상·장식까지 착용한 완성 이미지 1장, ArtMesh 최대 100개. "
-                                   "PRO: 기준 외형 + 몸체·헤어·의상·선택 액세서리를 별도 이미지로 준비합니다."),
-                select("LIVE2D_FRAMING", FRAMING_LABELS, name="제작 범위",
-                       description="상반신과 전신 모두 정면 기준입니다. 두 범위를 동시에 생성할 필요는 없습니다."),
-                select("LIVE2D_QWEN", QWEN_LABELS, name="Qwen 세부 분해",
-                       description="auto는 FREE에서 Qwen을 설치하지 않고 PRO에서 추가 설치합니다. "
-                                   "on은 둘 다 설치·실행, off는 모두 제외. "
-                                   "Qwen 4비트+Stable-Layers는 Colab T4 실기 성공 미확인입니다."),
-                text_input("EXISTING_IMAGE_PATH", name="기존 원본 경로 (선택)",
-                           description="FREE 완성 원본 이미지가 이미 /content에 있으면 경로를 입력합니다. "
-                                       "비워 두면 ④ 셀에서 업로드합니다. PRO는 ④에서 독립 PNG를 업로드합니다."),
-                paragraph("외부 대형 이미지 AI 생성 프롬프트는 <b>README</b>에만 있습니다. "
-                          "여기서는 그림을 생성하거나 프롬프트를 출력하지 않습니다."),
-            ]
-        if mode == "inochi2d":
-            return [
-                select("TWO_D_INPUT", TWO_D_LABELS, name="Inochi2D 입력",
-                       description="sheets: README 시트 ZIP. provided_layers: 20개 분리 레이어. "
-                                   "automatic: 그림 1장에서 AI 분리."),
-                text_input("EXISTING_IMAGE_PATH", name="기존 원본 경로 (선택)",
-                           description="automatic 입력에서 사용할 수 있습니다. 비우면 ④에서 업로드합니다."),
-            ]
-        return [
-            bool_input("MULTI_REFERENCE_3D", name="3D 다중 시점 시트 사용",
-                       description="켜짐: 정면·후면·좌우·얼굴 참조가 포함된 시트 ZIP 입력. "
-                                   "꺼짐: 캐릭터 원본 1장 입력."),
-            text_input("EXISTING_IMAGE_PATH", name="기존 원본 경로 (선택)",
-                       description="단일 이미지 입력일 때 사용. 비우면 ④에서 업로드합니다."),
-        ]
-
-    def accessory_options(subtype: str):
-        if subtype == "소품":
-            return [
-                select("ACCESSORY_ANCHOR", ANCHOR_LABELS, name="소품 부착 위치",
-                       description="AUTO는 이미지 파일명으로 위치를 판단합니다. "
-                                   "ALL은 모든 위치에 중복 적용되므로 필요한 경우에만 선택하세요."),
-                text_input("ACCESSORY_BASE_VRM_PATH", name="기존 VRM 경로 (선택)",
-                           description="입력하면 해당 VRM을 기준으로 사용합니다. 비우면 최근 결과나 ④ 업로드를 이용합니다."),
-            ]
-        if subtype == "2D 교체 의상":
-            return [
-                select("OUTFIT_2D_TARGET", {
-                    "live2d": "Live2D Cubism — 기존 분리형 의상 경로",
-                    "inochi2d": "Inochi2D — 기존 분리형 의상 경로",
-                }, name="의상 제작 대상",
-                       description="이 옵션은 기존 교체형 의상 제작 경로입니다. "
-                                   "Live2D FREE 완성 캐릭터 1장 제작과 혼동하지 마세요."),
-                text_input("WARDROBE_2D_BASE_ZIP_PATH", name="기존 2D 기준 ZIP (선택)",
-                           description="기준 중립 캐릭터 시트 ZIP이 있으면 경로 지정. 없으면 ④에서 업로드합니다."),
-            ]
-        return [
-            text_input("ACCESSORY_BASE_VRM_PATH", name="기존 VRM 경로 (선택)",
-                       description="의상을 적용할 VRM 경로. 비우면 최근 VRM이나 ④ 업로드를 사용합니다."),
-            text_input("WARDROBE_XWEAR_PATH", name="XWear 원본 경로 (선택)",
-                       description="VRoid Studio 의상 파일 경로. 비우면 ④에서 costume.xwear를 업로드합니다."),
-        ]
-
-    pane = w.VBox()
-    shared = common()
-    task_picker = select("TASK", {
-        "캐릭터 생성": "캐릭터 생성 — Live2D / Inochi2D / 3D VRM",
-        "액세서리 제작": "액세서리 제작 — 소품 / 교체 의상",
-    }, name="① 작업 종류",
-       description="작업을 바꾸면 아래 옵션이 즉시 전환됩니다. 셀을 다시 실행할 필요는 없습니다.")
-
-    def redraw_task(change=None):
-        if values["TASK"] == "캐릭터 생성":
-            detail = w.VBox()
-            mode_picker = select("MODE", MODE_LABELS, name="② 캐릭터 제작 모드",
-                                 description="Live2D를 고른 뒤 FREE / PRO를 선택합니다.")
-            def redraw_mode(change=None):
-                detail.children = tuple(mode_options(values["MODE"]))
-            mode_picker.children[0].observe(redraw_mode, names="value")
-            redraw_mode()
-            pane.children = (paragraph("<b>캐릭터 생성 설정</b>"), mode_picker, detail)
-        else:
-            detail = w.VBox()
-            subtype_picker = select("ACCESSORY_SUBTYPE", ACCESSORY_LABELS,
-                                    name="② 액세서리·의상 작업",
-                                    description="선택한 소품·의상 작업의 옵션만 표시합니다.")
-            def redraw_subtype(change=None):
-                detail.children = tuple(accessory_options(values["ACCESSORY_SUBTYPE"]))
-            subtype_picker.children[0].observe(redraw_subtype, names="value")
-            redraw_subtype()
-            pane.children = (paragraph("<b>액세서리·의상 제작 설정</b>"), subtype_picker, detail)
-
-    task_picker.children[0].observe(redraw_task, names="value")
-    redraw_task()
-    confirm = w.Button(description="② 설정 확정 — ③ 진행 허용",
-                       button_style="success", icon="check",
-                       layout=w.Layout(width="330px"))
-    def on_confirm(_):
-        try:
-            refresh_qwen(values)
-            snapshot = selection_signature(values)
-        except ValueError as exc:
-            dirty()
-            status.value = "<b>설정 오류:</b> " + str(exc)
-            return
-        values["MODE_SELECTION_SNAPSHOT"] = snapshot
-        values["MODE_SELECTION_CONFIRMED"] = True
-        status.value = ("<b>설정 확정 완료.</b> ③ 모델 다운로드 셀을 실행하세요. "
-                        "선택값을 바꾸면 다시 확정해야 합니다.")
-        print("[② 설정 확정]", " / ".join(map(str, snapshot[:4])), flush=True)
-    confirm.on_click(on_confirm)
-    display(w.VBox([task_picker, *shared, pane, confirm, status]))
-    return True
-
-
 def refresh_qwen(values: dict) -> None:
     q = values["LIVE2D_QWEN"]
     edition = values["LIVE2D_EDITION"]
     values["LIVE2D_USE_QWEN"] = q == "on" or (q == "auto" and edition == "pro")
+
+
+def _browser_form_js(values: dict) -> str:
+    """A JavaScript Promise resolved only by the user pressing submit."""
+    import json
+
+    fields = [
+        {"id": "TASK", "title": "작업 종류", "options": {
+            "캐릭터 생성": "캐릭터 생성 — Live2D / Inochi2D / 3D VRM",
+            "액세서리 제작": "액세서리 제작 — 소품 / 교체 의상",
+        }, "desc": "작업 종류에 따라 아래 설정이 자동으로 바뀝니다."},
+        {"id": "MODE", "title": "캐릭터 제작 방식", "options": MODE_LABELS,
+         "desc": "Live2D 아래에서 Cubism FREE/PRO를 선택합니다."},
+        {"id": "LIVE2D_EDITION", "title": "Live2D 등급", "options": EDITION_LABELS,
+         "desc": "FREE는 한 장의 완성 캐릭터, PRO는 기준 외형·헤어·의상 등 분리 이미지."},
+        {"id": "LIVE2D_FRAMING", "title": "Live2D 제작 범위", "options": FRAMING_LABELS,
+         "desc": "상반신 또는 전신을 선택하세요."},
+        {"id": "LIVE2D_QWEN", "title": "Qwen 4bit + Stable-Layers", "options": QWEN_LABELS,
+         "desc": "auto는 FREE 기본 분해, PRO는 Qwen 추가. T4 구동은 미검증입니다."},
+        {"id": "TWO_D_INPUT", "title": "Inochi2D 입력 방식", "options": TWO_D_LABELS,
+         "desc": "시트 ZIP, 분리 PNG 또는 자동 분리."},
+        {"id": "MULTI_REFERENCE_3D", "title": "3D 다중 시점 이미지", "kind": "checkbox",
+         "desc": "체크하면 다중 시점 ZIP, 해제하면 단일 이미지 입력."},
+        {"id": "ACCESSORY_SUBTYPE", "title": "액세서리·의상 제작", "options": ACCESSORY_LABELS,
+         "desc": "소품·2D 의상·3D XWear 중 하나를 선택합니다."},
+        {"id": "ACCESSORY_ANCHOR", "title": "소품 부착 위치", "options": ANCHOR_LABELS,
+         "desc": "AUTO는 파일명으로 판별, ALL은 모든 위치에 적용."},
+        {"id": "OUTFIT_2D_TARGET", "title": "2D 교체 의상 대상", "options": {
+            "live2d": "Live2D Cubism — 기존 교체형 의상 경로",
+            "inochi2d": "Inochi2D — 기존 교체형 의상 경로",
+        }, "desc": "교체 의상의 대상 2D 프로그램입니다."},
+        {"id": "USAGE", "title": "사용 범위", "options": USAGE_LABELS,
+         "desc": "개인 비영리, 개인 수익 또는 기업 사용을 선택하세요."},
+        {"id": "EXISTING_IMAGE_PATH", "title": "기존 이미지 경로 (선택)", "kind": "text",
+         "desc": "이미지가 있으면 /content 경로, 없으면 비워 두세요."},
+        {"id": "ACCESSORY_BASE_VRM_PATH", "title": "소품·의상 기준 VRM 경로 (선택)", "kind": "text",
+         "desc": "기존 VRM 경로. 비우면 이전 결과나 업로드를 이용합니다."},
+        {"id": "WARDROBE_2D_BASE_ZIP_PATH", "title": "교체 의상 기준 2D ZIP (선택)", "kind": "text",
+         "desc": "기존 2D 캐릭터 기준 ZIP 경로."},
+        {"id": "WARDROBE_XWEAR_PATH", "title": "XWear 파일 경로 (선택)", "kind": "text",
+         "desc": "기존 XWear 경로. 비우면 ④에서 업로드합니다."},
+    ]
+    initial = {field["id"]: values.get(field["id"], "") for field in fields}
+    data = json.dumps({"fields": fields, "initial": initial}, ensure_ascii=False)
+    # Colab output.eval_js awaits the Promise. No notebook polling, timers or
+    # asynchronous ipywidgets callbacks are required.
+    return """new Promise((resolve, reject) => {
+  const data = """ + data + """;
+  const panel = document.createElement('section');
+  panel.style.cssText = 'box-sizing:border-box;width:100%;max-width:860px;padding:16px;border:1px solid #888;border-radius:10px;font:14px system-ui,sans-serif;line-height:1.5';
+  const title = document.createElement('div');
+  title.textContent = '② 제작 옵션 — 선택을 완료하고 아래 확정 버튼을 누르세요.';
+  title.style.cssText = 'font-weight:700;font-size:16px;margin-bottom:10px';
+  panel.append(title);
+  const status = document.createElement('div');
+  status.textContent = '선택이 끝나기 전에는 이 셀이 완료되지 않아 ③으로 넘어가지 않습니다.';
+  status.style.cssText = 'margin:5px 0 12px';
+  panel.append(status);
+  const rows = {}, controls = {};
+  for (const f of data.fields) {
+    const row = document.createElement('div');
+    row.style.cssText = 'margin-bottom:14px';
+    const label = document.createElement('label');
+    label.textContent = f.title;
+    label.style.cssText = 'display:block;font-weight:650;margin-bottom:4px';
+    let control;
+    if (f.kind === 'text') {
+      control = document.createElement('input');
+      control.type = 'text';
+      control.value = data.initial[f.id] || '';
+      control.style.cssText = 'box-sizing:border-box;width:100%;padding:8px';
+    } else if (f.kind === 'checkbox') {
+      control = document.createElement('input');
+      control.type = 'checkbox';
+      control.checked = !!data.initial[f.id];
+      control.style.cssText = 'width:18px;height:18px';
+    } else {
+      control = document.createElement('select');
+      control.style.cssText = 'box-sizing:border-box;width:100%;padding:8px';
+      for (const [key, caption] of Object.entries(f.options)) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = caption;
+        control.append(option);
+      }
+      if (Object.prototype.hasOwnProperty.call(f.options, data.initial[f.id])) {
+        control.value = data.initial[f.id];
+      }
+    }
+    label.htmlFor = control.id = 'vp_choice_' + f.id;
+    control.setAttribute('aria-label', f.title);
+    control.addEventListener('change', update);
+    const description = document.createElement('div');
+    description.textContent = f.desc;
+    description.style.cssText = 'font-size:12px;opacity:.75;margin-top:3px';
+    row.append(label, control, description);
+    panel.append(row);
+    rows[f.id] = row;
+    controls[f.id] = control;
+  }
+  function value(id) {return controls[id].value;}
+  function visible(id, enabled) {rows[id].style.display = enabled ? 'block' : 'none';}
+  function update() {
+    const character = value('TASK') === '캐릭터 생성';
+    const live2d = character && value('MODE') === 'live2d';
+    const subtype = value('ACCESSORY_SUBTYPE');
+    visible('MODE', character);
+    visible('LIVE2D_EDITION', live2d);
+    visible('LIVE2D_FRAMING', live2d);
+    visible('LIVE2D_QWEN', live2d);
+    visible('TWO_D_INPUT', character && value('MODE') === 'inochi2d');
+    visible('MULTI_REFERENCE_3D', character && value('MODE') === '3d');
+    visible('EXISTING_IMAGE_PATH', character);
+    visible('ACCESSORY_SUBTYPE', !character);
+    visible('ACCESSORY_ANCHOR', !character && subtype === '소품');
+    visible('OUTFIT_2D_TARGET', !character && subtype === '2D 교체 의상');
+    visible('ACCESSORY_BASE_VRM_PATH', !character && subtype !== '2D 교체 의상');
+    visible('WARDROBE_2D_BASE_ZIP_PATH', !character && subtype === '2D 교체 의상');
+    visible('WARDROBE_XWEAR_PATH', !character && subtype === '3D 교체 의상(XWear)');
+    visible('USAGE', true);
+  }
+  update();
+  const submit = document.createElement('button');
+  submit.textContent = '② 설정 확정 및 ③ 진행';
+  submit.style.cssText = 'padding:11px 18px;border-radius:7px;background:#1976d2;color:white;font-weight:700;border:0;cursor:pointer';
+  panel.append(submit);
+  submit.addEventListener('click', () => {
+    const result = {};
+    for (const f of data.fields) {
+      const control = controls[f.id];
+      result[f.id] = f.kind === 'checkbox' ? control.checked : control.value;
+    }
+    submit.disabled = true;
+    status.textContent = '설정이 확정되었습니다. 다운로드 준비 단계로 진행합니다.';
+    resolve(result);
+  }, {once:true});
+  (document.querySelector('#output-area') || document.body).append(panel);
+  panel.scrollIntoView({block:'nearest'});
+})"""
+
+
+def choose_notebook_controls(values: dict, *, evaluate=None) -> tuple:
+    """Pause the current Colab cell until the browser's submit Promise resolves.
+
+    The evaluate dependency is injectable for deterministic CPU-only tests.
+    """
+    values["MODE_SELECTION_CONFIRMED"] = False
+    values.pop("MODE_SELECTION_SNAPSHOT", None)
+    if evaluate is None:
+        try:
+            from google.colab import output
+        except ImportError as exc:
+            raise RuntimeError("Colab의 ② 셀에서 옵션을 선택하세요.") from exc
+        def evaluate(script):
+            return output.eval_js(script, timeout_sec=None)
+    selected = evaluate(_browser_form_js(values))
+    if not isinstance(selected, dict):
+        raise RuntimeError("② 선택 창이 완료되지 않았습니다. 다시 실행하세요.")
+    allowed = {
+        "TASK", "MODE", "LIVE2D_EDITION", "LIVE2D_FRAMING", "LIVE2D_QWEN",
+        "TWO_D_INPUT", "MULTI_REFERENCE_3D", "ACCESSORY_SUBTYPE",
+        "ACCESSORY_ANCHOR", "OUTFIT_2D_TARGET", "USAGE",
+        "EXISTING_IMAGE_PATH", "ACCESSORY_BASE_VRM_PATH",
+        "WARDROBE_2D_BASE_ZIP_PATH", "WARDROBE_XWEAR_PATH",
+    }
+    if set(selected) != allowed:
+        raise RuntimeError("② 선택 결과의 필드가 올바르지 않습니다.")
+    candidate = dict(values)
+    candidate.update(selected)
+    refresh_qwen(candidate)
+    snapshot = selection_signature(candidate)
+    values.update(selected)
+    values["LIVE2D_USE_QWEN"] = candidate["LIVE2D_USE_QWEN"]
+    values["MODE_SELECTION_SNAPSHOT"] = snapshot
+    values["MODE_SELECTION_CONFIRMED"] = True
+    return snapshot
