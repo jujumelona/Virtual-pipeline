@@ -163,6 +163,39 @@ def _verify_native_linker() -> None:
     print("[inochi-sdk] native C and D linker smoke passed", flush=True)
 
 
+def bind_prepared_inochi_runtime() -> str:
+    """Bind a previously compiled SDK without apt, DUB, Git, or downloads."""
+    compiler = PROJECT / "dub.sdl"
+    lock_path = PROJECT / "dub.selections.json"
+    sources = sorted((PROJECT / "source").glob("*.d"))
+    try:
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+        fingerprint = hashlib.sha256(
+            compiler.read_bytes() + lock_path.read_bytes()
+            + b"".join(source.read_bytes() for source in sources)
+            + b"inochi2d-sdk-v0.8.7-full-sdl2"
+        ).hexdigest()
+        marker = json.loads((CACHE / "ready.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError) as exc:
+        raise RuntimeError(
+            "Inochi SDK not built: run notebook ③ program download cell"
+        ) from exc
+    wrapper = CACHE / "inochi-export"
+    binary = CACHE / "vtuber-inochi-native"
+    if (not sources or lock.get("versions", {}).get("inochi2d") != "0.8.7"
+            or marker.get("fingerprint") != fingerprint
+            or marker.get("binary") != str(binary)
+            or not binary.is_file() or not os.access(binary, os.X_OK)
+            or not wrapper.is_file() or not os.access(wrapper, os.X_OK)
+            or not shutil.which("xvfb-run")):
+        raise RuntimeError(
+            "Inochi SDK ready marker is absent or stale; "
+            "run notebook ③ program download cell"
+        )
+    os.environ["VTUBER_INOCHI_NATIVE"] = str(wrapper)
+    return str(wrapper)
+
+
 def ensure_inochi_native_runtime() -> str:
     """Build and verify the real D executable, returning a headless wrapper."""
     CACHE.mkdir(parents=True, exist_ok=True)
