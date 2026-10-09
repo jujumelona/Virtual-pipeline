@@ -271,7 +271,7 @@ def test_start_routes_to_exact_mode_with_selected_scope(ui, monkeypatch):
         assert selected[-1] == "personalProfit"
 
     assert setup_calls == [
-        "2d", "inochi2d", "2d", "live2d",
+        "2d", "Inochi SDK native rig exporter", "inochi2d", "2d", "live2d",
         "3D TripoSR checkout",
         "3D alpha-only worker environment",
         "3D Blender VRM operator verification",
