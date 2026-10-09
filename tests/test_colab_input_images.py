@@ -69,8 +69,10 @@ def test_readme_is_the_only_colab_prompt_source():
                      if c["cell_type"] == "code")
     assert "## 모드별 이미지 생성 프롬프트 — 고해상도 시트 방식" in readme
     assert "front_master.png" in readme
-    assert "hair_front.png" in readme
-    assert "right.png" in readme
+    assert "sheet_hair.png" in readme
+    assert "sheet_body_views.png" in readme
+    assert "character_2d_sheet_pack.zip" in readme
+    assert "character_3d_sheet_pack.zip" in readme
     assert "build_prompts(" not in code
     assert "write_prompt_package" not in code
     assert "Identity(" not in code
