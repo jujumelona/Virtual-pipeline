@@ -78,7 +78,16 @@ def main() -> int:
         temp = result_path.with_suffix(".tmp")
         temp.write_text(json.dumps({"result": result}, ensure_ascii=False), encoding="utf-8")
         temp.replace(result_path)
-        emit("complete", mode=request["mode"])
+        callback_status = str(result[0])
+        # Callback-level failures are structured results, not successful model
+        # completions. Preserve the result payload for notebook diagnostics,
+        # but never emit a misleading "complete" event for a dead FLUX worker.
+        if callback_status.startswith("❌") or " 제작 실패" in callback_status:
+            emit("failed", mode=request["mode"],
+                 callback_status=callback_status[:400],
+                 details=str(result[1])[-2000:])
+        else:
+            emit("complete", mode=request["mode"])
         return 0
     except BaseException:
         traceback.print_exc()
