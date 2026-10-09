@@ -273,7 +273,11 @@ def test_readme_open_in_colab_badge_targets_canonical_three_step_notebook():
         for cell in notebook["cells"]
         if cell.get("cell_type") == "code"
     ]
-    assert len(code_cells) == 3
+    assert len(code_cells) == 4
+    assert "generation.log" in code_cells[3]
+    assert "status.json" in code_cells[3]
+    assert "generate(" not in code_cells[3]
+    assert "subprocess" not in code_cells[3]
     # The canonical notebook now has finite-lifetime native cells, not a
     # persistent Gradio iframe server. The first cell still delegates all
     # dependency installation to the single pinned runtime installer.
