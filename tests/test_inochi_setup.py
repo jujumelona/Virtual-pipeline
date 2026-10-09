@@ -111,9 +111,12 @@ def test_native_runtime_hash_includes_dependency_lock():
 def test_linker_preflight_compiles_c_graphics_and_ldc_phobos(tmp_path, monkeypatch):
     monkeypatch.setattr(setup, "CACHE", tmp_path)
     called = []
+    c_probe = []
     def fake_run(cmd, *, timeout, cwd):
         called.append(cmd)
         assert Path(cmd[1]).is_file()
+        if cmd[0] == "cc":
+            c_probe.append(Path(cmd[1]).read_text())
         assert cwd == setup.PROJECT
     monkeypatch.setattr(setup, "_run", fake_run)
     setup._verify_native_linker()
@@ -122,7 +125,7 @@ def test_linker_preflight_compiles_c_graphics_and_ldc_phobos(tmp_path, monkeypat
     assert {"-lSDL2", "-lGL", "-lGLdispatch", "-lGLU", "-lz"}.issubset(set(called[0]))
     c_flags = called[0]
     assert c_flags.index("-lGL") < c_flags.index("-lGLdispatch")
-    assert "glGetString(GL_VERSION)" in Path(called[0][1]).read_text()
+    assert "glGetString(GL_VERSION)" in c_probe[0]
     assert called[1][0] == "ldc2"
     assert "-v" in called[1]
     assert "-L-lGL" in called[1]
