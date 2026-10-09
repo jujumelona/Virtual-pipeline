@@ -190,7 +190,9 @@ def _latest_avatar() -> str | None:
 def _build_arguments(mode, usage, upload, job_folder, *, image_path,
                      full_body, texture_size, rigging_provider,
                      accessory_anchor, accessory_base_path,
-                     reference_face_path="", accessory_image_paths=()):
+                     reference_face_path="", accessory_image_paths=(),
+                     layers_zip_path="", reference_back_path="",
+                     reference_left_path="", reference_right_path=""):
     if mode in ("inochi2d", "live2d", "3d"):
         front = (
             _existing_image(image_path, description="캐릭터 원본")
@@ -199,6 +201,13 @@ def _build_arguments(mode, usage, upload, job_folder, *, image_path,
             )[0]
         )
         if mode in ("inochi2d", "live2d"):
+            if layers_zip_path:
+                archive = Path(layers_zip_path).expanduser().resolve(strict=True)
+                if archive.suffix.casefold() != ".zip":
+                    raise ValueError("2D artwork package must be a .zip file")
+                return mode, [front, usage, str(archive)]
+            if __import__("os").environ.get("VTUBER_2D_SUPPLIED_LAYERS") == "1":
+                raise ValueError("2D layered mode requires the 26 PNG layers ZIP")
             return mode, [front, usage]
         face = None
         if full_body:
@@ -211,9 +220,15 @@ def _build_arguments(mode, usage, upload, job_folder, *, image_path,
             )
         # Additional view inputs are optional advanced pipeline inputs, not
         # part of the one-image default path.
+        back = (_existing_image(reference_back_path, description="후면")
+                if reference_back_path else None)
+        left = (_existing_image(reference_left_path, description="좌측")
+                if reference_left_path else None)
+        right = (_existing_image(reference_right_path, description="우측")
+                 if reference_right_path else None)
         return "avatar", [
-            front, usage, None, face, None, bool(full_body),
-            int(texture_size), None, None, rigging_provider,
+            front, usage, None, face, back, bool(full_body),
+            int(texture_size), left, right, rigging_provider,
         ]
 
     if accessory_anchor not in ACCESSORY_ANCHOR_OPTIONS:
@@ -290,6 +305,10 @@ def generate(
     accessory_base_path: str = "",
     reference_face_path: str = "",
     accessory_image_paths: tuple[str, ...] = (),
+    layers_zip_path: str = "",
+    reference_back_path: str = "",
+    reference_left_path: str = "",
+    reference_right_path: str = "",
     upload=None,
     runner=None,
 ) -> str | None:
@@ -321,6 +340,10 @@ def generate(
         accessory_base_path=accessory_base_path,
         reference_face_path=reference_face_path,
         accessory_image_paths=accessory_image_paths,
+        layers_zip_path=layers_zip_path,
+        reference_back_path=reference_back_path,
+        reference_left_path=reference_left_path,
+        reference_right_path=reference_right_path,
     )
     print("생성 시작. 이 셀의 ■ 중지를 누르면 모델 작업까지 종료합니다.", flush=True)
     try:
