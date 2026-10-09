@@ -1,4 +1,4 @@
-"""Colab v8 accepts raw image files only; users never upload a ZIP."""
+"""Optional raw input path takes outfit-free parts; high-quality sheet mode takes ZIP."""
 from io import BytesIO
 import zipfile
 
@@ -24,12 +24,12 @@ def small_png_set(monkeypatch):
     return {name: _make_png() for name in inputs.EXPECTED}
 
 
-def test_27_raw_pngs_are_verified_and_packed_internally(tmp_path, small_png_set):
+def test_25_neutral_pngs_are_verified_and_packed_internally(tmp_path, small_png_set):
     master, internal = inputs.prepare_2d_image_uploads(small_png_set, str(tmp_path))
     assert Image.open(master).size == (64, 96)
     with zipfile.ZipFile(internal) as z:
         assert set(z.namelist()) == inputs.EXPECTED - {"front_master.png"}
-        assert len(z.namelist()) == 26
+        assert len(z.namelist()) == 24
     assert set(tmp_path.glob("*")) == {tmp_path / "front_master.png",
                                         tmp_path / "verified_layers.internal.zip"}
 
@@ -96,9 +96,9 @@ def test_every_external_2d_layer_name_has_a_valid_rig_semantic():
 
     actual = {name.removesuffix(".png") for name in inputs.EXPECTED
               if name != "front_master.png"}
-    assert len(actual) == 26
+    assert len(actual) == 24
     semantic = [KNOWN.get(name, name.replace("_", ".")) for name in sorted(actual)]
-    assert len(set(semantic)) == 26
+    assert len(set(semantic)) == 24
     assert all(isinstance(z_order(part), int) for part in semantic)
 
 
@@ -125,6 +125,6 @@ def test_generated_colab_2d_layer_pack_resolves_to_all_real_parts(tmp_path, monk
                        user_layers_zip=archive, output_dir=str(tmp_path / "rig"))
     result = _layers(source, tmp_path / "resolved")
     assert result is not None
-    assert len(result.parts) == 26
+    assert len(result.parts) == 24
     assert all(part.hidden_fill_mask_png is None for part in result.parts)
-    assert len({part.semantic_id for part in result.parts}) == 26
+    assert len({part.semantic_id for part in result.parts}) == 24
