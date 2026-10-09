@@ -28,7 +28,9 @@ def test_wardrobe_is_accessory_subtype_not_falsely_static_bone_attachment():
     assert 'costume.xwear' in uploads
     assert 'sheet_prepare_worker.py' in build
     assert 'wardrobe_2d' in build
-    assert 'inspect_garment_image' in uploads
+    assert 'inspect_image' in uploads
+    assert 'hair_variant.png' in uploads
+    assert '"hair_png"' in build
     assert 'prepare_vroid_dressup(' in build
     assert 'generate(' in build
     # The generic static attach path must be the last accessory branch.
@@ -50,9 +52,8 @@ def test_readme_cites_correct_2d_and_3d_wardrobe_file_names():
     for name in (
         "outfit_variant.png", "costume.xwear", "base_avatar.vrm",
         "vroid_dressup_handoff.zip",
-        "garment_front_back_ref.png",
-        "garment_side_views_ref.png",
-        "garment_details_ref.png",
+        "sheet_front_back.png", "sheet_side_views.png", "face.png",
+        "hair_variant.png",
     ):
         assert name in readme
     assert "STATIC" not in readme or "static" in readme.lower()
