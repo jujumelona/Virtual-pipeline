@@ -114,3 +114,27 @@ def test_2d_downloads_and_worker_install_are_independent(monkeypatch):
     assert calls[0] == "runtime"
     assert set(calls[1:3]) == {"2d-packages", "models:live2d"}
     assert calls[-1] == "verified:live2d"
+
+
+def test_sheet_pack_prefetches_anime_sr_only_in_download_cell(monkeypatch):
+    calls = []
+    from tools import colab_gpu_warmup, sheet_super_resolution
+
+    monkeypatch.setattr(colab_gpu_warmup,"available_face_worker",lambda: True)
+    monkeypatch.setattr(sheet_super_resolution,"prepare_weights",
+                        lambda: calls.append("anime-sr"))
+    contract = {
+        "ensure_runtime": lambda: calls.append("runtime"),
+        "prepare_models": lambda mode: calls.append("models:" + mode),
+        "require_runtime_ready": lambda mode: calls.append("verified:" + mode),
+    }
+    monkeypatch.setattr(prepare.runpy,"run_path",lambda *a,**kw:contract)
+    prepare.prepare_selected_mode(
+        "live2d",prewarm_first_gpu=True,
+        provided_2d_layers=True,sheet_pack=True
+    )
+    assert calls[0] == "runtime"
+    assert "anime-sr" in calls
+    assert "models:common_2d_layers" in calls
+    assert calls[-1] == "verified:common_2d_layers"
+    assert "models:live2d" not in calls
