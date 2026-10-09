@@ -46,7 +46,9 @@ def test_character_base_is_20_parts_no_hair_no_outfit():
     core={"front_master.png"}|{s.filename for s in SHEETS_2D}
     for name in core:
         p=data[name]
-        assert "NO costume" in p or "NO detachable clothing" in p or "NO jacket" in p or "OUTFIT-FREE" in p,name
+        assert ("NO costume" in p or "NO detachable costume" in p
+                or "NO detachable clothing" in p or "NO jacket" in p
+                or "OUTFIT-FREE" in p),name
     a=section().split("### ① 캐릭터 생성 — 2D",1)[1].split(
         "### ① 캐릭터 생성 — 3D",1
     )[0]
