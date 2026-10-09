@@ -365,7 +365,7 @@ def _install_runtime(head: str) -> None:
         "scipy>=1.13",
         "click>=8.0",
         "pygltflib==1.16.5",
-        "psd-tools==1.11.0",
+        "psd-tools==1.14.2",
         "packaging>=24.0",
     ]
     _run(

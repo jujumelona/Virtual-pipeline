@@ -25,7 +25,7 @@ WORKERS = ("ANIME_ALPHA", "FLORENCE", "SAM", "FLUX")
 PYTHON_PACKAGES = (
     "pytorch-lightning==2.5.6", "kornia==0.8.2",
     "timm==1.0.20", "accelerate==1.10.1",
-    "hydra-core==1.3.2", "psd-tools==1.11.0",
+    "hydra-core==1.3.2", "psd-tools==1.14.2",
     # SAM2's upstream setup.py requires iopath>=0.1.10, which imports portalocker.
     # The old SAM2 --no-deps editable install skipped these runtime requirements.
     "portalocker==2.10.1",

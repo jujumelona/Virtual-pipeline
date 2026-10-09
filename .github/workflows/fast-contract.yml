@@ -25,7 +25,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check --only-binary=:all: \
             pytest numpy scipy pillow==12.3.0 trimesh==4.12.2 \
-            click psd-tools==1.11.0 pygltflib==1.16.5 \
+            click psd-tools==1.14.2 pygltflib==1.16.5 \
             'opencv-python-headless>=4.10,<5'
           python -m pip install --disable-pip-version-check -e . --no-deps
       - name: Verify recently changed production seams
