@@ -208,7 +208,7 @@ def test_v8_notebook_cells_are_independent_and_failure_is_not_success():
     assert "LAYER_ZIP_PATH" in upload
     assert "layers_zip_path=" in build
     assert "--sheet-pack" in prefetch
-    assert 'TWO_D_INPUT = "sheets"' in selection
+    assert 'TOP_MODE = "live2d" #@param' in selection
     assert 'INOCHI_INPUT_OPTION = "sheets" #@param' in inochi
     assert 'ACCESSORY_SUBTYPE_OPTION = "소품" #@param' in accessory
     assert "colab_mode_prepare.py" in prefetch
