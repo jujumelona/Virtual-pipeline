@@ -48,8 +48,8 @@ def test_gradio_6_builds_named_2d_and_3d_workflows():
     assert ui.return_to_workflow_choice in handlers
     assert ui.stream_avatar_ui in handlers
     assert ui.stream_accessories_ui in handlers
-    assert ui.build_inochi2d_ui in handlers
-    assert ui.build_live2d_ui in handlers
+    assert ui.stream_inochi2d_ui in handlers
+    assert ui.stream_live2d_ui in handlers
     assert ui.show_3d_accessory in handlers
     assert ui.show_3d_avatar in handlers
 
@@ -111,8 +111,8 @@ def test_both_streaming_handlers_keep_progress_and_log_file_outputs():
     }
     assert "stream_avatar_ui" in names
     assert "stream_accessories_ui" in names
-    assert "build_inochi2d_ui" in names
-    assert "build_live2d_ui" in names
+    assert "stream_inochi2d_ui" in names
+    assert "stream_live2d_ui" in names
 
 
 def test_avatar_has_native_download_button_bound_to_completed_generator():
@@ -208,13 +208,13 @@ def test_mode_switch_requires_no_installation_and_only_one_character_image():
     names = {item.get("props", {}).get("label") for item in registry.values()}
     assert "투명 PNG 파츠 ZIP (선택)" not in names
     assert "분리된 투명 PNG 파츠 ZIP (선택; 모든 PNG는 원본과 동일한 캔버스)" not in names
-    for handler in ("build_inochi2d_ui", "build_live2d_ui"):
+    for handler in ("stream_inochi2d_ui", "stream_live2d_ui"):
         event = next(entry for entry in config["dependencies"] if entry.get("api_name") == handler)
         assert len(event["inputs"]) == 2
         assert [
             registry[identity]["props"].get("label") for identity in event["inputs"]
         ] == [
-            "Inochi2D 캐릭터 그림" if handler == "build_inochi2d_ui"
+            "Inochi2D 캐릭터 그림" if handler == "stream_inochi2d_ui"
             else "2D 캐릭터 원본 일러스트 (필수)",
             None,  # selected_usage is a gr.State, not a parts upload
         ]
