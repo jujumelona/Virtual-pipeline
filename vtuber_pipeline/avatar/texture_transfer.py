@@ -167,7 +167,15 @@ def transfer_texture(
                 and float(face_bbox[2]) > float(face_bbox[0])
                 and float(face_bbox[3]) > float(face_bbox[1])
             )
-            if valid_bbox:
+            # input_gate detects on face_image_path when one is supplied.
+            # Its bounding box is then in the *face reference* pixel frame,
+            # NOT in the original character image frame. Reusing it for the
+            # front atlas paints the body/face at unrelated source pixels.
+            front_bbox_valid = valid_bbox and (
+                not face_image_path
+                or pathlib.Path(face_image_path).resolve() == pathlib.Path(image_path).resolve()
+            )
+            if front_bbox_valid:
                 x1, y1, x2, y2 = [float(v) for v in face_bbox[:4]]
                 bbox_cx = (x1 + x2) * 0.5
                 bbox_cy = (y1 + y2) * 0.5
@@ -179,7 +187,11 @@ def transfer_texture(
                 bbox_cy = src_height * 0.34
                 scale_x = (src_width * 0.45) / head_width
                 scale_y = (src_height * 0.45) / head_height
-                result["projection_mode"] = "centered_fallback"
+                result["projection_mode"] = (
+                    "centered_fallback_unregistered_face"
+                    if valid_bbox and not front_bbox_valid
+                    else "centered_fallback"
+                )
 
             # Full-body texture coordinates must cover feet, torso, sleeves
             # and hair. Projecting every vertex through the *face* bounding
