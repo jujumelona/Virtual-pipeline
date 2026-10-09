@@ -41,6 +41,7 @@ jobs:
             tests/test_cubism_export_validation.py \
             tests/test_vts_mode_contract.py \
             tests/test_vts_production_contract.py \
+            tests/test_vts_artwork_export.py \
             tests/test_vts_subprocess.py \
             tests/test_colab_mode_ui.py \
             tests/test_psd_layer_roundtrip.py \
