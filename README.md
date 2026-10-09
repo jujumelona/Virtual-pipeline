@@ -220,7 +220,7 @@ export TRIPOSR_DIR="$PWD/TripoSR"
 
 ## Google Colab
 
-상단 **Open In Colab** 버튼에서 노트북을 열고 **① 환경 설치 → ② 작업 종류에서 캐릭터 생성(기본) / 액세서리 제작 선택 → ③ 사진 업로드 및 생성** 순서대로 실행합니다. Gradio나 별도 웹 서버를 실행하지 않습니다. 모델은 ③ 생성 셀에서 선택한 모드에 필요한 것만 설치·검증하며, 작업이 끝나면 셀도 종료됩니다. **③ 셀을 중지하면 해당 AI 생성 프로세스와 하위 GPU 작업의 종료를 요청합니다.** 전체 로그는 `/content/vtuber_builder/jobs/`에 보존합니다.
+상단 **Open In Colab** 버튼에서 v8 노트북을 엽니다. **① 환경 설치 → ② 모드 선택 → ③ 사진·VRM·액세서리 업로드 → ④ 제작 → ⑤ 다운로드 → ⑥ 상태·로그 진단 → ⑦ 마지막 셀** 순서입니다. **모든 단계가 서로 다른 Colab 셀**입니다. ③ 업로드가 완료되면 ④ 제작은 업로드 창을 다시 열지 않으며, ④ 셀이 결과를 만들 때 ⑤ 다운로드가 자동 실행되지 않습니다. ⑤ 셀에서 `DOWNLOAD_NOW=True`를 선택한 경우에만 파일을 다운로드합니다. 작업 실패 시 ④ 셀은 오류를 표시하고 완성 파일로 취급하지 않습니다. ⑦은 별도의 마지막 셀입니다. Gradio나 별도 웹 서버는 실행하지 않습니다. **④ 제작 셀을 중지하면 AI 작업자와 하위 GPU 작업에 종료를 요청합니다.** 전체 로그는 `/content/vtuber_builder/jobs/`에 보존됩니다(런타임이 삭제되면 `/content`의 임시 파일은 유지되지 않을 수 있음). **Colab이 GPU 할당량이나 메모리 문제로 런타임 자체를 끊는 상황은 마지막 셀 추가로 방지할 수 없습니다.**
 
 ### ① 캐릭터 / 얼굴 만들기
 
@@ -231,7 +231,7 @@ export TRIPOSR_DIR="$PWD/TripoSR"
 - eye-bone look-at
 - hair SpringBone
 - **캐릭터 VRM 생성**
-- 검증된 `avatar.vrm`은 `/content/vtuber_builder/avatar.vrm`에도 복사합니다. Colab **왼쪽 파일 탐색기**에서 다운로드하거나, 생성 종료 후 별도 셀에 `from google.colab import files; files.download(RESULT_FILE)`을 입력하여 내려받을 수 있습니다. 브라우저 다운로드 요청을 생성 셀 내부에서 강제로 시작하지 않습니다.
+- 검증된 `avatar.vrm`은 `/content/vtuber_builder/avatar.vrm`에도 복사합니다. Colab **왼쪽 파일 탐색기**에서 다운로드하거나, 생성 종료 후 **⑤ 다운로드 전용 셀**에서 `DOWNLOAD_NOW=True`를 선택하여 내려받을 수 있습니다. 브라우저 다운로드 요청을 생성 셀 내부에서 강제로 시작하지 않습니다.
 
 ### ② 악세사리 만들기
 
