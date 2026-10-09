@@ -43,7 +43,7 @@ _PREPARATION_MODE = (
 )
 if _PREPARATION_MODE:
     from types import SimpleNamespace
-    gr = SimpleNamespace(Progress=lambda: None)
+    gr = SimpleNamespace(Progress=lambda: None, update=lambda **kwargs: kwargs)
     print("[setup] Python preparation entrypoint loaded", flush=True)
 else:
     import gradio as gr
