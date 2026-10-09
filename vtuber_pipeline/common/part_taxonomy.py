@@ -2,7 +2,12 @@
 PART_DEPTH = {
     "hair.back": 10, "body": 20, "leg": 22, "shoe": 24, "arm": 26,
     "head": 38, "hand": 60, "brow": 54, "sleeve": 36, "accessory": 80,
-    "neck": 30, "cloth": 35, "face": 40, "eye": 50, "eyebrow": 54,
+    "neck": 30, "cloth": 35, "face": 40,
+    "eye": 50, "eye.left.white": 50, "eye.right.white": 50,
+    "eye.left.iris": 51, "eye.right.iris": 51,
+    "eye.left.lid": 53, "eye.right.lid": 53,
+    "mouth.inner": 55, "mouth.lip": 56,
+    "eyebrow": 54,
     "mouth": 55, "hair.side": 65, "hair.front": 70,
     "ornament": 80, "hat": 85,
 }
