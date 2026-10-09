@@ -1,61 +1,63 @@
-"""All image AI README prompts are independently pasteable and ratio-only."""
+"""README-facing image prompts must map to actual production filenames."""
 from pathlib import Path
 import re
 from vtuber_pipeline.sheet_contract import SHEETS_2D,VIEWS_3D
+from vtuber_pipeline.wardrobe_contract import GARMENT_PARTS
 
-def readme():
-    return (Path(__file__).resolve().parents[1]/"README.md").read_text(encoding="utf-8")
+README=(Path(__file__).resolve().parents[1]/"README.md")
+
+def section():
+    return README.read_text(encoding="utf-8").split("## 모드별 이미지 생성",1)[1].split("## 작업 모드",1)[0]
 
 def prompts():
-    section=readme().split("## 캐릭터 이미지 제작:",1)[1].split("## 작업 모드",1)[0]
-    patterns=[
-        r"#### 2D-0\. `([^`]+)`[^\n]*\n[\s\S]*?```text\n([\s\S]*?)\n```",
-        r"#### `([^`]+)`[^\n]*\n[\s\S]*?```text\n([\s\S]*?)\n```",
-    ]
+    content=section()
     out={}
-    for pat in patterns:
-        for m in re.finditer(pat,section):
-            if m.group(1).endswith(".png"):
-                assert m.group(1) not in out
-                out[m.group(1)]=m.group(2)
+    for m in re.finditer(
+        r"#### `([^`]+)`[^\n]*\n[\s\S]*?```text\n([\s\S]*?)\n```",
+        content
+    ):
+        if m.group(1).endswith(".png"):
+            out[m.group(1)]=m.group(2)
     return out
 
-def test_prompt_per_image_and_no_unreachable_fixed_resolution():
-    got=prompts()
-    expected={"front_master.png","face.png"}
-    expected|={s.filename for s in (*SHEETS_2D,*VIEWS_3D)}
-    assert set(got)==expected
-    for name,prompt in got.items():
-        assert "{gender}" in prompt and "{outfit}" in prompt,name
-        assert "ASPECT RATIO" in prompt,name
-        assert name in prompt,name
-        assert "4096x" not in prompt,name
-        assert "WIDTH=2048" not in prompt,name
-
-def test_sheet_ratio_grid_and_semantic_parts():
-    allp=prompts()
-    for sheet in SHEETS_2D:
-        p=allp[sheet.filename]
-        ratio=sheet.size[0]/sheet.size[1]
-        expected="1:1" if abs(ratio-1)<.01 else "2:3" if abs(ratio-2/3)<.01 else "4:3"
-        assert f"= {expected}" in p,sheet.filename
-        assert "2 columns and 2 rows" in p
-        for tile in sheet.tiles:
-            assert tile.name in p
-
-def test_wardrobe_layers_are_not_baked_into_body():
+def test_base_avatar_has_only_neutral_image_prompts_and_exact_filenames():
     p=prompts()
-    assert "not body or arms" in p["sheet_body_outfit.png"]
-    assert "OUTFIT_FRONT" in p["sheet_body_outfit.png"]
-    assert "No outfit-specific sleeves" in p["sheet_arms_hands.png"]
-    assert "의상 교체" in readme()
+    needed={"front_master.png","face.png"}|{
+        s.filename for s in (*SHEETS_2D,*VIEWS_3D)
+    }
+    assert needed.issubset(p)
+    for name in needed:
+        data=p[name]
+        assert name in data and "{gender}" in data
+        assert "WIDTH:HEIGHT" in data
+        assert "4096x" not in data, name
+        assert "NO costume" in data or "NO detachable clothing" in data or "NO jacket" in data or "OUTFIT-FREE" in data
 
-def test_3d_paired_views_and_square_face():
-    allp=prompts()
-    for sheet in VIEWS_3D:
-        p=allp[sheet.filename]
-        assert "= 4:3" in p
-        assert "2 equal-width columns" in p
-        for tile in sheet.tiles:
-            assert tile.name.upper() in p
-    assert "WIDTH:HEIGHT=1:1" in allp["face.png"]
+def test_sheet_grids_and_wardrobe_ownership():
+    p=prompts()
+    for spec in SHEETS_2D:
+        data=p[spec.filename]
+        for tile in spec.tiles:
+            assert tile.name in data
+        if len(spec.tiles)>1:
+            assert "2 columns x 2 rows" in data
+        else:
+            assert "1 column x 1 row" in data
+    garment=p["outfit_variant.png"]
+    assert "WIDTH:HEIGHT = 4:3" in garment
+    assert "2 columns x 2 rows" in garment
+    for name in GARMENT_PARTS:
+        assert name in garment
+    assert "character_2d_sheet_pack.zip" in section()
+    assert "costume.xwear" in section()
+    assert "garment_front_back_ref.png" in section()
+
+def test_every_costume_reference_has_explicit_filename_and_aspect():
+    p=prompts()
+    for name in ("outfit_variant.png","garment_front_back_ref.png",
+                 "garment_side_views_ref.png","garment_details_ref.png"):
+        assert name in p
+        assert "create and SAVE" in p[name]
+        assert "WIDTH:HEIGHT" in p[name]
+    assert "24파츠+의상 4파츠=28파츠" in section()
+    assert "착용 완료 VRM" in section() or "입힌 VRM 완성품이 아닙니다" in section()
