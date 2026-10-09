@@ -6,7 +6,7 @@ from pathlib import Path
 
 MODELS = {
     "skytnt_anime_seg_isnet_is": ("skytnt/anime-seg", "Apache-2.0"),
-    "florence2_base": ("microsoft/Florence-2-base", "MIT"),
+    "florence2_base": ("florence-community/Florence-2-base", "MIT"),
     "sam2_1_hiera_tiny": ("facebook/sam2.1-hiera-tiny", "Apache-2.0"),
     "anime_face_yolov3": ("hysts/anime-face-detector-yolov3", "MIT"),
     "anime_face_hrnetv2": ("hysts/anime-face-detector-hrnetv2", "MIT"),
