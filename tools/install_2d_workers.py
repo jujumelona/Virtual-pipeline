@@ -42,7 +42,7 @@ def _exec(args: list[str], *, cwd: Path | None = None, timeout: int = 600,
     print("[2d-env] $ " + command, flush=True)
     tail: deque[str] = deque(maxlen=140)
     with log_path.open("a", encoding="utf-8") as logfile:
-        logfile.write("\\n[2d-env] $ " + command + "\\n")
+        logfile.write("\n[2d-env] $ " + command + "\n")
         logfile.flush()
         process = subprocess.Popen(
             args, cwd=str(cwd) if cwd else None, env=env,
@@ -67,14 +67,14 @@ def _exec(args: list[str], *, cwd: Path | None = None, timeout: int = 600,
             process.wait(timeout=10)
             reader.join(timeout=10)
             raise RuntimeError(
-                f"[2d-env] setup timed out after {timeout}s: {command}\\n"
-                f"Full output: {log_path}\\n" + "".join(tail)[-8000:]
+                f"[2d-env] setup timed out after {timeout}s: {command}\n"
+                f"Full output: {log_path}\n" + "".join(tail)[-8000:]
             ) from exc
         reader.join(timeout=10)
         if result:
             raise RuntimeError(
-                f"[2d-env] dependency command failed (exit={result}): {command}\\n"
-                + "".join(tail)[-8000:] + f"\\nFull output: {log_path}"
+                f"[2d-env] dependency command failed (exit={result}): {command}\n"
+                + "".join(tail)[-8000:] + f"\nFull output: {log_path}"
             )
 
 
@@ -237,7 +237,7 @@ def install_alpha_environment() -> dict:
     torch_version = torch.__version__.split("+")[0]
     vision_version = torchvision.__version__.split("+")[0]
     packages = ("pytorch-lightning==2.5.6", "timm==1.0.20",
-                "kornia==0.8.2", "huggingface-hub>=0.25,<2")
+                "kornia==0.8.2", "huggingface-hub>=0.34.0,<1.0")
     fingerprint = hashlib.sha256(json.dumps({
         "torch": torch_version, "torchvision": vision_version,
         "packages": packages, "source": _pinned_source("anime", lock),
