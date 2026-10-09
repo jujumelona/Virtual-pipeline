@@ -63,6 +63,13 @@ def main() -> int:
         return 2
     request_path, result_path = map(Path, sys.argv[1:])
     try:
+        # Under system-RAM pressure the disposable AI process should be killed
+        # before the persistent Gradio/Colab control process. This is advisory
+        # only; do not assume every Colab container permits writing procfs.
+        try:
+            Path("/proc/self/oom_score_adj").write_text("600", encoding="ascii")
+        except (OSError, PermissionError):
+            pass
         os.environ["VTUBER_GENERATION_WORKER"] = "1"
         request = json.loads(request_path.read_text(encoding="utf-8"))
         result = run_request(request)
