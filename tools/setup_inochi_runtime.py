@@ -40,11 +40,12 @@ def _run(command: list[str], *, timeout: int, cwd: Path | None = None) -> None:
     with log_path.open("a", encoding="utf-8") as sink:
         sink.write(header + "\n")
         sink.flush()
+        start_offset = sink.tell()
         proc = subprocess.Popen(
             command, cwd=str(cwd) if cwd else None, stdout=sink,
             stderr=subprocess.STDOUT, start_new_session=True,
         )
-    cursor = 0
+    cursor = start_offset
     deadline = time.monotonic() + timeout
 
     def drain() -> None:
