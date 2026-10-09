@@ -395,19 +395,42 @@ def _editor_readme(edition, asset_kind, count, qwen_count):
     )
 
 
+def _review_regions(edition: str, asset_kind: str | None, scope: str) -> list[str]:
+    """Review only the selected artwork, without inventing absent features."""
+    regions = []
+    if edition == "free" or asset_kind == "body":
+        regions.extend([
+            "얼굴 윤곽·피부, 좌우 눈 각각의 흰자·홍채·동공·하이라이트·속눈썹·눈꺼풀, "
+            "좌우 눈썹, 코·귀·목의 독립 표현과 의미 ID를 확인하세요.",
+            "입 바깥 윤곽·입술·입 안쪽·치아·혀, 눈·입 움직임으로 보이는 가려진 화소와 "
+            "머리카락 뒤 이마·얼굴·귀 복원을 확인하세요.",
+            "목·상체·어깨·좌우 팔·양손 및 움직일 때 드러나는 가려진 몸 영역을 확인하세요.",
+        ])
+        if scope == "full":
+            regions.append("전신 하체·좌우 다리·양발이 잘리지 않고 독립 표현에 필요한 영역을 갖추었는지 확인하세요.")
+        if asset_kind == "body":
+            regions.append("PRO 신체의 불투명 베이스와 탈착 의상·헤어·액세서리가 하나로 구워져 있지 않은지 확인하세요.")
+    if edition == "free" or asset_kind == "hair":
+        regions.extend([
+            "앞머리·좌우 옆머리·뒷머리, 흔들릴 가닥·잔머리 및 헤어 장식의 독립 표현을 확인하세요.",
+            "이미지에 있는 땋은 머리·묶은 머리·트윈테일·포니테일과 가닥 뒤 뿌리·뒷면 복원을 확인하세요.",
+        ])
+    if edition == "free" or asset_kind == "outfit":
+        regions.append("옷 몸통·앞뒤 면·좌우 소매·옷깃·옷자락·리본·장식, 몸과의 경계·소매 안쪽·가려진 뒤쪽 원단을 확인하세요.")
+        if scope == "full":
+            regions.append("전신 의상의 치마·밑단·바지·신발 중 실제 있는 요소의 분리와 움직임 영역을 확인하세요.")
+    if edition == "free" or asset_kind == "accessory":
+        regions.append("각 액세서리·소품이 독립 레이어이며 부착 위치·좌우·앞뒤 순서가 맞는지 확인하세요.")
+    return regions
+
+
 def _guide_md(edition: str, scope: str, asset_kind: str | None,
               count: int, groups: int, qwen_attempts: list) -> str:
     title = ("FREE 완성 캐릭터" if edition == "free" else
              {"body": "PRO 신체", "hair": "PRO 헤어",
               "outfit": "PRO 의상", "accessory": "PRO 액세서리"}[asset_kind])
     kind = "상반신(양손 포함)" if scope == "upper" else "전신(양발 포함)"
-    area = {
-        "free": "눈 좌우, 눈꺼풀·홍채·동공, 입술·입 안쪽, 얼굴, 앞뒤 머리, 몸, 의상, 액세서리",
-        "body": "얼굴·좌우 눈·입, 목, 양팔·손 및 전신일 때 다리·발",
-        "hair": "앞머리·좌우 옆머리·뒷머리·잔머리·뿌리·장식",
-        "outfit": "옷깃·앞뒤 의상·양쪽 소매·밑단·장식 및 가려진 안쪽",
-        "accessory": "각 장식과 부착 위치·전후 관계",
-    }["free" if edition == "free" else asset_kind]
+    area = "\n\n".join(_review_regions(edition, asset_kind, scope))
     limits = (
         "\n## FREE 제한 7항목\n\n"
         "| 항목 | 공식 상한 | 확정 검증 위치 |\n"
@@ -456,7 +479,9 @@ def _guide_md(edition: str, scope: str, asset_kind: str | None,
         "- logs/: 실행한 모델의 로그(해당할 경우)\n"
         "- QUALITY_REVIEW.md: 사람의 실제 그림 검수 목록\n"
         "- README_CUBISM.md: 간략 Editor 사용법\n\n"
-        "## 세부 파츠 확인\n\n" + area + "\n\n"
+        "## 세부 파츠 확인\n\n"
+        "아래 항목은 실제 외형에 있거나 움직임을 위해 복원이 필요한 경우에만 적용합니다. "
+        "없는 디테일을 새로 그리거나 고정 파츠 수를 강요하지 않습니다.\n\n" + area + "\n\n"
         "원본에서 가려진 면의 복원, 누락된 눈/입/헤어 가닥, "
         "이동 시 드러나는 투명 틈, 선화·색상·좌표 동일성은 "
         "기계적인 PNG 무결성 검사만으로 입증되지 않습니다.\n"
@@ -482,23 +507,23 @@ def _guide_md(edition: str, scope: str, asset_kind: str | None,
 
 
 def _quality_md(parts: list, edition: str, asset_kind: str | None,
-                qwen_attempts: list) -> str:
+                qwen_attempts: list, scope: str = "upper") -> str:
     families = sorted({x["name"].split(".", 1)[0] for x in parts})
     checks = [
         "각 RGBA·알파 마스크가 동일 캔버스에 정합하는가?",
-        "좌우 눈·홍채·눈꺼풀·입 안쪽 등이 실제로 필요한 만큼 구분됐는가?",
-        "앞·옆·뒤 머리, 잔머리, 가려진 소매·의상 뒤쪽까지 복원됐는가?",
         "위치를 움직였을 때 빈 픽셀·윤곽 틈·색 번짐이 없는가?",
         "원화와 얼굴·머리 모양·장식·선화·색감이 일치하는가?",
         "배경이 실제로 투명하고 불필요한 배경 픽셀이 없는가?",
         "전신/상반신 범위에 필요한 손·발·옷이 잘리지 않았는가?",
         "실제 Editor에서 FREE 7개 제한/PRO 메모리를 만족하는가?",
     ]
+    checks.extend(_review_regions(edition, asset_kind, scope))
     if edition == "pro":
         checks.append("기존 신체와 자산의 부착 위치·각도·스케일·정체성이 일치하는가?")
     return (
         "# Live2D 시각적 검수 - 실제 그림을 확인해야 하는 항목\n\n"
-        "자동 분해 성공이나 PSD 저장 성공은 방송용 완성 품질을 증명하지 않습니다.\n\n"
+        "자동 분해 성공이나 PSD 저장 성공은 방송용 완성 품질을 증명하지 않습니다. "
+        "실제 외형에 있거나 움직임 복원이 필요한 요소만 검수하고, 없는 요소는 해당 없음으로 기록하세요.\n\n"
         f"- 실물 PSD 레이어: {len(parts)}개\n"
         f"- 의미 분류: {', '.join(families)}\n"
         f"- Qwen 시도: {len(qwen_attempts)}회\n\n"
@@ -626,7 +651,7 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         z.writestr("LIVE2D_ARTWORK_GUIDE.md", _guide_md(
             edition, scope, asset_kind, len(layers), group_count, attempted))
         z.writestr("QUALITY_REVIEW.md", _quality_md(
-            layers, edition, asset_kind, attempted))
+            layers, edition, asset_kind, attempted, scope=scope))
         for filename, content in extras:
             z.writestr(filename, content)
     return {

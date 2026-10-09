@@ -21,7 +21,7 @@
 | PRO 의상 | pro_upper_outfit_variant.png 등 자산 1장 + 기존 base_master.png | outfit.psd |
 | PRO 액세서리 | pro_upper_accessories_variant.png 등 자산 1장 + 기존 base_master.png | accessory.psd |
 
-PRO 독립 제작은 네 종류를 한꺼번에 업로드하거나 만들어야 하는 방식이 **아닙니다**. 상반신은 upper, 전신은 full로 구분합니다. 기존 베이스 이미지는 자산의 **캔버스 크기 일치 검증**에만 사용합니다. 이것만으로 픽셀 수준 위치 정합까지 입증했다고 주장하지 않습니다.
+PRO 독립 제작은 네 종류를 한꺼번에 업로드하거나 만들어야 하는 방식이 **아닙니다**. 상반신은 upper, 전신은 full로 구분합니다. 기존 베이스 이미지는 자산의 **캔버스 크기 검증과 최종 PSD 합성의 중첩 검토**에 사용합니다. 이것만으로 픽셀 수준 위치 정합까지 입증했다고 주장하지 않습니다.
 
 ### Colab 셀
 
@@ -36,11 +36,11 @@ PRO 독립 제작은 네 종류를 한꺼번에 업로드하거나 만들어야 
 
 ArtMesh 100개, 파츠 폴더 30개, 디포머 50개, 파라미터 30개, 블렌드셰이프 파라미터 3개, ArtPath 3개, 텍스처 아틀라스 2048px 한 장.
 
-FREE에서는 유용한 분리 파츠를 100개 한도에 최대한 활용하되, 100개를 채우려고 의미 없는 조각을 강제 생성하지 않습니다. PRO에 FREE 제한을 걸지 않습니다. **현재 PSD 단계에서는 후보 레이어 수만 검증할 수 있고 나머지 6종의 실제 Editor 객체 제한 및 텍스처 패킹은 사용자가 Editor에서 검증**해야 합니다.
+FREE에서는 유용한 분리 파츠를 100개 한도에 최대한 활용하되, 100개를 채우려고 의미 없는 조각을 강제 생성하지 않습니다. PRO에 FREE 제한을 걸지 않습니다. **현재 PSD 단계에서는 후보 레이어 수·그룹 수와 알파 경계 사각형 텍스처 면적을 확인합니다. TEXTURE_BUDGET.md와 metadata/texture_budget.json은 배율의 필요조건만 보여주며, 실제 Editor 객체 제한 및 텍스처 패킹은 사용자가 Editor에서 검증**해야 합니다.
 
 ### See-through·Qwen과 시각적 품질
 
-See-through는 공식 분해 기본값인 1280px / 30 steps / 깊이 768px을 명시적으로 사용합니다. 이는 **최종 원본 화소 복원까지 보장하는 값이 아니며**, T4 환경에서는 모델 실행 성공과 이미지 품질을 검증해야 합니다. See-through의 기본 의미 레이어 분리 개수는 Cubism의 실제 ArtMesh 수와 같지 않습니다. Qwen per-pass 출력은 **Colab ③ 옵션에서 2~10개(기본 최대 6개)**, 재귀 시도는 **0~12회(기본 최대 8회)** 선택할 수 있고 부위별 분할 후보 수를 달리합니다. 재귀 깊이는 최대 3단계입니다. 저해상도 Qwen RGB를 최종 이미지에 덮어쓰지 않고 See-through의 고해상도 RGBA 화소를 보존하며, 무효한 분해는 버립니다. 최종 결과 PSD에 채택된 파츠만 넣습니다.
+See-through는 공식 분해 기본값인 1280px / 30 steps / 깊이 768px을 명시적으로 사용합니다. 이는 **최종 원본 화소 복원까지 보장하는 값이 아니며**, T4 환경에서는 모델 실행 성공과 이미지 품질을 검증해야 합니다. See-through의 기본 의미 레이어 분리 개수는 Cubism의 실제 ArtMesh 수와 같지 않습니다. Qwen per-pass 출력은 **Colab ③ 옵션에서 2~10개(기본 최대 6개)**, 재귀 시도는 **0~12회(기본 최대 8회)** 선택할 수 있고 부위별 분할 후보 수를 달리합니다. 재귀 깊이는 최대 3단계입니다. 저해상도 Qwen RGB를 최종 이미지에 덮어쓰지 않고 See-through의 고해상도 RGBA 화소를 보존하며, 무효한 분해는 버립니다. 최종 결과 PSD에 채택된 파츠만 넣습니다. 부위별로 첫 시도를 배분한 다음 추가 재귀를 진행해 큰 헤어만 반복하는 것을 방지합니다. See-through의 정사각형 패딩을 역으로 적용해 최종 PSD를 입력 원본의 캔버스 좌표로 되돌립니다. 크기 복원은 생성 과정에서 손실된 RGB 디테일 복원의 증명이 아닙니다. 모델 준비 단계의 다운로드와 추론에 전체 시간 제한·로그를 적용하며, 제작 중에는 준비된 로컬 모델만 사용합니다.
 
 특정 GPU·드라이버·모델 조합에서 추론 결과와 방송 퀄리티가 검증됐다고 주장하지 않습니다. Stable-Layers 사용 시 공급자 라이선스 조건을 따릅니다.
 
@@ -766,7 +766,7 @@ Save exact filename outfit_variant.png, rename the download if needed.
 | UI 모드 | 오픈소스 기반 준비 도구 | 현재 실제 출력 | 완성 방송 모델의 포맷 | 구현 상태 |
 |---|---|---|---|---|
 | **Inochi2D** | Florence-2 / SAM2 / FLUX + Inochi2D SDK | 실제 레이어 PSD/ORA, 메시·키폼·물리 JSON | `.inp` | **네이티브 구현 및 SDK E2E PASS**: 공식 0.8.7 SDK로 변형·물리 `.inp`를 실제 생성/재로딩. 입력 모델별 SDK 검증 성공 시에만 `complete`, 실패 시 `prepared` |
-| **Live2D** | 동일 2D 레이어·리깅 중간 표현 + 정식 Cubism Editor | `avatar.psd`, `cubism_handoff.zip` | `.moc3` + `.model3.json` + 텍스처/물리 | **needs_editor_export**: 공식 Editor에서 출력한 폴더만 검증·수집. 자동 MOC3 인코더 없음 |
+| **Live2D FREE/PRO** | See-through NF4 + 선택적 Qwen/Stable-Layers + 정식 Cubism Editor | 독립 PSD, RGBA PNG, 마스크, 검수 MD와 ZIP | `.moc3` + `.model3.json` + 텍스처/물리 | **needs_editor_export**: 공식 Editor에서 출력한 폴더만 검증·수집. 자동 MOC3 인코더 없음 |
 | **3D VRM** | TripoSR, Depth Anything V2 Small, MakeHuman, Blender VRM Add-on | 피팅/텍스처/리깅 자료 및 검증 시 `avatar.vrm` + `avatar_rigged.blend` | `.vrm` | **상업용 모델 교체 반영**: InstantMesh 제외, MIT TripoSR 정면·후면·좌우 독립 복원으로 대체. 실제 Colab T4 E2E 검증은 별도 |
 
 **2D 중간 준비 ZIP은 최종 모델이 아닙니다.** Inochi2D는 SDK가 검증한 `.inp`만 방송 모델로 인정하며, Live2D는 정식 Cubism Editor에서 내보낸 `.moc3`만 최종 모델로 인정합니다. 준비된 PSD/ORA는 보완·후속 수정을 위한 편집 자료입니다.
@@ -781,8 +781,8 @@ Save exact filename outfit_variant.png, rename the download if needed.
 
 ### Live2D
 
-- 입력: 기준 이미지 + 의상·헤어 없는 고해상도 파츠 시트 6장이 들어 있는 ZIP 1개
-- 현재 출력: `avatar.psd`, `avatar.ora`, `cubism_handoff.zip`, `cubism_spec.json`. 공식 Editor 내보내기 결과의 MOC3·텍스처·physics·model3 참조는 별도 `live2d-import-export`에서 확인합니다.
+- FREE 입력: 헤어·의상·장식까지 착용한 완성 캐릭터 한 장. PRO 입력: body/hair/outfit/accessory 중 한 종류의 이미지와, 탈착 자산일 때만 신체 기준 한 장.
+- 출력: FREE `avatar.psd`, PRO 선택 자산의 `body.psd` / `hair.psd` / `outfit.psd` / `accessory.psd`와 PNG·마스크·비교 이미지·제작/검수 MD를 포함한 ZIP. JSON은 관측 메타데이터와 수동 참고이며 리깅 완성을 뜻하지 않습니다. 공식 Editor 내보내기 결과는 별도 `live2d-import-export`에서 확인합니다.
 - 목표: **Live2D Cubism Editor에서 리깅 후 `.moc3`, `.model3.json`, 텍스처/물리 출력**, VTube Studio에서 로드.
 - **Live2D Cubism Editor는 비오픈소스**입니다. 공식 모델 바이너리 생성은 [Cubism 내보내기 문서](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/)에 기술돼 있습니다. 검증된 상업용 오픈소스 MOC3 인코더가 없어 이 프로젝트는 완성된 Live2D 모델을 자동 생성한다고 주장하지 않습니다.
 - Inochi2D의 `.inp`는 Live2D의 `.moc3`로 자동 호환되지 않습니다.
@@ -791,7 +791,8 @@ Save exact filename outfit_variant.png, rename the download if needed.
 
 ```bash
 vtuber-pipeline inochi2d --image character.png --layers-zip layers.zip --output output/inochi2d
-vtuber-pipeline live2d --image character.png --output output/live2d
+python -m tools.vts_production --edition free --scope upper --master free_upper_master.png --output output/live2d
+python -m tools.vts_production --edition pro --asset hair --scope full --master pro_full_hair_variant.png --reference pro_full_base_master.png --output output/pro_hair --qwen
 vtuber-pipeline live2d-import-export --official-export-dir ./cubism-output --output output/live2d
 ```
 
