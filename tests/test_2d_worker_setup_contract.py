@@ -133,6 +133,8 @@ def test_pinned_diffusers_uses_isolated_hub_and_transformers_compatible_api():
     assert "resolve_revision" in installer.FLUX_SMOKE
     assert "Qwen3ForCausalLM" in installer.FLUX_SMOKE
     assert "Flux2KleinPipeline" in installer.FLUX_SMOKE
+    assert "torchao==0.16.0" in installer.FLUX_PYTHON_PACKAGES
+    assert "FqnToConfig" in installer.FLUX_SMOKE
     assert not any("huggingface-hub" in name or "transformers" in name
                    for name in installer.PYTHON_PACKAGES)
     # The smoke is a valid Python statement, not an inert comment.
@@ -174,7 +176,11 @@ def test_2d_installer_pins_flux_hub_without_modifying_shared_cuda(patched_root, 
     assert len(flux_pip) == 1
     assert "huggingface-hub==1.33.0" in flux_pip[0]
     assert "transformers==5.0.0" in flux_pip[0]
-    assert "torch" not in " ".join(flux_pip[0])
+    assert "torchao==0.16.0" in flux_pip[0]
+    assert not any(
+        value.startswith(("torch==", "torch>=", "torchvision==", "torchvision>="))
+        for value in flux_pip[0]
+    )
     assert (work / "cuda_constraints.txt").read_text().splitlines() == [
         "torch==2.11.0", "torchvision==0.26.0",
     ]
