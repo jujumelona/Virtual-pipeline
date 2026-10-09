@@ -411,13 +411,14 @@ def vts_prompts(edition, scope, hair_color, hairstyle, eyes, face_description,
 @click.option("--scope", type=click.Choice(["upper", "full"]), required=True)
 @click.option("--master", type=click.Path(exists=True, dir_okay=False), required=True)
 @click.option("--output", type=click.Path(), required=True)
-@click.option("--assets-dir", type=click.Path(exists=True, file_okay=False), default=None)
+@click.option("--asset", type=click.Choice(["body", "hair", "outfit", "accessory"]), default=None)
+@click.option("--reference", type=click.Path(exists=True, dir_okay=False), default=None)
 @click.option("--psd", type=click.Path(exists=True, dir_okay=False), default=None,
               help="Prepared See-through PSD (avoids GPU model rerun)")
 @click.option("--third-party", type=click.Path(exists=True, file_okay=False), default=None)
 @click.option("--qwen/--no-qwen", default=False,
               help="Run 4-bit Qwen + Stable-Layers candidate refinement (GPU-intensive)")
-def vts_build(edition, scope, master, output, assets_dir, psd, third_party, qwen):
+def vts_build(edition, scope, master, output, asset, reference, psd, third_party, qwen):
     """Generate genuine PSD-to-Cubism handoff, not an invented .moc3 binary."""
     import json
     from pathlib import Path
@@ -427,7 +428,8 @@ def vts_build(edition, scope, master, output, assets_dir, psd, third_party, qwen
             Path(master), Path(output), edition=edition, scope=scope,
             external_psd=Path(psd) if psd else None,
             third_party=Path(third_party) if third_party else None,
-            assets_dir=Path(assets_dir) if assets_dir else None,
+            asset_kind=asset,
+            reference_image=Path(reference) if reference else None,
             qwen=qwen,
         )
     except Exception as exc:

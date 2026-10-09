@@ -227,32 +227,33 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
 
 
 def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
+                        asset_kind: str | None = None,
+                        reference_image: Path | None = None,
                         external_psd: Path | None = None,
                         third_party: Path | None = None,
-                        qwen: bool = False,
-                        assets_dir: Path | None = None) -> dict:
-    """Generate a real Cubism-editable artwork package and JSON rigging assets."""
+                        qwen: bool = False) -> dict:
+    """Produce a *layered image* ZIP, not an unimportable pseudo-rig.
+
+    Each PRO call processes exactly one body/hair/outfit/accessory asset.
+    It never requires all detachable assets from the same user.
+    """
     if edition not in ("free", "pro") or scope not in ("upper", "full"):
         raise ValueError("Invalid VTS edition or scope")
-    _image(master)
-    companion_assets = []
-    if edition == "pro":
-        if assets_dir is None:
-            raise ValueError("PRO requires separately generated base/hair/outfit asset images")
-        required = [f"pro_{scope}_{name}.png" for name in
-                    ("base_master", "hair_variant", "outfit_variant")]
-        for name in required:
-            path = assets_dir/name
-            _image(path)
-            companion_assets.append(path)
-        extra = assets_dir/f"pro_{scope}_accessories_variant.png"
-        if extra.is_file():
-            _image(extra)
-            companion_assets.append(extra)
+    if edition == "free" and asset_kind is not None:
+        raise ValueError("FREE requires one finished character image, not PRO assets")
+    if edition == "pro" and asset_kind not in ("body", "hair", "outfit", "accessory"):
+        raise ValueError("PRO requires one independent body/hair/outfit/accessory submode")
+    canvas = _image(master)
+    if edition == "pro" and asset_kind != "body":
+        if reference_image is None:
+            raise ValueError("PRO detachable asset requires an existing body reference")
+        reference_canvas = _image(reference_image)
+        if canvas != reference_canvas:
+            raise ValueError("PRO body reference and asset must share exact canvas dimensions")
     output.mkdir(parents=True, exist_ok=True)
     state_path = output / "vts_status.json"
-    status = {"edition": edition, "scope": scope, "state": "running",
-              "moc3_generated": False, "editor_required": True}
+    status = {"edition": edition, "scope": scope, "asset_kind": asset_kind,
+              "state": "running", "moc3_generated": False, "editor_required": True}
     _write(state_path, status)
     try:
         psd = (external_psd.resolve(strict=True) if external_psd
@@ -260,63 +261,28 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                    master, output / "decomposition",
                    third_party=(third_party or Path("/content/vtuber_builder/third_party/see-through"))
                ))
-        qwen_result = None
-        if qwen:
-            from tools.vts_qwen_refine import infer
-            print("[VTS] quantized Qwen + Stable-Layers Heun 50-step stage",flush=True)
-            qwen_result = infer(master, output / "qwen_refinement", third_party=(third_party or Path("/content/vtuber_builder/third_party/see-through")).parent,
-                                python=os.environ.get("VTUBER_SEETHROUGH_PYTHON"))
-        source, layers, count = psd_to_registered_rgba(
-            psd, output / "layers",
-            artmesh_max=100 if edition == "free" else None,
+        # PSD mask/alpha extraction preserves original See-through pixels.
+        _, registered, count = psd_to_registered_rgba(
+            psd, output / "layers", artmesh_max=100 if edition == "free" else None,
         )
-        from vtuber_pipeline.common.schemas import SourceSet
-        from vtuber_pipeline.two_d.build import build_live2d
-        # Do not inherit strict legacy 20-part hairless base validation.
-        previous = os.environ.pop("VTUBER_2D_STRICT_LAYER_INPUT", None)
-        try:
-            result = build_live2d(SourceSet(
-                "live2d", str(source), user_layers_zip=str(layers),
-                output_dir=str(output / "cubism"), artwork_profile="vts_auto",
-            ))
-        finally:
-            if previous is not None:
-                os.environ["VTUBER_2D_STRICT_LAYER_INPUT"] = previous
-        if result.status != "needs_editor_export":
-            raise RuntimeError("Cubism artwork rigging failed: " + (result.error or result.status))
+        from tools.vts_artwork_export import build_artwork_package
+        produced = build_artwork_package(
+            registered, output / "artwork", edition=edition, scope=scope,
+            asset_kind=asset_kind, qwen=qwen,
+            third_party=(third_party or Path("/content/vtuber_builder/third_party/see-through")).parent,
+            python_path=os.environ.get("VTUBER_SEETHROUGH_PYTHON"),
+        )
         report = {
-            **status, "state": "needs_editor_export", "psd_source": str(psd),
-            "visible_artmesh_candidates": count, "source_master": str(master),
-            "cubism_handoff": result.primary_path, "art_psd": result.secondary_path,
-            "qwen_refinement": qwen_result,
-            "pro_companion_artworks": [str(p) for p in companion_assets],
-            "free_artmesh_within_limit": edition != "free" or count <= 100,
-            "unverified_editor_limits": [
-                "Cubism parameter count", "deformer count", "part-folder count",
-                "2048px single texture atlas", "native deformation quality",
-            ],
-            "warning": "PSD/rig JSON only. No .moc3 or .cmo3 created. "
-                       "Finish/validate in official Cubism Editor.",
+            **status, **produced, "state": "artwork_ready_editor_rig_required",
+            "psd_source": str(psd), "source_master": str(master),
+            "source_layer_count": count, "reference_image": (
+                str(reference_image) if reference_image else None),
+            "warning": "Genuine layered PSD artwork only; Cubism Editor must "
+                       "create ArtMeshes, deformers, keyforms, physics and export MOC3. "
+                       "PRO alignment requires visual review in Editor.",
         }
         _write(state_path, report)
-        result_zip = output / f"vts_{edition}_{scope}_cubism_handoff.zip"
-        with ZipFile(result_zip, "w", ZIP_DEFLATED) as archive:
-            for name, path in (
-                ("vts_status.json", state_path),
-                ("see_through_layers.psd", psd),
-                ("registered_layers.zip", layers),
-                ("cubism_handoff.zip", Path(result.primary_path)),
-                ("psd_composite.png", source),
-            ):
-                archive.write(path, name)
-            for companion in companion_assets:
-                archive.write(companion, "pro_original_assets/"+companion.name)
-            if qwen_result:
-                for i, path in enumerate(qwen_result["layers"]):
-                    archive.write(path, f"qwen_4bit_stable_layers/layer_{i}.png")
-                archive.write(output/"qwen_refinement/qwen_stage.json",
-                              "qwen_4bit_stable_layers/qwen_stage.json")
-        return {**report, "package": str(result_zip)}
+        return report
     except Exception as exc:
         _write(state_path, {**status, "state": "failed", "error": str(exc)})
         raise
@@ -331,12 +297,13 @@ def main() -> None:
     ap.add_argument("--psd", type=Path, help="Pre-generated See-through PSD, skip GPU decomposition")
     ap.add_argument("--third-party", type=Path)
     ap.add_argument("--qwen", action="store_true", help="Run quantized Qwen+Stable-Layers candidate refinement")
-    ap.add_argument("--assets-dir", type=Path, help="PRO companion original asset directory")
+    ap.add_argument("--asset", choices=("body", "hair", "outfit", "accessory"), help="Required for PRO")
+    ap.add_argument("--reference", type=Path, help="Existing body image for a detachable PRO asset")
     args = ap.parse_args()
     out = make_cubism_handoff(
         args.master, args.output, edition=args.edition, scope=args.scope,
         external_psd=args.psd, third_party=args.third_party, qwen=args.qwen,
-        assets_dir=args.assets_dir,
+        asset_kind=args.asset, reference_image=args.reference,
     )
     print(json.dumps({"status": out["state"], "package": out["package"],
                       "moc3_generated": False}, ensure_ascii=False))

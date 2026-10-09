@@ -14,6 +14,8 @@ EDITION_LABELS = {
     "free": "FREE — 완성 스타일 1장 · Cubism FREE 제한",
     "pro": "PRO — 헤어·의상·액세서리 분리 자산",
 }
+PRO_ASSET_LABELS = {"body": "신체·얼굴만 제작", "hair": "헤어만 제작",
+                    "outfit": "의상만 제작", "accessory": "액세서리만 제작"}
 FRAMING_LABELS = {
     "upper": "상반신 — 머리부터 허리/골반 위, 양팔·양손 포함",
     "full": "전신 — 머리부터 양발·신발까지 전부 포함",
@@ -107,10 +109,14 @@ def selection_signature(values: dict) -> tuple:
                                       values.get("LIVE2D_QWEN"))
             if edition not in EDITION_LABELS or framing not in FRAMING_LABELS or qwen not in QWEN_LABELS:
                 raise ValueError("Live2D 등급·제작 범위·Qwen 옵션을 확인하세요.")
+            asset_kind = values.get("LIVE2D_PRO_ASSET", "body")
+            if edition == "pro" and asset_kind not in PRO_ASSET_LABELS:
+                raise ValueError("PRO 독립 제작 종류를 확인하세요.")
             expected = qwen == "on" or (qwen == "auto" and edition == "pro")
             if values.get("LIVE2D_USE_QWEN") != expected:
                 raise ValueError("Qwen 옵션이 변경되었습니다.")
             return (task, mode, usage, edition, framing, qwen,
+                    asset_kind if edition == "pro" else None,
                     values.get("EXISTING_IMAGE_PATH", ""))
         if mode == "inochi2d":
             setting = values.get("TWO_D_INPUT")
@@ -168,6 +174,7 @@ def begin_mode_selection(values: dict) -> None:
     # applied on behalf of the user for the active mode.
     defaults = {
         "LIVE2D_EDITION": "free",
+        "LIVE2D_PRO_ASSET": "body",
         "LIVE2D_FRAMING": "upper",
         "LIVE2D_QWEN": "auto",
         "LIVE2D_USE_QWEN": False,
