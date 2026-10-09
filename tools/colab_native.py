@@ -216,7 +216,7 @@ def _build_arguments(mode, usage, upload, job_folder, *, image_path,
                     raise ValueError("2D artwork package must be a .zip file")
                 return mode, [front, usage, str(archive)]
             if __import__("os").environ.get("VTUBER_2D_SUPPLIED_LAYERS") == "1":
-                raise ValueError("2D layered mode requires the 26 PNG layers ZIP")
+                raise ValueError("2D layered mode requires the 24 outfit-free PNG parts ZIP")
             return mode, [front, usage]
         face = None
         if full_body:
