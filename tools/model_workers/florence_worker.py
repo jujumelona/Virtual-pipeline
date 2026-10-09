@@ -96,9 +96,22 @@ def infer(req):
     # AutoModelForCausalLM remote-code mapping is no longer a valid default.
     # Fail closed rather than loading arbitrary model code from the cache.
     processor=AutoProcessor.from_pretrained(name, trust_remote_code=False)
-    model=Florence2ForConditionalGeneration.from_pretrained(
-        name, trust_remote_code=False
-    ).to(device).eval()
+    model, load_info=Florence2ForConditionalGeneration.from_pretrained(
+        name, trust_remote_code=False, output_loading_info=True,
+    )
+    # A checkpoint from the legacy Microsoft remote-code layout can appear
+    # to "load" while leaving hundreds of randomly initialized native keys.
+    # Refuse to ship semantic boxes derived from a mostly uninitialized model.
+    if len(load_info.get("missing_keys", [])) > 16 or len(
+        load_info.get("unexpected_keys", [])
+    ) > 16 or load_info.get("error_msgs"):
+        raise RuntimeError(
+            "Florence2 native checkpoint incompatible: "
+            f"missing={load_info.get('missing_keys', [])[:30]}, "
+            f"unexpected={load_info.get('unexpected_keys', [])[:30]}, "
+            f"errors={load_info.get('error_msgs', [])}"
+        )
+    model=model.to(device).eval()
     parts=[]
     # Open-vocabulary detection is grounded in model-returned boxes; no phantom parts.
     for semantic,prompt in SEMANTIC_PROMPTS.items():
