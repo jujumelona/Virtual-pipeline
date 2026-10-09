@@ -1427,11 +1427,11 @@ def build_app() -> gr.Blocks:
             with gr.Accordion("외부 이미지 AI용 Inochi2D 프롬프트", open=False):
                 gr.Textbox(
                     label="Inochi2D 기본 캐릭터",
-                    value="Original high-resolution anime VTuber half-body character illustration, centered perfectly front-facing neutral pose, both eyes open, mouth closed, clean silhouette, clearly separated foreground and background hair, visible neck and upper torso, detailed eye iris and eyelids, separated clothing details, no props obscuring the face, consistent soft light, no typography, no watermark. Preserve enough margin around hair for head rotation and 2D deformation.", lines=5,
+                    value="[TASK] Generate ONE high-resolution original anime VTuber character image, not a collage or model sheet. [FRAMING] 3:4 portrait, symmetrical straight FRONT orthographic view, head through mid-torso, neutral relaxed pose, shoulders and neck fully visible, both eyes open, mouth gently closed, ample margin around hair and shoulders. [DESIGN] Clear bangs, separate left/right side locks and rear hair, eyebrows, eyelids, irises and lips with sharply legible outlines; distinctive yet riggable costume details; coherent lighting, clean silhouette, consistent anatomy and color. [FOR 2D RIGGING] Nothing crosses eyes, cheeks, mouth or neck; allow space for head tilt and hair sway. [AVOID] angled camera, multiple characters, cropped hair, speech bubbles, accessories covering facial parts, lettering, watermark, cluttered background.", lines=5,
                 )
                 gr.Textbox(
                     label="Inochi2D 투명 파츠 보완",
-                    value="Same exact character and design, prepare expression references for closed eyes, smiling eyes, open mouth, smiling mouth and surprised mouth without changing hairstyle, clothing, colors or canvas alignment. Include realistic-looking hidden artwork behind bangs and moving hair where possible.", lines=5,
+                    value="[REFERENCE LOCK] Use the uploaded original FRONT character image as a strict identity, costume, palette, stroke-weight, head-shape and framing reference. [DELIVERABLE] Supply independent transparent RGBA PNG art for each requested Inochi2D layer, one layer per file, all EXACTLY the original image width and height and with identical pixel coordinates; preserve natural antialiased edges and unmodified visible pixels. [PARTS] Front/back hair segments, side locks, face/ears, separate eyes including closed-eye variants, eyebrows, mouth closed/open/interior, neck, torso and deformable costume details. [HIDDEN ART] Extend scalp behind bangs, cheeks under hair and skin/clothing behind movable boundaries so deformation does not expose holes. [AVOID] redrawing the design, shifting the character, flattening the background into layers, montage sheets or opaque rectangles. If separate aligned PNG files cannot be produced, supply only an explicit reference, not falsely labeled rig-ready layers.", lines=5,
                 )
             inochi_run = gr.Button("Inochi2D 네이티브 퍼펫 제작", variant="primary")
             inochi_status = gr.Markdown("대기 중")
@@ -1471,11 +1471,11 @@ def build_app() -> gr.Blocks:
             with gr.Accordion("외부 대형 AI에 넣을 2D 제작 프롬프트", open=False):
                 gr.Textbox(
                     label="2D 전면 캐릭터 일러스트",
-                    value="High-resolution original anime VTuber bust-up illustration designed for Live2D Cubism rigging, exact frontal orthographic view, relaxed neutral face, fully visible shoulders and neck, both eyes open, separate bangs, side locks, back hair, eyebrows, eyelids, eyeballs, mouth, ears, body and clothing, balanced clean line art with sharp edges, plain background, no text, no watermark. Maintain head and neck proportions for yaw and pitch deformation.", lines=5,
+                    value="[TASK] Draw ONE original anime VTuber bust-up FRONT master image optimized for Live2D Cubism layer separation, not a character sheet. [GEOMETRY] Symmetric orthographic viewpoint, straight head, relaxed neck and shoulders, calm neutral expression, eyes fully open and mouth closed, head and hair fully inside 3:4 portrait canvas. [SEPARATION] Clearly defined independent bangs, side/back hair, ears, brows, upper/lower lids, eye whites, irises, pupils, highlights, nose, lips, mouth opening, neck, clothing and accessories. [QUALITY] High resolution, sharp antialiased outlines, simple uniform backdrop, consistent lighting and visible skin boundaries for yaw/pitch and blinking deformers. [AVOID] three-quarter pose, face obstruction, exaggerated perspective, merged hair/face borders, multi-panel layout, lettering or watermark.", lines=5,
                 )
                 gr.Textbox(
                     label="파츠 분리 보완 프롬프트",
-                    value="Produce aligned expression and hair-reference views for the exact same original character, including smiling, blinking, mouth open and closed, and approximate three-quarter head view. Preserve character identity and coloring. Add visually plausible hidden hairline, cheeks, mouth interior and behind-ear detail for deformable layered rigging.", lines=6,
+                    value="[REFERENCE LOCK] Match the uploaded Live2D FRONT master image pixel-for-pixel in appearance, color, line style, proportions and original canvas coordinates. [OUTPUT] Each separable part must be an individual full-canvas RGBA PNG with transparent pixels everywhere outside the painted part; use unchanged width, height, registration and scale for every file, suitable for assembling into a layered PSD. [LAYERS] Face/base scalp/ears; individual front, side and rear hair groups; left and right eyebrows, sclera, iris/pupil, upper and lower eyelids and lashes; upper/lower lips, internal mouth, tongue and teeth; torso, neck and costume ornaments. [DEFORMATION COVERAGE] Paint plausible hidden skin, hair roots and mouth interiors underneath moving layers, with closed-eye, smile and phoneme reference shapes exported separately and precisely aligned. [AVOID] sprite sheets, perspective changes, mismatched expressions between base layers, cropped parts, baked background, shifted canvas and fictional alpha. If the tool cannot deliver actual layered PNG files, request art references only and do not claim Cubism-ready layers.", lines=6,
                 )
             two_d_run = gr.Button("Live2D Cubism 제작 자료 생성", variant="primary")
             two_d_status = gr.Markdown("대기 중")
@@ -1564,35 +1564,19 @@ def build_app() -> gr.Blocks:
                         gr.Markdown("이 프롬프트를 외부 대형 이미지 AI에 복사해 이미지를 만든 다음 위에 업로드하세요. **AI 이미지 생성 기능은 이 프로그램에 포함되지 않습니다.**")
                         gr.Textbox(
                             label="전신 정면 원본",
-                            value="One original anime VTuber character, strict full-body FRONT orthographic turnaround reference, head-to-toe visible, neutral symmetrical A-pose with arms separated from torso, individual hands and fingers visible, no clipped feet, shoes fully visible, clear clothing layers and hair silhouette, character centered on clean plain background, flat neutral studio lighting, no perspective distortion, no props, no text, no watermark, portrait 2:3 or 3:4.", lines=5,
+                            value="[OUTPUT] Create exactly ONE full-body front-view anime VTuber reference image (not a turnaround collage); 2:3 or 3:4 portrait, high resolution. [CAMERA] Strict FRONT orthographic, eye-level, no foreshortening, full body centered head-to-soles and completely inside canvas. [POSE] Symmetrical relaxed A-pose with arms slightly away from torso; separated hands and visible fingers, legs and shoes not overlapping, neutral straight gaze. [GEOMETRY] Clear silhouettes for front/back hair, sleeves, hips and footwear; preserve anatomical proportions and garment seams suitable for reconstructing a rigged 3D character. [CONSISTENCY] Uniform neutral light, plain contrasting background without cast shadow, one distinctive costume and palette to be held identical in all additional views. [AVOID] props hiding body, dramatic lighting, floating/cropped hands or feet, multiple people, words, watermarks or perspective lens.", lines=5,
                         )
                         gr.Textbox(
                             label="같은 캐릭터 얼굴 확대 (필수 권장)",
-                            value="Exact same character, straight-on face close-up, both eyes open, neutral mouth closed, crisp eyelashes, iris color, eyebrow and hairline detail, no occlusion, same lighting, exact outfit and hair colors, neutral expression, clean background, no perspective distortion.", lines=5,
+                            value="[REFERENCE] Use the already-generated FULL-BODY FRONT image as a mandatory visual identity reference; do not redesign anything. [OUTPUT] ONE detailed face-and-hairline close-up only, same character, FRONT orthographic, centered, both ears/eyebrows/eyelids/eyes/nose/lips and full facial outline readable, eyes open, mouth softly closed, neutral expression. [FIDELITY] Exactly preserve iris hue, pupil structure, bangs, hair roots, skin tone, face proportions, accessories, line width and illumination from the full-body reference. Crisp eye and mouth details for expression reconstruction. [AVOID] perspective yaw/tilt, selfies, portrait lens distortion, new hairstyle, open mouth, hair over eyes, extra faces, text or collage.", lines=5,
                         )
                         gr.Textbox(
                             label="같은 캐릭터 전신 후면 (선택)",
-                            value="Exact same character, full-body REAR orthographic turnaround, identical posture and proportions as front reference, clearly visible back hair, costume back seams and shoes, neutral A-pose, same studio lighting, no cropped limbs, no text, no watermark.", lines=5,
+                            value="[REFERENCE LOCK] Use the same character FRONT image as an immutable design sheet; match the precise height, limb proportions, A-pose arm angle, clothing fit, materials, hair length, color and shoe geometry. [OUTPUT] ONE complete full-body REAR orthographic view, same centered frame and scale as front reference, visible back of head/hair, seams, costume closures, calves and soles. Neutral lighting, plain background, all hands and feet uncropped. [AVOID] mirror-flipped front texture, new garment details inconsistent with front, three-quarter camera, body turn, extra subjects, labels or multi-panel layout.", lines=5,
                         )
                         gr.Textbox(
                             label="같은 캐릭터 측면 (선택)",
-                            value="Exact same character, full-body LEFT or RIGHT orthographic turnaround, identical pose and proportions to front/back reference, clear side profile and hair thickness, no cropped limbs, no perspective distortion, same flat studio lighting.",
-                            lines=5,
-                        )
-                    avatar_run = gr.Button("전신 VRM 변환", variant="primary")
-                    avatar_result = gr.File(
-                        label="완성 VRM (다운로드 가능한 원본 파일)",
-                        interactive=False,
-                    )
-                    avatar_download_button = gr.DownloadButton(
-                        label="↓ avatar.vrm 파일 직접 다운로드",
-                        value=None, interactive=False,
-                    )
-                    avatar_http_link = gr.Markdown(value="", visible=False)
-                with gr.Column(scale=1, min_width=310, elem_id="generation-panel"):
-                    avatar_status = gr.Markdown("대기 중")
-                    avatar_log = gr.Textbox(
-                        label="진행 로그", lines=21, max_lines=30,
+                            value="[REFERENCE LOCK] Keep exactly the same character design, standing height, proportions, A-pose, hair volume, costume colors and shoe geometry as the FRONT image. [OUTPUT] ONE complete full-body LEFT SIDE orthographic image if creating the left-reference file, or ONE RIGHT SIDE orthographic image for the right-reference file; generate each direction in a separate image. Camera level and scale must match the front and rear images. Render clear facial profile, true head depth, chest/back contour, hairstyle thickness, wrists, legs and shoes; plain background, flat consistent lighting. [AVOID] three-quarter angles, perspective, cropped extremities, inconsistent costume/hair, collage, text and watermark.", lines=21, max_lines=30,
                         interactive=False, autoscroll=True,
                     )
                     avatar_log_file = gr.File(
