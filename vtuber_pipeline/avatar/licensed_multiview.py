@@ -118,6 +118,7 @@ def reconstruct_licensed_multiview(
             np.asarray(base.vertices), np.asarray(view.vertices), role,
         )
         record = {**metrics, "input_image": str(source),
+                  "segmented_rgba": str(Path(alpha).resolve()),
                   "source_mesh": str(Path(mesh_path).resolve()),
                   "source_model": "TripoSR",
                   "input_view_observed": True,
