@@ -120,6 +120,8 @@ def test_live2d_pro_builds_each_asset_without_batch_companions(tmp_path, asset):
     with ZipFile(result["package"]) as zipfile:
         assert asset + ".psd" in zipfile.namelist()
         assert "README_CUBISM.md" in zipfile.namelist()
+        assert "LIVE2D_ARTWORK_GUIDE.md" in zipfile.namelist()
+        assert "QUALITY_REVIEW.md" in zipfile.namelist()
         assert "input_reference/source_asset.png" in zipfile.namelist()
         assert "source_psd/see_through_layers.psd" in zipfile.namelist()
         assert zipfile.read("source_psd/see_through_layers.psd")[:4] == b"8BPS"

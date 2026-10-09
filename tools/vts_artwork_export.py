@@ -337,6 +337,116 @@ def _editor_readme(edition, asset_kind, count, qwen_count):
     )
 
 
+def _guide_md(edition: str, scope: str, asset_kind: str | None,
+              count: int, groups: int, qwen_attempts: list) -> str:
+    title = ("FREE 완성 캐릭터" if edition == "free" else
+             {"body": "PRO 신체", "hair": "PRO 헤어",
+              "outfit": "PRO 의상", "accessory": "PRO 액세서리"}[asset_kind])
+    kind = "상반신(양손 포함)" if scope == "upper" else "전신(양발 포함)"
+    area = {
+        "free": "눈 좌우, 눈꺼풀·홍채·동공, 입술·입 안쪽, 얼굴, 앞뒤 머리, 몸, 의상, 액세서리",
+        "body": "얼굴·좌우 눈·입, 목, 양팔·손 및 전신일 때 다리·발",
+        "hair": "앞머리·좌우 옆머리·뒷머리·잔머리·뿌리·장식",
+        "outfit": "옷깃·앞뒤 의상·양쪽 소매·밑단·장식 및 가려진 안쪽",
+        "accessory": "각 장식과 부착 위치·전후 관계",
+    }["free" if edition == "free" else asset_kind]
+    limits = (
+        "\n## FREE 제한 7항목\n\n"
+        "| 항목 | 공식 상한 | 확정 검증 위치 |\n"
+        "|---|---:|---|\n"
+        "| ArtMesh | 100 | PSD에서는 후보 수, 실제 객체는 Editor |\n"
+        "| 파츠 폴더 | 30 | Editor |\n"
+        "| 디포머 | 50 | Editor |\n"
+        "| 파라미터 | 30 | Editor |\n"
+        "| 블렌드셰이프 파라미터 | 3 | Editor |\n"
+        "| ArtPath | 3 | Editor |\n"
+        "| 텍스처 아틀라스 | 2048px 1장 | Editor |\n"
+        "100개 후보를 최대한 의미 있는 움직임에 활용하되 강제 분할하거나 "
+        "화질·움직임을 파괴하는 병합을 하지 마세요.\n"
+        if edition == "free" else
+        "\n## PRO 제한\n\nFREE의 7개 상한을 적용하지 않습니다. "
+        "단, 실제 성능과 GPU 메모리는 무제한이 아니며 "
+        "신체 기준 PSD와의 시각 정합이 필요합니다.\n"
+    )
+    mode = ("완성된 옷·헤어·액세서리를 착용한 이미지 한 장으로 제작한 원화입니다."
+            if edition == "free" else
+            "선택 자산 한 종류만 제작한 원화입니다. 다른 자산을 동시에 요구하지 "
+            "않으며 같은 캔버스 기준으로 기존 신체 프로젝트에 추가합니다.")
+    return (
+        "# Live2D 제작 결과 및 Cubism Editor 안내\n\n"
+        f"**모드:** {title} / {kind}\n\n"
+        f"**PSD 실물 레이어:** {count}개 / 그룹 {groups}개 / "
+        f"Qwen 시도 {len(qwen_attempts)}회\n\n"
+        "## 이미지 제작 계약\n\n" + mode + "\n\n"
+        "파이프라인은 고품질 분리 PSD까지 제작합니다. 실제 ArtMesh, 디포머, "
+        "표정·움직임 키폼, 물리, 모션, 편집 원본 .cmo3와 실행용 .moc3는 "
+        "공식 Cubism Editor에서 사용자가 제작합니다.\n\n"
+        "## 제공한 파일\n\n"
+        "- PSD: 편집·리깅을 위한 기본 파일\n"
+        "- source_psd/: See-through 원본 분해 PSD\n"
+        "- layers_png/: 원본 크기·좌표의 각 투명 PNG\n"
+        "- alpha_masks/: 각 파츠의 알파 마스크\n"
+        "- preview/: 합성 미리보기 및 PRO 정합 미리보기(제공될 경우)\n"
+        "- input_reference/: 실제 제작 입력 및 PRO 기준 신체\n"
+        "- metadata/layer_manifest.json: 관측된 이름·순서·좌표·마스크 해시\n"
+        "- metadata/manual_rig_reference.json: 수동 참고용 데이터이며 "
+        "Cubism 공식 리깅 JSON이 아님\n"
+        "- metadata/segmentation_trace.json: Qwen 분해 채택/거절 정보\n"
+        "- metadata/integrity_report.json: 자동 확인 범위\n"
+        "- QUALITY_REVIEW.md: 사람의 실제 그림 검수 목록\n"
+        "- README_CUBISM.md: 간략 Editor 사용법\n\n"
+        "## 세부 파츠 확인\n\n" + area + "\n\n"
+        "원본에서 가려진 면의 복원, 누락된 눈/입/헤어 가닥, "
+        "이동 시 드러나는 투명 틈, 선화·색상·좌표 동일성은 "
+        "기계적인 PNG 무결성 검사만으로 입증되지 않습니다.\n"
+        + limits
+        + "\n## Cubism Editor 단계\n\n"
+        "1. PSD를 가져와 레이어 순서·투명도를 검수합니다.\n"
+        "2. 실제 ArtMesh·디포머를 생성하고 필요하면 공식 모델 템플릿을 적용합니다.\n"
+        "3. 눈·입·얼굴·몸의 키폼 및 파라미터를 실제로 작성합니다.\n"
+        "4. 머리·의상·액세서리의 흔들림 키폼을 생성한 뒤 "
+        "공식 물리 프리셋을 적용하고 조절합니다.\n"
+        "5. FREE는 7개 객체 수 제한을 Editor에서 확인합니다. "
+        "PRO는 독립 PSD를 기존 신체와 정합합니다.\n"
+        "6. .cmo3를 저장하고 공식 Editor에서 .moc3, .model3.json, "
+        "텍스처 및 필요한 물리·표정 파일을 내보냅니다.\n"
+        "7. VTube Studio에서 실제 눈·입·헤어·의상의 움직임과 클리핑을 확인합니다.\n\n"
+        "## 모델 설정 참고\n\n"
+        "See-through는 의미 분할과 가려진 영역 복원, Qwen은 선택 파츠의 "
+        "재귀 분할 후보 생성에 사용합니다. Stable-Layers 경로의 "
+        "기본 수치는 Heun 50 steps / CFG 1.0 / 640px / 4 layers입니다. "
+        "Qwen 저해상도 색상은 최종 원본을 대체하지 않습니다. "
+        "원본 Qwen의 추천값과 Stable-Layers 설정을 혼동하면 안 됩니다.\n"
+    )
+
+
+def _quality_md(parts: list, edition: str, asset_kind: str | None,
+                qwen_attempts: list) -> str:
+    families = sorted({x["name"].split(".", 1)[0] for x in parts})
+    checks = [
+        "각 RGBA·알파 마스크가 동일 캔버스에 정합하는가?",
+        "좌우 눈·홍채·눈꺼풀·입 안쪽 등이 실제로 필요한 만큼 구분됐는가?",
+        "앞·옆·뒤 머리, 잔머리, 소매·의상 뒤쪽이 가려져도 복원됐는가?",
+        "위치를 움직였을 때 빈 픽셀·윤곽 틈·색 번짐이 없는가?",
+        "원화와 얼굴·머리 모양·장식·선화·색감이 일치하는가?",
+        "배경이 실제로 투명하고 불필요한 배경 픽셀이 없는가?",
+        "전신/상반신 범위에 필요한 손·발·옷이 잘리지 않았는가?",
+        "실제 Editor에서 FREE 7개 제한/PRO 메모리를 만족하는가?",
+    ]
+    if edition == "pro":
+        checks.append("기존 신체와 자산의 부착 위치·각도·스케일·정체성이 일치하는가?")
+    return (
+        "# Live2D 시각적 검수 - 실제 그림을 확인해야 하는 항목\n\n"
+        "자동 분해 성공이나 PSD 저장 성공은 방송용 완성 품질을 증명하지 않습니다.\n\n"
+        f"- 실물 PSD 레이어: {len(parts)}개\n"
+        f"- 의미 분류: {', '.join(families)}\n"
+        f"- Qwen 시도: {len(qwen_attempts)}회\n\n"
+        + "\n".join("- [ ] " + x for x in checks)
+        + "\n\n미확인 항목을 자동 PASS로 표시하지 마세요. "
+        "수정 후 다시 PSD 및 PNG를 확인하세요.\n"
+    )
+
+
 def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
                           scope: str, asset_kind: str | None = None,
                           qwen: bool = False, qwen_infer=None, third_party=None,
@@ -421,13 +531,18 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     with ZipFile(package, "w", ZIP_DEFLATED, compresslevel=6) as z:
         z.write(psd_path, name + ".psd")
         z.writestr("README_CUBISM.md", readme)
+        z.writestr("LIVE2D_ARTWORK_GUIDE.md", _guide_md(
+            edition, scope, asset_kind, len(layers), group_count, attempted))
+        z.writestr("QUALITY_REVIEW.md", _quality_md(
+            layers, edition, asset_kind, attempted))
         for filename, content in extras:
             z.writestr(filename, content)
     return {
         "status": "artwork_ready_editor_rig_required",
         "package": str(package), "art_psd": str(psd_path),
         "layer_count": len(layers), "psd_group_count": group_count,
-        "supporting_files": [x[0] for x in extras],
+        "supporting_files": [x[0] for x in extras] +
+        ["README_CUBISM.md", "LIVE2D_ARTWORK_GUIDE.md", "QUALITY_REVIEW.md"],
         "edition": edition, "scope": scope,
         "asset_kind": asset_kind, "canvas": list(canvas),
         "qwen_attempts": attempted, "qwen_splits_accepted": generated,

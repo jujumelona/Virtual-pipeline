@@ -27,7 +27,14 @@ def test_free_is_editable_psd_with_all_real_layers(tmp_path):
     assert result["layer_count"] == 2
     assert result["moc3_generated"] is False
     with ZipFile(result["package"]) as z:
-        assert set(("avatar.psd", "README_CUBISM.md")).issubset(z.namelist())
+        assert set(("avatar.psd", "README_CUBISM.md", "LIVE2D_ARTWORK_GUIDE.md",
+                    "QUALITY_REVIEW.md")).issubset(z.namelist())
+        guide = z.read("LIVE2D_ARTWORK_GUIDE.md").decode("utf-8")
+        quality = z.read("QUALITY_REVIEW.md").decode("utf-8")
+        assert "FREE 제한 7항목" in guide
+        assert "ArtPath" in guide and ".moc3" in guide
+        assert "See-through" in guide and "Qwen" in guide
+        assert "가려진" in quality and "- [ ]" in quality
         assert len([n for n in z.namelist() if n.startswith("layers_png/")]) == 2
         assert "physics" in z.read("README_CUBISM.md").decode().lower()
         assert "moc3" in z.read("README_CUBISM.md").decode().lower()
@@ -42,6 +49,7 @@ def test_pro_one_independent_asset_not_batch(tmp_path):
     with ZipFile(p["package"]) as z:
         assert "hair.psd" in z.namelist()
         assert "body.psd" not in z.namelist()
+        assert "PRO 헤어" in z.read("LIVE2D_ARTWORK_GUIDE.md").decode("utf-8")
     with pytest.raises(ValueError, match="exactly one"):
         build_artwork_package(archive, tmp_path / "invalid", edition="pro", scope="full")
 
