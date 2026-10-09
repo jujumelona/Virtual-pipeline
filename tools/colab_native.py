@@ -150,7 +150,7 @@ def _has_vrm_container(path: Path) -> bool:
             chunk_length, chunk_type = struct.unpack("<II", chunk_header)
             if chunk_type != 0x4E4F534A or chunk_length < 4 or chunk_length > length - 20:
                 return False
-            payload = json.loads(handle.read(chunk_length).rstrip(b" \\t\\r\\n\\x00"))
+            payload = json.loads(handle.read(chunk_length).rstrip(b" \t\r\n\x00"))
         vrm = payload.get("extensions", {}).get("VRMC_vrm")
         return (
             isinstance(vrm, dict)
