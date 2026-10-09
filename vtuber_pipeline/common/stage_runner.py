@@ -168,8 +168,22 @@ def run_stage(*, worker: str, request_json: str, result_json: str,
                 pass
             reader.join(timeout=2)
         if status:
-            result_path.unlink(missing_ok=True)
-            raise RuntimeError(f'{worker}: exit={status}; log={log_path}\n' + ''.join(tail))
+            # The worker wrote structured traceback to result.json. Never
+            # delete it or replace that root cause with the last TensorFlow
+            # startup lines from stdout (those are often unrelated noise).
+            structured = ""
+            if result_path.is_file():
+                try:
+                    failure = json.loads(result_path.read_text(encoding="utf-8"))
+                    structured = str(failure.get("traceback") or failure.get("error") or "")
+                except (ValueError, OSError):
+                    structured = ""
+            message = structured or "".join(tail)
+            print(f"[stage failure] {worker}: exit={status}\n{message}", flush=True)
+            raise RuntimeError(
+                f"{worker}: exit={status}; log={log_path}; "
+                f"worker_error_json={result_path}\n{message}"
+            )
         if not result_path.is_file():
             raise RuntimeError(f'{worker}: missing result JSON')
         result = json.loads(result_path.read_text())
