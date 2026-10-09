@@ -533,3 +533,36 @@ def test_model_install_failure_stops_2d_build_without_faking_success(ui, tmp_pat
     assert "제작 실패" in status
     assert "missing compatible CUDA wheel" in report
     assert output is None
+
+
+@pytest.mark.parametrize("mode", ["inochi2d", "live2d"])
+def test_live_2d_stream_reports_progress_and_keeps_ui_alive_on_worker_failure(
+    ui, tmp_path, monkeypatch, mode,
+):
+    image = tmp_path / "character.png"
+    image.write_bytes(b"image")
+    monkeypatch.setattr(ui, "_gpu_snapshot", lambda: "GPU available")
+    report = []
+    def worker(selected, values, on_event=None):
+        report.append((selected, values))
+        on_event(("stage", "model", "running", "loading"))
+        on_event(("log", "model started"))
+        return ("❌ worker returned an error", "OOM on isolated worker", None)
+    monkeypatch.setattr(ui, "_run_isolated_generation", worker)
+    handler = ui.stream_inochi2d_ui if mode == "inochi2d" else ui.stream_live2d_ui
+    updates = list(handler(str(image), "corporation", progress=FakeProgress()))
+    assert len(updates) >= 2
+    assert all(len(update) == 3 for update in updates)
+    assert updates[-1][0].startswith("❌")
+    assert "model started" in updates[-1][1]
+    assert report == [(mode, (str(image), "corporation"))]
+
+
+@pytest.mark.parametrize("mode", ["inochi2d", "live2d"])
+def test_live_2d_empty_photo_does_not_spawn_model_worker(ui, monkeypatch, mode):
+    monkeypatch.setattr(ui, "_run_isolated_generation", lambda *a, **kw: pytest.fail(
+        "empty photo must not launch models"))
+    handler = ui.stream_inochi2d_ui if mode == "inochi2d" else ui.stream_live2d_ui
+    assert list(handler(None, "corporation", progress=FakeProgress())) == [
+        ("원본 캐릭터 이미지를 업로드하세요.", "", None)
+    ]
