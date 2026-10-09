@@ -20,7 +20,10 @@ from vtuber_pipeline.avatar.skintokens_bridge import (
 def _model(tmp_path, *, hair=False):
     mesh = trimesh.creation.box(extents=(1, 2, .5))
     bones = create_humanoid_skeleton(mesh.bounds)
-    joints, weights = compute_skin_weights(np.asarray(mesh.vertices), bones)
+    joints, weights = compute_skin_weights(
+        np.asarray(mesh.vertices), bones,
+        hair_vertex_start=(len(mesh.vertices) - 3 if hair else None),
+    )
     texture = tmp_path / "texture.png"
     Image.new("RGB", (8, 8), (24, 56, 99)).save(texture)
     uv = tmp_path / "uv.npy"
