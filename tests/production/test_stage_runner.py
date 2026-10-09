@@ -39,3 +39,25 @@ def test_timeout_cannot_accept_stale_result(tmp_path):
 def test_nonzero_child_rejected(tmp_path):
     with pytest.raises(RuntimeError, match='exit=7'):
         run(tmp_path, 'raise SystemExit(7)')
+
+
+def test_downstream_stage_releases_skipped_face_prewarm_before_gpu_lock(
+    tmp_path, monkeypatch,
+):
+    """Cached face gate may skip its model: next GPU stage must not deadlock."""
+    from tools import colab_gpu_warmup as warm
+
+    monkeypatch.setenv("VTUBER_GENERATION_WORKER", "1")
+    released = []
+    monkeypatch.setattr(warm, "available_face_worker", lambda: True)
+    monkeypatch.setattr(warm, "stop_face_worker",
+                        lambda: released.append("face-gpu-unloaded"))
+    code = (
+        "import json,pathlib,sys; "
+        "p=pathlib.Path('gpu-next.png');p.write_bytes(b'next-gpu-stage');"
+        "pathlib.Path(sys.argv[-1]).write_text(json.dumps("
+        "{'status':'complete','image_png':str(p.resolve())}))"
+    )
+    result = run(tmp_path, code)
+    assert Path(result["image_png"]).is_file()
+    assert released == ["face-gpu-unloaded"]
