@@ -377,14 +377,10 @@ def live2d_import_export(official_export_dir, output):
 @click.option("--accessories", default="")
 @click.option("--palette", default="")
 @click.option("--extra", default="")
-@click.option("--stability-license",
-              type=click.Choice(["not-accepted", "community-eligible", "enterprise-licensed"]),
-              default="not-accepted",
-              help="Your OWN eligibility/enterprise status; free distribution alone does not qualify.")
 @click.option("--output", required=True, type=click.Path())
 def vts_prompts(edition, scope, hair_color, hairstyle, eyes, face_description,
                 outfit, gender, skin_color, accessories, palette, extra,
-                stability_license, output):
+                output):
     """Write separate FREE/PRO, upper/full external-image prompts and model plan."""
     from vtuber_pipeline.prompt_contract import Identity
     from vtuber_pipeline.vts_modes import build_vts_brief, write_vts_brief_package
@@ -395,8 +391,7 @@ def vts_prompts(edition, scope, hair_color, hairstyle, eyes, face_description,
         extra=extra,
     )
     try:
-        brief = build_vts_brief(edition, scope, identity,
-                                stability_license=stability_license)
+        brief = build_vts_brief(edition, scope, identity)
         path = write_vts_brief_package(brief, output)
     except (ValueError, TypeError, OSError) as exc:
         raise click.ClickException(str(exc)) from exc
