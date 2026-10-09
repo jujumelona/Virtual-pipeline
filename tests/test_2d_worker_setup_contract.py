@@ -247,7 +247,7 @@ def test_sam2_iopath_sdist_installed_separately_from_binary_only_python_wheels(
     sam_install = [args for args in seen if "iopath==0.1.10" in args]
     assert len(sam_install) == 1
     assert "--no-deps" in sam_install[0]
-    assert "--no-build-isolation" in sam_install[0]
+    assert "--no-build-isolation" not in sam_install[0]  # PEP517 needs clean setuptools
     assert "--only-binary=:all:" not in sam_install[0]
     deps = [args for args in seen if "portalocker==2.10.1" in args]
     assert len(deps) == 1
