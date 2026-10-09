@@ -1311,16 +1311,45 @@ def choose_workflow(mode: str, usage: str):
     )
 
 
+def _reattach_generation_workers(mode: str) -> None:
+    """Bind per-mode worker executables in a fresh generation process.
+
+    Ready markers are persisted on disk, but VTUBER_WORKER_* and native
+    Blender/Inochi paths are process-local environment variables. A detached
+    model process must rebind them even when checkpoint downloads are cached.
+    """
+    if mode in {"inochi2d", "live2d"}:
+        from tools.install_2d_workers import activate_2d_environment
+        _setup_stage("Bind verified 2D workers", activate_2d_environment)
+        if mode == "inochi2d":
+            from tools.setup_inochi_runtime import ensure_inochi_native_runtime
+            _setup_stage("Bind official Inochi exporter", ensure_inochi_native_runtime)
+    elif mode == "3d":
+        from tools.install_2d_workers import activate_alpha_environment
+        _setup_stage("Bind 3D alpha worker", activate_alpha_environment)
+        from tools.setup_blender_runtime import ensure_blender_runtime
+        _setup_stage("Bind verified Blender VRM runtime", lambda: ensure_blender_runtime(
+            str(WORK_ROOT / "third_party" / "blender")
+        ))
+    else:
+        raise ValueError("Unknown production mode: " + mode)
+
+
 def ensure_workflow_for_generation(mode: str, usage: str) -> Tuple[str, List[str]]:
-    """Prepare selected-mode models on Build; keep uploads independent of setup."""
+    """One-click production: prepare missing models in an isolated subprocess."""
+    was_prepared = False
     try:
-        return require_runtime_ready(mode)
+        result = require_runtime_ready(mode)
     except RuntimeError as exc:
         if "② 모델 다운로드·검증을 먼저 완료하세요." not in str(exc):
             raise
-    print(f"[workflow] {mode}: preparing missing models automatically", flush=True)
-    choose_workflow(mode, usage)
-    return require_runtime_ready(mode)
+        print(f"[workflow] {mode}: preparing missing models automatically", flush=True)
+        choose_workflow(mode, usage)
+        was_prepared = True
+        result = require_runtime_ready(mode)
+    if os.environ.get("VTUBER_GENERATION_WORKER") == "1" and not was_prepared:
+        _reattach_generation_workers(mode)
+    return result
 
 
 def select_workflow_view(mode: str, usage: str):
