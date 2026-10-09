@@ -243,3 +243,44 @@ def test_failed_callback_never_publishes_leftover_artifact(
     assert "first actionable traceback line" in displayed
     assert "결과 파일을 완성 모델로 제공하지 않습니다" in displayed
     assert leftover.is_file()
+
+
+def _write_minimal_glb_container(path, *, vrm=True):
+    """Minimal valid GLB structure for quick preflight, not a rigged avatar."""
+    import json
+    import struct
+    document = {
+        "asset": {"version": "2.0"},
+        "extensions": {"VRMC_vrm": {"specVersion": "1.0"}} if vrm else {},
+        "extensionsUsed": ["VRMC_vrm"] if vrm else [],
+    }
+    data = json.dumps(document).encode("utf-8")
+    data += b" " * ((4 - len(data) % 4) % 4)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(
+        struct.pack("<4sII", b"glTF", 2, 20 + len(data))
+        + struct.pack("<II", len(data), 0x4E4F534A)
+        + data
+    )
+
+
+def test_latest_avatar_rejects_corrupt_stable_copy_and_uses_valid_output(
+    tmp_path, monkeypatch,
+):
+    monkeypatch.setattr(native, "WORK", tmp_path)
+    monkeypatch.setattr(native, "OUTPUT", tmp_path / "output")
+    stable = tmp_path / "avatar.vrm"
+    stable.write_bytes(b"glTF" + bytes(100))  # old code accepted magic alone
+    verified = native.OUTPUT / "avatar-test" / "avatar.vrm"
+    _write_minimal_glb_container(verified)
+    assert native._has_vrm_container(stable) is False
+    assert native._has_vrm_container(verified) is True
+    assert native._latest_avatar() == str(verified)
+
+
+def test_cached_avatar_preflight_rejects_non_vrm_and_malformed_json(tmp_path):
+    file = tmp_path / "avatar.vrm"
+    _write_minimal_glb_container(file, vrm=False)
+    assert not native._has_vrm_container(file)
+    file.write_bytes(b"glTF" + bytes(100))
+    assert not native._has_vrm_container(file)
