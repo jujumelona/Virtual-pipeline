@@ -19,13 +19,28 @@ def _bilinear(image: np.ndarray, xy: np.ndarray):
     x0, y0 = np.floor(x).astype(int), np.floor(y).astype(int)
     x1, y1 = np.minimum(x0 + 1, w - 1), np.minimum(y0 + 1, h - 1)
     wx, wy = (x - x0)[:, None], (y - y0)[:, None]
+    # Interpolate premultiplied RGB, then unpremultiply at the sample.
+    # Straight-alpha blending gives pale fringes around transparent hair
+    # edges. Slice only the requested texels: converting the entire source
+    # photo to float32 for every UV triangle is prohibitively expensive.
     samples = (
-        image[y0, x0] * (1 - wx) * (1 - wy)
-        + image[y0, x1] * wx * (1 - wy)
-        + image[y1, x0] * (1 - wx) * wy
-        + image[y1, x1] * wx * wy
+        image[y0, x0].astype(np.float32, copy=False),
+        image[y0, x1].astype(np.float32, copy=False),
+        image[y1, x0].astype(np.float32, copy=False),
+        image[y1, x1].astype(np.float32, copy=False),
     )
-    return samples, inside & (samples[:, 3] >= 32)
+    weights = (
+        (1 - wx) * (1 - wy), wx * (1 - wy),
+        (1 - wx) * wy, wx * wy,
+    )
+    alpha = sum(w * pix[:, 3:4] for w, pix in zip(weights, samples))
+    premultiplied_rgb = sum(
+        w * pix[:, :3] * pix[:, 3:4]
+        for w, pix in zip(weights, samples)
+    )
+    color = np.divide(premultiplied_rgb, np.maximum(alpha, 1e-6))
+    rgba = np.column_stack((color, alpha))
+    return rgba, inside & (alpha[:, 0] >= 32)
 
 
 def rasterize_multiview_texture(
@@ -142,7 +157,7 @@ def rasterize_multiview_texture(
             pixels, proj = views[name]
             indices = np.flatnonzero(remaining)
             source_xy = weights[indices] @ np.asarray(proj)[tri_indices]
-            values, valid = _bilinear(pixels.astype(np.float32, copy=False), source_xy)
+            values, valid = _bilinear(pixels, source_xy)
             if not valid.any():
                 continue
             chosen = indices[valid]
