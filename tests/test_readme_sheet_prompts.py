@@ -38,7 +38,7 @@ def test_sheet_ratio_grid_and_semantic_parts():
         p=allp[sheet.filename]
         ratio=sheet.size[0]/sheet.size[1]
         expected="1:1" if abs(ratio-1)<.01 else "2:3" if abs(ratio-2/3)<.01 else "4:3"
-        assert f"= {expected}" in p,name
+        assert f"= {expected}" in p,sheet.filename
         assert "2 columns and 2 rows" in p
         for tile in sheet.tiles:
             assert tile.name in p
@@ -47,7 +47,7 @@ def test_wardrobe_layers_are_not_baked_into_body():
     p=prompts()
     assert "not body or arms" in p["sheet_body_outfit.png"]
     assert "OUTFIT_FRONT" in p["sheet_body_outfit.png"]
-    assert "No outfit-specific sleeves" in p["sheet_arms_hands.png"] or "No outfit-specific sleeves" in p["sheet_arms_hands.png"]
+    assert "No outfit-specific sleeves" in p["sheet_arms_hands.png"]
     assert "의상 교체" in readme()
 
 def test_3d_paired_views_and_square_face():
