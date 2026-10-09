@@ -18,8 +18,8 @@ CANVAS_FACE = (2048, 2048)
 # Filenames are direct semantic keys read by two_d.build.KNOWN. Variants are
 # supplied independently; every file is a full-canvas RGBA image.
 LAYER_PARTS = (
-    ("body", "Neutral adult VTuber body with natural face-matched skin, simplified non-explicit torso and pelvis. NO bodysuit, cloth, seams or garment."),
-    ("neck", "Skin-colored neck from jaw to shoulders, including parts occluded by the face and future hair."),
+    ("body", "Fully covered adult VTuber torso with smooth matte opaque seamless skin-tone {skin_color} production cover, visually simple and suitable for independent later wardrobe layers."),
+    ("neck", "Natural-skin-color neck from jaw to shoulders, complete underneath the face and hairstyle."),
     ("ear_left", "Character's left ear, fully drawn behind hair."),
     ("ear_right", "Character's right ear, fully drawn behind hair."),
     ("face", "Facial skin and jaw without eyes, brows, lips or bangs; include whole forehead for later separate hair."),
@@ -34,10 +34,10 @@ LAYER_PARTS = (
     ("nose", "Nose line and shadow on transparent canvas; only nose pixels."),
     ("mouth_closed", "Closed mouth lip outline in resting pose."),
     ("mouth_open", "Open mouth shape including teeth, tongue and interior; separate animation variant."),
-    ("arm_left", "Character-left natural skin-colored arm with complete hidden shoulder; no fabric, sleeve or cuff."),
-    ("arm_right", "Character-right natural skin-colored arm with complete hidden shoulder; no fabric, sleeve or cuff."),
-    ("hand_left", "Character-left skin-colored hand, fully drawn past wrist for later separate sleeves."),
-    ("hand_right", "Character-right skin-colored hand, fully drawn past wrist for later separate sleeves."),
+    ("arm_left", "Character-left arm in matching opaque seamless skin-tone production cover; complete hidden shoulder and avoid obvious sleeve cuff."),
+    ("arm_right", "Character-right arm in matching opaque seamless skin-tone production cover; complete hidden shoulder and avoid obvious sleeve cuff."),
+    ("hand_left", "Character-left natural-skin-color hand, fully drawn past the wrist for later wardrobe layers."),
+    ("hand_right", "Character-right natural-skin-color hand, fully drawn past the wrist for later wardrobe layers."),
 )
 REQUIRED_2D = (
     "body", "face", "eye_left_white",
@@ -73,7 +73,7 @@ class Identity:
             "gender": self.gender,
             "hair_color": self.hair_color, "hairstyle": self.hairstyle,
             "eye_color": self.eye_color, "face_description": self.face_description,
-            "natural_skin_color": self.skin_color or "match face tone (enter exact HEX)",
+            "natural_skin_and_basewear_color": self.skin_color or "match natural face tone (enter exact HEX)",
             "palette": self.palette,
             "accessories": self.accessories, "extra": self.extra,
         }
@@ -85,36 +85,41 @@ class Identity:
 
 
 def _common(identity: Identity, *, mode: str = "2d") -> str:
-    skin_rule = (
-        "PROFESSIONAL ADULT VTUBER ANATOMICAL BASE: All visible skin "
-        "(face, neck, shoulders, torso, arms, hands, legs and feet when "
-        "visible) must have the SAME natural face-matched skin color. "
-        "Smooth simplified non-explicit chest/pelvis; no intimate details. "
-        "This is human-style skin, not a skin-colored fabric covering. "
-        "NO gray bodysuit, fitted underlayer, leotard, underwear, "
-        "stockings, garment seams, cuffs, zippers, collars, socks or shoes. "
-        "Wardrobe is a separate later production asset. "
+    base_cover = (
+        "PROFESSIONAL FULLY COVERED ADULT ANIME VTUBER MODEL: "
+        "An intentionally clothed, family-friendly animation character "
+        "with a smooth opaque seamless production cover over shoulders, "
+        "torso, arms, hips, legs and feet where visible. The cover is a "
+        "flat matte surface in the SAME tone as natural face, neck and "
+        "hand skin. No gray, textile wrinkles, collar, zipper, seam, "
+        "cuffs, logos, patterns or decorative outfit detail. "
+        "Keep the body silhouette neutral and simplified, with every "
+        "covered region remaining opaque. This is a digital rigging "
+        "reference, not a realistic human anatomy study. "
+        "Hairstyle and fashion garments are independent future assets. "
     )
     if mode == "3d":
         return (
-            "CRITICAL 3D IDENTITY LOCK: ONE original anime VTuber body with "
-            "a neutral skin-colored base in EVERY direction. Use the SAME "
-            "hairstyle across the 3D views because this reconstruction path "
-            "extracts hair from images; automatic hair/wardrobe swapping "
-            "is not supplied. Attach actual front views as identity refs "
-            "for later views. Never mirror to fake a different direction. "
-            + skin_rule + "\n" + identity.describe() + "\n"
-            "ONE IMAGE PER REQUEST; no text, labels or watermark. "
-            "Use native resolution and preserve each view's aspect ratio."
+            "CRITICAL 3D VTUBER IDENTITY LOCK: The SAME adult anime "
+            "character wearing identical plain skin-tone opaque "
+            "production basewear in EVERY orthographic view. "
+            "Keep the SAME hairstyle in the 3D views for reconstruction; "
+            "automatic 3D wardrobe switching is not supported. "
+            "Use the actual front view as reference for later views. "
+            "Never mirror to fake a different camera angle. "
+            + base_cover + "\n" + identity.describe() + "\n"
+            "ONE IMAGE PER REQUEST; no text, labels or watermarks. "
+            "Use native resolution and preserve aspect ratios."
         )
     return (
-        "CRITICAL 2D IDENTITY LOCK: ONE outfit-free and hairstyle-free "
-        "adult anime VTuber base with uncovered scalp and no head hair. "
-        "Keep face/body proportions constant. Use front_master.png for "
-        "the identity and separate registration of independent parts. "
-        + skin_rule + "\n" + identity.describe() + "\n"
-        "ONE IMAGE PER REQUEST; no text, labels or watermark. "
-        "Do not mirror or recenter individual parts."
+        "CRITICAL 2D VTUBER IDENTITY LOCK: ONE fully covered adult anime "
+        "avatar with the same skin-tone production basewear in each "
+        "reference, and a smooth scalp without attached hair. "
+        "Keep face/body proportions consistent and use front_master.png "
+        "for independent rigging part registration. "
+        + base_cover + "\n" + identity.describe() + "\n"
+        "ONE IMAGE PER REQUEST; no text, labels or watermarks. "
+        "Do not mirror or recenter part positions."
     )
 
 def build_prompts(mode: str, identity: Identity) -> dict:
@@ -139,7 +144,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
             "OUTPUT front_master.png. Render ONE complete clean front-view, "
             "neutral anime bust/upper-body reference, mouth CLOSED, eyes OPEN, "
             "arms neutral and consistent. Fully antialiased edges; full visible "
-             "uncovered scalp, skin-colored anatomy, and face. "
+             "uncovered scalp, fully covered skin-tone basewear, and face. "
             + geometry
             + " Master may use a solid neutral background for visual reference; "
             "all part layers MUST be transparent."
@@ -175,16 +180,17 @@ def build_prompts(mode: str, identity: Identity) -> dict:
     else:
         w, h = CANVAS_3D
         # Legacy five-view brief. Colab uses paired sheets + face.
-        # Views now depict a natural-skin-colored neutral 3D base.
+        # Views depict a fully covered skin-tone production rigging base.
         geometry = (
             "PORTRAIT width:height=2:3, render at native image AI quality. "
             "Same character center, head-to-foot framing, body height, "
-            "body proportions and bare feet positions across views. "
-            "All body surfaces show one natural skin material, "
-            "with no clothing, collar, seams or bodysuit in any view. "
+            "body proportions and feet positions across views. "
+            "The shoulders, chest, torso, arms, hips, legs and feet "
+            "are covered by the SAME opaque seamless {skin_color} "
+            "production basewear in every view. "
             "Orthographic eye-level camera, neutral symmetric A-pose with "
             "arms slightly separated, visible hands and feet. "
-            "Do not mirror images or add clothes between views. "
+            "Do not mirror images or redesign basewear between views. "
         )
         for key, description in VIEWS_3D:
             if key == "face":
@@ -211,7 +217,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
             "For default Colab 3D v8 use TWO paired-view sheets "
             "(sheet_front_back.png, sheet_side_views.png; each 4:3) "
             "plus face.png, zipped as character_3d_sheet_pack.zip. "
-            "ALL views show the SAME neutral natural-skin 3D avatar."
+            "ALL views show the SAME fully covered skin-tone basewear avatar."
         )
     return {
         "schema": "vtuber-external-image-contract-v1", "mode": mode,
