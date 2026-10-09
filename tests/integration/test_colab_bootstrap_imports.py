@@ -215,18 +215,21 @@ def test_readme_canonical_notebook_uses_native_colab_cells():
     assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb" in readme
     cells = ["".join(c["source"]) for c in json.loads(
         notebook_path.read_text(encoding="utf-8"))["cells"] if c["cell_type"] == "code"]
-    assert len(cells) == 4
+    assert len(cells) == 7
     assert "subprocess.Popen(" in cells[0]
     assert "colab_bootstrap.log" in cells[0]
     assert "start_new_session=True" in cells[0]
     assert "stop_legacy_server()" in cells[0]
     assert 'TASK = "캐릭터 생성"' in cells[1]
     assert "ACCESSORY_ANCHOR = \"AUTO\"" in cells[1]
-    assert "if TASK == \"캐릭터 생성\":" in cells[2]
-    assert "elif TASK == \"액세서리 제작\":" in cells[2]
+    assert "files.upload" in cells[2]
+    assert "generate(" not in cells[2]
+    assert "if TASK == \"캐릭터 생성\":" in cells[3]
+    assert "elif TASK == \"액세서리 제작\":" in cells[3]
     assert "MODE =" in cells[1]
-    assert "files.download(RESULT_FILE)" in cells[2]
-    assert "colab_native import generate" in cells[2]
+    assert "files.download(" not in cells[3]
+    assert "files.download(" in cells[4]
+    assert "colab_native import generate" in cells[3]
     assert "colab_ui_launcher" not in "".join(cells)
 
 
@@ -235,7 +238,7 @@ def test_native_mode_picker_does_not_download_unselected_models(monkeypatch, cap
         (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v8.ipynb")
         .read_text(encoding="utf-8"))
     cells = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
-    assert len(cells) == 4
+    assert len(cells) == 7
     assert "prepare_models(" not in cells[1]
     assert "subprocess." not in cells[1]
     def forbidden(*args, **kwargs):
@@ -282,18 +285,24 @@ def test_all_colab_notebooks_use_native_cell_lifetimes():
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
         cells = ["".join(cell["source"]) for cell in notebook["cells"]
                  if cell["cell_type"] == "code"]
-        expected = 4 if suffix == "_v8" else 3
+        expected = 7 if suffix == "_v8" else 3
         assert len(cells) == expected, notebook_path
         if suffix == "_v8":
-            # The optional diagnostics cell is read-only and does not run ML.
-            diagnostics = cells[3]
+            _, _, upload, generate, download, diagnostics, final_cell = cells
+            assert "generate(" not in upload
+            assert "files.upload" not in generate
+            assert "RESULT_FILE = generate(" in generate
+            assert "files.download(" not in generate
+            assert "files.download(" in download
             assert "status.json" in diagnostics
             assert "generation.log" in diagnostics
-            assert 'state == "complete"' in diagnostics
-            assert "subprocess" not in diagnostics
             assert "generate(" not in diagnostics
-        assert "run_name=\"__main__\"" not in cells[2]
-        assert "RESULT_FILE = generate(" in cells[2]
-        assert "gradio" not in "\\n".join(cells).lower()
-        ast.parse(cells[2])
+            assert "generate(" not in final_cell
+            assert "run_name=\"__main__\"" not in generate
+        else:
+            assert "run_name=\"__main__\"" not in cells[2]
+            assert "RESULT_FILE = generate(" in cells[2]
+        assert "gradio" not in "\n".join(cells).lower()
+        for cell in cells:
+            ast.parse(cell)
 
