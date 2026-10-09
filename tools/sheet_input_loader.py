@@ -1,8 +1,8 @@
 """Strict uploaded ZIP -> verified sheet tiles -> native 2D or 3D inputs.
 
-Accepted archive layout:
-  character_2d_sheet_pack/{front_master,sheet_face,sheet_hair,sheet_body_outfit}.png
-  character_3d_sheet_pack/{sheet_body_views,face}.png
+Accepted archive layout: a single optional folder containing exactly the
+canonical seven 2D high-resolution sheets + front_master, or 3D two paired
+view sheets + face. The verified manifest is defined by sheet_contract.py.
 Single root folder OR bare files. No arbitrary extraction / paths / scripts.
 AI SR is applied to each 2D tile AFTER clipping to its true-alpha bbox.
 """
@@ -27,7 +27,7 @@ MAX_TOTAL_BYTES = 500 * 1024 * 1024
 
 def _members(archive: ZipFile, mode: str):
     entries = [item for item in archive.infolist() if not item.is_dir()]
-    if not entries or len(entries) > 5:
+    if not entries or len(entries) != len(sheet_names(mode)):
         raise ValueError("Invalid sheet pack: unexpected image count")
     normalized = {}
     totals = 0
@@ -68,7 +68,7 @@ def _expected_size(mode: str, filename: str):
         return next(s.size for s in SHEETS_2D if s.filename == filename)
     if filename == "face.png":
         return FACE
-    return VIEWS_3D.size
+    return next(s.size for s in VIEWS_3D if s.filename == filename)
 
 
 def inspect_sheet_archive(archive_path: str, mode: str) -> dict:
@@ -206,13 +206,20 @@ def convert_2d_sheet_pack(pack: str, folder: str, *,
                     if bbox is None:
                         raise ValueError(f"{tile.name}: missing opaque artwork")
                     part = cell.crop(bbox)
-                    # Coordinates map to the master ROI, not the sheet's xy.
-                    upscale = upscaler(part,output_scale)
-                    if upscale.size != (part.width*output_scale,
-                                       part.height*output_scale):
+                    # Face cells already oversample the master ROI at 2x
+                    # resolution; preserve their pixels without resampling.
+                    # Large hair and garment tiles receive actual neural 2x SR.
+                    sample = sheet.cell_size[0] // (tile.roi[2]-tile.roi[0])
+                    factor = output_scale // sample
+                    if factor < 1 or factor * sample != output_scale:
+                        raise RuntimeError(f"{tile.name}: invalid atlas scale")
+                    upscale = (part.copy() if factor == 1
+                               else upscaler(part,factor))
+                    if upscale.size != (part.width*factor,
+                                       part.height*factor):
                         raise RuntimeError(f"{tile.name}: SR pixel geometry changed")
-                    x = (tile.roi[0]+bbox[0])*output_scale
-                    y = (tile.roi[1]+bbox[1])*output_scale
+                    x = tile.roi[0]*output_scale + bbox[0]*factor
+                    y = tile.roi[1]*output_scale + bbox[1]*factor
                     if (x < 0 or y < 0 or x + upscale.width > size[0]
                             or y + upscale.height > size[1]):
                         raise ValueError(f"{tile.name}: part outside final canvas")
@@ -223,7 +230,9 @@ def convert_2d_sheet_pack(pack: str, folder: str, *,
                     dest.writestr(tile.name+".png",payload.getvalue())
                     print("[sheet-part] "+tile.name+f": bbox={bbox} "
                           f"master_xy=({x},{y}) scale={output_scale}x "
-                          f"AI={'yes' if neural else 'no'}",flush=True)
+                          f"sample={sample}x output_factor={factor} "
+                          f"AI={'yes' if neural and factor>1 else 'no (native pixels)'}",
+                          flush=True)
                     del part,cell,upscale,layer,payload
                 del source
         tmp.replace(result_zip)
@@ -243,11 +252,13 @@ def convert_3d_sheet_pack(pack: str, folder: str) -> dict[str,str]:
     results = {}
     with ZipFile(pack) as z:
         members = _members(z,"3d")
-        sheet = _read(z,members,VIEWS_3D.filename)
-        for tile in VIEWS_3D.tiles:
-            destination = output / (tile.name+".png")
-            sheet.crop(VIEWS_3D.box(tile)).save(destination,"PNG")
-            results[tile.name] = str(destination)
+        for sheet_spec in VIEWS_3D:
+            sheet = _read(z,members,sheet_spec.filename)
+            for tile in sheet_spec.tiles:
+                destination = output / (tile.name+".png")
+                sheet.crop(sheet_spec.box(tile)).save(destination,"PNG")
+                results[tile.name] = str(destination)
+            del sheet
         face = _read(z,members,"face.png")
         face.save(output/"face.png")
         results["face"] = str(output/"face.png")
