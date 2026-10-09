@@ -38,6 +38,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p "$RUNNER_TEMP/florence-diagnostics"
+          export PYTHONPATH="$PWD"
           timeout 900 python -u ci/florence_native_e2e.py 2>&1 | tee "$RUNNER_TEMP/florence-diagnostics/native_inference.log"
       - name: Publish Florence loader diagnostics
         if: always()
