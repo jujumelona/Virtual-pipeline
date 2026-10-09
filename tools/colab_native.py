@@ -201,8 +201,9 @@ def generate(
     if int(texture_size) not in (1024, 2048):
         raise ValueError("텍스처 해상도는 1024 또는 2048이어야 합니다.")
     if upload is None:
-        from google.colab import files
-        upload = files.upload
+        def upload():
+            from google.colab import files
+            return files.upload()
     if runner is None:
         from tools.colab_generation_process import run_isolated
         runner = run_isolated
