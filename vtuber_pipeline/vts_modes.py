@@ -142,7 +142,7 @@ def _prompt(identity_text: str, framing: str, filename: str, task: str) -> dict:
 
 
 def build_vts_brief(
-    edition: str, scope: str, identity: Identity, *,
+    edition: str, scope: str, identity: Identity,
 ) -> dict:
     """Generate inspectable artwork requests and machine-readable runtime PLAN.
 
