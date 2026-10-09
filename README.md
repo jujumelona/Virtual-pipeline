@@ -560,10 +560,11 @@ Accessories and positions: {accessories}
 Other permanent body and character traits: {other_details}
 
 IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Use the previously created front_master.png as a real attached reference
-for each subsequent 2D sheet. Preserve colors, silhouette, linework,
-gender presentation, facial anatomy, proportions, garment construction,
-lighting, hair roots and all character-defining details exactly.
+For sheet_side_views.png and face.png attach the FRONT view already
+generated in sheet_front_back.png. For sheet_front_back.png, use the
+same character identity fields below without a prior generated reference.
+Preserve colors, silhouette, linework, gender presentation, anatomy,
+proportions, costume seams and lighting consistently across all views.
 The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
 numbers and text MUST NOT appear in the generated image.
 One high-resolution RGBA PNG per request; no visible panel borders,
@@ -606,10 +607,11 @@ Accessories and positions: {accessories}
 Other permanent body and character traits: {other_details}
 
 IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Use the previously created front_master.png as a real attached reference
-for each subsequent 2D sheet. Preserve colors, silhouette, linework,
-gender presentation, facial anatomy, proportions, garment construction,
-lighting, hair roots and all character-defining details exactly.
+For sheet_side_views.png and face.png attach the FRONT view already
+generated in sheet_front_back.png. For sheet_front_back.png, use the
+same character identity fields below without a prior generated reference.
+Preserve colors, silhouette, linework, gender presentation, anatomy,
+proportions, costume seams and lighting consistently across all views.
 The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
 numbers and text MUST NOT appear in the generated image.
 One high-resolution RGBA PNG per request; no visible panel borders,
@@ -648,10 +650,11 @@ Accessories and positions: {accessories}
 Other permanent body and character traits: {other_details}
 
 IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Use the previously created front_master.png as a real attached reference
-for each subsequent 2D sheet. Preserve colors, silhouette, linework,
-gender presentation, facial anatomy, proportions, garment construction,
-lighting, hair roots and all character-defining details exactly.
+For sheet_side_views.png and face.png attach the FRONT view already
+generated in sheet_front_back.png. For sheet_front_back.png, use the
+same character identity fields below without a prior generated reference.
+Preserve colors, silhouette, linework, gender presentation, anatomy,
+proportions, costume seams and lighting consistently across all views.
 The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
 numbers and text MUST NOT appear in the generated image.
 One high-resolution RGBA PNG per request; no visible panel borders,
@@ -715,7 +718,7 @@ No character body, mannequin, other accessories, text, label or watermark.
 
 ### Inochi2D
 
-- 기본 시트 입력: `character_2d_sheet_pack.zip` (기준 이미지 1장 + 고해상도 시트 3장). 각 시트의 배치 그림과 복사용 프롬프트는 위 제작 가이드 참조.
+- 기본 시트 입력: `character_2d_sheet_pack.zip` (기준 이미지 1장 + 고해상도 시트 7장). 각 시트의 배치 그림과 복사용 프롬프트는 위 제작 가이드 참조.
 - 현재 출력: `avatar.psd`, `avatar.ora`, `meshes2d.json`, `keyforms.json`, `physics2d.json`, `puppet_spec.json`. SDK 네이티브 출력에 성공한 경우에만 `avatar.inp`를 `complete`로 보고합니다.
 - 네이티브 자동화: 공식 BSD-2 **Inochi2D SDK 0.8.7**의 실제 `MeshData`·`Part`·`DeformationParameterBinding`·`SimplePhysics`를 구성하고 SDK의 `inWriteINPPuppet`로 **실제 INP1**을 출력합니다. SDK로 다시 읽어 애니메이션·물리 바인딩을 검사합니다. 0.9 개발판은 현재 변형 바인딩이 비활성화되어 본선에 사용하지 않습니다.
 - 실제 컴파일+SDK 네이티브 INP 재임포트 검증: [GitHub Actions PASS](https://github.com/jujumelona/Virtual-pipeline/actions/runs/37878238975). 이 검증은 SDK 프로그램의 정상 작동을 증명하며 **사용자별 AI 파츠 품질을 보증하지는 않습니다.**
@@ -723,7 +726,7 @@ No character body, mannequin, other accessories, text, label or watermark.
 
 ### Live2D
 
-- 입력: 기준 이미지 + 고해상도 파츠 시트 3장이 들어 있는 ZIP 1개
+- 입력: 기준 이미지 + 고해상도 파츠 시트 7장이 들어 있는 ZIP 1개
 - 현재 출력: `avatar.psd`, `avatar.ora`, `cubism_handoff.zip`, `cubism_spec.json`. 공식 Editor 내보내기 결과의 MOC3·텍스처·physics·model3 참조는 별도 `live2d-import-export`에서 확인합니다.
 - 목표: **Live2D Cubism Editor에서 리깅 후 `.moc3`, `.model3.json`, 텍스처/물리 출력**, VTube Studio에서 로드.
 - **Live2D Cubism Editor는 비오픈소스**입니다. 공식 모델 바이너리 생성은 [Cubism 내보내기 문서](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/)에 기술돼 있습니다. 검증된 상업용 오픈소스 MOC3 인코더가 없어 이 프로젝트는 완성된 Live2D 모델을 자동 생성한다고 주장하지 않습니다.
