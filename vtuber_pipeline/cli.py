@@ -329,7 +329,7 @@ def inochi2d_full(image, layers_zip, output, commercial_usage):
             os.environ["VTUBER_INOCHI_AUTO_BUILD"] = previous
     click.echo(__import__("json").dumps(result.__dict__,ensure_ascii=False))
     if result.status!="complete":
-        raise click.ClickException(result.error or "No verified INP2 puppet was produced")
+        raise click.ClickException(result.error or "No SDK-verified deformable INP puppet was produced")
 
 
 @cli.command("live2d")
