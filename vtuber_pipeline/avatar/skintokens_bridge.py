@@ -179,6 +179,37 @@ def graft_weights(baseline_file: str, candidate_file: str, output_file: str) -> 
             "model": "VAST-AI-Research/SkinTokens", "skin_only": True}
 
 
+def check_gpu_compatibility(identity: dict) -> dict:
+    """Reject T4/CPU explicitly: upstream TokenRig hardcodes BF16 + FA2."""
+    probe = (
+        "import json, torch; "
+        "assert torch.cuda.is_available(), 'SkinTokens requires an NVIDIA GPU'; "
+        "p=torch.cuda.get_device_properties(0); "
+        "free,total=torch.cuda.mem_get_info(0); "
+        "print(json.dumps({'device':p.name,'major':p.major,'minor':p.minor,"
+        "'total_bytes':total,'free_bytes':free,"
+        "'bf16':bool(torch.cuda.is_bf16_supported())}))"
+    )
+    result = subprocess.run(
+        [identity["python"], "-c", probe],
+        cwd=identity["repo"], capture_output=True, text=True, timeout=90,
+    )
+    if result.returncode:
+        raise RuntimeError("SkinTokens CUDA probe failed: " + result.stderr[-1000:])
+    properties = json.loads(result.stdout.strip().splitlines()[-1])
+    if (properties["major"] < 8 or not properties["bf16"]):
+        raise RuntimeError(
+            "SkinTokens upstream requires BF16 and FlashAttention-2 (Ampere+). "
+            f"Unsupported GPU: {properties['device']} sm{properties['major']}{properties['minor']}; "
+            "Colab T4 uses sm75. Select canonical rigging on T4."
+        )
+    if properties["total_bytes"] < MIN_TOTAL_VRAM_BYTES:
+        raise RuntimeError("SkinTokens GPU has less than 14 GiB total VRAM")
+    if properties["free_bytes"] < MIN_TOTAL_VRAM_BYTES:
+        raise RuntimeError("SkinTokens needs at least 14 GiB free GPU memory")
+    return properties
+
+
 def runtime_identity() -> dict:
     """Fail closed until the exact upstream source and checkpoint are present."""
     repo = Path(os.environ.get("VTUBER_SKINTOKENS_DIR", "")).expanduser()
@@ -211,6 +242,7 @@ def run_skintokens_skin_only(baseline_file: str, output_dir: str,
     if not Path(baseline_file).is_file():
         raise FileNotFoundError(baseline_file)
     identity = runtime_identity() if identity is None else identity
+    gpu = check_gpu_compatibility(identity)
     root = Path(output_dir)
     root.mkdir(parents=True, exist_ok=True)
     candidate = root / "skintokens_candidate.glb"
@@ -234,6 +266,7 @@ def run_skintokens_skin_only(baseline_file: str, output_dir: str,
     if status.returncode != 0 or not candidate.is_file() or candidate.stat().st_size == 0:
         raise RuntimeError(f"SkinTokens inference failed; log={log_path}")
     result = graft_weights(baseline_file, str(candidate), str(final))
+    result["gpu"] = gpu
     result["source_revision"] = identity["revision"]
     result["checkpoint_sha256"] = identity["model_sha256"]
     result["log_path"] = str(log_path)
