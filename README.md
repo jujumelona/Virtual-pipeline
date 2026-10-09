@@ -16,7 +16,7 @@
 
 순서: `front_master.png` 생성 → 그 이미지를 **모든 후속 프롬프트에 반드시 첨부** → 각 배치 가이드도 추가 첨부 → 출력 PNG의 비율·RGBA·각 칸의 파츠 확인 → ZIP 압축.
 
-#### `front_master.png` — 옷 없는 중립 정면 기준
+#### `front_master.png` — 헤어·옷 없는 중립 정면 기준
 
 **이미지 비율: 2:3 세로형.** 전신이 아닌 2D 방송용 상반신 중심 참조(머리, 목, 몸통, 양팔과 손이 보여야 함).
 
@@ -38,9 +38,14 @@ Render at your model's best native resolution; no forced pixel number.
 Same neutral upright front pose; face centered, eyes open, lips closed.
 Head, shoulders, torso, forearms, hands readable, intended 2D rig area
 fully inside the canvas. Same identity will be locked in future sheets.
-NO costume, clothing, skirt, jacket, shirt, sleeves, gloves or accessory
-that will be swapped later. A simple fitted neutral body-covering base
-is acceptable; it is NOT a removable costume.
+NO removable hairstyle, bangs, locks, wig or head hair in this
+BASE reference (draw the uncovered scalp/head instead). The listed
+hairstyle is an identity specification reserved for hair_variant.png.
+NO detachable costume, clothing, skirt, jacket, shirt, sleeves,
+gloves, shoes or costume accessories in this base artwork.
+A plain fitted neutral body-covering underlayer is acceptable and
+is not a removable costume. Hair and clothing will be authored
+later as isolated transparent, deformable parts.
 Do not generate a collage, labels, guides, text, or grid cells.
 ```
 
