@@ -317,6 +317,9 @@ def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
 
 def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int = 7200):
     """Use the published NF4 PSD inference entrypoint, not a fake layer splitter."""
+    master = master.expanduser().resolve(strict=True)
+    work = work.expanduser().resolve()
+    third_party = third_party.expanduser().resolve()
     program = third_party / "inference/scripts/inference_psd_quantized.py"
     if not program.is_file():
         raise FileNotFoundError(
@@ -401,12 +404,9 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
     Each PRO call processes exactly one body/hair/outfit/accessory asset.
     It never requires all detachable assets from the same user.
     """
-    if edition not in ("free", "pro") or scope not in ("upper", "full"):
-        raise ValueError("Invalid VTS edition or scope")
-    if edition == "free" and asset_kind is not None:
-        raise ValueError("FREE requires one finished character image, not PRO assets")
-    if edition == "pro" and asset_kind not in ("body", "hair", "outfit", "accessory"):
-        raise ValueError("PRO requires one independent body/hair/outfit/accessory submode")
+    from tools.vts_artwork_export import validate_artwork_request
+    validate_artwork_request(edition=edition, scope=scope, asset_kind=asset_kind,
+                             per_pass_layers=qwen_layers, max_qwen_passes=qwen_passes)
     canvas = _image(master)
     if edition == "pro" and asset_kind != "body":
         if reference_image is None:

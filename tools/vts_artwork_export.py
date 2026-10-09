@@ -508,12 +508,9 @@ def _quality_md(parts: list, edition: str, asset_kind: str | None,
     )
 
 
-def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
-                          scope: str, asset_kind: str | None = None,
-                          qwen: bool = False, qwen_infer=None, third_party=None,
-                          python_path=None, max_qwen_passes: int = 4,
-                          per_pass_layers: int = 4) -> dict:
-    """Build one FREE character or one independently authored PRO asset PSD."""
+def validate_artwork_request(*, edition: str, scope: str, asset_kind: str | None = None,
+                             per_pass_layers: int = 4, max_qwen_passes: int = 4):
+    """Validate the same contract before inference and before packaging."""
     if edition not in ("free", "pro") or scope not in ("upper", "full"):
         raise ValueError("Invalid Cubism edition/framing")
     if edition == "pro" and asset_kind not in ASSETS:
@@ -522,6 +519,16 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         raise ValueError("FREE is one complete fixed-look character")
     if not 2 <= per_pass_layers <= 10 or not 0 <= max_qwen_passes <= 12:
         raise ValueError("Invalid Qwen recursion budget")
+
+
+def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
+                          scope: str, asset_kind: str | None = None,
+                          qwen: bool = False, qwen_infer=None, third_party=None,
+                          python_path=None, max_qwen_passes: int = 4,
+                          per_pass_layers: int = 4) -> dict:
+    """Build one FREE character or one independently authored PRO asset PSD."""
+    validate_artwork_request(edition=edition, scope=scope, asset_kind=asset_kind,
+                             per_pass_layers=per_pass_layers, max_qwen_passes=max_qwen_passes)
     layers, canvas = _read_registered(registered_zip)
     if edition == "pro":
         # One asset is the complete input here. See-through's classifier may
