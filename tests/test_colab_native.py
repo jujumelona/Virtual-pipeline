@@ -1,0 +1,107 @@
+"""CPU-only checks for the Colab notebook without an HTTP/Gradio UI."""
+from pathlib import Path
+
+import pytest
+from tools import colab_native as native
+
+
+def test_photo_only_2d_generation_uses_native_uploader(tmp_path, monkeypatch):
+    monkeypatch.setattr(native, "WORK", tmp_path)
+    artifact = tmp_path / "export.zip"
+    artifact.write_bytes(b"actual test package")
+    invocations = []
+
+    def runner(mode, args, on_event):
+        invocations.append((mode, args))
+        on_event(("stage", "segmentation", "running", "original photo"))
+        return ("needs_editor_export", "layers created", str(artifact))
+
+    result = native.generate(
+        "live2d", "personalProfit", upload=lambda: {"character.png": b"photo"},
+        runner=runner,
+    )
+    assert result == str(artifact)
+    assert len(invocations) == 1
+    mode, args = invocations[0]
+    assert mode == "live2d"
+    assert args[1] == "personalProfit"
+    assert Path(args[0]).read_bytes() == b"photo"
+    assert len(args) == 2  # photo + usage, no manual parts ZIP
+
+
+def test_3d_default_uploads_only_one_photo(tmp_path, monkeypatch):
+    monkeypatch.setattr(native, "WORK", tmp_path)
+    monkeypatch.setattr(native, "OUTPUT", tmp_path / "output")
+    target = native.OUTPUT / "sample" / "avatar.vrm"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"glTF" + bytes(80))
+    uploads = []
+    received = []
+
+    def upload():
+        uploads.append(True)
+        return {"full_body.jpg": b"portrait"}
+
+    def runner(mode, args, on_event):
+        received.append((mode, args))
+        return ("success", "complete", str(target))
+
+    assert native.generate(
+        "3d", upload=upload, runner=runner,
+    ) == str(target)
+    assert len(uploads) == 1
+    mode, args = received[0]
+    assert mode == "avatar"
+    assert args[3:6] == [None, None, False]
+    assert args[6:] == [2048, None, None, "canonical"]
+    assert (tmp_path / "avatar.vrm").read_bytes() == target.read_bytes()
+
+
+def test_accessory_mode_uses_separate_vrm_and_multiple_accessory_uploads(tmp_path, monkeypatch):
+    monkeypatch.setattr(native, "WORK", tmp_path)
+    monkeypatch.setattr(native, "OUTPUT", tmp_path / "output")
+    vrm = tmp_path / "character.vrm"
+    vrm.write_bytes(b"glTF" + bytes(70))
+    monkeypatch.setattr(native, "_latest_avatar", lambda: str(vrm))
+    result = tmp_path / "accessories.vrm"
+    result.write_bytes(b"glTF" + bytes(80))
+    seen = []
+
+    def runner(mode, args, on_event):
+        seen.append((mode, args))
+        return ("accessories complete", "ok", str(result))
+
+    assert native.generate(
+        "accessory", upload=lambda: {"hat.png": b"hat", "glasses.png": b"glasses"},
+        accessory_anchor="HEAD_TOP", runner=runner,
+    ) == str(result)
+    kind, args = seen[0]
+    assert kind == "accessory"
+    assert args[:3] == [True, None, str(vrm)]
+    assert len(args) == 17  # 3 base arguments + 7 fields per accessory
+    assert args[4] == "HEAD_TOP"
+    assert args[11] == "HEAD_TOP"
+
+
+def test_upload_cancel_does_not_start_generation(tmp_path, monkeypatch):
+    monkeypatch.setattr(native, "WORK", tmp_path)
+    with pytest.raises(ValueError, match="취소"):
+        native.generate("inochi2d", upload=lambda: {},
+                        runner=lambda *a, **kw: pytest.fail("must not start subprocess"))
+
+
+def test_reject_extra_character_uploads_before_start(tmp_path, monkeypatch):
+    monkeypatch.setattr(native, "WORK", tmp_path)
+    with pytest.raises(ValueError, match="한 장"):
+        native.generate("live2d", upload=lambda: {"one.png": b"1", "two.png": b"2"},
+                        runner=lambda *a, **kw: pytest.fail("must not start subprocess"))
+
+
+def test_user_interrupt_is_propagated_not_reported_as_success(tmp_path, monkeypatch):
+    monkeypatch.setattr(native, "WORK", tmp_path)
+    photo = tmp_path / "photo.png"
+    photo.write_bytes(b"image")
+    def stop(mode, args, on_event):
+        raise KeyboardInterrupt()
+    with pytest.raises(KeyboardInterrupt):
+        native.generate("inochi2d", image_path=str(photo), runner=stop)
