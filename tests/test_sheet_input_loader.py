@@ -36,6 +36,12 @@ def mini_layout(monkeypatch):
         )),
     )
     monkeypatch.setattr(loader,"SHEETS_2D",sheets)
+    original_sheet_names = loader.sheet_names
+    monkeypatch.setattr(
+        loader,"sheet_names",
+        lambda mode: frozenset({"front_master.png",*(sheet.filename for sheet in sheets)})
+        if mode in ("live2d","inochi2d","2d") else original_sheet_names(mode)
+    )
     return sheets
 
 
@@ -46,7 +52,8 @@ def test_exact_26_tiles_and_fixed_roi_sizes():
         assert sheet.cell_size[0] == sheet.size[0]//sheet.columns
         assert sheet.cell_size[1] == sheet.size[1]//sheet.rows
         for tile in sheet.tiles:
-            assert (tile.roi[2]-tile.roi[0],tile.roi[3]-tile.roi[1])==sheet.cell_size
+            assert sheet.cell_size[0]%(tile.roi[2]-tile.roi[0])==0
+        assert (sheet.cell_size[0]//(tile.roi[2]-tile.roi[0])) in (1,2)
 
 
 def test_2d_zip_is_strict_and_tiles_restore_absolute_coordinates(tmp_path,monkeypatch):
@@ -108,29 +115,70 @@ def test_model_is_loaded_only_for_requested_neural_upscale(monkeypatch,tmp_path)
         raise AssertionError("GPU weights should not load in upload cell")
     import tools.sheet_super_resolution as sr
     monkeypatch.setattr(sr,"load_model",crash)
-    assert loader.sheet_names("3d")==frozenset({"face.png","sheet_body_views.png"})
+    assert loader.sheet_names("3d")==frozenset({
+        "face.png","sheet_front_back.png","sheet_side_views.png"})
     with pytest.raises(ValueError,match="Provide one"):
         loader.inspect_sheet_archive(str(tmp_path/"missing.png"),"3d")
 
 
 def test_3d_view_sheet_lossless_crop(tmp_path,monkeypatch):
-    mini = Sheet("sheet_body_views.png",(16,16),2,2,(
-        Tile("front",0,0,(0,0,8,8)), Tile("back",0,1,(0,0,8,8)),
-        Tile("left",1,0,(0,0,8,8)),Tile("right",1,1,(0,0,8,8)),
+    front_back = Sheet("sheet_front_back.png",(16,8),2,1,(
+        Tile("front",0,0,(0,0,8,8)),Tile("back",0,1,(0,0,8,8)),
     ))
-    monkeypatch.setattr(loader,"VIEWS_3D",mini)
+    sides = Sheet("sheet_side_views.png",(16,8),2,1,(
+        Tile("left",0,0,(0,0,8,8)),Tile("right",0,1,(0,0,8,8)),
+    ))
+    monkeypatch.setattr(loader,"VIEWS_3D",(front_back,sides))
     monkeypatch.setattr(loader,"FACE",(8,8))
-    master=Image.new("RGB",(16,16))
-    for cell,xy in enumerate(((0,0),(8,0),(0,8),(8,8)),start=1):
-        ImageDraw.Draw(master).rectangle((xy[0],xy[1],xy[0]+7,xy[1]+7),
-                                         fill=(cell*35,30,40))
-    b=BytesIO();master.save(b,"PNG")
+    src={}
+    for sheet,palette in ((front_back,(35,70)),(sides,(105,140))):
+        img=Image.new("RGB",(16,8))
+        for col,shade in enumerate(palette):
+            ImageDraw.Draw(img).rectangle((col*8,0,col*8+7,7),
+                                         fill=(shade,30,40))
+        out=BytesIO();img.save(out,"PNG")
+        src[sheet.filename]=out.getvalue()
     pack=tmp_path/"character_3d_sheet_pack.zip"
     with ZipFile(pack,"w") as z:
-        z.writestr("character_3d_sheet_pack/sheet_body_views.png",b.getvalue())
+        for name,payload in src.items():
+            z.writestr("character_3d_sheet_pack/"+name,payload)
         z.writestr("character_3d_sheet_pack/face.png",png((8,8)))
     result=loader.convert_3d_sheet_pack(str(pack),str(tmp_path/"3d"))
-    for n,i in zip(("front","back","left","right"),range(1,5)):
-        with Image.open(result[n]) as im:
-            assert im.size==(8,8)
-            assert im.getpixel((3,3))==(i*35,30,40)
+    for name,color in (("front",35),("back",70),
+                       ("left",105),("right",140)):
+        with Image.open(result[name]) as img:
+            assert img.size==(8,8)
+            assert img.getpixel((3,3))==(color,30,40)
+
+
+def test_zoomed_face_cell_preserves_native_2x_pixels(tmp_path,monkeypatch):
+    """An ROI sampled at 2x stays at 1:1 in the 2x output master."""
+    monkeypatch.setattr(loader,"MASTER",(16,16))
+    zoom=Sheet("sheet_face_base.png",(8,8),1,1,(
+        Tile("face",0,0,(4,4,8,8)),
+    ))
+    monkeypatch.setattr(loader,"SHEETS_2D",(zoom,))
+    monkeypatch.setattr(
+        loader,"sheet_names",
+        lambda _:frozenset({"front_master.png","sheet_face_base.png"})
+    )
+    img=Image.new("RGBA",(8,8))
+    img.putpixel((2,3),(255,10,30,255))
+    pixel_file=BytesIO();img.save(pixel_file,"PNG")
+    pack=tmp_path/"character_2d_sheet_pack.zip"
+    with ZipFile(pack,"w") as z:
+        z.writestr("front_master.png",png((16,16),box=(4,4,9,9)))
+        z.writestr("sheet_face_base.png",pixel_file.getvalue())
+    factors=[]
+    def fake_upscale(im,factor):
+        factors.append(factor)
+        return im.resize((im.width*factor,im.height*factor))
+    _,parts=loader.convert_2d_sheet_pack(
+        str(pack),str(tmp_path/"out"),output_scale=2,
+        neural=True,upscaler=fake_upscale
+    )
+    assert factors==[2], "2x face tile needs no additional neural enlargement"
+    with ZipFile(parts) as z:
+        with Image.open(z.open("face.png")) as layer:
+            assert layer.getpixel((4*2+2,4*2+3))==(255,10,30,255)
+            assert layer.getpixel((4*2+4,4*2+3))[3]==0
