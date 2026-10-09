@@ -7,6 +7,9 @@ on:
       - "tools/setup_blender_runtime.py"
       - "tools/blender_jobs/**"
       - "vtuber_pipeline/avatar/blender_bridge.py"
+      - "vtuber_pipeline/avatar/blender_heat_bridge.py"
+      - "vtuber_pipeline/avatar/skintokens_bridge.py"
+      - "tests/production/test_blender_heat_bridge.py"
       - "vtuber_pipeline/avatar/vrm_export.py"
       - ".github/workflows/blender-vrm-native.yml"
   workflow_dispatch:
