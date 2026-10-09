@@ -11,6 +11,42 @@ import tempfile
 import time
 from contextlib import contextmanager
 import fcntl
+def cgroup_memory_diagnostics() -> dict:
+    """Read kernel OOM counters to distinguish SIGKILL from a guessed OOM."""
+    root = Path("/sys/fs/cgroup")
+    result = {}
+    for name in ("memory.current", "memory.max", "memory.peak"):
+        try:
+            raw = (root / name).read_text(encoding="ascii").strip()
+            result[name] = int(raw) if raw != "max" else raw
+        except (OSError, ValueError):
+            pass
+    try:
+        for line in (root / "memory.events").read_text(encoding="ascii").splitlines():
+            key, value = line.split()
+            if key in {"oom", "oom_kill", "max", "high"}:
+                result["events." + key] = int(value)
+    except (OSError, ValueError):
+        pass
+    return result
+
+
+def cgroup_oom_summary(before: dict, after: dict) -> str:
+    old = int(before.get("events.oom_kill", 0))
+    new = int(after.get("events.oom_kill", 0))
+    delta = new - old
+    summary = f"cgroup_oom_kill_delta={delta} "
+    limit = after.get("memory.max")
+    peak = after.get("memory.peak")
+    if isinstance(limit, int):
+        summary += f"cgroup_limit_mib={limit//1048576} "
+    if isinstance(peak, int):
+        summary += f"cgroup_peak_mib={peak//1048576} "
+    summary += ("kernel_oom_confirmed" if delta > 0 else
+                "SIGKILL_cause_unconfirmed")
+    return summary
+
+
 def write_json(path, value):
     path = Path(path)
     temporary = path.with_suffix(path.suffix + '.tmp')
@@ -148,6 +184,7 @@ def run_stage(*, worker: str, request_json: str, result_json: str,
         provenance.unlink(missing_ok=True)
         log_path = result_path.with_suffix('.log')
         tail = deque(maxlen=30)
+        memory_before = cgroup_memory_diagnostics()
         with log_path.open('w') as log:
             process = subprocess.Popen([executable, '-u', worker, request_json, str(result_path)], cwd=cwd,
                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -190,9 +227,14 @@ def run_stage(*, worker: str, request_json: str, result_json: str,
                 except (ValueError, OSError):
                     structured = ""
             message = structured or "".join(tail)
-            print(f"[stage failure] {worker}: exit={status}\n{message}", flush=True)
+            oom_detail = (
+                cgroup_oom_summary(memory_before, cgroup_memory_diagnostics())
+                if status == -signal.SIGKILL else ""
+            )
+            print(f"[stage failure] {worker}: exit={status} "
+                  f"{oom_detail}\n{message}", flush=True)
             raise RuntimeError(
-                f"{worker}: exit={status}; log={log_path}; "
+                f"{worker}: exit={status}; {oom_detail}; log={log_path}; "
                 f"worker_error_json={result_path}\n{message}"
             )
         if not result_path.is_file():
