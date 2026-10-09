@@ -105,3 +105,83 @@ def test_user_interrupt_is_propagated_not_reported_as_success(tmp_path, monkeypa
         raise KeyboardInterrupt()
     with pytest.raises(KeyboardInterrupt):
         native.generate("inochi2d", image_path=str(photo), runner=stop)
+
+
+def test_auto_accessory_batch_assigns_each_photo_its_own_anchor(tmp_path, monkeypatch):
+    monkeypatch.setattr(native, "WORK", tmp_path)
+    vrm = tmp_path / "base.vrm"
+    vrm.write_bytes(b"glTF" + bytes(80))
+    monkeypatch.setattr(native, "_latest_avatar", lambda: str(vrm))
+    result = tmp_path / "updated.vrm"
+    result.write_bytes(b"glTF" + bytes(80))
+    seen = []
+    def runner(mode, args, on_event):
+        seen.append((mode, args))
+        return ("accessories complete", "", str(result))
+    assert native.generate("accessory", runner=runner, upload=lambda: {
+        "hat.png": b"hat", "glasses.png": b"glasses",
+        "shoes.png": b"shoes",
+    }) == str(result)
+    mode, args = seen[0]
+    assert mode == "accessory"
+    pairs = [(args[i], args[i + 1]) for i in range(3, len(args), 7)]
+    assert len(pairs) == 4
+    assert [(Path(p).name.split("_", 2)[-1], anchor)
+            for p, anchor in pairs] == [
+        ("hat.png", "HEAD_TOP"),
+        ("glasses.png", "FACE"),
+        ("shoes.png", "LEFT_FOOT"),
+        ("shoes.png", "RIGHT_FOOT"),
+    ]
+
+
+def test_all_accessory_positions_are_explicitly_batched_without_skipping(tmp_path, monkeypatch):
+    monkeypatch.setattr(native, "WORK", tmp_path)
+    vrm = tmp_path / "base.vrm"
+    vrm.write_bytes(b"glTF" + bytes(80))
+    monkeypatch.setattr(native, "_latest_avatar", lambda: str(vrm))
+    result = tmp_path / "updated.vrm"
+    result.write_bytes(b"glTF" + bytes(80))
+    got = []
+    def runner(mode, args, on_event):
+        got.append((mode, args))
+        return ("accessories complete", "", str(result))
+    native.generate("accessory", accessory_anchor="ALL",
+                    upload=lambda: {"unknown.png": b"unclassified"},
+                    runner=runner)
+    mode, args = got[0]
+    assert mode == "accessory"
+    assert len(args) == 3 + 7 * len(native.ANCHORS)
+    assert [args[i] for i in range(4, len(args), 7)] == list(native.ANCHORS)
+
+
+def test_ambiguous_auto_accessory_names_fail_before_model_loading(tmp_path, monkeypatch):
+    monkeypatch.setattr(native, "WORK", tmp_path)
+    vrm = tmp_path / "base.vrm"
+    vrm.write_bytes(b"glTF" + bytes(80))
+    monkeypatch.setattr(native, "_latest_avatar", lambda: str(vrm))
+    with pytest.raises(ValueError, match="자동 위치 판정 불가"):
+        native.generate(
+            "accessory", upload=lambda: {"image.png": b"unknown"},
+            runner=lambda *a, **kw: pytest.fail("No unverified accessory placement"),
+        )
+
+
+def test_character_mode_rejects_accessory_only_mode_in_ui_dispatch():
+    import json
+    import ast
+    repo = Path(__file__).resolve().parents[1]
+    notebook = json.loads((repo / "notebooks" /
+                           "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
+    cells = ["".join(cell["source"]) for cell in notebook["cells"]
+             if cell["cell_type"] == "code"]
+    assert 'TASK = "캐릭터 생성"' in cells[1]
+    assert 'ACCESSORY_ANCHOR = "AUTO"' in cells[1]
+    assert 'elif TASK == "액세서리 제작":' in cells[2]
+    tree = ast.parse(cells[2])
+    branches = [node for node in ast.walk(tree) if isinstance(node, ast.If)]
+    work = next(node for node in branches if
+                ast.unparse(node.test) == "TASK == '캐릭터 생성'")
+    character_code = ast.unparse(ast.Module(body=work.body, type_ignores=[]))
+    assert "accessory_anchor=" not in character_code
+    assert "accessory_base_path=" not in character_code
