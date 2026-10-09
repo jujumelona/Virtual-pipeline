@@ -14,12 +14,12 @@
 
 | 하위 모드 | 필수 이미지 | 생성 요구 | 최종 스타일 |
 |---|---|---|---|
-| **FREE 상반신** | \`free_upper_master.png\` **1장** | 머리부터 허리 아래/골반 상단까지; 양손·팔·헤어 포함, 허벅지 중간 절단 금지 | 옷·헤어·장식이 적용된 고정 스타일 |
-| **FREE 전신** | \`free_full_master.png\` **1장** | 머리부터 신발 끝까지, 두 손·두 발 포함, 절단 금지 | 옷·헤어·장식이 적용된 고정 스타일 |
+| **FREE 상반신** | `free_upper_master.png` **1장** | 머리부터 허리 아래/골반 상단까지; 양손·팔·헤어 포함, 허벅지 중간 절단 금지 | 옷·헤어·장식이 적용된 고정 스타일 |
+| **FREE 전신** | `free_full_master.png` **1장** | 머리부터 신발 끝까지, 두 손·두 발 포함, 절단 금지 | 옷·헤어·장식이 적용된 고정 스타일 |
 
 이 **마스터 1장**은 이미지 AI의 필수 출력 개수다. 후속 레이어 수나 ArtMesh 수가 아니다. 둘 중 하나의 프롬프트만 선택한다. 원본에서는 실제 투명 RGBA를 강제하지 않으며, 이미지 생성 AI의 **지원 네이티브 해상도**로 만든다. 대형 최종 편집용 캔버스의 픽셀 크기를 네이티브 생성 해상도라고 오인하지 않는다.
 
-### ① FREE 상반신 이미지 생성용 — \`free_upper_master.png\`
+### ① FREE 상반신 이미지 생성용 — `free_upper_master.png`
 
 ~~~text
 ORIGINAL ADULT ANIME VTUBER (fill in the placeholders):
@@ -62,7 +62,7 @@ poses, extra views, checkerboard or watermark.
 The pipeline, not this request, will later separate animation layers.
 ~~~
 
-### ② FREE 전신 이미지 생성용 — \`free_full_master.png\`
+### ② FREE 전신 이미지 생성용 — `free_full_master.png`
 
 ~~~text
 ORIGINAL ADULT ANIME VTUBER (fill in the placeholders):
@@ -104,22 +104,42 @@ grid, text or watermark. Hidden pixels and separate rigging layers
 must be inferred by the subsequent pipeline, not pre-drawn here.
 ~~~
 
-### ③ FREE용 AI 모델·소프트웨어 조합 계획
+### ③ FREE용 AI 모델·소프트웨어 확정 설계 (공식 모델 카드·라이선스 확인, 실행 검증 전)
 
-| 작업 | 우선 후보 / 출처 | 맡길 기능과 확인해야 할 한계 |
+**확정 기본 원칙:** 완성 캐릭터 **한 장은 외부 대형 이미지 AI에게 생성해 온다.** FREE 내부 파이프라인에서 FLUX.2 Klein 4B 및 별도 캐릭터 생성 모델을 설치하거나 다운로드하지 않는다. 얼굴/헤어/의상/액세서리까지 포함한 `free_upper_master.png` 또는 `free_full_master.png` 한 장을 입력받는다.
+
+| 순서 | 확정 도구·체크포인트 | 채택 판단과 담당 기능 | 라이선스 |
+|---|---|---|---|
+| 0. 완성 이미지 준비 | **외부 대형 이미지 AI** | FREE 모드에서 생성 모델 실행 없음; 업로드한 완성 캐릭터 1장 검사 | 이미지 제공 서비스의 실제 이용 약관 별도 적용 |
+| 1. 애니 신체 파싱 | [See-through V3 SAM-HQ ViT-H](https://huggingface.co/24yearsold/l2d_sam_iter2) (`checkpoint-18000.pt`) | **애니 신체 19개 의미별 파싱**에 특화된 체크포인트를 직접 사용. 일반 SAM을 애니 전용 모델이라고 오인하지 않음 | **Apache-2.0**, 상업적 이용 허용(공식 가중치 카드 명시) |
+| 2. 애니 레이어 분해 | [See-through V3](https://github.com/shitagaki-lab/see-through), 저VRAM 기본은 [LayerDiff3D NF4](https://huggingface.co/24yearsold/seethroughv0.0.2_layerdiff3d_nf4) + [Marigold NF4](https://huggingface.co/24yearsold/seethroughv0.0.1_marigold_nf4) | 캐릭터 한 장 → 최대 23개 의미별 레이어·순서·가려진 영역 추정·PSD. **공식 `inference_psd_quantized.py`** 사용을 계획; 23개는 최종 ArtMesh 최대치나 완성 리깅이 아님 | 코드는 **Apache-2.0**. **LayerDiff / Marigold 가중치: Open RAIL++/Open RAIL-M 제한 병존**, **상업 이용 허용**, 배포·서비스 제공 시 원 라이선스 제한·고지·NOTICE 적용 필요 |
+| 3. 일반 이미지 경계·세부 마스크 | **[SAM2.1 Hiera Large](https://huggingface.co/facebook/sam2.1-hiera-large)** (`sam2.1_hiera_large.pt`) **한 종류로 고정** | 공식 SAM2.1 비교표상 계열 중 최고 정확도 체크포인트. 기존에 제안한 tiny/small/base+ 선택지를 FREE 설정에서 삭제. See-through 의미별 파싱과 역할이 다르며, 필요 영역에만 호출 | **Apache-2.0**, 상업적 이용 허용 |
+| 4. 고난도 반복 분해 | **[Qwen/Qwen-Image-Layered](https://huggingface.co/Qwen/Qwen-Image-Layered)** 20B. 저메모리 후보는 **[OzzyGT/qwen-image-layered-bnb-4bit-transformer](https://huggingface.co/OzzyGT/qwen-image-layered-bnb-4bit-transformer)** | 공식 Qwen 분해기는 가변·재귀 RGBA 분리 지원. 4비트 모델은 **베이스 전체 패키지가 아닌 Transformer 부분**의 bnb NF4 압축이므로 원본의 텍스트 인코더·VAE 등도 따로 필요. SAM/See-through 결과가 부족한 영역에만 실행 | 원본과 해당 NF4 체크포인트 **Apache-2.0**. 커뮤니티 양자화본의 출력·메모리·정밀도는 비교 검증 필요 |
+| 5. 움직임 단위 합성·리깅 | 프로젝트 메시·키폼·물리·합성 검사 코드, 추후 Cubism FREE 제약 검사기 | 눈·입·눈꺼풀·머리 가닥·옷감 등 **독립 변형에 필요한 레이어만** 보존. 이미지에서 확인되지 않는 파츠를 임의 증식하지 않음. ArtMesh ≤100, 파츠 그룹 ≤30, 디포머 ≤50, 파라미터 ≤30 등을 동시 검사 | 자체 코드 MIT; Cubism Editor 라이선스 별도 |
+| 6. 공식 결과 산출 | [Cubism Editor 공식 내보내기](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/) / [현재 검증기](https://github.com/jujumelona/Virtual-pipeline/blob/main/vtuber_pipeline/two_d/cubism_handoff.py) | `.moc3`·`.model3.json`·텍스처·물리 수집. **현재는 Editor를 통한 수동 리깅/내보내기 필요**. 성공한 자동 MOC3 생성기를 가장하지 않음 | 공식 Cubism 이용 조건 준수 |
+
+**SAM 선택 근거:** [Meta SAM2.1 공식 README의 체크포인트 성능 비교](https://github.com/facebookresearch/sam2#model-description)에서 Large가 계열 내 가장 높은 SA-V·MOSE·LVOS v2 지표를 기록한다. 따라서 FREE 모드에 별도 SAM2.1 small/base+를 선택 가능하게 두지 않는다. 애니 전용 See-through SAM-HQ는 **서로 다른 네트워크와 목적**이므로 이 선택에서 제외되는 "작은 SAM2.1" 모델이 아니다.
+
+### ③-1. 실제 LoRA 전수 후보 판단 (확인된 관련 모델에 대해서만)
+
+| LoRA 후보 | 확인한 실제 용도·라이선스 | 무료 상업용 기본 경로 판단 |
 |---|---|---|
-| **완성 마스터 생성** | [FLUX.2 Klein 4B](https://github.com/black-forest-labs/flux2) 또는 사용자가 이용하는 대형 이미지 AI | 1장짜리 완성 캐릭터 생성. Klein **4B**는 Apache 2.0; 9B는 상업 이용 조건이 다르므로 대체 불가. **외부 이미지 AI 사용 시 Colab에서 생성 모델을 실행할 필요 없음** |
-| **인물·세부 마스크** | [SAM 2](https://github.com/facebookresearch/sam2) + 기존 알파·마스크 처리 | 인물 영역 검출·경계 보정. 단독으로 숨겨진 부분의 그림이나 리깅을 완성하지는 않음 |
-| **애니 의미별 레이어 분해** | [See-through V3](https://github.com/shitagaki-lab/see-through) | 한 장 → **최대 23개** 의미별 레이어 및 가려진 부분 추정·PSD. 23개는 상한 목표가 아니라 공식 분해 범위. **Live2D 완성 리깅 기능은 아님** |
-| **움직임 단위 세분화** | See-through 재분리 옵션 + SAM2 + 랜드마크/기하 분석 | 눈꺼풀·시선·입·머리카락 다발·옷장식 등 **별도 변형이 필요한 영역만** 재분리. 가짜 마스크나 억지 파츠 증식 금지 |
-| **가림 및 표정 보완** | See-through 내부 인페인팅 / 실패 부위에 한정한 FLUX.2 Klein 이미지 편집 실험 | 앞머리 아래 이마, 눈감김·입열림 등 원본에 없는 픽셀 추론. 원본 보이는 픽셀 보호와 색상·정체성 일관성 검사 필수 |
-| **리깅 중간표현** | 현재 프로젝트의 메시·키폼·물리 코드 | ArtMesh 후보·변형·물리·깊이 순서. **현재 JSON이 Cubism 프로젝트 자동 변환을 보장하지 않음** |
-| **FREE 예산 최적화** | 새로 구현할 결정적 제약 검증기 | 각 자산별 개수는 선험적으로 고정하지 않음. 필수 변형 보존→안전한 레이어만 병합→남은 예산 재배분→모든 제한 검사; 실패 시 완료 처리 금지 |
-| **정식 모델 출력** | [Live2D Cubism Editor](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/) + 현재 \`cubism_handoff.py\` | \`.moc3\`, \`.model3.json\`, 텍스처·물리 검증. 현재는 \`needs_editor_export\`: **공식 내보내기는 자동화되지 않음** |
+| **[StabilityLabs/Stable-Layers](https://huggingface.co/StabilityLabs/Stable-Layers)** | **Qwen-Image-Layered 기반 RGBA 레이어 분리용 GRPO 학습 LoRA**. 가장 직접적으로 관련된 검토 후보. 그러나 **Stability AI Community License**로 연간 매출 **미화 100만 달러 이상** 기업·개인은 상업 이용 시 별도 기업 라이선스 필요. 또한 일반 물체 4개 레이어 추출에 초점을 둬 애니 VTuber 세부 리깅 파츠와 동일하지 않음 | **채택하지 않음**: 전 고객에게 매출 규모와 관계없이 제한 없는 기본 배포 계약에 맞지 않음 |
+| **[yeq6x/Qwen-Image-Layered-Control_LoRA](https://huggingface.co/yeq6x/Qwen-Image-Layered-Control_LoRA)** | **Apache-2.0** 표기, 실제 rank별 가중치 존재. 그러나 **모델 카드 내용이 비어 있어** 제어 목표·필요 로더·권장 강도·성능 검증 근거가 없음 | **채택하지 않음**: 목적·호환성 검증 증거 부족 |
+| **[tori29umai/Qwen-Image-Layered-LoRA-LineGray](https://huggingface.co/spaces/tori29umai/Qwen-Image-Layered-LoRA-LineGray)** | LineGray 분리 데모 존재. **VTuber용 자연스러운 리깅 파츠 개선 효과 및 모델 가중치의 재배포 조건**이 공식적으로 확인되지 않음 | **채택하지 않음**: 검증 부족 |
+| **See-through 전용 LoRA** | 현재 확인된 공식 See-through V3 배포는 **파인튜닝된 LayerDiff/Marigold/SAM-HQ 체크포인트**를 제공. 별도 공식 애니 리깅 파츠 개선 LoRA 배포 근거 없음 | **추가 LoRA 없음**. 이미 목적에 맞게 학습된 체크포인트 사용 |
 
-**예비 후보로만 유지:** [Qwen-Image-Layered](https://huggingface.co/Qwen/Qwen-Image-Layered)는 반복적 RGBA 분리에 활용 가능하지만 대형 모델이며 공식 예제의 권장 해상도는 640이므로 T4 기본 경로로 확정하지 않는다. [LayerDiffuse](https://github.com/lllyasviel/LayerDiffuse_DiffusersCLI)는 독립적인 투명 이미지 생성기이므로 See-through의 투명 레이어 출력이 불량할 때 별도로 시험할 수 있으나 기본적으로 중복 적용하지 않는다.
+**LoRA 최종 결정: 현재 FREE 기본 구성에 덧붙일 LoRA는 0개.** 단순히 LoRA가 존재한다고 유효한 것은 아니다. 특히 상업 라이선스·베이스 호환성·VTuber 분할 성능 근거가 모두 확인된 추가 LoRA는 이번 조사에서 찾지 못했다. 무검증 LoRA를 다운로드하거나 붙이지 않는다.
 
-**GPU 현실성:** See-through 공식 기본 모드는 **bf16 / 1280px / 약 12~16GB VRAM**, group offload는 약 10GB, NF4 대안은 약 8GB라고 안내한다. **Colab T4는 bf16 네이티브 지원 GPU가 아니므로** 기본 bf16 명령을 무검증으로 사용하면 안 된다. 순차적 GPU 모델 적재/해제, 오프로딩, 정밀도·커널 호환성과 실제 T4 실행을 확인하기 전까지 모델 연결은 **미검증**이다. 모든 코드 및 모델 가중치·의존성의 상업적 이용 조건은 따로 검사한다.
+### ③-2. 양자화·T4 자원 조건의 실제 결론
+
+- **See-through:** 공식 저VRAM 구현 `inference/scripts/inference_psd_quantized.py --quant_mode nf4`과 공식 **LayerDiff3D NF4 / Marigold NF4 두 체크포인트**를 선택. 공식 문서상 1280px 기준 약 **8GB 피크 VRAM** 주장. 이는 전체 V3 분해 파이프라인의 저VRAM 지원 수치이지 GPU 아키텍처별 호환성 증거가 아니다.
+- **중요한 T4 단서:** 공식 NF4 모델 카드가 **`bfloat16 compute dtype`**을 사용한다고 명시한다. NVIDIA T4는 네이티브 BF16 지원이 없으므로 4비트 가중치로 낮췄다는 이유만으로 Colab T4 작동이 보장되지 않는다. T4에서는 BF16 커널의 FP16 변환 적합성·출력 품질·지원 여부를 별도 실험해야 한다. 미통과 시 `unsupported_runtime` 판정하며 작동한다고 홍보하지 않는다.
+- **Qwen:** BF16 원본은 **20B / 모델 리포지터리 약 57.7GB**. 커뮤니티 NF4 체크포인트는 **Transformer만 압축**한 것이므로 **T4 16GB에서 전체 파이프라인이 실행된다는 근거 없음**. CPU 오프로딩 등으로 메모리와 실행 시간 및 전체 모듈 호환성이 측정되기 전에는 **고급 기능 계획에만 포함**, 필수 설치·다운로드 대상에서 제외.
+- **모델 다운로드 규칙:** 실제 실행 가능한 기본 구성만 선택적으로 다운로드하고, Qwen은 고급 재분할 단계가 요청되고 런타임 검증을 통과한 경우에만 다운로드. 외부 캐릭터 생성용 FLUX.2 Klein은 FREE 모드에서는 다운로드하지 않는다.
+- **상업 배포:** [See-through LayerDiff3D 모델 카드](https://huggingface.co/layerdifforg/seethroughv0.0.2_layerdiff3d) 및 [Marigold 카드](https://huggingface.co/layerdifforg/seethroughv0.0.1_marigold)에 **상업적 사용 허용**과 **Open RAIL의 사용·배포 규정**이 명시돼 있다. **가중치·NOTICE·재배포 조건을 무시하고 Apache-2.0 전용이라고 표시하면 안 된다.** [Meta SAM2](https://github.com/facebookresearch/sam2), [SAM-HQ anime 모델](https://huggingface.co/24yearsold/l2d_sam_iter2), [Qwen-Image-Layered](https://huggingface.co/Qwen/Qwen-Image-Layered)는 각각 Apache-2.0 확인. 모델 출력물의 사용 권리는 입력 이미지 서비스 약관과 이미지 출처에도 영향을 받는다.
+
+**상태 구분:** 모델 **존재·공식 기능·표기된 라이선스는 조사 완료**, T4에서 NF4 실행·정밀도, Qwen 4비트 전체 파이프라인, 최종 Cubism 리깅 퀄리티·MOC3 자동 출력은 **실험 미완료**. 이미 구현·통합·E2E PASS라고 쓰지 않는다.
 
 ### ④ Cubism FREE 수량 제약과 출력 판정
 
@@ -128,10 +148,10 @@ must be inferred by the subsequent pipeline, not pre-drawn here.
 - **ArtMesh 100개 ≠ 입력 이미지 100장.** 원본은 1장이고 최종 분해·편집된 PSD 그림 레이어는 일반적으로 ArtMesh와 1:1이다. 몸·머리·옷·장식의 비율을 임의로 고정하지 않고 **움직임 품질을 보전하는 범위에서 100개 이하로 맞춘다**.
 - 필수 분리층(양 눈, 깜빡임, 입, 변형이 필요한 긴 머리/옷 조각)은 우선 보존하고 **동일하게 움직일 수 있는 요소만 병합 후보**로 삼는다. 병합 후 얼굴·팔·헤어·의상 흔들림의 가림 및 찢김을 재검증한다. 한도를 만족해도 품질 미달이면 실패로 판정한다.
 - 마스터 프레이밍/양손·양발 존재 검사 → 누락·겹침·가림 복원 오류 검사 → 모든 FREE 수량/아틀라스 조건 검사 → 눈깜빡임·입 모양·고개 각도·몸통 이동·물리 모션 검사 → **공식 내보낸 파일의 MOC3 검증** 순서로 진행한다.
-- \`input_invalid\` / \`segmentation_failed\` / \`free_budget_exceeded\` / \`rigging_validation_failed\` / \`needs_editor_export\` 등의 **제안된 상태명**을 사용해 실패 원인을 구별한다. 현재 코드에 이미 존재하는 상태라고 주장하지 않는다. **검증된 공식 MOC3가 있어야만** \`complete\`.
+- `input_invalid` / `segmentation_failed` / `free_budget_exceeded` / `rigging_validation_failed` / `needs_editor_export` 등의 **제안된 상태명**을 사용해 실패 원인을 구별한다. 현재 코드에 이미 존재하는 상태라고 주장하지 않는다. **검증된 공식 MOC3가 있어야만** `complete`.
 - **한 번에 헤어·의상·액세서리를 모두 착용한 ONE 고정 스타일 모델**을 목표로 하며, 방송 중 독립 의상/헤어 스위치 지원을 FREE의 완료 조건에 넣지 않는다. 스타일이 다르면 별개 모델로 만든다.
 
-**구현 경계:** 이 페이지는 **FREE 모드용 새 프롬프트 및 모델 계획 문서**다. 현재 노트북·UI·파츠 코드에는 \`free_upper_master.png\` / \`free_full_master.png\` 처리, FREE 전용 자동 세분화·예산 최적화, Cubism 네이티브 자동 내보내기가 아직 구현되지 않았다. 다음의 독립 헤어·의상 모듈식 2D 입력 및 3D 입력은 기존 경로로 유지한다. **이 FREE 프롬프트를 \`front_master.png\`용 무모·무의상 프롬프트와 섞지 않는다.**
+**구현 경계:** 이 페이지는 **FREE 모드용 새 프롬프트 및 모델 계획 문서**다. 현재 노트북·UI·파츠 코드에는 `free_upper_master.png` / `free_full_master.png` 처리, FREE 전용 자동 세분화·예산 최적화, Cubism 네이티브 자동 내보내기가 아직 구현되지 않았다. 다음의 독립 헤어·의상 모듈식 2D 입력 및 3D 입력은 기존 경로로 유지한다. **이 FREE 프롬프트를 `front_master.png`용 무모·무의상 프롬프트와 섞지 않는다.**
 
 ---
 
