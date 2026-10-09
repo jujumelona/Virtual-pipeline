@@ -133,3 +133,43 @@ def test_background_opaque_does_not_consume_foreground(tmp_path):
     assert out["qwen_splits_accepted"] == ["hair.front.000"]
     assert out["layer_count"] >= 4
 
+
+
+def test_companion_files_are_real_and_coordinates_match(tmp_path):
+    import hashlib
+    import json
+    from io import BytesIO
+    from PIL import ImageChops
+    source = make_layers(tmp_path / "original")
+    result = build_artwork_package(source, tmp_path / "output",
+                                   edition="free", scope="upper")
+    with ZipFile(result["package"]) as archive:
+        paths = archive.namelist()
+        preview = Image.open(BytesIO(archive.read("preview/composite.png"))).convert("RGBA")
+        manifest = json.loads(archive.read("metadata/layer_manifest.json"))
+        guide = json.loads(archive.read("metadata/manual_rig_reference.json"))
+        integrity = json.loads(archive.read("metadata/integrity_report.json"))
+        trace = json.loads(archive.read("metadata/segmentation_trace.json"))
+        assert guide["native_cubism_import"] is False
+        assert guide["auto_rigged"] is False
+        assert integrity["native_cubism_artmesh_deformer_keyforms_checked"] is False
+        assert trace["attempts"] == []
+        assert manifest["drawable_layer_count"] == len(manifest["layers"]) == 2
+        assert manifest["canvas_width"] == 256 and manifest["canvas_height"] == 384
+        reconstructed = Image.new("RGBA", (256, 384))
+        for item in reversed(manifest["layers"]):
+            rgba_bytes = archive.read(item["rgba_png"])
+            mask_bytes = archive.read(item["alpha_mask_png"])
+            img = Image.open(BytesIO(rgba_bytes)).convert("RGBA")
+            mask = Image.open(BytesIO(mask_bytes))
+            assert mask.mode == "L" and img.mode == "RGBA"
+            assert mask.tobytes() == img.getchannel("A").tobytes()
+            assert hashlib.sha256(rgba_bytes).hexdigest() == item["rgba_png_sha256"]
+            assert hashlib.sha256(mask_bytes).hexdigest() == item["mask_png_sha256"]
+            bbox = img.getchannel("A").getbbox()
+            assert list(bbox) == item["canvas_xyxy_bbox"]
+            assert 0 <= item["visible_alpha_centroid_xy"][0] < 256
+            assert 0 <= item["visible_alpha_centroid_xy"][1] < 384
+            reconstructed.alpha_composite(img)
+        assert ImageChops.difference(preview, reconstructed).getbbox() is None
+

@@ -120,5 +120,10 @@ def test_live2d_pro_builds_each_asset_without_batch_companions(tmp_path, asset):
     with ZipFile(result["package"]) as zipfile:
         assert asset + ".psd" in zipfile.namelist()
         assert "README_CUBISM.md" in zipfile.namelist()
+        assert "input_reference/source_asset.png" in zipfile.namelist()
+        if asset != "body":
+            assert "input_reference/body_base.png" in zipfile.namelist()
+        assert "metadata/layer_manifest.json" in zipfile.namelist()
+        assert "metadata/manual_rig_reference.json" in zipfile.namelist()
         assert "avatar.moc3" not in zipfile.namelist()
     assert result["state"] == "artwork_ready_editor_rig_required"

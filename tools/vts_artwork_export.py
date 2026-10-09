@@ -153,6 +153,7 @@ def _write_psd(parts, target: Path, *, free: bool):
     globally changes interleaved eyes/bangs/face drawing order.
     """
     from psd_tools import PSDImage
+    from psd_tools.api.layers import PixelLayer
     psd = PSDImage.new("RGB", parts[0]["image"].size, depth=8)
     group = None
     active_family = None
@@ -165,7 +166,10 @@ def _write_psd(parts, target: Path, *, free: bool):
             groups += 1
         if group is None:
             raise RuntimeError("No PSD group for part")
-        group.create_pixel_layer(part["image"], name=part["name"], top=0, left=0)
+        # psd-tools 1.14.x exposes PixelLayer.frompil(parent=group).
+        # Some versions do not expose Group.create_pixel_layer.
+        PixelLayer.frompil(part["image"], parent=group,
+                           name=part["name"], top=0, left=0)
     target.parent.mkdir(parents=True, exist_ok=True)
     psd.save(str(target))
     if target.read_bytes()[:4] != b"8BPS":
@@ -177,6 +181,114 @@ def _write_psd(parts, target: Path, *, free: bool):
     return groups
 
 
+def _reference_bundle(layers, *, edition: str, scope: str, asset_kind: str | None,
+                      qwen_attempts: list, split_names: list, group_count: int):
+    """Produce useful *observed* companions, not fictitious Cubism keyforms."""
+    import hashlib
+
+    width, height = layers[0]["image"].size
+    preview = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    for layer in reversed(layers):
+        preview.alpha_composite(layer["image"])
+    out = BytesIO()
+    preview.save(out, format="PNG")
+    entries = [("preview/composite.png", out.getvalue())]
+    records = []
+    for index, layer in enumerate(layers):
+        name = layer["name"]
+        image = layer["image"]
+        alpha = image.getchannel("A")
+        bbox = alpha.getbbox()
+        if bbox is None:
+            raise ValueError("An empty layer reached artwork packaging")
+        img_data = BytesIO()
+        image.save(img_data, format="PNG")
+        image_bytes = img_data.getvalue()
+        mask_data = BytesIO()
+        alpha.save(mask_data, format="PNG")
+        alpha_bytes = mask_data.getvalue()
+        stem = f"{index:04d}_{name}"
+        image_path = f"layers_png/{stem}.png"
+        mask_path = f"alpha_masks/{stem}_alpha.png"
+        entries.extend(((image_path, image_bytes), (mask_path, alpha_bytes)))
+        mask = np.asarray(alpha, dtype=np.float64)
+        total = float(mask.sum())
+        if total <= 0:
+            raise ValueError("Invalid empty alpha mask")
+        yy, xx = np.indices(mask.shape)
+        centroid = [round(float((mask * xx).sum() / total), 3),
+                    round(float((mask * yy).sum() / total), 3)]
+        records.append({
+            "z_index_top_first": index,
+            "semantic_name": name,
+            "semantic_family": name.split(".", 1)[0],
+            "source_split_depth": layer["depth"],
+            "rgba_png": image_path,
+            "alpha_mask_png": mask_path,
+            "canvas_xyxy_bbox": list(bbox),
+            "visible_alpha_centroid_xy": centroid,
+            "visible_pixel_count": int(np.count_nonzero(mask)),
+            "rgba_png_sha256": hashlib.sha256(image_bytes).hexdigest(),
+            "mask_png_sha256": hashlib.sha256(alpha_bytes).hexdigest(),
+        })
+    manifest = {
+        "schema": "vtuber/cubism-artwork-reference-v1",
+        "kind": "non_native_artwork_metadata",
+        "edition": edition, "scope": scope, "asset_kind": asset_kind,
+        "canvas_width": width, "canvas_height": height,
+        "layer_order": "top_to_bottom",
+        "drawable_layer_count": len(records),
+        "psd_group_count": group_count,
+        "all_layers_same_canvas": True,
+        "layers": records,
+        "warning": "Observed layer geometry only. Not a native Cubism rig.",
+    }
+    # Provide this separately for editors and users who want coordinates,
+    # with zero claims that a generic JSON can animate the model.
+    manual_guide = {
+        "schema": "vtuber/cubism-manual-rig-reference-v1",
+        "native_cubism_import": False,
+        "auto_rigged": False, "has_native_keyforms": False,
+        "has_physics_binds": False,
+        "instruction": "Use the PSD in Cubism Editor. Coordinates below are "
+                       "alpha observations, not optimized rotation pivots.",
+        "suggested_layer_entries": [
+            {"semantic_name": x["semantic_name"],
+             "family": x["semantic_family"],
+             "observed_bounds_xyxy": x["canvas_xyxy_bbox"],
+             "observed_center_xy": x["visible_alpha_centroid_xy"]}
+            for x in records
+        ],
+    }
+    trace = {
+        "schema": "vtuber/layer-segmentation-trace-v1",
+        "accepted_source_names": split_names,
+        "attempts": qwen_attempts,
+        "note": "Rejected candidates are not included in the final PSD.",
+    }
+    for name, value in (
+        ("metadata/layer_manifest.json", manifest),
+        ("metadata/manual_rig_reference.json", manual_guide),
+        ("metadata/segmentation_trace.json", trace),
+    ):
+        entries.append((name, json.dumps(value, ensure_ascii=False, indent=2).encode("utf-8")))
+    # Integrity requirements are testable even without Cubism Editor.
+    integrity = {
+        "schema": "vtuber/artwork-integrity-v1",
+        "transparent_rgba_png": True,
+        "non_empty_masks": True,
+        "canvas_registration": True,
+        "layer_count": len(records),
+        "layers_under_free_artmesh_ceiling": edition != "free" or len(records) <= FREE_LIMIT,
+        "native_cubism_artmesh_deformer_keyforms_checked": False,
+        "native_cubism_texture_atlas_checked": False,
+        "moc3_exported": False,
+    }
+    entries.append(("metadata/integrity_report.json",
+                    json.dumps(integrity, ensure_ascii=False, indent=2).encode("utf-8")))
+    return entries
+
+
 def _editor_readme(edition, asset_kind, count, qwen_count):
     label = "FREE finished character" if edition == "free" else "PRO independent " + asset_kind
     limits = "\n".join("- %s: %s" % item for item in FREE_BUDGET.items())
@@ -184,6 +296,17 @@ def _editor_readme(edition, asset_kind, count, qwen_count):
         "# Live2D Cubism layered artwork — " + label + "\n\n"
         "This ZIP contains **separated illustration layers, not a rigged model**.\n"
         "It does NOT contain .moc3, .cmo3, deformers, keyforms or physics.\n\n"
+        "## Files included\n\n"
+        "- Editable PSD: avatar.psd (FREE) or body/hair/outfit/accessory.psd (PRO).\n"
+        "- layers_png/: every registered transparent full-canvas RGBA layer.\n"
+        "- alpha_masks/: grayscale alpha masks for each layer.\n"
+        "- preview/composite.png: top-to-bottom layer composite for checking.\n"
+        "- metadata/layer_manifest.json: observed IDs, coordinates, alpha coverage.\n"
+        "- metadata/manual_rig_reference.json: non-native reference ONLY.\n"
+        "- metadata/segmentation_trace.json: applied/rejected Qwen splits.\n"
+        "- metadata/integrity_report.json: checks verified before packaging.\n"
+        "- input_reference/: the provided input and optional PRO body reference.\n"
+        "None of these JSON files create animation inside Cubism.\n\n"
         "## In Cubism Editor\n\n"
         "1. Import the PSD. Check layer order, hidden edges and exact artwork identity.\n"
         "2. Refine ArtMeshes using the Editor's mesh tools; apply model templates"
@@ -287,17 +410,19 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
                          ("_" + scope if edition == "free" else "_" + asset_kind)
                          + ".zip")
     readme = _editor_readme(edition, asset_kind, len(layers), len(generated))
+    extras = _reference_bundle(
+        layers, edition=edition, scope=scope, asset_kind=asset_kind,
+        qwen_attempts=attempted, split_names=generated, group_count=group_count)
     with ZipFile(package, "w", ZIP_DEFLATED, compresslevel=6) as z:
         z.write(psd_path, name + ".psd")
         z.writestr("README_CUBISM.md", readme)
-        for n, layer in enumerate(layers):
-            img = BytesIO()
-            layer["image"].save(img, format="PNG")
-            z.writestr("layers_png/%03d_%s.png" % (n, layer["name"]), img.getvalue())
+        for filename, content in extras:
+            z.writestr(filename, content)
     return {
         "status": "artwork_ready_editor_rig_required",
         "package": str(package), "art_psd": str(psd_path),
         "layer_count": len(layers), "psd_group_count": group_count,
+        "supporting_files": [x[0] for x in extras],
         "edition": edition, "scope": scope,
         "asset_kind": asset_kind, "canvas": list(canvas),
         "qwen_attempts": attempted, "qwen_splits_accepted": generated,

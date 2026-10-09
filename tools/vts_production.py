@@ -361,6 +361,12 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
             third_party=(third_party or Path("/content/vtuber_builder/third_party/see-through")).parent,
             python_path=os.environ.get("VTUBER_SEETHROUGH_PYTHON"),
         )
+        # Keep actual submitted imagery alongside the split PSD for manual
+        # registration checks and independent PRO asset re-import.
+        with ZipFile(produced["package"], "a", ZIP_DEFLATED) as archive:
+            archive.write(master, "input_reference/source_" + master.name)
+            if reference_image is not None:
+                archive.write(reference_image, "input_reference/body_" + reference_image.name)
         report = {
             **status, **produced, "state": "artwork_ready_editor_rig_required",
             "psd_source": str(psd), "source_master": str(master),
