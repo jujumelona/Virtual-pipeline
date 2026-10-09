@@ -11,7 +11,9 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import threading
 import venv
+from collections import deque
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = Path("/content/vtuber_builder/worker_envs/two_d")
@@ -29,9 +31,66 @@ PYTHON_PACKAGES = (
 
 def _exec(args: list[str], *, cwd: Path | None = None, timeout: int = 600,
           env: dict | None = None) -> None:
-    print("[2d-env] $ " + subprocess.list2cmdline(args), flush=True)
-    subprocess.run(args, cwd=str(cwd) if cwd else None, timeout=timeout,
-                   env=env, check=True)
+    """Show the *actual* failing pip/git output, including the final error.
+
+    Called from the Gradio worker, so a bare CalledProcessError with only the
+    command is not actionable. Persist full output even when setup times out.
+    """
+    log_path = WORK / "logs" / "dependency_setup.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    command = subprocess.list2cmdline(args)
+    print("[2d-env] $ " + command, flush=True)
+    tail: deque[str] = deque(maxlen=140)
+    with log_path.open("a", encoding="utf-8") as logfile:
+        logfile.write("\\n[2d-env] $ " + command + "\\n")
+        logfile.flush()
+        process = subprocess.Popen(
+            args, cwd=str(cwd) if cwd else None, env=env,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, errors="replace", bufsize=1,
+        )
+
+        def relay() -> None:
+            assert process.stdout is not None
+            for line in process.stdout:
+                tail.append(line)
+                logfile.write(line)
+                logfile.flush()
+                print(line, end="", flush=True)
+
+        reader = threading.Thread(target=relay, daemon=True)
+        reader.start()
+        try:
+            result = process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            process.kill()
+            process.wait(timeout=10)
+            reader.join(timeout=10)
+            raise RuntimeError(
+                f"[2d-env] setup timed out after {timeout}s: {command}\\n"
+                f"Full output: {log_path}\\n" + "".join(tail)[-8000:]
+            ) from exc
+        reader.join(timeout=10)
+        if result:
+            raise RuntimeError(
+                f"[2d-env] dependency command failed (exit={result}): {command}\\n"
+                + "".join(tail)[-8000:] + f"\\nFull output: {log_path}"
+            )
+
+
+def _prepare_venv(folder: str) -> Path:
+    """Reuse Colab's preinstalled pip, without the broken ensurepip bootstrap.
+
+    EnvBuilder(with_pip=True) invokes ensurepip --upgrade --default-pip in
+    each new environment, which can fail before any model dependency is
+    installed. Retrying the setup also repairs a partially created venv.
+    The workers deliberately inherit the existing CUDA-enabled site packages.
+    """
+    location = WORK / folder
+    venv.EnvBuilder(with_pip=False, system_site_packages=True).create(str(location))
+    python = location / "bin" / "python"
+    _exec([str(python), "-m", "pip", "--version"], timeout=45)
+    return python
 
 
 def _pinned_source(kind: str, lock: dict) -> tuple[str, str]:
@@ -125,10 +184,8 @@ def install_2d_environment() -> dict:
                     "anime_source": str(source), "fingerprint": fingerprint}
 
     WORK.mkdir(parents=True, exist_ok=True)
-    if not python.is_file():
-        venv.EnvBuilder(with_pip=True, system_site_packages=True).create(str(WORK / "venv"))
-    if not flux_python.is_file():
-        venv.EnvBuilder(with_pip=True, system_site_packages=True).create(str(WORK / "venv_flux"))
+    _prepare_venv("venv")
+    _prepare_venv("venv_flux")
     # Pin the *existing* system-provided CUDA ABI in the worker pip resolver.
     constraints = WORK / "cuda_constraints.txt"
     constraints.write_text(
@@ -210,8 +267,7 @@ def install_alpha_environment() -> dict:
             return {"python": str(python), "anime_source": str(source),
                     "fingerprint": fingerprint}
     WORK.mkdir(parents=True, exist_ok=True)
-    if not python.is_file():
-        venv.EnvBuilder(with_pip=True, system_site_packages=True).create(str(WORK / "venv_alpha"))
+    _prepare_venv("venv_alpha")
     constraints = WORK / "alpha_cuda_constraints.txt"
     constraints.write_text(f"torch=={torch_version}\ntorchvision=={vision_version}\n",
                            encoding="utf-8")
