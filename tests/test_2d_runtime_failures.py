@@ -51,3 +51,22 @@ def test_florence_worker_uses_native_model_without_tensorflow_or_legacy_causallm
     assert "AutoModelForCausalLM.from_pretrained" not in source
     assert "from transformers import AutoProcessor, AutoModelForCausalLM" not in source
     assert "trust_remote_code=False" in source
+
+
+def test_native_florence_checkpoint_is_immutable_mit_and_never_legacy_remote_code():
+    from vtuber_pipeline.common.model_assets import model_pin, MODELS
+    pin = model_pin("florence2_base")
+    assert pin["model_id"] == "florence-community/Florence-2-base"
+    assert pin["revision"] == "0ae188f8620727704bcffa9292a0fdb92f127480"
+    assert "*.safetensors" in pin["allow_patterns"]
+    assert MODELS["florence2_base"] == (pin["model_id"], "MIT")
+
+
+def test_florence_prevents_part_segmentation_with_random_native_weights():
+    from tools.model_workers import florence_worker
+    import inspect
+    source = inspect.getsource(florence_worker.infer)
+    assert "output_loading_info=True" in source
+    assert 'load_info.get("missing_keys", [])' in source
+    assert 'load_info.get("unexpected_keys", [])' in source
+    assert 'model=model.to(device).eval()' in source
