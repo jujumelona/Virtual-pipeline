@@ -347,7 +347,9 @@ def test_both_2d_modes_do_not_require_3d_gpu_runtime(
     assert "status: " + expected_status in report
     assert "방송용 모델 생성 완료" not in status
     if target == "inochi2d":
-        assert "INP2" in status
+        # SDK 0.8 exports genuine INP1 and later versions may export INP2.
+        # UI must advertise the actual official SDK gate, not one encoding.
+        assert "SDK INP" in status
     else:
         assert "Cubism" in status
 
