@@ -108,7 +108,7 @@ print('setup-import-without-gradio-ok')
     assert "setup-import-without-gradio-ok" in proc.stdout
 
 
-def test_notebook_setup_captures_child_traceback_and_writes_full_log(tmp_path):
+def test_notebook_setup_captures_child_traceback_and_writes_full_log(tmp_path, capsys):
     """An aborted setup child leaves an explicit error in the local log."""
     import ast
     import os
@@ -129,12 +129,14 @@ def test_notebook_setup_captures_child_traceback_and_writes_full_log(tmp_path):
     }
     exec(compile(ast.Module(body=[runner], type_ignores=[]),
                  "<notebook-runner>", "exec"), namespace)
-    with pytest.raises(RuntimeError, match="child-crash-diagnostic"):
+    with pytest.raises(RuntimeError, match="exit=3"):
         namespace["run"]([
             sys.executable, "-u", "-c",
             "import sys; print('child-crash-diagnostic', file=sys.stderr); sys.exit(3)",
         ], 15)
+    displayed = capsys.readouterr().out
     text = namespace["SETUP_LOG"].read_text(encoding="utf-8")
+    assert "child-crash-diagnostic" in displayed
     assert "child-crash-diagnostic" in text
     assert "sys.exit(3)" in text
 
