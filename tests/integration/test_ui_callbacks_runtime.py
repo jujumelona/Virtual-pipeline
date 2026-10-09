@@ -606,3 +606,29 @@ def test_same_accessory_image_at_multiple_anchors_only_reconstructs_once(
     assert [item[2] for item in baked] == ["HEAD_TOP", "FACE"]
     assert all(item[1] == str(mesh) for item in baked)
     assert pathlib.Path(output).is_file()
+
+
+def test_inochi_compiler_failure_allows_artwork_model_preparation(ui, monkeypatch, tmp_path):
+    """Failing native DUB must not preempt segmentation/mesh/PSD/ORA work."""
+    import tools.install_2d_workers as workers
+    import tools.setup_inochi_runtime as native
+    monkeypatch.setattr(workers, "activate_2d_environment", lambda: None)
+    monkeypatch.setattr(native, "ensure_inochi_native_runtime",
+                        lambda: (_ for _ in ()).throw(RuntimeError("LDC failed: error 42")))
+    calls = []
+    monkeypatch.setattr(ui, "prepare_models", lambda mode: calls.append(mode))
+    monkeypatch.setenv("VTUBER_INOCHI_NATIVE", "/stale/wrong/exporter")
+    result = ui.choose_workflow("inochi2d", "corporation")
+    assert calls == ["inochi2d"]
+    assert len(result) == 6
+    assert "VTUBER_INOCHI_NATIVE" not in ui.os.environ
+    log = (ui.WORK_ROOT / "logs" / "runtime_setup.log").read_text()
+    assert "LDC failed: error 42" in log
+
+
+def test_inochi_compiler_failure_does_not_report_native_ready(ui, monkeypatch):
+    import tools.setup_inochi_runtime as native
+    monkeypatch.setattr(native, "ensure_inochi_native_runtime",
+                        lambda: (_ for _ in ()).throw(RuntimeError("dub compilation failed")))
+    monkeypatch.setattr(ui, "_setup_stage", lambda label, cb: cb())
+    assert ui._prepare_inochi_exporter_best_effort("native SDK") is False
