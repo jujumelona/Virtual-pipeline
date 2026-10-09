@@ -6,136 +6,297 @@
 
 외부 이미지 생성 AI가 만든 캐릭터 이미지를 입력받아 **Inochi2D**, **Live2D**, **3D VRM** 모델을 제작합니다. 모드별 이미지 생성 사양과 프롬프트는 아래에 정리되어 있습니다.
 
-## 모드별 이미지 생성 프롬프트 — 고해상도 시트 방식
+## 모드별 고해상도 시트 제작 가이드 및 이미지 AI 프롬프트
 
-동일한 캐릭터를 유지하도록 **기준 정면 이미지를 먼저 제작**하고, 나머지 시트마다 그 이미지를 첨부합니다. 각 시트는 외부 이미지 생성 모델에서 **한 장의 이미지**로 제작하며, 지정된 파일명·해상도·격자·상대 좌표를 준수합니다. 파츠를 독립적으로 가운데 정렬하면 안 됩니다. 2D는 고정 좌표로 파츠를 잘라 **파츠별 Real-ESRGAN 신경망 초해상도(x4 추론 → 최종 x2)**를 적용해 리깅 입력으로 변환합니다.
+이 섹션의 **시트 배치 그림**은 외부 이미지 생성 AI에 참고 이미지로 전달할 수 있는 **빈 레이아웃 가이드**입니다. 색이 들어간 칸과 영문 파츠명은 위치 설명용이며 **최종 생성 PNG에는 남기지 않습니다**. 그림 아래의 `프롬프트`는 각 파일별로 **완결된 내용**입니다. 선택한 프롬프트 하나를 그대로 복사하고 `{중괄호}` 항목에 캐릭터 외형을 기입합니다.
 
-### 캐릭터 설정 (모든 시트에 동일하게 적용)
+**제작 순서:** 2D는 `front_master.png` → `sheet_face.png` → `sheet_hair.png` → `sheet_body_outfit.png` 순서로 생성합니다. 이후 시트를 생성할 때에는 완성한 `front_master.png`와 해당 배치 가이드를 둘 다 첨부합니다. 3D는 먼저 `sheet_body_views.png`를 생성하고 그 정면 시점을 참조하여 `face.png`를 생성합니다. 출력 파일명·픽셀 크기·격자·알파를 아래 표에 맞춰 저장합니다.
+
+| 용도 | 정확한 파일명 | 해상도 | 배치 |
+|---|---|---:|---|
+| 2D 기준 정면 | `front_master.png` | 2048×3072 | 기준 원본 1장 |
+| 2D 얼굴·눈·입 | `sheet_face.png` | 4096×4096 | 4열 × 4행 / 셀당 1024×1024 |
+| 2D 머리카락 | `sheet_hair.png` | 4096×6144 | 2열 × 2행 / 셀당 2048×3072 |
+| 2D 몸·의상 | `sheet_body_outfit.png` | 4096×6144 | 2열 × 4행 / 셀당 2048×1536 |
+| 3D 전신 4방향 | `sheet_body_views.png` | 4096×6144 | 2열 × 2행 / 셀당 2048×3072 |
+| 3D 얼굴 확대 | `face.png` | 2048×2048 | 정면 얼굴 1장 |
+
+> **생성 모델 한계:** 이미지 프롬프트만으로 정확한 4K 크기, 알파 채널 또는 좌표 정합이 보장되지는 않습니다. PNG의 실제 크기와 투명도를 확인해야 하며, 외부 모델이 규격을 충족하지 못하면 제작 전에 수정해야 합니다.
+
+### 2D — Live2D / Inochi2D
+
+**공통 기준 좌표:** 원본 `front_master.png`는 2048×3072 픽셀이며 왼쪽 위가 (0,0)입니다. 캐릭터 중심 X=1024, 정수리 Y≈240, 눈 Y≈1110, 코 Y≈1280, 입 Y≈1380, 턱 Y≈1510, 목 Y≈1590, 어깨 Y≈1730, 허리 Y≈2700. 모든 시트의 칸은 **캐릭터 부위를 중앙 정렬한 그림이 아니라 원본 이미지의 지정 사각형(ROI)**에 대응합니다.
+
+#### 2D-1. `front_master.png` — 정면 기준 이미지
+
+**시트 형식:** 2048×3072 PNG 1장. 뒤에서 생성하는 세 시트의 캐릭터 디자인·공간 좌표 기준입니다.
+
+**복사할 프롬프트 — 정면 기준**
 
 ```text
-ORIGINAL VTUBER CHARACTER IDENTITY:
+ORIGINAL VTUBER CHARACTER IDENTITY — FILL THESE VALUES:
 Gender / gender presentation: {gender}
 Hair color and HEX: {hair_color}
 Hairstyle, length, bangs, roots and decorations: {hairstyle}
-Eye color, pupils, iris pattern and highlights: {eyes}
-Face shape, skin tone, ears and marks: {face}
-Outfit, fabric textures, seams, fasteners: {outfit}
-Palette / precise HEX colors: {palette}
-Accessories: {accessories}
-Other permanent features and body proportions: {other_details}
+Eye color, shape, iris pattern, pupils and highlights: {eyes}
+Face shape, skin tone, ears and distinctive marks: {face}
+Outfit, garment layers, fabric textures and seams: {outfit}
+Color palette and HEX swatches: {palette}
+Accessories and their exact placement: {accessories}
+Other permanent character traits and body proportions: {other_details}
 
-CONSISTENCY LOCK:
-Use the original front reference image for every additional sheet.
-Same single character, unchanged gender presentation, identity, costume,
-colors, line-art style, light direction, anatomy and outline thickness.
-Do not mirror the character, improvise different accessories or change
-proportions. Each sprite cell must depict ONLY its named semantic part.
-Output the image itself, never a collage of other characters, text, labels,
-tile indices, borders or watermarks.
+IDENTITY / DESIGN LOCK:
+Render ONE original VTuber character consistent across every file.
+For every image after the reference, ATTACH the previously generated
+front_master.png (2D) or front view of sheet_body_views.png (3D).
+Match the character's gender presentation, hair, face, costume seams,
+proportions, palette, clean lineart and light direction precisely.
+No changes to identity, pose (unless the named 3D view demands rotation),
+design, camera distance or art style. Do not mirror the character.
+Do not output text, labels, borders, reference-layout lettering, sheet
+cell numbers, watermarks or added characters.
+
+RENDER TASK:
+Create front_master.png exactly 2048 pixels wide and 3072 pixels tall.
+A single complete original anime VTuber, orthographic straight FRONT,
+neutral upright pose, balanced shoulders, clean silhouette, arms visibly
+separated where possible, open eyes and CLOSED mouth. No cropped hair,
+face, hands or clothing; full intended rigged upper body occupies frame.
+Pixel anchors: character center X=1024, crown Y=240, eyes Y=1110,
+nose Y=1280, mouth Y=1380, chin Y=1510, shoulders Y=1730, waist Y=2700.
+Highly detailed clean linework, consistent lighting and cloth textures.
+PNG image only; transparent background strongly preferred.
 ```
 
-### 2D: 기준 이미지 + 고해상도 시트 3장
+#### 2D-2. `sheet_face.png` — 얼굴·눈·입 고해상도 시트
 
-| ZIP 내부 PNG | 해상도 (가로×세로) | 격자 | 셀 크기 |
-|---|---:|---|---:|
-| `front_master.png` | 2048×3072 | 전체 정면 기준 | — |
-| `sheet_face.png` | 4096×4096 | 4열 × 4행 | 1024×1024 |
-| `sheet_hair.png` | 4096×6144 | 2열 × 2행 | 2048×3072 |
-| `sheet_body_outfit.png` | 4096×6144 | 2열 × 4행 | 2048×1536 |
+**시트 배치도: 4×4, 총 16칸 (15개 파츠 + 투명 빈칸 1개)**
 
-**공통 좌표 규격:** 정면 기준 원본은 2048×3072. 왼쪽 위 (0,0), +X 오른쪽, +Y 아래쪽. 캐릭터 중심 x=1024, 정수리 y≈240, 눈 y≈1110, 코 y≈1280, 입 y≈1380, 턱 y≈1510, 목 y≈1590, 어깨 y≈1730, 허리 y≈2700. 각 시트의 셀은 *기준 이미지의 특정 사각형*을 복사해 옮겨 놓는 역할입니다. **셀에서 파츠 위치를 새로 중앙 배치하지 않습니다.** 격자 좌표와 해당 파츠의 원래 좌표가 정확하게 대응해야 자른 뒤 리깅 위치가 유지됩니다.
+![2D 얼굴·눈·입 4×4 배치도 — 각 셀 위치 및 이름](docs/sheet_guides/sheet_face_layout.svg)
 
-**모든 2D 시트 프롬프트에 추가할 공통 지시:**
+[배치도 파일 열기·저장](docs/sheet_guides/sheet_face_layout.svg) · 4096×4096 px · 1칸 1024×1024 px
 
-```text
-EXACT RESOLUTION and EXACT GRID as specified below.
-TRUE TRANSPARENT RGBA PNG. Alpha=0 for all pixels outside the named
-part. No white, black, gray, or checkerboard fake transparency.
-All cell boundaries are mathematical coordinates, NOT drawn lines.
-Every cell represents the specified ABSOLUTE ROI in the 2048x3072
-front master. Preserve the relative pixel positions of that ROI exactly.
-No moving a part to the center; no independently changing part scale.
-Complete hidden artwork underneath other parts: skin under hair,
-hair roots under other hair, arms beneath fabric, and clothing seams.
-Maintain all original color swatches, texture, anti-aliased edges
-and linework. Reserved cells must be totally empty (alpha=0).
-Render a single high-resolution sheet; do not include titles, numbers,
-dividers, backgrounds, annotations, perspective, or other characters.
-If the image model cannot output the exact dimensions / RGBA, correct
-the generated file before packaging; enlarged export alone does not
-reconstruct missing fine detail.
-```
 
-#### 2D ① `front_master.png` — 기준 이미지
-
-```text
-Render one complete, clean orthographic FRONT VTuber reference.
-Canvas EXACTLY 2048x3072 PNG. Neutral upright pose, visible face,
-open eyes, closed mouth, clothing and long hair fully within frame.
-Head center x=1024; crown y=240; eyes y=1110; mouth y=1380;
-shoulders y=1730; waist y=2700. Flat transparent background preferred.
-No crop, perspective, title, other character, text or watermark.
-```
-
-#### 2D ② `sheet_face.png` — 얼굴·눈·입 확대 시트
-
-```text
-Render EXACTLY 4096x4096 PNG RGBA. 4 columns x 4 rows.
-Each 1024x1024 tile is an unchanged pixel-coordinate crop of the
-2048x3072 master, not an independently recentered illustration.
-Row1: ear_left | ear_right | neck | face
-Row2: eye_left_white | eye_left_iris | eye_left_lid | brow_left
-Row3: eye_right_white | eye_right_iris | eye_right_lid | brow_right
-Row4: nose | mouth_closed | mouth_open | COMPLETELY TRANSPARENT
-Preserve exact master-space position within each tile's assigned ROI;
-paint full occluded portions. Left/right mean CHARACTER left/right
-(character-left eye appears on viewer-right in a front-facing image).
-Do not place the entire face in eye-only/iris-only tiles.
-```
-
-셀 안에서 파츠가 차지할 **원본 이미지 좌표** (왼쪽·위·오른쪽·아래, 우측·하단은 포함하지 않음):
-
-| 파츠 | 원본 기준 ROI: (x0,y0,x1,y1) |
+| 시트 행 | 왼쪽부터 배치할 파츠 |
 |---|---|
-| `ear_left`, `eye_left_white`, `eye_left_iris`, `eye_left_lid`, `brow_left` | (1024,650,2048,1674) |
-| `ear_right`, `eye_right_white`, `eye_right_iris`, `eye_right_lid`, `brow_right` | (0,650,1024,1674) |
-| `face` | (512,512,1536,1536) |
-| `neck` | (512,1420,1536,2444) |
-| `nose`, `mouth_closed`, `mouth_open` | (512,900,1536,1924) |
+| 1행 | `ear_left`, `ear_right`, `neck`, `face` |
+| 2행 | `eye_left_white`, `eye_left_iris`, `eye_left_lid`, `brow_left` |
+| 3행 | `eye_right_white`, `eye_right_iris`, `eye_right_lid`, `brow_right` |
+| 4행 | `nose`, `mouth_closed`, `mouth_open`, `EMPTY` |
 
-#### 2D ③ `sheet_hair.png` — 머리카락 시트
+**기준 원본에서 각 칸이 나타내는 ROI `(x0,y0,x1,y1)`:** 왼쪽 귀·눈·눈썹 (1024,650,2048,1674), 오른쪽 귀·눈·눈썹 (0,650,1024,1674), 목 (512,1420,1536,2444), 얼굴 (512,512,1536,1536), 코·입 (512,900,1536,1924). **좌우는 캐릭터 기준**이므로 정면에서 캐릭터 왼쪽 눈은 화면 오른쪽에 있습니다.
 
-```text
-Render EXACTLY 4096x6144 PNG RGBA. 2 columns x 2 rows.
-Each 2048x3072 tile has exactly the same FULL CANVAS coordinates
-as front_master.png. No cropped or recentered hair pieces.
-Row1 col1: hair_front | col2: hair_back
-Row2 col1: hair_left  | col2: hair_right
-Render each layer with all invisible roots and covered tips completed.
-Only that hair segment is visible in its tile; rest alpha=0.
-```
-
-#### 2D ④ `sheet_body_outfit.png` — 신체·의상 시트
+**복사할 프롬프트 — 얼굴 시트 (기준 이미지 + 배치도 함께 첨부)**
 
 ```text
-Render EXACTLY 4096x6144 PNG RGBA. 2 columns x 4 rows.
-Each cell is 2048x1536. Preserve the master-space ROI coordinates below.
-Row1: body | outfit_front
-Row2: outfit_back | arm_left
-Row3: arm_right | hand_left
-Row4: hand_right | COMPLETELY TRANSPARENT
-Draw the whole indicated part inside its matching cropped master ROI.
-Do not center the part inside the cell or invent adjacent limbs.
-Paint unseen fabric, sleeves and hidden seams; true alpha background.
+ORIGINAL VTUBER CHARACTER IDENTITY — FILL THESE VALUES:
+Gender / gender presentation: {gender}
+Hair color and HEX: {hair_color}
+Hairstyle, length, bangs, roots and decorations: {hairstyle}
+Eye color, shape, iris pattern, pupils and highlights: {eyes}
+Face shape, skin tone, ears and distinctive marks: {face}
+Outfit, garment layers, fabric textures and seams: {outfit}
+Color palette and HEX swatches: {palette}
+Accessories and their exact placement: {accessories}
+Other permanent character traits and body proportions: {other_details}
+
+IDENTITY / DESIGN LOCK:
+Render ONE original VTuber character consistent across every file.
+For every image after the reference, ATTACH the previously generated
+front_master.png (2D) or front view of sheet_body_views.png (3D).
+Match the character's gender presentation, hair, face, costume seams,
+proportions, palette, clean lineart and light direction precisely.
+No changes to identity, pose (unless the named 3D view demands rotation),
+design, camera distance or art style. Do not mirror the character.
+Do not output text, labels, borders, reference-layout lettering, sheet
+cell numbers, watermarks or added characters.
+
+EXACT 2D SHEET CONTRACT:
+Each listed cell is an exact full-sized crop of a named rectangle in a
+2048x3072-pixel FRONT MASTER coordinate system. Top-left origin (0,0),
+positive X to the right, positive Y downward. The position of each
+part WITHIN its cell corresponds pixel-for-pixel to that rectangle.
+NEVER independently center, resize, rotate or zoom a part in its cell.
+Everything outside the single requested part has TRUE alpha=0.
+Keep edges antialiased and color-continuous. Draw all hidden areas
+behind overlapping parts, including skin under bangs, complete hair
+roots, hidden sleeves, garment seams, and covered parts of anatomy.
+Any reserved EMPTY tile is fully alpha=0 (not a colored square).
+Use the attached layout guide ONLY as a placement template. Replace
+ALL guide-colored placeholder cells/labels with actual transparent
+character art; the final PNG must have NO labels or grid lines.
+
+RENDER TASK:
+Output sheet_face.png, exactly 4096x4096 RGBA PNG.
+EXACT GRID: 4 columns x 4 rows, every cell 1024x1024 pixels.
+The actual complete front_master.png and sheet_face_layout.svg
+are attached as two distinct references.
+At each row and column put ONLY the following separate artwork:
+row1 col1 ear_left      master ROI (1024,650)-(2048,1674)
+row1 col2 ear_right     master ROI (0,650)-(1024,1674)
+row1 col3 neck          master ROI (512,1420)-(1536,2444)
+row1 col4 face          master ROI (512,512)-(1536,1536)
+row2 col1 eye_left_white master ROI (1024,650)-(2048,1674)
+row2 col2 eye_left_iris  master ROI (1024,650)-(2048,1674)
+row2 col3 eye_left_lid   master ROI (1024,650)-(2048,1674)
+row2 col4 brow_left      master ROI (1024,650)-(2048,1674)
+row3 col1 eye_right_white master ROI (0,650)-(1024,1674)
+row3 col2 eye_right_iris  master ROI (0,650)-(1024,1674)
+row3 col3 eye_right_lid   master ROI (0,650)-(1024,1674)
+row3 col4 brow_right      master ROI (0,650)-(1024,1674)
+row4 col1 nose          master ROI (512,900)-(1536,1924)
+row4 col2 mouth_closed  master ROI (512,900)-(1536,1924)
+row4 col3 mouth_open    master ROI (512,900)-(1536,1924)
+row4 col4 EMPTY         must be entirely transparent (alpha=0).
+High-density facial detail: iris/pupil/catchlights, upper and lower
+eyelid lash edges, lips, skin shading and hidden forehead behind bangs.
+The face-only layer contains full base skin, NOT already-painted eyes,
+eyebrows or mouth. Mouth_open is an alternative expression state.
+No guide markings, border lines or captions in final pixels.
 ```
 
-| 파츠 | 원본 기준 ROI: (x0,y0,x1,y1) |
-|---|---|
-| `body`, `outfit_front`, `outfit_back` | (0,1300,2048,2836) |
-| `arm_left`, `arm_right` | (0,1100,2048,2636) |
-| `hand_left`, `hand_right` | (0,1400,2048,2936) |
+#### 2D-3. `sheet_hair.png` — 앞·뒤·좌·우 머리카락 시트
 
-**2D ZIP 폴더 구성:**
+**시트 배치도: 2×2, 총 4칸**
+
+![2D 머리카락 2×2 배치도 — 각 셀 위치 및 이름](docs/sheet_guides/sheet_hair_layout.svg)
+
+[배치도 파일 열기·저장](docs/sheet_guides/sheet_hair_layout.svg) · 4096×6144 px · 1칸 2048×3072 px
+
+
+**복사할 프롬프트 — 머리카락 시트 (기준 이미지 + 배치도 함께 첨부)**
+
+```text
+ORIGINAL VTUBER CHARACTER IDENTITY — FILL THESE VALUES:
+Gender / gender presentation: {gender}
+Hair color and HEX: {hair_color}
+Hairstyle, length, bangs, roots and decorations: {hairstyle}
+Eye color, shape, iris pattern, pupils and highlights: {eyes}
+Face shape, skin tone, ears and distinctive marks: {face}
+Outfit, garment layers, fabric textures and seams: {outfit}
+Color palette and HEX swatches: {palette}
+Accessories and their exact placement: {accessories}
+Other permanent character traits and body proportions: {other_details}
+
+IDENTITY / DESIGN LOCK:
+Render ONE original VTuber character consistent across every file.
+For every image after the reference, ATTACH the previously generated
+front_master.png (2D) or front view of sheet_body_views.png (3D).
+Match the character's gender presentation, hair, face, costume seams,
+proportions, palette, clean lineart and light direction precisely.
+No changes to identity, pose (unless the named 3D view demands rotation),
+design, camera distance or art style. Do not mirror the character.
+Do not output text, labels, borders, reference-layout lettering, sheet
+cell numbers, watermarks or added characters.
+
+EXACT 2D SHEET CONTRACT:
+Each listed cell is an exact full-sized crop of a named rectangle in a
+2048x3072-pixel FRONT MASTER coordinate system. Top-left origin (0,0),
+positive X to the right, positive Y downward. The position of each
+part WITHIN its cell corresponds pixel-for-pixel to that rectangle.
+NEVER independently center, resize, rotate or zoom a part in its cell.
+Everything outside the single requested part has TRUE alpha=0.
+Keep edges antialiased and color-continuous. Draw all hidden areas
+behind overlapping parts, including skin under bangs, complete hair
+roots, hidden sleeves, garment seams, and covered parts of anatomy.
+Any reserved EMPTY tile is fully alpha=0 (not a colored square).
+Use the attached layout guide ONLY as a placement template. Replace
+ALL guide-colored placeholder cells/labels with actual transparent
+character art; the final PNG must have NO labels or grid lines.
+
+RENDER TASK:
+Output sheet_hair.png, exactly 4096x6144 RGBA PNG.
+EXACT GRID 2 columns x 2 rows; every cell 2048x3072 pixels.
+The actual complete front_master.png and sheet_hair_layout.svg
+are attached as two distinct references.
+row1 col1: hair_front — full front bangs and all hidden roots
+row1 col2: hair_back  — whole back hair and all hidden scalp/shoulder area
+row2 col1: hair_left  — character's LEFT side-hair (viewer's RIGHT)
+row2 col2: hair_right — character's RIGHT side-hair (viewer's LEFT).
+For ALL FOUR cells the cell itself maps to the ENTIRE front master
+rectangle (0,0)-(2048,3072), with absolutely identical coordinates.
+Keep hair strands at their original x/y, not centered around the cell.
+Paint occluded strands completely, include every hidden root and tip.
+No face, ears, clothing or other non-hair parts in hair tiles.
+Prioritize fully resolved strand shapes, antialiased outlines, and
+the same exact hair color, accessories and shading as front_master.
+All other pixels alpha=0; no captions, guide colors or visible grid.
+```
+
+#### 2D-4. `sheet_body_outfit.png` — 신체·의상·팔·손 시트
+
+**시트 배치도: 2×4, 총 8칸 (7개 파츠 + 빈칸 1개)**
+
+![2D 몸과 의상 2×4 배치도 — 각 셀 위치 및 이름](docs/sheet_guides/sheet_body_outfit_layout.svg)
+
+[배치도 파일 열기·저장](docs/sheet_guides/sheet_body_outfit_layout.svg) · 4096×6144 px · 1칸 2048×1536 px
+
+
+**기준 원본 ROI:** 몸통·의상 `(0,1300,2048,2836)`, 좌우 팔 `(0,1100,2048,2636)`, 좌우 손 `(0,1400,2048,2936)`.
+
+**복사할 프롬프트 — 신체·의상 시트 (기준 이미지 + 배치도 함께 첨부)**
+
+```text
+ORIGINAL VTUBER CHARACTER IDENTITY — FILL THESE VALUES:
+Gender / gender presentation: {gender}
+Hair color and HEX: {hair_color}
+Hairstyle, length, bangs, roots and decorations: {hairstyle}
+Eye color, shape, iris pattern, pupils and highlights: {eyes}
+Face shape, skin tone, ears and distinctive marks: {face}
+Outfit, garment layers, fabric textures and seams: {outfit}
+Color palette and HEX swatches: {palette}
+Accessories and their exact placement: {accessories}
+Other permanent character traits and body proportions: {other_details}
+
+IDENTITY / DESIGN LOCK:
+Render ONE original VTuber character consistent across every file.
+For every image after the reference, ATTACH the previously generated
+front_master.png (2D) or front view of sheet_body_views.png (3D).
+Match the character's gender presentation, hair, face, costume seams,
+proportions, palette, clean lineart and light direction precisely.
+No changes to identity, pose (unless the named 3D view demands rotation),
+design, camera distance or art style. Do not mirror the character.
+Do not output text, labels, borders, reference-layout lettering, sheet
+cell numbers, watermarks or added characters.
+
+EXACT 2D SHEET CONTRACT:
+Each listed cell is an exact full-sized crop of a named rectangle in a
+2048x3072-pixel FRONT MASTER coordinate system. Top-left origin (0,0),
+positive X to the right, positive Y downward. The position of each
+part WITHIN its cell corresponds pixel-for-pixel to that rectangle.
+NEVER independently center, resize, rotate or zoom a part in its cell.
+Everything outside the single requested part has TRUE alpha=0.
+Keep edges antialiased and color-continuous. Draw all hidden areas
+behind overlapping parts, including skin under bangs, complete hair
+roots, hidden sleeves, garment seams, and covered parts of anatomy.
+Any reserved EMPTY tile is fully alpha=0 (not a colored square).
+Use the attached layout guide ONLY as a placement template. Replace
+ALL guide-colored placeholder cells/labels with actual transparent
+character art; the final PNG must have NO labels or grid lines.
+
+RENDER TASK:
+Output sheet_body_outfit.png, exactly 4096x6144 RGBA PNG.
+EXACT GRID 2 columns x 4 rows; every cell 2048x1536 pixels.
+The actual complete front_master.png and
+sheet_body_outfit_layout.svg are attached as references.
+row1 col1 body         master ROI (0,1300)-(2048,2836)
+row1 col2 outfit_front master ROI (0,1300)-(2048,2836)
+row2 col1 outfit_back  master ROI (0,1300)-(2048,2836)
+row2 col2 arm_left     master ROI (0,1100)-(2048,2636)
+row3 col1 arm_right    master ROI (0,1100)-(2048,2636)
+row3 col2 hand_left    master ROI (0,1400)-(2048,2936)
+row4 col1 hand_right   master ROI (0,1400)-(2048,2936)
+row4 col2 EMPTY        completely transparent alpha=0.
+Left/right always means CHARACTER left/right, NOT viewer left/right.
+Draw fully complete anatomical structures and clothing pieces even
+where other parts cover them in the master. Keep hidden garment seams,
+sleeves under hair, complete arms and visible finger/wrist details.
+Each cell contains ONLY its assigned part in its correct master ROI
+offset; no background, numbers, caption, guide coloring or grid lines.
+Every empty pixel alpha=0.
+```
+
+#### 2D ZIP 구성
 
 ```text
 character_2d_sheet_pack.zip
@@ -146,38 +307,109 @@ character_2d_sheet_pack.zip
     └── sheet_body_outfit.png
 ```
 
-파일 네 개를 ZIP 최상위에 바로 넣는 구조도 지원합니다. 업로드 시 프로그램이 시트 크기·파일명·RGBA·모든 파츠 칸·비어 있어야 할 칸을 검사합니다. **자르기 → 실제 알파 바운딩 박스 추출 → 파츠별 AI 초해상도 → 기준 좌표에 복원 → 네이티브 레이어 제작** 순서이며, 2D 최종 캔버스는 **4096×6144**입니다. ③ 모델 다운로드 단계에서 별도 초해상도 가중치를 받아 두고 ⑤에서 임시 GPU 프로세스로 실행합니다. FLUX/SAM/Florence로 가려진 부분을 다시 생성하지 않습니다.
+Colab ④ 셀에서 `character_2d_sheet_pack.zip` 한 개를 업로드합니다. 위 네 PNG는 ZIP 내부 최상위에 바로 넣어도 됩니다. ③ 모델 준비 셀에서는 초해상도 체크포인트를 준비하며, ⑤ 제작 셀에서 **격자 분할 → 알파 실제 영역(bbox) 추출 → 파츠별 신경망 초해상도 → 원본 좌표 배치 → 리깅 입력 생성**을 처리합니다. AI 초해상도는 실제 디테일을 보증하지 않으며 최종 결과의 정확한 좌표·화풍은 검증이 필요합니다.
 
-### 3D VRM: 4방향 전신 시트 + 얼굴 확대 이미지
+### 3D VRM — 전신 4방향 시트 + 정면 얼굴 확대
 
-| ZIP 내부 PNG | 해상도 | 내용 |
-|---|---:|---|
-| `sheet_body_views.png` | 4096×6144 | 2×2 격자로 전신 4방향, 셀별 2048×3072 |
-| `face.png` | 2048×2048 | 같은 캐릭터의 정면 얼굴 확대 |
+#### 3D-1. `sheet_body_views.png` — 전신 4방향 시트
 
-```text
-Render sheet_body_views.png, exact 4096x6144 PNG.
-2 columns x 2 rows; each cell exact 2048x3072 pixels.
-Upper-left: FRONT, upper-right: BACK (180 degrees).
-Lower-left: LEFT SIDE (90 degrees), lower-right: RIGHT SIDE (90 degrees).
-The SAME character, same gender presentation, shape, facial proportions,
-hair silhouette, costume folds, palette and lighting in all four views.
-Use ORTHOGRAPHIC level cameras, neutral A-pose and aligned body scale.
-For every cell independently: crown y=150, neck y=600, shoulders y=730,
-waist y=1550, knees y=2330, ground-contact y=2930, body axis x=1024.
-No perspective, cropping, ground shadow, text, separator or frame.
-Transparent background preferred; do not change the pixel arrangement.
-```
+**시트 배치도: 2×2, 총 4칸**
+
+![3D 전신 4방향 2×2 배치도 — 각 셀 위치 및 이름](docs/sheet_guides/sheet_body_views_layout.svg)
+
+[배치도 파일 열기·저장](docs/sheet_guides/sheet_body_views_layout.svg) · 4096×6144 px · 1칸 2048×3072 px
+
+
+**복사할 프롬프트 — 3D 4방향 시트**
 
 ```text
-Render face.png, exact 2048x2048 PNG, separate from the multiview sheet.
-Same character and gender presentation as the FRONT master.
-Orthographic FRONT close-up of head, hairline, full eyes, ears and jaw;
-face center x=1024, y=1050, unchanged colors and facial anatomy.
-No perspective, exaggerated face changes, watermark or text.
+ORIGINAL VTUBER CHARACTER IDENTITY — FILL THESE VALUES:
+Gender / gender presentation: {gender}
+Hair color and HEX: {hair_color}
+Hairstyle, length, bangs, roots and decorations: {hairstyle}
+Eye color, shape, iris pattern, pupils and highlights: {eyes}
+Face shape, skin tone, ears and distinctive marks: {face}
+Outfit, garment layers, fabric textures and seams: {outfit}
+Color palette and HEX swatches: {palette}
+Accessories and their exact placement: {accessories}
+Other permanent character traits and body proportions: {other_details}
+
+IDENTITY / DESIGN LOCK:
+Render ONE original VTuber character consistent across every file.
+For every image after the reference, ATTACH the previously generated
+front_master.png (2D) or front view of sheet_body_views.png (3D).
+Match the character's gender presentation, hair, face, costume seams,
+proportions, palette, clean lineart and light direction precisely.
+No changes to identity, pose (unless the named 3D view demands rotation),
+design, camera distance or art style. Do not mirror the character.
+Do not output text, labels, borders, reference-layout lettering, sheet
+cell numbers, watermarks or added characters.
+
+RENDER TASK:
+Output sheet_body_views.png, exactly 4096x6144 PNG.
+GRID exactly 2 columns x 2 rows, each cell 2048x3072 pixels.
+Attach sheet_body_views_layout.svg as the visual layout guide.
+TOP LEFT (row1 col1): character FRONT orthographic view
+TOP RIGHT (row1 col2): character BACK orthographic view (180°)
+BOTTOM LEFT (row2 col1): character LEFT SIDE (90°)
+BOTTOM RIGHT (row2 col2): character RIGHT SIDE (90°).
+Use precisely the same complete original character identity and
+unmodified outfit, hair, proportions, accessories, colors, expression
+and lights across all four views. Match the same absolute vertical
+body anchors within EACH tile: center X=1024; crown Y=150;
+neck Y=600; shoulders Y=730; waist Y=1550; knees Y=2330;
+ground contact Y=2930. Whole body including hair and shoes visible,
+neutral symmetrical A-pose, arms slightly separated, fingers visible.
+SAME orthographic projection, SAME camera scale and body height.
+Rotate CHARACTER only, do not mirror or turn the camera perspective.
+No outlines of grid cells, colored placeholders, writing, labels
+or number overlays in the actual image. Background ideally true
+transparent alpha, uniform lighting and no drop shadows.
 ```
 
-**3D ZIP 폴더 구성:**
+#### 3D-2. `face.png` — 정면 얼굴 확대
+
+**복사할 프롬프트 — 3D 얼굴 확대 (전신 시트의 정면을 참조 이미지로 첨부)**
+
+```text
+ORIGINAL VTUBER CHARACTER IDENTITY — FILL THESE VALUES:
+Gender / gender presentation: {gender}
+Hair color and HEX: {hair_color}
+Hairstyle, length, bangs, roots and decorations: {hairstyle}
+Eye color, shape, iris pattern, pupils and highlights: {eyes}
+Face shape, skin tone, ears and distinctive marks: {face}
+Outfit, garment layers, fabric textures and seams: {outfit}
+Color palette and HEX swatches: {palette}
+Accessories and their exact placement: {accessories}
+Other permanent character traits and body proportions: {other_details}
+
+IDENTITY / DESIGN LOCK:
+Render ONE original VTuber character consistent across every file.
+For every image after the reference, ATTACH the previously generated
+front_master.png (2D) or front view of sheet_body_views.png (3D).
+Match the character's gender presentation, hair, face, costume seams,
+proportions, palette, clean lineart and light direction precisely.
+No changes to identity, pose (unless the named 3D view demands rotation),
+design, camera distance or art style. Do not mirror the character.
+Do not output text, labels, borders, reference-layout lettering, sheet
+cell numbers, watermarks or added characters.
+
+RENDER TASK:
+Output face.png, exactly 2048x2048 pixels, PNG.
+Front-facing ORTHOGRAPHIC close-up of exactly the SAME character
+as the TOP LEFT view of sheet_body_views.png. Attach that sheet or
+the extracted front view as a character reference.
+Front head, hairline, complete eyes/iris/lashes, eyebrows, nose,
+mouth, ears, jaw and upper collar. Face center approximately
+X=1024, Y=1050 in THIS 2048x2048 facial image. This is a facial
+close-up; its coordinates are intentionally NOT the same as the
+2048x3072 full-body view.
+Prioritize clean expressive eye detail, fabric/skin contrast,
+exact matching design and smooth alpha edges; no perspective,
+redesign, text, label, watermark, extra character or image sheet.
+```
+
+#### 3D ZIP 구성
 
 ```text
 character_3d_sheet_pack.zip
@@ -186,13 +418,28 @@ character_3d_sheet_pack.zip
     └── face.png
 ```
 
-프로그램이 4개 전신 이미지를 원본 해상도로 정확히 분할합니다. 얼굴 확대에만 AI 초해상도를 적용한 뒤 기존 3D 복원·다중 뷰 텍스처·리깅 검증 경로로 전달합니다. 다른 시점을 AI로 임의로 만들어내지는 않습니다.
+Colab ④ 셀에서 `character_3d_sheet_pack.zip` 한 개를 업로드합니다. 네 전신 시점은 2×2 격자를 자른 뒤 개별 이미지를 원본 픽셀 크기로 전달합니다. 얼굴 확대에는 신경망 초해상도를 적용할 수 있습니다. 3D 복원·형상 정합·리깅 검증은 그 이후 별도 단계입니다.
 
-### 액세서리 이미지
+### 액세서리 — 개별 이미지 생성 프롬프트
 
-기존 VRM에 부착할 액세서리 1~8개를 각각 별도 PNG로 준비합니다. 이미지 한 장마다 물건 한 개, 실제 부착 부위와 두께가 식별되는 단독 정면/사선 제품 뷰. 외부 이미지 프롬프트: `An isolated original {accessory_type}, {material}, {color}, {decoration}, full visible geometry and attachment point, no human/model, clean contrasting background, no text or watermark.`
+기존 완성 VRM에 부착할 액세서리를 각각 독립 PNG로 생성합니다(1~8장). 필요한 물건마다 아래에서 `{...}`를 변경합니다.
 
-**품질 한계:** AI 초해상도는 픽셀 수를 늘릴 수 있지만 학습된 텍스처를 추정하기 때문에 원본에 없던 실제 디테일을 보장하지 않습니다. 큰 PNG 시트 생성도 사용하는 이미지 모델의 실제 해상도 제한을 받습니다. 프롬프트만으로 픽셀 단위 정합성은 보장되지 않으므로 입력 검사와 최종 시각 검증이 필요합니다.
+```text
+Accessory type and name: {accessory_type}
+Material: {material}
+Main / accent colors: {color}
+Decorations: {decoration}
+Attachment area on character: {anchor}
+Desired silhouette / size: {shape_size}
+
+Render ONE isolated original VTuber-style accessory.
+Show the entire physical structure including its attachment face,
+edges, materials and decorations in detailed clean linework.
+True transparent RGBA PNG preferred. No human, mannequin, other
+accessories, frame, text, watermarks, clipping or extra objects.
+```
+
+**주의:** 시트 배치도는 정해진 *셀 위치를 알리는 참조 이미지*이며, 생성된 캐릭터 파츠 시트가 아닙니다. 이미지 모델이 배치도에 있는 글자나 배경색까지 따라 그렸다면 제거한 뒤 ZIP을 구성해야 합니다. 2D는 입력 파일의 이름·크기·실제 알파·파츠 칸과 빈칸을 자동 검사하며, 시각적 내용의 정확성까지 자동 보증하지 않습니다.
 
 
 ## 작업 모드
@@ -207,7 +454,7 @@ character_3d_sheet_pack.zip
 
 ### Inochi2D
 
-- 입력: 외부 AI 기준 이미지 1장 + 개별 투명 파츠 PNG 26장. 관련 이미지 사양은 위 프롬프트에 정의되어 있습니다.
+- 기본 시트 입력: `character_2d_sheet_pack.zip` (기준 이미지 1장 + 고해상도 시트 3장). 각 시트의 배치 그림과 복사용 프롬프트는 위 제작 가이드 참조.
 - 현재 출력: `avatar.psd`, `avatar.ora`, `meshes2d.json`, `keyforms.json`, `physics2d.json`, `puppet_spec.json`. SDK 네이티브 출력에 성공한 경우에만 `avatar.inp`를 `complete`로 보고합니다.
 - 네이티브 자동화: 공식 BSD-2 **Inochi2D SDK 0.8.7**의 실제 `MeshData`·`Part`·`DeformationParameterBinding`·`SimplePhysics`를 구성하고 SDK의 `inWriteINPPuppet`로 **실제 INP1**을 출력합니다. SDK로 다시 읽어 애니메이션·물리 바인딩을 검사합니다. 0.9 개발판은 현재 변형 바인딩이 비활성화되어 본선에 사용하지 않습니다.
 - 실제 컴파일+SDK 네이티브 INP 재임포트 검증: [GitHub Actions PASS](https://github.com/jujumelona/Virtual-pipeline/actions/runs/37878238975). 이 검증은 SDK 프로그램의 정상 작동을 증명하며 **사용자별 AI 파츠 품질을 보증하지는 않습니다.**
