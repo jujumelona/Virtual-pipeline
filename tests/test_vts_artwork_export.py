@@ -105,3 +105,31 @@ def test_pro_keeps_incorrectly_classified_pixels_without_mixing_other_assets(tmp
     assert all(layer.name.startswith("hair.") for layer in actual.descendants()
                if not layer.is_group())
     assert len([x for x in actual.descendants() if not x.is_group()]) == 2
+
+def test_background_opaque_does_not_consume_foreground(tmp_path):
+    archive = make_layers(tmp_path / "in", count=2)
+
+    def infer(source, output, **kw):
+        output.mkdir(parents=True, exist_ok=True)
+        crop = Image.open(source).convert("RGBA")
+        w, h = crop.size
+        bg = Image.new("RGBA", (w, h), (0, 0, 0, 255))
+        masks = [bg]
+        for i in range(3):
+            part = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            x0, x1 = w * i // 3, w * (i + 1) // 3
+            part.paste((220, 120, 50, 255), (x0, 0, x1, h))
+            masks.append(part)
+        paths = []
+        for n, image in enumerate(masks):
+            path = output / f"layer_{n}.png"
+            image.save(path)
+            paths.append(str(path))
+        return {"layers": paths}
+
+    out = build_artwork_package(archive, tmp_path / "out", edition="pro",
+                                scope="upper", asset_kind="hair", qwen=True,
+                                max_qwen_passes=1, qwen_infer=infer)
+    assert out["qwen_splits_accepted"] == ["hair.front.000"]
+    assert out["layer_count"] >= 4
+

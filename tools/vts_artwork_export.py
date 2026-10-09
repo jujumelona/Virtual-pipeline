@@ -99,7 +99,13 @@ def _partition_part(part, suggestions):
     has_proposal = candidate.max(axis=0) > 24
     if (valid & has_proposal).sum() < .75 * valid.sum():
         return None
-    index = np.argmax(candidate, axis=0)
+    # Stable-Layers' published order is background first, then foreground
+    # objects. The background alpha can be opaque across the whole crop,
+    # so a plain argmax would absorb foreground into the background.
+    objects = candidate[1:]
+    object_best = np.max(objects, axis=0)
+    index = (np.argmax(objects, axis=0) + 1).astype(np.int32)
+    index[object_best <= 24] = 0
     distribution = [int(np.count_nonzero(valid & (index == i)))
                     for i in range(len(proposal_masks))]
     relevant = [i for i, amount in enumerate(distribution)
@@ -108,7 +114,15 @@ def _partition_part(part, suggestions):
         return None
     # Re-assign all pixels (including translucent edge pixels) to accepted
     # masks. Source RGBA values are copied, not upscaled Qwen colors.
-    accepted = candidate[relevant].argmax(axis=0)
+    # When small fragments are filtered out, recover their visible pixels
+    # by assigning them to the nearest accepted *semantic* mask, not by
+    # painting over the source RGB/alpha.
+    accepted = np.zeros_like(index, dtype=np.int32)
+    for rank, original_index in enumerate(relevant):
+        accepted[index == original_index] = rank
+    unassigned = ~np.isin(index, np.asarray(relevant, dtype=np.int32))
+    if np.any(unassigned):
+        accepted[unassigned] = candidate[relevant][:, unassigned].argmax(axis=0)
     children = []
     for rank, original_index in enumerate(relevant):
         segment = np.zeros_like(original)
