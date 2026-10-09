@@ -178,3 +178,53 @@ def test_registered_views_cannot_be_rotated_again_by_global_icp(tmp_path):
             str(coarse_path), str(candidate), depth_manifest,
             references, str(tmp_path / "reject"), source_metadata=str(source_meta),
         )
+
+
+def test_real_observed_view_records_and_reuses_foreground_cutout(
+    tmp_path, monkeypatch,
+):
+    from PIL import Image
+    import vtuber_pipeline.avatar.reconstruction as reconstruction
+    import vtuber_pipeline.perception.anime_alpha as alpha_worker
+
+    main = trimesh.creation.icosphere(subdivisions=2)
+    main_path = tmp_path / "front.obj"
+    main.export(main_path)
+    reference = tmp_path / "back.png"
+    Image.new("RGBA", (256, 256), (245, 245, 245, 255)).save(reference)
+    cutout = tmp_path / "person_alpha.png"
+    Image.new("RGBA", (256, 256), (30, 60, 90, 255)).save(cutout)
+    calls = []
+
+    def masked(image_path, output_dir):
+        assert image_path == str(reference.resolve())
+        calls.append("alpha")
+        return {"status": "complete", "rgba_png": str(cutout)}
+
+    def reconstructed(image, output_dir, *, profile, model_save_format,
+                      remove_background):
+        assert image == str(cutout)
+        assert profile == "commercial"
+        assert model_save_format == "obj"
+        assert remove_background is False
+        calls.append("triposr")
+        result = tmp_path / "back_model.obj"
+        main.export(result)
+        return str(result)
+
+    monkeypatch.setattr(alpha_worker, "create_person_alpha", masked)
+    monkeypatch.setattr(reconstruction, "reconstruct_avatar", reconstructed)
+    output = reconstruct_licensed_multiview(
+        str(main_path), {"back": str(reference)}, str(tmp_path / "fused"),
+    )
+    assert output["status"] == "complete"
+    assert output["registered_views"] == ["back"]
+    assert calls == ["alpha", "triposr"]
+    report = json.loads(Path(output["provenance_json"]).read_text())
+    assert report["views"]["back"]["segmented_rgba"] == str(cutout.resolve())
+    assert report["views"]["back"]["status"] == "registered"
+    from vtuber_pipeline.avatar.build import AvatarPipeline
+    import inspect
+    orchestrator = inspect.getsource(AvatarPipeline.build)
+    assert 'observed_texture_sources[role] = normalized' in orchestrator
+    assert 'observed_texture_sources.get("back")' in orchestrator
