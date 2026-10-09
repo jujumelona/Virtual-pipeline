@@ -124,6 +124,38 @@ Commercial/production avatar reconstruction verifies the TripoSR git revision be
 
 `third_party.lock.json` separates source revisions from binary integrity hashes. `artifact_sha256` is never filled with a git SHA or package version. It is reserved for a real SHA256 of downloaded artifact bytes.
 
+## Optional Blender bone-heat body skinning (Colab T4 compatible)
+
+The avatar builder now supports a second experimental open-source weight
+provider. It reuses the **already-installed Blender** native
+`bpy.ops.object.parent_set(type="ARMATURE_AUTO")` bone-heat solver on the
+actual canonical rig/mesh. Blender returns named per-vertex top-four weight
+groups; our adapter maps them back to the unchanged VRM joint palette.
+
+Only **body vertices below the neck** can be modified. Head, eyes, facial
+shapes and independent spring-driven hair ribbons stay on their canonical
+weights and hierarchy. The original mesh topology, original texture and
+UV coordinates are preserved and verified after saving the new GLB.
+Unweighted or foreign-joint body vertices, a solver failure or a changed
+vertex count produces an explicit failed stage; no silent downgrade is
+reported as a finished model. The user can choose canonical when the
+optional heat solver is not suitable for an individual character.
+
+Gradio 3D mode: select **Blender 자동 본 히트 스키닝 (T4 지원·실험적)**.
+CLI:
+
+```bash
+vtuber-pipeline avatar --image character.png --output output/avatar \
+  --face-image face.png --full-body --rigging-provider blender_heat
+```
+
+Unlike SkinTokens, this alternative does not require Ampere or
+FlashAttention-2 and can run on the standard Colab T4 configuration.
+The CPU integration test verifies geometry/UV/hair preservation and
+rejected invalid weights. Actual native Blender bone-heat deformation
+quality on complex meshes and full Colab T4 broadcast playback are
+still unverified; this option is **not the default**.
+
 ## Optional SkinTokens / TokenRig auto-skinning
 
 **Implemented, experimental; not part of the default T4 workflow.**
