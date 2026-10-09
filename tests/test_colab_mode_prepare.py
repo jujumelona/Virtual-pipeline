@@ -9,6 +9,14 @@ import pytest
 from tools import colab_mode_prepare as prepare
 
 
+@pytest.fixture(autouse=True)
+def restore_mode_environment(monkeypatch):
+    # prepare_selected_mode sets subprocess-scoped flags in os.environ.
+    # Keep test ordering from leaking them to unrelated CPU contracts.
+    monkeypatch.setenv("VTUBER_SETUP_ONLY", "1")
+    monkeypatch.setenv("VTUBER_GPU_PREWARM", "original")
+
+
 def test_independent_setup_tasks_start_concurrently_and_all_finish():
     barrier = threading.Barrier(3, timeout=8)
     seen = []
