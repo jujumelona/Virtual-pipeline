@@ -113,6 +113,25 @@ def _verify_rembg_u2net() -> str:
     return str(model_path)
 
 
+def prepare_no_bg_image(image_path, target, *, resize_foreground):
+    """Use the pinned upstream resize function and its neutral RGB background."""
+    import numpy as np
+    from PIL import Image
+    image_path, target = pathlib.Path(image_path), pathlib.Path(target)
+    with Image.open(image_path) as source:
+        image = source.convert("RGBA")
+    if image.getchannel("A").getextrema() == (255, 255):
+        return image_path  # --no-remove-bg already requires prepared opaque input.
+    image = resize_foreground(image, 0.85)
+    values = np.asarray(image).astype(np.float32) / 255.0
+    rgb = values[:, :, :3] * values[:, :, 3:4] + (1 - values[:, :, 3:4]) * 0.5
+    target.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray((rgb * 255.0).astype(np.uint8)).save(target)
+    print(f"[TripoSR] segmented alpha: official foreground ratio=0.85, gray=0.5 -> {target}",
+          flush=True)
+    return target
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         raise SystemExit("usage: triposr_runner.py RUN_PY [TripoSR args...]")
@@ -152,6 +171,14 @@ def main() -> None:
     if "--no-remove-bg" not in upstream_args:
         _install_rembg_model_guard()
         _verify_rembg_u2net()
+    else:
+        # Our caller submits one already-segmented view. Upstream's no-bg
+        # branch converts directly to RGB, discarding alpha without compositing.
+        from tsr.utils import resize_foreground
+        output = pathlib.Path(upstream_args[upstream_args.index("--output-dir") + 1])
+        upstream_args[0] = str(prepare_no_bg_image(
+            upstream_args[0], output / "prepared_foreground.png",
+            resize_foreground=resize_foreground))
 
     # Upstream argparse must see its own script as argv[0].
     if os.environ.get("VTUBER_REQUIRE_CUDA") == "1":
