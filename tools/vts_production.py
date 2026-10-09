@@ -91,7 +91,7 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
     for layer in psd.descendants():
         if layer.is_group() or not layer.is_visible():
             continue
-        tile = layer.topil()
+        tile = layer.composite()  # compose PSD alpha/masks; topil() loses RGBA on RGB PSDs
         if tile is None:
             continue
         tile = tile.convert("RGBA")
