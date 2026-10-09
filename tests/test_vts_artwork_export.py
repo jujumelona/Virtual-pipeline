@@ -326,3 +326,9 @@ def test_recursion_covers_other_observed_regions_before_repeating_hair(tmp_path)
     result = build_artwork_package(source, tmp_path / "out", edition="free", scope="upper",
                                    qwen=True, qwen_infer=infer, max_qwen_passes=3)
     assert {x["source_layer"] for x in result["qwen_attempts"]} == {"hair.front", "eye.left", "mouth"}
+
+
+def test_free_single_flattened_character_is_not_reported_as_separated_artwork(tmp_path):
+    source = make_layers(tmp_path / "in", count=1)
+    with pytest.raises(ValueError, match="flattened"):
+        build_artwork_package(source, tmp_path / "out", edition="free", scope="upper")

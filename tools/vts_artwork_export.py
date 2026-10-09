@@ -632,6 +632,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
             if accepted:
                 layers[index:index+1] = proposed
                 generated.append(item["name"])
+    if edition == "free" and len(layers) < 2:
+        raise ValueError("FREE output is a single flattened character image, not separated artwork")
     if edition == "free" and len(layers) > FREE_LIMIT:
         raise ValueError("FREE ArtMesh ceiling exceeded")
     name = "avatar" if edition == "free" else asset_kind

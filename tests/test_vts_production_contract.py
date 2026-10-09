@@ -257,6 +257,8 @@ def test_handoff_inventory_lists_all_final_companion_files(tmp_path):
     im = Image.new("RGBA", (256, 384)); im.paste((90, 80, 70, 255), (20, 30, 90, 100)); im.save(master)
     psd = PSDImage.new("RGB", im.size)
     PixelLayer.frompil(im, parent=psd, name="face")
+    hair = Image.new("RGBA", im.size); hair.paste((20, 30, 40, 255), (10, 10, 100, 30))
+    PixelLayer.frompil(hair, parent=psd, name="front hair")
     path = tmp_path / "source.psd"; psd.save(path)
     result = make_cubism_handoff(master, tmp_path / "out", edition="free", scope="upper", external_psd=path)
     with ZipFile(result["package"]) as z:
@@ -297,6 +299,8 @@ def test_all_ten_public_modes_make_registered_psd_handoffs(tmp_path, scope, edit
     rgba.save(source); rgba.save(body)
     psd = PSDImage.new("RGB", rgba.size)
     PixelLayer.frompil(rgba, parent=psd, name="face")
+    hair = Image.new("RGBA", rgba.size); hair.paste((20, 30, 40, 255), (10, 10, 100, 30))
+    PixelLayer.frompil(hair, parent=psd, name="front hair")
     original_psd = tmp_path / "original.psd"; psd.save(original_psd)
     result = make_cubism_handoff(source, tmp_path / "output", edition=edition, scope=scope,
                                 asset_kind=asset, external_psd=original_psd,
@@ -315,4 +319,4 @@ def test_all_ten_public_modes_make_registered_psd_handoffs(tmp_path, scope, edit
         assert set(result["supporting_files"]) == set(archive.namelist()) - {output_name}
     final = PSDImage.open(result["art_psd"])
     assert final.size == (256, 384)
-    assert len([x for x in final.descendants() if not x.is_group()]) == 1
+    assert len([x for x in final.descendants() if not x.is_group()]) == 2
