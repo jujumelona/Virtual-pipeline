@@ -79,6 +79,9 @@ jobs:
             tests/test_sheet_input_loader.py \
             tests/test_sheet_sr_official.py \
             tests/test_triposr_input_contract.py \
+            tests/test_worker_gpu_policy.py \
+            tests/production/test_flux_native_dtype.py \
+            tests/production/test_live2d_gpu_lock.py \
             tests/test_inochi_setup.py \
             tests/test_2d_runtime_failures.py \
             tests/integration/test_colab_bootstrap_imports.py \

@@ -171,7 +171,8 @@ def main() -> None:
     if "--no-remove-bg" not in upstream_args:
         _install_rembg_model_guard()
         _verify_rembg_u2net()
-    else:
+    elif upstream_args and not upstream_args[0].startswith("-") and "--output-dir" in upstream_args:
+        # Leave help/argument validation to the official CLI.
         # Our caller submits one already-segmented view. Upstream's no-bg
         # branch converts directly to RGB, discarding alpha without compositing.
         from tsr.utils import resize_foreground

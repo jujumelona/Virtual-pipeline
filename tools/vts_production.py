@@ -385,8 +385,15 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
     ]
     print("[VTS] See-through NF4:", " ".join(command), flush=True)
     from tools.vts_subprocess import run_logged
-    code = run_logged(command, cwd=third_party, env=env, log_path=log,
-                      timeout_seconds=timeout)
+    from tools.colab_gpu_warmup import available_face_worker, stop_face_worker
+    from vtuber_pipeline.common.stage_runner import _process_gpu_lock
+    # This direct inference path does not enter run_stage(). Release an
+    # unused resident face model before waiting for its shared GPU lock.
+    if available_face_worker():
+        stop_face_worker()
+    with _process_gpu_lock(timeout_sec=timeout):
+        code = run_logged(command, cwd=third_party, env=env, log_path=log,
+                          timeout_seconds=timeout)
     if code:
         raise RuntimeError(f"See-through exited {code}; full log: {log}")
     after = sorted(

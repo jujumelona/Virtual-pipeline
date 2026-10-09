@@ -160,3 +160,34 @@ def test_sheet_gpu_process_sigkill_is_a_hard_failure(tmp_path, monkeypatch):
         worker.materialize_sheet_request({
             "mode": "live2d", "_sheet_workdir": str(tmp_path / "proc")
         }, [str(source), "corporation", "__sheet_pack__"])
+
+
+def test_sheet_inference_stops_resident_face_and_holds_shared_gpu_lock(tmp_path, monkeypatch):
+    import json
+    import subprocess
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    from tools import colab_gpu_warmup as warm
+    from vtuber_pipeline.common import stage_runner
+    source = tmp_path / "sheet.zip"; source.write_bytes(b"test")
+    events = []
+    monkeypatch.setattr(warm, "available_face_worker", lambda: True)
+    monkeypatch.setattr(warm, "stop_face_worker", lambda: events.append("unload"))
+    @contextmanager
+    def lock(*, timeout_sec):
+        events.append("lock")
+        try:
+            yield
+        finally:
+            events.append("unlock")
+    monkeypatch.setattr(stage_runner, "_process_gpu_lock", lock)
+    def infer(command, **kwargs):
+        assert events == ["unload", "lock"]
+        from pathlib import Path
+        Path(command[-1]).write_text(json.dumps({"front":"front", "layers":"layers"}))
+        events.append("infer")
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(subprocess, "run", infer)
+    worker.materialize_sheet_request({"mode":"live2d", "_sheet_workdir":str(tmp_path / "out")},
+                                    [str(source), "personal", "__sheet_pack__"])
+    assert events == ["unload", "lock", "infer", "unlock"]

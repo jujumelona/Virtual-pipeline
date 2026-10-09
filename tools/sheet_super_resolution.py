@@ -145,6 +145,8 @@ def _model_class():
 
 def load_model(cache: Path | None = None):
     """Fail closed if unavailable: never substitute ordinary PIL upscaling."""
+    from tools.model_workers._entry import require_cuda
+    require_cuda()
     import torch
     cache = CACHE if cache is None else Path(cache)
     weight = cache / MODEL_NAME

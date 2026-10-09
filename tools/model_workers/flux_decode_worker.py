@@ -8,18 +8,20 @@ from flux_worker import configure_low_memory_decode, memory_snapshot
 
 
 def run(latents_manifest: str, outputs_manifest: str) -> None:
+    from _entry import require_cuda
+    require_cuda()
     import torch
     from diffusers.models.autoencoders.autoencoder_kl_flux2 import AutoencoderKLFlux2
     from diffusers.pipelines.flux2.image_processor import Flux2ImageProcessor
     from safetensors.torch import load_file
     from vtuber_pipeline.common.model_assets import resolve_snapshot
+    from tools.vts_quantization import select_compute_dtype
 
     items = json.loads(Path(latents_manifest).read_text(encoding="utf-8"))["repairs"]
     if not items:
         raise ValueError("FLUX VAE decode manifest contains no latents")
     snapshot = resolve_snapshot("flux2_klein_4b")
-    dtype = (torch.bfloat16 if torch.cuda.is_available()
-             and torch.cuda.is_bf16_supported() else torch.float16)
+    dtype = select_compute_dtype(torch)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     memory_snapshot("before_vae_only_checkpoint_load")
     vae = AutoencoderKLFlux2.from_pretrained(

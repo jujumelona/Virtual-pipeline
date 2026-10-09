@@ -46,10 +46,15 @@ def materialize_sheet_request(request: dict, values: list) -> list:
     emit("stage", stage="sheet-extract-neural-sr", status="running",
          detail="real GPU-tiled anime super-resolution in disposable PID")
     try:
-        proc = subprocess.run([
-            sys.executable, "-u", str(ROOT / "tools" / "sheet_prepare_worker.py"),
-            "--request", str(stage_request), "--result", str(stage_result),
-        ], timeout=7200, check=False)
+        from tools.colab_gpu_warmup import available_face_worker, stop_face_worker
+        from vtuber_pipeline.common.stage_runner import _process_gpu_lock
+        if available_face_worker():
+            stop_face_worker()
+        with _process_gpu_lock(timeout_sec=7200):
+            proc = subprocess.run([
+                sys.executable, "-u", str(ROOT / "tools" / "sheet_prepare_worker.py"),
+                "--request", str(stage_request), "--result", str(stage_result),
+            ], timeout=7200, check=False)
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError("Sheet neural SR timed out after 7200s") from exc
     if proc.returncode:
@@ -113,6 +118,7 @@ def main() -> int:
         print("Expected JSON request path and result path", file=sys.stderr, flush=True)
         return 2
     request_path, result_path = map(Path, sys.argv[1:])
+    previous_cuda_policy = os.environ.get("VTUBER_REQUIRE_CUDA")
     try:
         # Under system-RAM pressure the disposable AI process should be killed
         # before the persistent Gradio/Colab control process. This is advisory
@@ -122,6 +128,7 @@ def main() -> int:
         except (OSError, PermissionError):
             pass
         os.environ["VTUBER_GENERATION_WORKER"] = "1"
+        os.environ["VTUBER_REQUIRE_CUDA"] = "1"
         request = json.loads(request_path.read_text(encoding="utf-8"))
         request["_sheet_workdir"] = str(request_path.parent / "sheet_generated")
         result = run_request(request)
@@ -145,6 +152,11 @@ def main() -> int:
         traceback.print_exc()
         emit("failed", mode="unknown", error=traceback.format_exc()[-4000:])
         return 1
+    finally:
+        if previous_cuda_policy is None:
+            os.environ.pop("VTUBER_REQUIRE_CUDA", None)
+        else:
+            os.environ["VTUBER_REQUIRE_CUDA"] = previous_cuda_policy
 
 
 if __name__ == "__main__":

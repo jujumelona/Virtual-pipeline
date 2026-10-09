@@ -108,8 +108,15 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
     runtime_env["HF_HUB_OFFLINE"]="1"
     runtime_env["TRANSFORMERS_OFFLINE"]="1"
     from tools.vts_subprocess import run_logged
-    exitcode=run_logged(cmd,cwd=third_party/"Stable-Layers",env=runtime_env,
-                        log_path=log,timeout_seconds=timeout)
+    from tools.colab_gpu_warmup import available_face_worker, stop_face_worker
+    from vtuber_pipeline.common.stage_runner import _process_gpu_lock
+    # Qwen is launched directly, outside run_stage(); the resident face
+    # prewarm must exit before this GPU stage acquires the same lock.
+    if available_face_worker():
+        stop_face_worker()
+    with _process_gpu_lock(timeout_sec=timeout):
+        exitcode=run_logged(cmd,cwd=third_party/"Stable-Layers",env=runtime_env,
+                            log_path=log,timeout_seconds=timeout)
     if exitcode:
         raise RuntimeError(f"Qwen NF4/Stable-Layers exited {exitcode}; log={log}")
     folder=candidate_root/input_image.stem

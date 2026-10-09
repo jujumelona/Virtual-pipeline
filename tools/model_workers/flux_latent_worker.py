@@ -12,11 +12,14 @@ from flux_worker import PROMPT, prepare_masked_edit, memory_snapshot
 
 
 def run(plan_file: str, manifest_file: str) -> None:
+    from _entry import require_cuda
+    require_cuda()
     import torch
     from PIL import Image
     from diffusers import Flux2KleinPipeline
     from safetensors.torch import save_file
     from vtuber_pipeline.common.model_assets import resolve_snapshot
+    from tools.vts_quantization import select_compute_dtype
 
     plan = json.loads(Path(plan_file).read_text(encoding="utf-8"))
     work = Path(manifest_file).parent
@@ -24,8 +27,7 @@ def run(plan_file: str, manifest_file: str) -> None:
     if not rows:
         raise ValueError("FLUX denoise plan has no hidden holes")
     snapshot = resolve_snapshot("flux2_klein_4b")
-    dtype = (torch.bfloat16 if torch.cuda.is_available()
-             and torch.cuda.is_bf16_supported() else torch.float16)
+    dtype = select_compute_dtype(torch)
     memory_snapshot("before_denoise_checkpoint_load")
     pipe = Flux2KleinPipeline.from_pretrained(
         snapshot, torch_dtype=dtype, low_cpu_mem_usage=True,
