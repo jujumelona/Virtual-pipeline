@@ -234,6 +234,11 @@ def install_2d_environment() -> dict:
                 return {"python": str(python), "flux_python": str(flux_python),
                         "anime_source": str(source), "fingerprint": fingerprint}
 
+    if os.environ.get("VTUBER_NOTEBOOK_EXPLICIT_DOWNLOAD") == "1":
+        raise RuntimeError(
+            "2D worker packages not verified: run notebook ③ AI model/program "
+            "download cell. Production is forbidden from installing packages."
+        )
     WORK.mkdir(parents=True, exist_ok=True)
     _prepare_venv("venv")
     _prepare_venv("venv_flux")
@@ -345,6 +350,11 @@ def install_alpha_environment() -> dict:
             else:
                 return {"python": str(python), "anime_source": str(source),
                         "fingerprint": fingerprint}
+    if os.environ.get("VTUBER_NOTEBOOK_EXPLICIT_DOWNLOAD") == "1":
+        raise RuntimeError(
+            "Alpha worker packages not verified: run notebook ③ AI model/program "
+            "download cell. Production is forbidden from installing packages."
+        )
     WORK.mkdir(parents=True, exist_ok=True)
     _prepare_venv("venv_alpha")
     constraints = WORK / "alpha_cuda_constraints.txt"
