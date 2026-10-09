@@ -58,7 +58,7 @@ def install(directory: Path, torch_index: str) -> dict:
     elif not (directory / ".git").is_dir():
         raise RuntimeError("Refusing to replace non-repository SkinTokens directory")
 
-    dirty = subprocess.run([git, "-C", str(directory), "status", "--porcelain"],
+    dirty = subprocess.run([git, "-C", str(directory), "status", "--porcelain", "--untracked-files=no"],
                            capture_output=True, text=True, check=True, timeout=20)
     if dirty.stdout.strip():
         raise RuntimeError("SkinTokens checkout is dirty; refusing destructive source changes")
