@@ -1,77 +1,82 @@
-"""CPU-only clothing workflows: never substitute rigid prop attachment."""
+"""CPU-level 2D wardrobe contract and honest 3D XWear handoff."""
 from __future__ import annotations
-import json
 from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
+import json
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image,ImageDraw
 
-from tools import wardrobe_handoff, outfit_variant_pack, sheet_input_loader
-from vtuber_pipeline.sheet_contract import Sheet, Tile
-
+from tools import wardrobe_handoff,outfit_variant_pack
+from vtuber_pipeline.wardrobe_contract import GARMENT_PARTS,GARMENT_SHEET
 
 def _png(image):
-    buf=BytesIO()
-    image.save(buf,"PNG")
-    return buf.getvalue()
+    b=BytesIO();image.save(b,"PNG");return b.getvalue()
 
+def test_2d_four_garment_parts_are_separate():
+    assert GARMENT_PARTS=={
+        "outfit_front","outfit_back",
+        "outfit_sleeve_left","outfit_sleeve_right"
+    }
+    assert GARMENT_SHEET.columns==2 and GARMENT_SHEET.rows==2
 
-def test_2d_clothing_variant_preserves_original_skin(tmp_path,monkeypatch):
-    spec=Sheet("sheet_body_outfit.png",(400,300),2,2,(
-        Tile("body",0,0,(0,0,200,150)),
-        Tile("outfit_front",0,1,(0,0,200,150)),
-        Tile("outfit_back",1,0,(0,0,200,150)),
+def test_outfit_png_rejects_missing_or_rgb_background(tmp_path):
+    source=tmp_path/"outfit_variant.png"
+    Image.new("RGB",(800,600),"white").save(source)
+    with pytest.raises(ValueError,match="RGBA"):
+        outfit_variant_pack.inspect_garment_image(str(source))
+    image=Image.new("RGBA",(800,600),(0,0,0,0))
+    ImageDraw.Draw(image).rectangle((20,20,40,60),fill=(70,80,90,255))
+    image.save(source)
+    with pytest.raises(ValueError,match="outfit_back"):
+        outfit_variant_pack.inspect_garment_image(str(source))
+
+def test_garment_4_cells_normalized_and_base_unmodified(tmp_path,monkeypatch):
+    # Use tiny aligned mock base; isolated outfits are RGBA input, not
+    # split out of the neutral torso. No network/GPU required.
+    monkeypatch.setattr(outfit_variant_pack,"MASTER",(64,64))
+    from vtuber_pipeline.sheet_contract import Sheet,Tile
+    fake=Sheet("outfit_variant.png",(128,64),2,2,(
+        Tile("outfit_front",0,0,(0,10,64,42)),
+        Tile("outfit_back",0,1,(0,10,64,42)),
+        Tile("outfit_sleeve_left",1,0,(0,20,64,52)),
+        Tile("outfit_sleeve_right",1,1,(0,20,64,52)),
     ))
-    monkeypatch.setattr(sheet_input_loader,"SHEETS_2D",(spec,))
-    monkeypatch.setattr(sheet_input_loader,"MASTER",(400,600))
-    monkeypatch.setattr(outfit_variant_pack,"SHEETS_2D",(spec,))
-    monkeypatch.setattr(sheet_input_loader,"sheet_names",
-                        lambda mode:frozenset({"front_master.png","sheet_body_outfit.png"}))
-    master=Image.new("RGBA",(400,600),(0,0,0,0))
-    ImageDraw.Draw(master).rectangle((120,45,240,370),
-                                     fill=(70,65,55,255))
-    existing=Image.new("RGBA",(400,300),(0,0,0,0))
-    ImageDraw.Draw(existing).rectangle((40,25,150,130),fill=(90,90,90,255))
-    ImageDraw.Draw(existing).rectangle((245,30,355,125),fill=(180,60,20,255))
-    ImageDraw.Draw(existing).rectangle((40,180,170,250),fill=(180,60,20,255))
-    new=Image.new("RGBA",(400,300),(0,0,0,0))
-    ImageDraw.Draw(new).rectangle((245,30,355,125),fill=(40,185,30,255))
-    ImageDraw.Draw(new).rectangle((40,180,170,250),fill=(40,80,230,255))
-    base=tmp_path/"character_2d_sheet_pack.zip"
-    with ZipFile(base,"w") as z:
-        z.writestr("front_master.png",_png(master))
-        z.writestr("sheet_body_outfit.png",_png(existing))
-    changed=tmp_path/"outfit_variant.png"
-    changed.write_bytes(_png(new))
-    target=tmp_path/"variant/character_2d_sheet_pack.zip"
-    result=outfit_variant_pack.change_outfit(str(base),str(changed),str(target))
-    assert result==str(target)
-    with ZipFile(target) as zip:
-        assert set(Path(n).name for n in zip.namelist())=={
-            "front_master.png","sheet_body_outfit.png"}
-        original=zip.read("character_2d_sheet_pack/front_master.png")
-        assert original==_png(master)
-        with Image.open(BytesIO(zip.read("character_2d_sheet_pack/sheet_body_outfit.png"))) as merged:
-            assert merged.getpixel((100,70))==(90,90,90,255), "base skin kept"
-            assert merged.getpixel((270,70))==(40,185,30,255), "front outfit changed"
-            assert merged.getpixel((100,200))==(40,80,230,255), "back outfit changed"
-    receipt=json.loads(target.with_suffix(".wardrobe.json").read_text())
-    assert receipt["mode"]=="rerig_required"
-    assert receipt["unchanged_semantic_part"]=="body"
-
-
-def test_2d_outfit_refuses_body_change(tmp_path,monkeypatch):
-    spec=Sheet("sheet_body_outfit.png",(400,300),2,2,())
-    monkeypatch.setattr(outfit_variant_pack,"SHEETS_2D",(spec,))
+    monkeypatch.setattr(outfit_variant_pack,"GARMENT_SHEET",fake)
+    monkeypatch.setattr(outfit_variant_pack,"_valid_aspect",lambda size,target:True)
     monkeypatch.setattr(outfit_variant_pack,"inspect_sheet_archive",lambda *a,**k:None)
-    item=Image.new("RGBA",(400,300),(10,10,10,255))
-    path=tmp_path/"outfit_variant.png"
-    path.write_bytes(_png(item))
-    with pytest.raises(ValueError,match="body comes unchanged"):
-        outfit_variant_pack.change_outfit(str(tmp_path/"dummy.zip"),
-                                           str(path),str(tmp_path/"new.zip"))
-
+    source=tmp_path/"character_2d_sheet_pack.zip"
+    source.write_bytes(b"mock source")
+    full=(128,128)
+    original=Image.new("RGBA",full,(0,0,0,0))
+    ImageDraw.Draw(original).rectangle((18,20,38,66),fill=(30,60,100,255))
+    with ZipFile(tmp_path/"base_layers.zip","w") as z:
+        for i in range(24):
+            z.writestr(f"part_{i}.png",_png(original))
+    def convert(*args,**kwargs):
+        return str(tmp_path/"front_master.png"),str(tmp_path/"base_layers.zip")
+    monkeypatch.setattr(outfit_variant_pack,"convert_2d_sheet_pack",convert)
+    garment=Image.new("RGBA",(128,64),(0,0,0,0))
+    for tile in fake.tiles:
+        x0,y0,x1,y1=fake.box(tile)
+        ImageDraw.Draw(garment).rectangle((x0+8,y0+4,x0+18,y0+12),
+                                        fill=(130,20+20*tile.col,60,255))
+    costume=tmp_path/"outfit_variant.png";costume.write_bytes(_png(garment))
+    generated=outfit_variant_pack.build_dressed_2d_assets(
+        str(source),str(costume),str(tmp_path/"output"),
+        neural=False
+    )
+    with ZipFile(generated["layers"]) as z:
+        assert len(z.namelist())==28
+        assert z.read("part_0.png")==_png(original)
+        for part in GARMENT_PARTS:
+            im=Image.open(BytesIO(z.read(part+".png")))
+            assert im.size==full
+            assert im.getchannel("A").getbbox() is not None
+    m=json.loads(Path(generated["manifest"]).read_text())
+    assert m["permanent_base_parts"]==24
+    assert m["total_parts"]==28
+    assert not m["runtime_toggle_supported"]
 
 def test_3d_xwear_handoff_is_explicitly_not_a_finished_vrm(tmp_path,monkeypatch):
     from tools import colab_native
@@ -94,14 +99,10 @@ def test_3d_xwear_handoff_is_explicitly_not_a_finished_vrm(tmp_path,monkeypatch)
         assert not manifest["automated_fitting_or_skinning"]
         assert not manifest["compatibility_verified_in_editor"]
 
-
 def test_3d_wardrobe_refuses_png_masquerading_as_fitted_outfit(tmp_path,monkeypatch):
     from tools import colab_native
     monkeypatch.setattr(colab_native,"_has_vrm_container",lambda p:True)
-    v=tmp_path/"avatar.vrm"
-    v.write_bytes(b"test vrm")
-    png=tmp_path/"costume.png"
-    png.write_bytes(b"0"*256)
+    v=tmp_path/"avatar.vrm";v.write_bytes(b"test vrm")
+    png=tmp_path/"costume.png";png.write_bytes(b"0"*256)
     with pytest.raises(ValueError,match="REAL .xwear"):
-        wardrobe_handoff.prepare_vroid_dressup(
-            str(v),str(png),str(tmp_path/"handoff.zip"))
+        wardrobe_handoff.prepare_vroid_dressup(str(v),str(png),str(tmp_path/"handoff.zip"))
