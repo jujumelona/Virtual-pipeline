@@ -1201,7 +1201,7 @@ CSS = """
 """
 
 
-def build_2d_ui(image_path, layers_zip, commercial_usage, target="live2d"):
+def build_2d_ui(image_path, commercial_usage, target="live2d"):
     """Run actual 2D production graph, with strict editor/native status."""
     if target not in {"inochi2d", "live2d"}:
         return "지원하지 않는 2D 모드", "", None
@@ -1213,7 +1213,6 @@ def build_2d_ui(image_path, layers_zip, commercial_usage, target="live2d"):
         from vtuber_pipeline.two_d.build import build_inochi2d, build_live2d
         output = OUTPUT_ROOT / uuid.uuid4().hex[:10] / target
         source = SourceSet(mode=target, front_image=str(image_path),
-                           user_layers_zip=str(layers_zip) if layers_zip else None,
                            commercial_usage=commercial_usage, output_dir=str(output))
         result = build_inochi2d(source) if target == "inochi2d" else build_live2d(source)
         details = (f"mode: {target}\nstatus: {result.status}\n"
@@ -1263,15 +1262,12 @@ def collect_cubism_zip_ui(official_zip):
         return "공식 MOC3 검증/수집 실패: "+str(exc), traceback.format_exc(), None
 
 
-def build_inochi2d_ui(image_path, commercial_usage, *legacy_usage):
-    # The character creation UI accepts one image, never a separate parts ZIP.
-    usage = legacy_usage[0] if legacy_usage else commercial_usage
-    return build_2d_ui(image_path, None, usage, target="inochi2d")
+def build_inochi2d_ui(image_path, commercial_usage):
+    return build_2d_ui(image_path, commercial_usage, target="inochi2d")
 
 
-def build_live2d_ui(image_path, commercial_usage, *legacy_usage):
-    usage = legacy_usage[0] if legacy_usage else commercial_usage
-    return build_2d_ui(image_path, None, usage, target="live2d")
+def build_live2d_ui(image_path, commercial_usage):
+    return build_2d_ui(image_path, commercial_usage, target="live2d")
 
 
 def choose_workflow(mode: str, usage: str):
