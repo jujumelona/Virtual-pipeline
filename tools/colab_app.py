@@ -238,7 +238,6 @@ def _runtime_contract_fingerprint() -> str:
         TRIPOSR_COMMIT,
         TRIPOSR_MODEL_REVISION,
         TRIPOSR_MODEL_WEIGHT_SHA256,
-        GRADIO_VERSION,
         f"python-{sys.version_info.major}.{sys.version_info.minor}",
     ):
         digest.update(str(value).encode("utf-8"))
@@ -426,7 +425,7 @@ def _install_runtime(head: str) -> None:
             (
                 "import PIL, xatlas, moderngl, onnxruntime, cv2, safetensors; "
                 "import omegaconf, einops, trimesh, rembg, imageio, scipy; "
-                "import huggingface_hub, pygltflib, torch, torchvision, gradio; "
+                "import huggingface_hub, pygltflib, torch, torchvision; "
                 "from transformers.models.vit.modeling_vit import ViTModel; "
                 "from anime_face_detector import create_detector; from skimage import measure; "
                 "from vtuber_pipeline.avatar.marching_cubes_backend import install_triposr_marching_cubes; "
@@ -441,7 +440,7 @@ def _install_runtime(head: str) -> None:
                 "print('Pillow', PIL.__version__); "
                 "print('trimesh', trimesh.__version__); "
                 "print('onnxruntime', onnxruntime.__version__); "
-                "print('gradio', gradio.__version__)"
+                "print('native_colab_runtime_ready')"
             ),
         ],
         timeout=120,
@@ -471,7 +470,6 @@ def _install_runtime(head: str) -> None:
                 f"triposr_model_revision={TRIPOSR_MODEL_REVISION}",
                 f"triposr_model_sha256={TRIPOSR_MODEL_WEIGHT_SHA256}",
                 "marching_cubes=scikit-image-0.26.0",
-                f"gradio={GRADIO_VERSION}",
                 "pillow=12.3.0",
                 "xatlas=0.0.11",
                 "scikit-image=0.26.0",
