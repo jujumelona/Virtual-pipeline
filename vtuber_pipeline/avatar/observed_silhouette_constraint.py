@@ -114,6 +114,13 @@ def correct_observed_multiview_silhouettes(
         return coords.copy(), {"roles": {}, "constraint": "no_observed_alpha_views"}
     if set(observed_rgba_by_role) - {"front", "back", "left", "right"}:
         raise ValueError("Only independently observed camera roles are valid")
+    # Validate the provenance files before geometry math. A user supplying
+    # a nonexistent observed cutout must receive the actionable missing-file
+    # error even when the canonical mesh itself is also degenerate.
+    for observed_role, observed_path in observed_rgba_by_role.items():
+        if not isinstance(observed_path, str) or not Path(observed_path).is_file():
+            raise FileNotFoundError(
+                f"{observed_role}: observed silhouette cutout missing: {observed_path}")
     # The view normal is the actual outward canonical direction. The horizontal
     # projection flips between front/back and left/right; camera poses are
     # orthographic conventions, NOT calibration evidence.
