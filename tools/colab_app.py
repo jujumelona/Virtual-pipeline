@@ -1294,6 +1294,26 @@ def build_live2d_ui(image_path, commercial_usage):
     return build_2d_ui(image_path, commercial_usage, target="live2d")
 
 
+def _prepare_inochi_exporter_best_effort(label: str) -> bool:
+    """Attempt native 0.8 SDK, but never block artwork/rig data generation.
+
+    Failed SDK compilation is not a completed Inochi puppet: the subsequent
+    build_inochi2d returns 'prepared' with PSD/ORA and explicitly lacks INP.
+    """
+    from tools.setup_inochi_runtime import ensure_inochi_native_runtime
+    try:
+        _setup_stage(label, ensure_inochi_native_runtime)
+    except (RuntimeError, OSError, subprocess.CalledProcessError) as exc:
+        os.environ.pop("VTUBER_INOCHI_NATIVE", None)
+        print(
+            "[inochi-sdk] Native INP export unavailable; continuing with real "
+            f"part segmentation/PSD/ORA, NOT complete. Reason: {exc}",
+            flush=True,
+        )
+        return False
+    return True
+
+
 def choose_workflow(mode: str, usage: str):
     """Route independently to named Inochi2D, Live2D, or 3D VRM workflows."""
     if mode not in {"inochi2d", "live2d", "3d"}:
@@ -1309,8 +1329,7 @@ def choose_workflow(mode: str, usage: str):
         if mode == "inochi2d":
             # Build the official SDK puppet exporter only for users who
             # selected Inochi; never burden Live2D/3D with DUB/SDL2.
-            from tools.setup_inochi_runtime import ensure_inochi_native_runtime
-            _setup_stage("Inochi SDK native rig exporter", ensure_inochi_native_runtime)
+            _prepare_inochi_exporter_best_effort("Inochi SDK native rig exporter")
     else:
         # 3D workers actually require this exact source revision; neither
         # the 2D models nor shared Colab startup require the checkout.
@@ -1349,8 +1368,7 @@ def _reattach_generation_workers(mode: str) -> None:
         from tools.install_2d_workers import activate_2d_environment
         _setup_stage("Bind verified 2D workers", activate_2d_environment)
         if mode == "inochi2d":
-            from tools.setup_inochi_runtime import ensure_inochi_native_runtime
-            _setup_stage("Bind official Inochi exporter", ensure_inochi_native_runtime)
+            _prepare_inochi_exporter_best_effort("Bind official Inochi exporter")
     elif mode == "3d":
         from tools.install_2d_workers import activate_alpha_environment
         _setup_stage("Bind 3D alpha worker", activate_alpha_environment)
