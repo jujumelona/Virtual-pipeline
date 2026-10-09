@@ -8,11 +8,11 @@
 
 ## 모드별 이미지 생성 — 영구 베이스 캐릭터와 교체형 의상 분리
 
-**두 작업을 혼합하지 않습니다.** ‘캐릭터 생성’은 2D/3D 모두 **의상 없는 중립 신체·머리·얼굴**을 제작합니다. 여기서 ‘의상 없음’은 분리할 옷이 없는 중립 바디를 뜻하며, 인체 표현의 프라이버시를 위한 매끈한 **신체 밀착 베이스 레이어**는 허용합니다. 교체할 옷은 반드시 **② 액세서리 제작 → 의상 유형**으로 따로 만듭니다.
+**2D와 3D 제작 방식은 서로 다릅니다.** 2D는 **옷 없는 중립 신체·얼굴 20파츠**를 먼저 제작하고, 헤어(`hair_variant.png`)와 교체할 옷(`outfit_variant.png`)을 별도 파츠로 추가합니다. 피부 표현의 프라이버시를 위한 신체 밀착 중립 베이스 레이어는 허용합니다. 반면 **3D는 기본 의상을 입힌 캐릭터 전체를 한꺼번에 복원·리깅**합니다. 현재 3D 의상 자동 교체/스키닝 생성기는 없으므로 3D를 옷 없는 베이스로 만드는 것이 기본 권장 경로가 아닙니다.
 
 이미지 AI에게 고정 픽셀 크기를 강요하지 않습니다. *각 프롬프트에 출력 파일명, 가로:세로 비율, 파츠 배치, 좌우, 첨부할 참조 이미지가 전부 명시되어 있습니다.* 생성된 다운로드 파일의 이름이 다르면 ZIP을 만들기 전에 반드시 명시된 이름으로 저장/변경합니다. 투명도는 실제 RGBA여야 하며, 배경이 그려진 이미지나 파츠 칸에 전체 캐릭터가 있는 이미지는 비율 조정·업스케일링으로 수정할 수 없습니다.
 
-### ① 캐릭터 생성 — 2D: PNG 8장 (기준 1 + 베이스 시트 7)
+### ① 캐릭터 생성 — 2D: PNG 7장 (기준 1 + 신체·얼굴 시트 6)
 
 순서: `front_master.png` 생성 → 그 이미지를 **모든 후속 프롬프트에 반드시 첨부** → 각 배치 가이드도 추가 첨부 → 출력 PNG의 비율·RGBA·각 칸의 파츠 확인 → ZIP 압축.
 
@@ -268,62 +268,6 @@ Save/download as the exact filename sheet_mouth.png even if your AI's
 automatically generated download name is different.
 ```
 
-#### `sheet_hair.png` — 앞·뒤·왼쪽·오른쪽 머리카락
-
-**비율 2:3 · 2 columns x 2 rows.** 모델이 직접 출력 가능한 고해상도로 생성하고, 픽셀 크기는 Colab에서 정규화합니다.
-
-![앞·뒤·왼쪽·오른쪽 머리카락 시트 배치 가이드](docs/sheet_guides/sheet_hair_layout.svg)
-
-[배치 가이드 별도로 열기](docs/sheet_guides/sheet_hair_layout.svg)
-
-**이 이미지 전용 복사용 프롬프트**
-
-```text
-ORIGINAL VTUBER CHARACTER (fill in braces):
-Gender / presentation: {gender}
-Hair color / HEX: {hair_color}
-Hairstyle, ornaments: {hairstyle}
-Eye shape, iris, pupils: {eyes}
-Skin color, facial structure, ears: {face}
-Body type, anatomy and proportions: {body}
-Neutral fitted UNDERLAYER color (NOT a costume): {base_layer}
-Palette / exact HEX swatches: {palette}
-Permanent identity details: {identity_details}
-
-PERMANENT OUTFIT-FREE AVATAR CONTRACT:
-This is the same ONE character as the actual attached front_master.png.
-A neutral, non-explicit, form-fitting base/underlayer is permitted for
-privacy and body shape, but NO detachable clothing, outfit, hoodie,
-jacket, shirt, dress, skirt, costume collar, detachable gloves or shoes.
-Hair, face, base anatomy, arms and hands must be independent of clothing.
-In FRONT view, character-left is viewer-right; NEVER mirror the person.
-The attached colored grid diagram is only a LAYOUT GUIDE:
-do NOT draw labels, borders, numbers, colors or a fake transparency grid.
-Every filled cell contains only its named part with true alpha=0
-elsewhere. Do not draw a complete character in a single-part tile.
-Complete hidden artwork under hair/other body parts for animation.
-Keep apparent anatomy and position consistent with the master.
-Absolute alignment might still require visual/manual validation.
-
-TASK — create and SAVE the output file EXACTLY as sheet_hair.png.
-SHEET OUTPUT: WIDTH:HEIGHT=2:3.
-GRID: exactly 2 columns x 2 rows; all cells equal-sized.
-Use the highest *native* resolution your image AI can generate.
-Attach the ACTUAL front_master.png and sheet_hair_layout.svg.
-CELL ORDER:
-row 1 col 1: hair_front
-row 1 col 2: hair_back
-row 2 col 1: hair_left
-row 2 col 2: hair_right
-Keep hair strand roots/hidden ends, no skin or outfit in any tile. The front/back and left/right strands must join the head naturally.
-
-All cells represent isolated segments in the SAME original character
-coordinate frame. Every non-part pixel is true transparent alpha=0.
-Do not print the requested filename or any labels on the picture.
-Save/download as the exact filename sheet_hair.png even if your AI's
-automatically generated download name is different.
-```
-
 #### `sheet_body_base.png` — 의상 없는 신체 베이스
 
 **비율 2:3 · 1 column x 1 row.** 모델이 직접 출력 가능한 고해상도로 생성하고, 픽셀 크기는 Colab에서 정규화합니다.
@@ -443,12 +387,11 @@ character_2d_sheet_pack.zip
     ├── sheet_eye_left.png
     ├── sheet_eye_right.png
     ├── sheet_mouth.png
-    ├── sheet_hair.png
     ├── sheet_body_base.png
     └── sheet_arms_hands.png
 ```
 
-**중요:** 이 ZIP에는 `outfit_front`, `outfit_back` 등 **의상 이미지가 존재하면 안 됩니다.** 2D 베이스는 20개의 독립 신체·얼굴 파츠로 구성하고 실제 옷은 별도 액세서리/의상 모드에서 만듭니다.
+**중요:** 이 ZIP에는 헤어·옷 이미지(`hair_front/back/left/right`, `outfit_front/back`)가 포함되면 안 됩니다. 완성 스타일은 후속 2D 헤어·의상 추가 단계에서 제작합니다. 2D 베이스는 20개의 독립 신체·얼굴 파츠로 구성하고 실제 옷은 별도 액세서리/의상 모드에서 만듭니다.
 
 ### ① 캐릭터 생성 — 3D 기본 의상 포함 (전신 시트 2장 + 얼굴 1장)
 
@@ -672,6 +615,41 @@ best native generation resolution, no avatar/body and no text.
 Accessories can use the existing STATIC attach pipeline; clothing cannot.
 ```
 
+#### `hair_variant.png` — 2D 추가·교체형 헤어 시트
+
+**이미지 수 1장**, 비율 **2:3 세로형**, 2열 × 2행. 최초 베이스 ZIP에는 포함하지 않고, 의상 파츠와 같이 별도 제작합니다. 머리 모양의 변형 메쉬는 캐릭터와 합쳐 새 리깅 결과를 만들 때 생성하며, 방송 중 실시간 헤어 토글이 자동 완성되는 것은 아닙니다.
+
+![2D 교체 헤어 배치도](docs/sheet_guides/sheet_hair_layout.svg)
+
+**복사용 프롬프트**
+
+```text
+CHARACTER IDENTITY:
+Gender: {gender}
+Face, ears and skin: {face}
+Eyes and eyebrow style: {eyes}
+Hair base color and exact HEX: {hair_color}
+New hairstyle / bangs / length / accessories: {hairstyle}
+Other identity notes: {identity_details}
+
+TASK — create ONE image and SAVE it EXACTLY as hair_variant.png.
+ASPECT RATIO WIDTH:HEIGHT=2:3; exactly 2 columns x 2 rows.
+Row1 col1: hair_front (front bangs / fully extended hidden roots).
+Row1 col2: hair_back (back hair / complete outline, hidden scalp).
+Row2 col1: hair_left (character's LEFT, viewer RIGHT from front).
+Row2 col2: hair_right (character's RIGHT, viewer LEFT from front).
+Attach actual neutral front_master.png and sheet_hair_layout.svg.
+Every cell contains ONLY its assigned HAIR PART as transparent
+RGBA artwork; alpha=0 everywhere else. Do not draw a face,
+nude/covered body, clothing, a person portrait, guide cells,
+visible grid borders, captions or watermark.
+Preserve all x/y placement relative to the attached front reference.
+Generate at native supported image AI resolution; do NOT enforce
+arbitrary absolute pixel dimensions. Rename AI output to hair_variant.png.
+```
+
+**Colab:** `② 액세서리 제작 → 2D 교체 의상`에서 헤어를 추가하려면 의상 이미지 `outfit_variant.png`와 **선택 사항**인 `hair_variant.png`를 함께 업로드합니다. 중립 베이스에 4개 헤어 및 4개 의상 레이어를 추가해 다시 리깅합니다.
+
 #### `outfit_variant.png` — ②-2. 2D 의상 (별도 1장)
 
 먼저 **이미 만든 중립 베이스 캐릭터의 `front_master.png`**를 참조로 넣고, 아래 배치도를 추가 첨부합니다. 이 시트는 **2열×2행, 전체 4:3** 비율입니다. 얼굴·머리·피부·몸통을 새로 생성하지 않습니다.
@@ -720,7 +698,7 @@ Generate at the best native resolution; do not force pixel dimensions.
 Save exact filename outfit_variant.png, rename the download if needed.
 ```
 
-**2D 의상 제작 시 Colab 설정:** `② 작업 종류=액세서리 제작` → `세부 작업=2D 교체 의상`. ④에서 원래 `character_2d_sheet_pack.zip`과 의상 시트 `outfit_variant.png`를 각각 업로드합니다. ⑤에서는 동일한 중립 베이스 **24파츠+의상 4파츠=28파츠**로 새 편집·리깅 결과를 생성합니다. 의상별 메시와 움직임을 점검해야 하며, **방송 중 실시간 옷 스위치 파라미터가 자동 완성되는 것은 아닙니다.**
+**2D 의상 제작 시 Colab 설정:** `② 작업 종류=액세서리 제작` → `세부 작업=2D 교체 의상`. ④에서 원래 `character_2d_sheet_pack.zip`과 의상 시트 `outfit_variant.png`를 업로드합니다. 완성 헤어가 필요하면 `hair_variant.png`도 같은 업로드에서 선택하세요. ⑤에서는 동일한 중립 베이스 **20파츠+의상 4파츠=24파츠** (헤어 시트도 함께 업로드하면 28파츠)로 새 편집·리깅 결과를 생성합니다. 의상별 메시와 움직임을 점검해야 하며, **방송 중 실시간 옷 스위치 파라미터가 자동 완성되는 것은 아닙니다.**
 
 #### ②-3. 3D 외부 의상 교체 — 수동 편집기 전달만 지원 (고급)
 
@@ -740,7 +718,7 @@ Save exact filename outfit_variant.png, rename the download if needed.
 
 ### Inochi2D
 
-- 기본 시트 입력: `character_2d_sheet_pack.zip` (기준 이미지 1장 + 고해상도 시트 7장). 각 시트의 배치 그림과 복사용 프롬프트는 위 제작 가이드 참조.
+- 기본 시트 입력: `character_2d_sheet_pack.zip` (기준 이미지 1장 + 의상·헤어 없는 고해상도 시트 6장). 각 시트의 배치 그림과 복사용 프롬프트는 위 제작 가이드 참조.
 - 현재 출력: `avatar.psd`, `avatar.ora`, `meshes2d.json`, `keyforms.json`, `physics2d.json`, `puppet_spec.json`. SDK 네이티브 출력에 성공한 경우에만 `avatar.inp`를 `complete`로 보고합니다.
 - 네이티브 자동화: 공식 BSD-2 **Inochi2D SDK 0.8.7**의 실제 `MeshData`·`Part`·`DeformationParameterBinding`·`SimplePhysics`를 구성하고 SDK의 `inWriteINPPuppet`로 **실제 INP1**을 출력합니다. SDK로 다시 읽어 애니메이션·물리 바인딩을 검사합니다. 0.9 개발판은 현재 변형 바인딩이 비활성화되어 본선에 사용하지 않습니다.
 - 실제 컴파일+SDK 네이티브 INP 재임포트 검증: [GitHub Actions PASS](https://github.com/jujumelona/Virtual-pipeline/actions/runs/37878238975). 이 검증은 SDK 프로그램의 정상 작동을 증명하며 **사용자별 AI 파츠 품질을 보증하지는 않습니다.**
@@ -748,7 +726,7 @@ Save exact filename outfit_variant.png, rename the download if needed.
 
 ### Live2D
 
-- 입력: 기준 이미지 + 고해상도 파츠 시트 7장이 들어 있는 ZIP 1개
+- 입력: 기준 이미지 + 의상·헤어 없는 고해상도 파츠 시트 6장이 들어 있는 ZIP 1개
 - 현재 출력: `avatar.psd`, `avatar.ora`, `cubism_handoff.zip`, `cubism_spec.json`. 공식 Editor 내보내기 결과의 MOC3·텍스처·physics·model3 참조는 별도 `live2d-import-export`에서 확인합니다.
 - 목표: **Live2D Cubism Editor에서 리깅 후 `.moc3`, `.model3.json`, 텍스처/물리 출력**, VTube Studio에서 로드.
 - **Live2D Cubism Editor는 비오픈소스**입니다. 공식 모델 바이너리 생성은 [Cubism 내보내기 문서](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/)에 기술돼 있습니다. 검증된 상업용 오픈소스 MOC3 인코더가 없어 이 프로젝트는 완성된 Live2D 모델을 자동 생성한다고 주장하지 않습니다.
