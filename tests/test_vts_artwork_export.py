@@ -72,11 +72,19 @@ def test_qwen_splits_use_original_high_resolution_rgba(tmp_path):
     out = PSDImage.open(p["art_psd"])
     children = [x for x in out if x.name.startswith("hair.front")]
     assert len(children) == 4
-    from PIL import ImageChops
+    # psd-tools uses USER_LAYER_MASK for RGBA in RGB PSDs. Use the
+    # production importer that restores that native mask, not topil alone.
+    from io import BytesIO
+    from tools.vts_production import psd_to_registered_rgba
+    _, layer_zip, _ = psd_to_registered_rgba(
+        Path(p["art_psd"]), tmp_path / "verified", artmesh_max=None)
     canvas = Image.new("RGBA", before.size, (0, 0, 0, 0))
-    for layer in reversed(children):
-        tile = layer.topil().convert("RGBA")
-        canvas.alpha_composite(tile, dest=(layer.left, layer.top))
+    with ZipFile(layer_zip) as z:
+        names = [n for n in z.namelist() if n.startswith("hair.front")]
+        assert len(names) == 4
+        for name in reversed(names):
+            canvas.alpha_composite(Image.open(BytesIO(z.read(name))).convert("RGBA"))
+    from PIL import ImageChops
     assert ImageChops.difference(canvas, before).getbbox() is None
 
 

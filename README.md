@@ -25,7 +25,7 @@ PRO 독립 제작은 네 종류를 한꺼번에 업로드하거나 만들어야 
 
 ### Colab 셀
 
-1. ② 상위 모드를 live2d로 선택
+1. ② TOP_MODE = live2d 상위 모드 선택
 2. ③ FREE/PRO 선택, PRO일 때 독립 제작 종류(body / hair / outfit / accessory) 한 종류 선택, 상반신/전신 및 Qwen 옵션 선택
 3. ⑦ See-through NF4 준비, 필요 시 양자화 Qwen-Image-Layered + Stable-Layers 준비
 4. ⑧ FREE는 완성 이미지 1장, PRO는 선택 자산 1장과 (분리 자산일 때만) 신체 기준 1장 업로드
