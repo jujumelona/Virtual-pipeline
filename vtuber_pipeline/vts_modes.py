@@ -14,7 +14,6 @@ from vtuber_pipeline.prompt_contract import Identity
 
 FRAMES = ("upper", "full")
 EDITIONS = ("free", "pro")
-STABILITY_LICENSE_OPTIONS = ("not-accepted", "community-eligible", "enterprise-licensed")
 
 # Official Cubism FREE limits, not target part counts or required source image counts.
 FREE_BUDGET = {
@@ -63,12 +62,18 @@ MODEL_STACK = (
 STABLE_LAYERS = {
     "adapter": "StabilityLabs/Stable-Layers",
     "adapter_subfolder": "model",
+    "enabled_by_default": True,
+    "requires_revenue_input": False,
+    "license_notice_url": "https://stability.ai/license",
+    "commercial_registration_url": "https://stability.ai/community-license",
     "base": "Qwen/Qwen-Image-Layered",
     "license": "Stability AI Community License",
     "conditions": (
-        "Commercial use permitted under USD 1M annual TOTAL revenue for the user/org; "
-        "larger commercial operators require an Enterprise license. Free distribution "
-        "of this pipeline does not exempt downstream users. Do not bundle adapter weights."
+        "Community License: free for individual/personal use and eligible small-scale "
+        "commercial users with annual revenue below USD 1M. Commercial users must "
+        "follow Stability AI registration requirements. Larger commercial use "
+        "requires an Enterprise license. No income check or mandatory UI gate. "
+        "If distributing the integrated model, follow NOTICE and attribution terms."
     ),
     "inference": {"sampler": "Heun", "steps": 50, "guidance_scale": 1.0,
                   "resolution_long_edge": 640, "layers_per_pass": 4},
@@ -138,19 +143,16 @@ def _prompt(identity_text: str, framing: str, filename: str, task: str) -> dict:
 
 def build_vts_brief(
     edition: str, scope: str, identity: Identity, *,
-    stability_license: str = "not-accepted",
 ) -> dict:
     """Generate inspectable artwork requests and machine-readable runtime PLAN.
 
-    'community-eligible' is an explicit user statement, never inferred from a
-    free price tag.  No weights are downloaded or LoRAs attached by this call.
+    Stable-Layers is the default Qwen LoRA for both editions without collecting
+    income information. No weights are downloaded or LoRAs attached here.
     """
     if edition not in EDITIONS:
         raise ValueError("VTube Studio edition must be free or pro")
     if scope not in FRAMES:
         raise ValueError("scope must be upper or full")
-    if stability_license not in STABILITY_LICENSE_OPTIONS:
-        raise ValueError("Invalid Stability license acknowledgement")
     data = _identity_values(identity)
     frame = _framing(scope)
     images: list[dict] = []
@@ -210,7 +212,6 @@ def build_vts_brief(
                 "layer extraction and rigging.",
             ))
     qwen_usage = "on_demand_if_quality_insufficient" if edition == "free" else "primary_high_detail_refinement"
-    accepted = stability_license != "not-accepted"
     brief = {
         "schema": "vtuber/vts-artwork-brief-v1",
         "edition": edition,
@@ -238,8 +239,8 @@ def build_vts_brief(
             "see_through_nf4_t4_verified": False,
             "stable_layers": {
                 **STABLE_LAYERS,
-                "license_acknowledgement": stability_license,
-                "enabled_for_planning": accepted,
+                "enabled_for_planning": True,
+                "default_for_qwen_stage": True,
                 "adapter_downloaded": False,
                 "adapter_loaded": False,
             },
@@ -264,10 +265,23 @@ def write_vts_brief_package(brief: dict, destination: str) -> str:
             "These are EXTERNAL image AI prompts and an UNIMPLEMENTED production "
             "plan. Neither a layered PSD nor a .moc3 is included. "
             "Cubism Editor is still required for actual export. "
-            "Stable-Layers weights are never bundled and each downstream "
-            "user is responsible for their own Stability AI Community or "
-            "Enterprise license conditions.\n",
+            "Stable-Layers is the default Qwen LoRA whenever the Qwen stage "
+            "runs. Commercial users must observe Stability AI registration, "
+            "NOTICE and Community/Enterprise license conditions; no revenue "
+            "check or license selection gate is imposed by this program. "
+            "Weights are not bundled with this prompt ZIP.\n",
         )
+        archive.writestr("STABILITY_LICENSE_NOTICE.txt", (
+            "Stable-Layers (StabilityLabs/Stable-Layers) by Stability AI.\n"
+            "This Stability AI Model is licensed under the Stability AI Community License, "
+            "Copyright © Stability AI Ltd. All Rights Reserved.\n"
+            "Powered by Stability AI\n"
+            "License: https://stability.ai/license\n"
+            "Commercial registration: https://stability.ai/community-license\n"
+            "Adapter source: https://huggingface.co/StabilityLabs/Stable-Layers\n"
+            "Individuals and eligible small-scale commercial creators may use it for free; "
+            "commercial registration and Enterprise conditions may apply.\n"
+        ))
         for item in brief["images"]:
             archive.writestr("prompts/" + item["filename"] + ".txt", item["prompt"])
     temp.replace(target)
