@@ -50,17 +50,22 @@ def prepare_vroid_dressup(base_vrm: str, outfit_xwear: str,
         "automated_fitting_or_skinning": False,
         "vrm_exported": False,
         "compatibility_verified_in_editor": False,
+        "base_may_contain_baked_costume_geometry": True,
+        "base_body_mesh_separation_verified": False,
     }
     guide = (
         "This ZIP is a VRoid Studio dress-up INPUT PACKAGE, not a dressed VRM.\n"
         "1. Open VRoid Studio (desktop Windows/macOS) > Dress-up.\n"
         "2. Add Base Model > base_avatar.vrm.\n"
         "3. Add Costume > costume.xwear.\n"
-        "4. Choose fitting strategy: Keep Costume Shape or Conform to Body.\n"
-        "5. Inspect skin-mask / delete-hidden-body options; avoid clipping.\n"
-        "6. Preview motions at shoulders, elbows, waist, hips and knees.\n"
-        "7. Adjust deformation/blend shapes; export VRM 1.0 from VRoid.\n"
-        "8. Re-run avatar validation before claiming production success.\n"
+        "4. WARNING: original avatar may contain clothing baked into its\n"
+        "   body mesh. It is NOT automatically removed by adding XWear.\n"
+        "   Use a covered neutral base or fix/delete interfering geometry.\n"
+        "5. Choose fitting strategy: Keep Costume Shape or Conform to Body.\n"
+        "6. Inspect skin-mask / delete-hidden-body options; avoid clipping.\n"
+        "7. Preview motions at shoulders, elbows, waist, hips and knees.\n"
+        "8. Adjust deformation/blend shapes; export VRM 1.0 from VRoid.\n"
+        "9. Re-run avatar validation before claiming production success.\n"
         "This repo does NOT auto-rig garments based on four 2D views,\n"
         "and its static-accessory baker explicitly rejects skinned garments.\n"
         "Official usage: https://vroid.pixiv.help/hc/en-us/articles/"
