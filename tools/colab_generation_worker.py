@@ -63,6 +63,7 @@ def main() -> int:
         return 2
     request_path, result_path = map(Path, sys.argv[1:])
     try:
+        os.environ["VTUBER_GENERATION_WORKER"] = "1"
         request = json.loads(request_path.read_text(encoding="utf-8"))
         result = run_request(request)
         if len(result) != (4 if request["mode"] == "avatar" else 3):
