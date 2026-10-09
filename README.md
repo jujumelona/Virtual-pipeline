@@ -638,6 +638,70 @@ character_3d_sheet_pack.zip
 
 **3D 의상 변경:** 이미지 참조만으로 메시 스키닝까지 자동 완성되는 모드는 없습니다. 액세서리 작업의 `3D 교체 의상(XWear)` 옵션에서는 **VRM 1개 + 실제 costume.xwear 1개**를 VRoid Studio 편집기 전달용 ZIP으로 묶습니다. 이 ZIP은 착용 완료 VRM이 아닙니다. 원본 VRM에 옷을 맞춘 뒤 메시 가림·애니메이션·표정 검증을 거쳐 VRM 1.0으로 재출력해야 합니다. 스키닝 없는 소품 부착기에는 의상 메시를 넣지 않습니다.
 
+### 3D 새 의상 이미지 AI 참조 가이드 (XWear 제작용, Colab 자동 착용 입력 아님)
+
+3D 의상 디자인을 AI 이미지로 먼저 만든다면 **정면·후면·양쪽 측면의 네 모습을 같은 바디에 입혀** 확인합니다. 바지·상의·신발 같은 전신 복장은 모두 표시하고, 치마·긴 소매가 있으면 별도 상세 이미지도 권장합니다. 이 이미지들이 **VRM/XWear 파일로 변환되는 것은 아닙니다.** Blender/VRoid 기반 메시·UV·스킨·피팅 작업을 위한 참고 이미지입니다.
+
+| 참조 파일명 (생성 후 직접 저장) | 이미지 AI 비율 | 화면 구성 | 최소 권장 |
+|---|---|---|---|
+| `garment_front_back_ref.png` | 4:3 | 2열×1행, 같은 캐릭터에 입힌 새 옷의 정면·후면 | 1장 |
+| `garment_side_views_ref.png` | 4:3 | 2열×1행, 동일한 옷의 캐릭터 왼쪽·오른쪽 측면 | 1장 |
+| `garment_details_ref.png` | 1:1 | 옷깃·소매·여밈·주름·소재·치맛단 등 디테일 확대 | 복잡한 옷이면 1~3장 |
+
+**복사용 프롬프트 — 의상 정면·후면 (XWear 제작 참고)**
+
+```text
+OUTPUT FILE NAME: garment_front_back_ref.png.
+COSTUME DESCRIPTION: {garment_design}
+Fabric/material: {fabric}
+Colors and HEX palette: {colors}
+Sleeve/collar/hem/cuff shape: {structure}
+Buttons/fasteners/straps/accessories: {details}
+Use the original base VRM character FRONT screenshot and base avatar
+dimensions as the body design reference. DO NOT change the character.
+Render a 4:3 canvas with TWO EQUAL VERTICAL CELLS, one row.
+LEFT CELL: straight FRONT orthographic, new outfit worn on neutral A-pose.
+RIGHT CELL: BACK orthographic, same outfit and body in identical A-pose.
+Each cell is portrait 2:3. Keep the avatar's head/shoulder/elbow/waist/
+knee/foot heights and overall scale equal. Draw all visible garments,
+seams, closures, footwear and rear details, without clipping.
+This sheet is REFERENCE ART for creating a skinned 3D garment, not XWear.
+Render at the best native resolution the AI actually supports.
+No labels, background scenes, separators, extra characters or mirrors.
+```
+
+**복사용 프롬프트 — 의상 좌·우 측면 (XWear 제작 참고)**
+
+```text
+OUTPUT FILE NAME: garment_side_views_ref.png.
+Use the EXACT SAME original character reference and EXACT SAME new
+outfit design from garment_front_back_ref.png.
+Canvas ratio WIDTH:HEIGHT = 4:3; 2 equal columns x 1 row.
+LEFT CELL: character's LEFT side profile, orthographic view.
+RIGHT CELL: character's RIGHT side profile, orthographic view.
+Both portrait 2:3, same A-pose, same silhouette and height anchors
+as front/back. Show fabric thickness, sleeve/cuff clearance,
+skirt or pants side seam, hem, shoes and garment-body spacing.
+Rotate viewpoint; do not mirror a previously drawn image.
+This is a design reference for mesh/UV/skinning, not a fitted costume.
+Use native model resolution. No grid lines, text or framing.
+```
+
+**복사용 프롬프트 — 옷 구조·소재 확대 (선택)**
+
+```text
+OUTPUT FILE NAME: garment_details_ref.png.
+Use garment_front_back_ref.png and garment_side_views_ref.png
+as design references, preserving the same fabric, colors and seams.
+Canvas ratio WIDTH:HEIGHT = 1:1. Provide one clear closeup sheet
+highlighting {collar_type}, {sleeve_joint_area}, {fastening_system},
+{hem_detail}, {material_texture}. No mannequin body redesign.
+These images guide separate garment mesh construction and texture.
+No text, labels or watermarks. Native image AI output resolution.
+```
+
+**3D 실제 제작 선택:** `costume.xwear`가 이미 있으면 액세서리 화면의 **3D 교체 의상(XWear)**를 사용합니다. XWear가 없고 참고 이미지만 있다면 **3D 옷 교체가 아직 제작 완료된 것이 아닙니다.** XWear 또는 Blender에서 스키닝된 의상 메시 제작·피팅·동작 검증 단계가 추가로 필요합니다. 현재 1~8장짜리 **정적 액세서리 이미지 업로드**를 옷 사진으로 채우는 방식은 사용하지 마십시오.
+
 ### 액세서리 이미지
 
 ```text
