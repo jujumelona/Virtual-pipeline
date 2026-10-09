@@ -26,7 +26,7 @@ MIN_TOTAL_VRAM_BYTES = 14 * (1024 ** 3)
 
 _DTYPES = {5121: np.dtype("u1"), 5123: np.dtype("<u2"),
            5125: np.dtype("<u4"), 5126: np.dtype("<f4")}
-_COMPONENTS = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
+_COMPONENTS = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4, "MAT4": 16}
 
 
 def _sha256(path: Path) -> str:
@@ -111,6 +111,22 @@ def graft_weights(baseline_file: str, candidate_file: str, output_file: str) -> 
         raise ValueError("SkinTokens produced joints outside canonical VRM skeleton")
     # The source remains the canonical joint hierarchy and rest transforms.
     lookup = {name: i for i, name in enumerate(base_names)}
+    # Skin weights are only portable between identical rest-pose bind
+    # transforms. The upstream GLB may rename or rescale bones on export;
+    # matching names alone cannot establish compatible animation.
+    if (source_skin.inverseBindMatrices is None
+            or predicted_skin.inverseBindMatrices is None):
+        raise ValueError("SkinTokens skin lacks inverse-bind rest matrices")
+    baseline_rest = _read(base, source_skin.inverseBindMatrices)
+    candidate_rest = _read(pred, predicted_skin.inverseBindMatrices)
+    if (baseline_rest.shape != (len(base_names), 16)
+            or candidate_rest.shape != (len(other_names), 16)
+            or not np.isfinite(candidate_rest).all()):
+        raise ValueError("SkinTokens inverse-bind matrices invalid")
+    for candidate_index, name in enumerate(other_names):
+        if not np.allclose(candidate_rest[candidate_index],
+                           baseline_rest[lookup[name]], rtol=1e-5, atol=1e-5):
+            raise ValueError("SkinTokens changed rest-pose bind matrix for " + name)
 
     weights = _read(pred, dst.attributes.WEIGHTS_0).astype(np.float64)
     joints = _read(pred, dst.attributes.JOINTS_0)
