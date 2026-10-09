@@ -19,7 +19,7 @@ CANVAS_FACE = (2048, 2048)
 # supplied independently; every file is a full-canvas RGBA image.
 LAYER_PARTS = (
     ("hair_back", "Complete back-of-head hair, including hidden roots and hair behind shoulders."),
-    ("body", "Complete upper body and jacket/tunic torso with uninterrupted fabric behind arms and hair."),
+    ("body", "Unclothed neutral covered body/undersuit base only. Never bake the removable garment into anatomy."),
     ("neck", "Entire neck from jaw to collar, even under chin and garment."),
     ("ear_left", "Character's left ear, fully drawn behind hair."),
     ("ear_right", "Character's right ear, fully drawn behind hair."),
@@ -38,12 +38,12 @@ LAYER_PARTS = (
     ("hair_left", "Complete left side-hair tuft/strand groups, including roots behind face."),
     ("hair_right", "Complete right side-hair tuft/strand groups, including roots behind face."),
     ("hair_front", "Full bangs/forelock with complete roots, preserving the front reference."),
-    ("arm_left", "Complete character-left arm and sleeve, including body-hidden shoulder."),
-    ("arm_right", "Complete character-right arm and sleeve, including body-hidden shoulder."),
+    ("arm_left", "Complete character-left neutral base arm with body-hidden shoulder. No removable sleeves or clothing cuffs."),
+    ("arm_right", "Complete character-right neutral base arm with body-hidden shoulder. No removable sleeves or clothing cuffs."),
     ("hand_left", "Character-left hand, fully modeled even when sleeve obscures wrist."),
     ("hand_right", "Character-right hand, fully modeled even when sleeve obscures wrist."),
-    ("outfit_front", "Outer upper-body garment panel, detachable and complete beneath accessories."),
-    ("outfit_back", "Outer rear garment panel, complete underneath front panels and arms."),
+    ("outfit_front", "Isolated detachable garment FRONT: all costume-specific fabric, front collar, front sleeve appearance and seams; no body skin."),
+    ("outfit_back", "Isolated detachable garment BACK: back coat/dress fabric, rear collar and seams, hidden cloth complete; no body anatomy."),
 )
 REQUIRED_2D = (
     "hair_back", "body", "face", "hair_front", "eye_left_white",
