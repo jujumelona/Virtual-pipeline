@@ -40,6 +40,23 @@ def available_face_worker() -> bool:
         return False
 
 
+def stop_face_worker() -> None:
+    """Release an unused resident face model when switching first GPU stages."""
+    try:
+        state = json.loads(READY.read_text(encoding="utf-8"))
+        pid = int(state["pid"])
+        command = Path(f"/proc/{pid}/cmdline").read_bytes()
+        # Never kill a PID that has been reused for an unrelated process.
+        if pid > 1 and b"colab_gpu_warmup.py" in command and b"--serve" in command:
+            try:
+                os.killpg(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+    except (OSError, ValueError, TypeError, KeyError):
+        pass
+    READY.unlink(missing_ok=True)
+
+
 def start_face_worker(*, timeout: float = 180) -> bool:
     """Spawn once, wait for real CUDA model readiness, return False to fallback."""
     if available_face_worker():
