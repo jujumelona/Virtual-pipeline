@@ -210,3 +210,47 @@ def test_invalid_browser_choice_does_not_confirm_or_trigger_fallback():
     with pytest.raises(RuntimeError, match="올바르지"):
         choose_notebook_controls(live, evaluate=lambda js: {"TASK": "캐릭터 생성"})
     assert live["MODE_SELECTION_CONFIRMED"] is False
+
+
+def test_old_open_colab_notebook_can_still_import_original_selector(monkeypatch):
+    """Regression for stale Colab cell importing the deleted public symbol."""
+    import threading
+    import tools.colab_mode_ui as picker
+    started = threading.Event()
+    release = threading.Event()
+    values = _values()
+    completed = []
+
+    def waiting_selector(state):
+        started.set()
+        assert release.wait(timeout=3)
+        state["MODE_SELECTION_SNAPSHOT"] = selection_signature(state)
+        state["MODE_SELECTION_CONFIRMED"] = True
+        return state["MODE_SELECTION_SNAPSHOT"]
+
+    monkeypatch.setattr(picker, "choose_notebook_controls", waiting_selector)
+
+    def run_old_cell():
+        from tools.colab_mode_ui import render_notebook_controls, refresh_qwen
+        refresh_qwen(values)
+        completed.append(render_notebook_controls(values))
+
+    worker = threading.Thread(target=run_old_cell, daemon=True)
+    worker.start()
+    assert started.wait(timeout=2)
+    assert worker.is_alive()
+    assert completed == []
+    release.set()
+    worker.join(timeout=3)
+    assert not worker.is_alive()
+    assert completed == [True]
+    assert require_confirmed_selection(values) == selection_signature(values)
+
+
+def test_bootstrap_clears_cached_mode_ui_modules_after_sync():
+    notebook = json.loads(NB.read_text(encoding="utf-8"))
+    bootstrap = "".join(next(c["source"] for c in notebook["cells"]
+                             if c["cell_type"] == "code"))
+    assert "importlib.invalidate_caches()" in bootstrap
+    assert "sys.modules.pop(_mod_name, None)" in bootstrap
+    assert "render_notebook_controls, require_confirmed_selection" in bootstrap
