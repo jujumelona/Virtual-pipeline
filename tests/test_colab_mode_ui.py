@@ -139,7 +139,7 @@ def test_readme_describes_static_submode_form():
     text = (ROOT/"README.md").read_text(encoding="utf-8")
     assert "Live2D" in text and "Inochi2D" in text
     assert "FREE" in text and "PRO" in text
-    assert "pro_{upper|full}_appearance_master.png" in text
+    assert "pro_{upper|full}_base_master.png" in text
     assert "free_upper_master.png" in text
     assert "TOP_MODE" in text
 

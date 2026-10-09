@@ -366,19 +366,20 @@ def live2d_import_export(official_export_dir, output):
 
 @cli.command("vts-prompts")
 @click.option("--edition", type=click.Choice(["free", "pro"]), required=True)
+@click.option("--asset", type=click.Choice(["body", "hair", "outfit", "accessory"]), default=None)
 @click.option("--scope", type=click.Choice(["upper", "full"]), required=True)
 @click.option("--hair-color", required=True)
 @click.option("--hairstyle", required=True)
 @click.option("--eyes", required=True)
 @click.option("--face", "face_description", required=True)
-@click.option("--outfit", required=True)
+@click.option("--outfit", default="")
 @click.option("--gender", default="")
 @click.option("--skin-color", default="")
 @click.option("--accessories", default="")
 @click.option("--palette", default="")
 @click.option("--extra", default="")
 @click.option("--output", required=True, type=click.Path())
-def vts_prompts(edition, scope, hair_color, hairstyle, eyes, face_description,
+def vts_prompts(edition, asset, scope, hair_color, hairstyle, eyes, face_description,
                 outfit, gender, skin_color, accessories, palette, extra,
                 output):
     """Write separate FREE/PRO, upper/full external-image prompts and model plan."""
@@ -391,7 +392,7 @@ def vts_prompts(edition, scope, hair_color, hairstyle, eyes, face_description,
         extra=extra,
     )
     try:
-        brief = build_vts_brief(edition, scope, identity)
+        brief = build_vts_brief(edition, scope, identity, asset_kind=asset)
         path = write_vts_brief_package(brief, output)
     except (ValueError, TypeError, OSError) as exc:
         raise click.ClickException(str(exc)) from exc

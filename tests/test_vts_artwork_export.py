@@ -13,7 +13,7 @@ def make_layers(folder, count=2):
     with ZipFile(result, "w") as z:
         for i in range(count):
             rgba = Image.new("RGBA", (256, 384), (0, 0, 0, 0))
-            rgba.paste((i * 60, 100, 180, 255), (20, i * 50, 220, i * 50 + 75))
+            rgba.paste((i % 255, 100, 180, 255), (20, 40 + (i % 5), 220, 115 + (i % 5)))
             path = folder / ("part%d.png" % i)
             rgba.save(path)
             z.write(path, ("hair.front" if i == 0 else "cloth") + ".%03d.png" % i)

@@ -47,30 +47,31 @@ def test_free_always_one_finished_character_no_unclothed_base(identity, scope):
 
 
 @pytest.mark.parametrize("scope", ["upper", "full"])
-def test_pro_uses_independent_assets_and_may_exceed_free_budget(identity, scope):
-    spec = build_vts_brief("pro", scope, identity)
-    names = [image["filename"] for image in spec["images"]]
-    assert spec["image_count"] == 5
-    assert f"pro_{scope}_appearance_master.png" in names
-    assert f"pro_{scope}_base_master.png" in names
-    assert f"pro_{scope}_hair_variant.png" in names
-    assert f"pro_{scope}_outfit_variant.png" in names
-    assert f"pro_{scope}_accessories_variant.png" in names
+@pytest.mark.parametrize("asset", ["body", "hair", "outfit", "accessory"])
+def test_pro_independent_asset_request(identity, scope, asset):
+    spec = build_vts_brief("pro", scope, identity, asset_kind=asset)
+    assert spec["image_count"] == 1
+    assert spec["asset_kind"] == asset
     assert spec["rigging"]["budget"] is None
     assert spec["rigging"]["editor_export_required"] is True
     assert spec["models"]["qwen_usage"] == "primary_high_detail_refinement"
+    assert spec["images"][0]["filename"].startswith(f"pro_{scope}_")
 
 
-def test_pro_no_accessories_not_required(identity):
+def test_pro_body_has_no_outfit_or_accessory_requirement(identity):
     from dataclasses import replace
-    spec = build_vts_brief("pro", "upper", replace(identity, accessories=""))
-    assert spec["image_count"] == 4
-    assert not any("accessories_variant" in item["filename"] for item in spec["images"])
+    spec = build_vts_brief("pro", "upper",
+                           replace(identity, accessories="", outfit=""), asset_kind="body")
+    assert spec["image_count"] == 1
+    assert "base_master" in spec["images"][0]["filename"]
+    with pytest.raises(ValueError, match="asset_kind"):
+        build_vts_brief("pro", "upper", identity)
 
 
 @pytest.mark.parametrize("edition", ["free", "pro"])
 def test_stable_layers_is_default_without_revenue_prompt(identity, edition):
-    spec = build_vts_brief(edition, "upper", identity)
+    spec = build_vts_brief(edition, "upper", identity,
+                           asset_kind="body" if edition == "pro" else None)
     sl = spec["models"]["stable_layers"]
     assert sl["adapter"] == "StabilityLabs/Stable-Layers"
     assert sl["base"] == "Qwen/Qwen-Image-Layered"

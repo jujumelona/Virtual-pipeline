@@ -81,13 +81,13 @@ STABLE_LAYERS = {
 }
 
 
-def _identity_values(identity: Identity) -> str:
+def _identity_values(identity: Identity, *, require_outfit: bool = True) -> str:
     # describe() deliberately excludes outfit for the neutral legacy workflow;
     # do NOT use that legacy neutral-body instruction here.
     if not isinstance(identity, Identity):
         raise TypeError("identity must be an Identity object")
     identity.describe()  # validate key face/hair identity fields
-    if not identity.outfit.strip():
+    if require_outfit and not identity.outfit.strip():
         raise ValueError("VTube Studio FREE/PRO prompts require a complete outfit")
     values = {
         "gender/presentation": identity.gender or "adult original anime VTuber",
@@ -118,9 +118,10 @@ def _framing(scope: str) -> str:
     )
 
 
-def _prompt(identity_text: str, framing: str, filename: str, task: str) -> dict:
+def _prompt(identity_text: str, framing: str, filename: str, task: str, *, free: bool = True) -> dict:
     prompt = (
-        "ORIGINAL FULLY CLOTHED ADULT ANIME VTUBER\n"
+        ("ORIGINAL FULLY CLOTHED ADULT ANIME VTUBER\n"
+         if free else "ORIGINAL ADULT ANIME VTUBER SEPARATE ASSET\n")
         + identity_text + "\n\n"
         + "OUTPUT EXACT FILE NAME: " + filename + "\n"
         + "ONE image, WIDTH:HEIGHT = 2:3 portrait; use the generator's best "
@@ -143,6 +144,7 @@ def _prompt(identity_text: str, framing: str, filename: str, task: str) -> dict:
 
 def build_vts_brief(
     edition: str, scope: str, identity: Identity,
+    asset_kind: str | None = None,
 ) -> dict:
     """Generate inspectable artwork requests and machine-readable runtime PLAN.
 
@@ -153,7 +155,11 @@ def build_vts_brief(
         raise ValueError("VTube Studio edition must be free or pro")
     if scope not in FRAMES:
         raise ValueError("scope must be upper or full")
-    data = _identity_values(identity)
+    if edition == "pro" and asset_kind not in ("body", "hair", "outfit", "accessory"):
+        raise ValueError("PRO requires exactly one independent asset_kind")
+    if edition == "free" and asset_kind is not None:
+        raise ValueError("FREE has only one finished-character image")
+    data = _identity_values(identity, require_outfit=edition == "free")
     frame = _framing(scope)
     images: list[dict] = []
     if edition == "free":
@@ -168,62 +174,54 @@ def build_vts_brief(
             "not be flattened into one final ArtMesh.",
         ))
     else:
-        master = f"pro_{scope}_appearance_master.png"
-        images.append(_prompt(
-            data, frame, master,
-            "Draw the COMPLETE FINISHED original character, wearing hair, "
-            "outfit and accessories. This is the fixed IDENTITY LOCK for "
-            "separate HIGH-DETAIL / PRO modular images. Save and attach this "
-            "same reference to EVERY subsequent generation.",
-        ))
-        images.append(_prompt(
-            data, frame, f"pro_{scope}_base_master.png",
-            f"Use the actual attached {master} as identity and geometry reference. "
-            "Create the matching permanent adult covered BODY+FACE production "
-            "base without detachable hairstyle, fashion garments or accessories. "
-            "Use a plain OPAQUE skin-tone seamless production cover (not nude), "
-            "keep neck, face, arms and hands visible, match the finished model's "
-            "proportions and coordinate origin. No detachable asset included.",
-        ))
-        images.append(_prompt(
-            data, frame, f"pro_{scope}_hair_variant.png",
-            f"Use attached {master} as identity and location reference. "
-            "Draw ONLY the named hairstyle and attached hair ornaments, "
-            "without face or fashion clothes. Keep back/front/side locks "
-            "clear for further internal layer subdivision; draw plausible "
-            "hidden roots and overlap. This is its OWN separate asset, "
-            "not a sprite-sheet of the whole character.",
-        ))
-        images.append(_prompt(
-            data, frame, f"pro_{scope}_outfit_variant.png",
-            f"Use attached {master} to draw ONLY the complete garment and "
-            "footwear visible in this scope, on matching proportions and "
-            "attachment points. No face, hands or hair; draw hidden fabric "
-            "for movements. The later pipeline splits sleeves, fabric "
-            "panels and movable decorations into rigging layers. No "
-            "preordained number of rigging parts.",
-        ))
-        if identity.accessories.strip():
-            images.append(_prompt(
-                data, frame, f"pro_{scope}_accessories_variant.png",
-                f"Use attached {master} to draw ONLY the specified accessories "
-                "at the same relative anchors; omit head/body/hair/clothes. "
-                "Retain each accessory identity for subsequent independent "
-                "layer extraction and rigging.",
-            ))
+        source = f"pro_{scope}_base_master.png"
+        prompt_by_asset = {
+            "body": (
+                f"pro_{scope}_base_master.png",
+                "Draw ONLY the permanent face and fully opaque, plain skin-tone "
+                "covered body base. No detachable hairstyle, fashion outfit, "
+                "jewelry or accessories. Eyes open, lips closed, full visible "
+                "arms and hands. Avoid exposed anatomy and textile details. "
+                "Maintain front-facing proportions.",
+            ),
+            "hair": (
+                f"pro_{scope}_hair_variant.png",
+                f"Use the previously created {source} as an ATTACHED "
+                "geometry/identity reference, but draw ONLY the hairstyle "
+                "including bangs, roots, back/side locks and hair ornaments. "
+                "Do not include face, body or clothing. Preserve original "
+                "canvas size, origin and attachment locations.",
+            ),
+            "outfit": (
+                f"pro_{scope}_outfit_variant.png",
+                f"Use previously created {source} as ATTACHED reference. "
+                "Draw ONLY fashion clothing and footwear, no skin, face, hair "
+                "or body. Match canvas coordinates and draw hidden fabric "
+                "panels needed for future movement.",
+            ),
+            "accessory": (
+                f"pro_{scope}_accessories_variant.png",
+                f"Use previously created {source} as ATTACHED reference; draw "
+                "ONLY specified accessories at exact matching anchor points. "
+                "No face, body, clothing or hair pixels.",
+            ),
+        }
+        filename, task = prompt_by_asset[asset_kind]
+        images.append(_prompt(data, frame, filename, task, free=False))
     qwen_usage = "on_demand_if_quality_insufficient" if edition == "free" else "primary_high_detail_refinement"
     brief = {
         "schema": "vtuber/vts-artwork-brief-v1",
         "edition": edition,
         "scope": scope,
+        "asset_kind": asset_kind,
         "status": "plan_only",
-        "final_target": "VTube Studio compatible Cubism MOC3, NOT produced by this brief",
+        "final_target": "Editable PSD only; official Editor must rig and export MOC3",
         "images": images,
         "image_count": len(images),
         "internal_part_rule": (
             "FREE: a single fixed-look model; never demand separate hair/outfit/accessory uploads"
             if edition == "free"
-            else "PRO: separate permanent base, hair, outfit and optional accessory assets"
+            else "PRO: one independent asset per request; detachable ones refer to an existing base"
         ),
         "rigging": {
             "budget": dict(FREE_BUDGET) if edition == "free" else None,
@@ -255,7 +253,8 @@ def write_vts_brief_package(brief: dict, destination: str) -> str:
         raise ValueError("Invalid VTube Studio brief")
     path = Path(destination)
     path.mkdir(parents=True, exist_ok=True)
-    name = f"vts_{brief['edition']}_{brief['scope']}_prompts.zip"
+    asset = "_" + brief["asset_kind"] if brief["edition"] == "pro" else ""
+    name = f"vts_{brief['edition']}{asset}_{brief['scope']}_prompts.zip"
     target = path / name
     temp = target.with_suffix(".tmp")
     with ZipFile(temp, "w", ZIP_DEFLATED) as archive:
