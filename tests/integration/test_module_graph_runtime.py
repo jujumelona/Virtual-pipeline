@@ -271,7 +271,10 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
         }
 
     def fake_validate(vrm_path, output_dir, **kwargs):
-        calls.append("validator")
+        # The final common completion contract performs a second product-level
+        # validation. Keep the legacy stage trace scoped to its first call.
+        if not kwargs.get("product_contract"):
+            calls.append("validator")
         assert vrm_path == str(artifacts["avatar.vrm"])
         return {"status": "complete", "passed": True}
 
@@ -329,6 +332,8 @@ def test_avatar_orchestrator_runtime_handoffs(tmp_path, monkeypatch):
 
     assert result["status"] == "complete", result
     assert result["vrm_path"] == str(artifacts["avatar.vrm"])
+    assert pathlib.Path(result["production_result_json"]).is_file()
+    assert result["build_result"]["primary_file"] == result["vrm_path"]
     assert result["stages"]["reference_reconstruction"]["model_options"] == {
         "profile": "production",
         "model_save_format": "glb",
