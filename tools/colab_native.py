@@ -189,7 +189,8 @@ def _latest_avatar() -> str | None:
 
 def _build_arguments(mode, usage, upload, job_folder, *, image_path,
                      full_body, texture_size, rigging_provider,
-                     accessory_anchor, accessory_base_path):
+                     accessory_anchor, accessory_base_path,
+                     reference_face_path="", accessory_image_paths=()):
     if mode in ("inochi2d", "live2d", "3d"):
         front = (
             _existing_image(image_path, description="캐릭터 원본")
@@ -202,9 +203,12 @@ def _build_arguments(mode, usage, upload, job_folder, *, image_path,
         face = None
         if full_body:
             print("고품질 다중 참조 모드: 동일 캐릭터의 정면 얼굴 확대 이미지를 업로드하세요.", flush=True)
-            face = _stored_uploads(
-                upload, job_folder / "face", images=True, multiple=False,
-            )[0]
+            face = (
+                _existing_image(reference_face_path, description="정면 얼굴 참조")
+                if reference_face_path else _stored_uploads(
+                    upload, job_folder / "face", images=True, multiple=False,
+                )[0]
+            )
         # Additional view inputs are optional advanced pipeline inputs, not
         # part of the one-image default path.
         return "avatar", [
@@ -227,8 +231,12 @@ def _build_arguments(mode, usage, upload, job_folder, *, image_path,
             upload, job_folder / "base", images=False, multiple=False,
         )[0]
     print("액세서리 이미지를 한 번에 1~8장 업로드하세요.", flush=True)
-    images = _stored_uploads(
-        upload, job_folder / "accessories", images=True, multiple=True,
+    images = (
+        [_existing_image(str(path), description="액세서리 이미지")
+         for path in accessory_image_paths]
+        if accessory_image_paths else _stored_uploads(
+            upload, job_folder / "accessories", images=True, multiple=True,
+        )
     )
     if len(images) > 8:
         raise ValueError("한 번에 생성 가능한 액세서리는 최대 8개입니다.")
@@ -280,6 +288,8 @@ def generate(
     rigging_provider: str = "canonical",
     accessory_anchor: str = "AUTO",
     accessory_base_path: str = "",
+    reference_face_path: str = "",
+    accessory_image_paths: tuple[str, ...] = (),
     upload=None,
     runner=None,
 ) -> str | None:
@@ -309,6 +319,8 @@ def generate(
         full_body=full_body, texture_size=texture_size,
         rigging_provider=rigging_provider, accessory_anchor=accessory_anchor,
         accessory_base_path=accessory_base_path,
+        reference_face_path=reference_face_path,
+        accessory_image_paths=accessory_image_paths,
     )
     print("생성 시작. 이 셀의 ■ 중지를 누르면 모델 작업까지 종료합니다.", flush=True)
     try:
