@@ -18,6 +18,8 @@ KNOWN = {
     "nose": "nose",
     "hair_left": "hair.side.left", "hair_right": "hair.side.right",
     "outfit_front": "cloth.front", "outfit_back": "cloth.back",
+    "outfit_sleeve_left": "cloth.sleeve.left",
+    "outfit_sleeve_right": "cloth.sleeve.right",
 }
 
 def _layers(source: SourceSet, folder: Path) -> PartsDocument | None:
@@ -42,12 +44,15 @@ def _layers(source: SourceSet, folder: Path) -> PartsDocument | None:
         # New sheet character mode has 24 permanent body/face/hair layers.
         # Legacy individually uploaded 26-layer artwork remains supported
         # for users who explicitly supply pre-rigged clothed character art.
-        if provided_names not in (base_expected, expected):
+        from vtuber_pipeline.wardrobe_contract import GARMENT_PARTS
+        dressed_expected = base_expected | GARMENT_PARTS
+        if provided_names not in (base_expected, expected, dressed_expected):
             unexpected = sorted(provided_names - expected)
             missing_full = sorted(base_expected - provided_names)
             raise ValueError(
                 f"2D layered artwork must contain either the {len(base_expected)} "
                 f"outfit-free base parts or the {len(expected)} legacy named "
+                f"parts or the {len(dressed_expected)} separately-rigged outfit "
                 f"parts; missing_base={missing_full}; unexpected={unexpected}"
             )
         expected = (CANVAS_2D, (CANVAS_2D[0]*2, CANVAS_2D[1]*2))
