@@ -145,3 +145,74 @@ def refresh_qwen(values: dict) -> None:
     if q not in QWEN_LABELS or edition not in EDITION_LABELS:
         raise ValueError("Live2D FREE/PRO 또는 Qwen 옵션이 올바르지 않습니다.")
     values["LIVE2D_USE_QWEN"] = q == "on" or (q == "auto" and edition == "pro")
+
+
+# Native Colab form routing. Only the selected category's settings cell updates
+# the active configuration. No callbacks, confirmation buttons or JS polling.
+TOP_LEVEL_CHOICES = {
+    "Live2D": ("캐릭터 생성", "live2d"),
+    "Inochi2D": ("캐릭터 생성", "inochi2d"),
+    "3D VRM": ("캐릭터 생성", "3d"),
+    "액세서리 제작": ("액세서리 제작", "3d"),
+}
+
+
+def begin_mode_selection(values: dict) -> None:
+    top = values.get("TOP_LEVEL_MODE")
+    if top not in TOP_LEVEL_CHOICES:
+        raise ValueError("상위 제작 모드가 올바르지 않습니다.")
+    values["TASK"], values["MODE"] = TOP_LEVEL_CHOICES[top]
+    values["MODE_CONFIG_APPLIED"] = None
+    values.pop("MODE_CONFIG_SIGNATURE", None)
+    # Defaults are internal fallbacks for inactive settings, NOT choices
+    # applied on behalf of the user for the active mode.
+    defaults = {
+        "LIVE2D_EDITION": "free",
+        "LIVE2D_FRAMING": "upper",
+        "LIVE2D_QWEN": "auto",
+        "LIVE2D_USE_QWEN": False,
+        "TWO_D_INPUT": "sheets",
+        "MULTI_REFERENCE_3D": True,
+        "ACCESSORY_SUBTYPE": "소품",
+        "OUTFIT_2D_TARGET": "live2d",
+        "ACCESSORY_ANCHOR": "AUTO",
+        "ACCESSORY_BASE_VRM_PATH": "",
+        "WARDROBE_2D_BASE_ZIP_PATH": "",
+        "WARDROBE_XWEAR_PATH": "",
+        "EXISTING_IMAGE_PATH": "",
+    }
+    for key, val in defaults.items():
+        values[key] = val
+
+
+def apply_submode(values: dict, selected: str, updates: dict) -> bool:
+    """Return False for unselected cells without applying their options."""
+    if values.get("TOP_LEVEL_MODE") != selected:
+        return False
+    if selected not in TOP_LEVEL_CHOICES:
+        raise ValueError("알 수 없는 상위 모드")
+    expected_task, expected_mode = TOP_LEVEL_CHOICES[selected]
+    if (values.get("TASK"), values.get("MODE")) != (expected_task, expected_mode):
+        raise RuntimeError("② 상위 모드 셀을 다시 실행하세요.")
+    values.update(updates)
+    if selected == "Live2D":
+        refresh_qwen(values)
+    signature = selection_signature(values)
+    values["MODE_CONFIG_APPLIED"] = selected
+    values["MODE_CONFIG_SIGNATURE"] = signature
+    return True
+
+
+def require_submode_config(values: dict) -> tuple:
+    """Reject ③/④/⑤ until the matching submode cell has actually run."""
+    top = values.get("TOP_LEVEL_MODE")
+    if top not in TOP_LEVEL_CHOICES:
+        raise RuntimeError("② 상위 모드를 먼저 선택하세요.")
+    if values.get("MODE_CONFIG_APPLIED") != top:
+        raise RuntimeError(
+            "② 선택된 상위 모드의 전용 설정 셀을 실행한 다음 ③으로 진행하세요."
+        )
+    signature = selection_signature(values)
+    if values.get("MODE_CONFIG_SIGNATURE") != signature:
+        raise RuntimeError("② 하위 옵션이 변경되었습니다. 해당 모드의 설정 셀부터 다시 실행하세요.")
+    return signature
