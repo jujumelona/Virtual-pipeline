@@ -181,7 +181,6 @@ def convert_2d_sheet_pack(pack: str, folder: str, *,
             crop, model, output_scale=factor
         )
     if upscaler is None:
-        from PIL import Image
         upscaler = lambda crop, factor: crop.resize(
             (crop.width*factor,crop.height*factor), Image.Resampling.LANCZOS
         )
