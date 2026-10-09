@@ -192,8 +192,17 @@ def _build_arguments(mode, usage, upload, job_folder, *, image_path,
                      accessory_anchor, accessory_base_path,
                      reference_face_path="", accessory_image_paths=(),
                      layers_zip_path="", reference_back_path="",
-                     reference_left_path="", reference_right_path=""):
+                     reference_left_path="", reference_right_path="",
+                     sheet_zip_path=""):
     if mode in ("inochi2d", "live2d", "3d"):
+        if sheet_zip_path:
+            from tools.sheet_input_loader import inspect_sheet_archive
+            sheet = Path(sheet_zip_path).expanduser().resolve(strict=True)
+            inspect_sheet_archive(str(sheet),mode)
+            if mode in ("inochi2d","live2d"):
+                return mode, [str(sheet),usage,"__sheet_pack__"]
+            return "avatar", [str(sheet),usage,"__sheet_pack__",None,None,
+                              True,int(texture_size),None,None,rigging_provider]
         front = (
             _existing_image(image_path, description="캐릭터 원본")
             if image_path else _stored_uploads(
@@ -309,6 +318,7 @@ def generate(
     reference_back_path: str = "",
     reference_left_path: str = "",
     reference_right_path: str = "",
+    sheet_zip_path: str = "",
     upload=None,
     runner=None,
 ) -> str | None:
@@ -331,8 +341,10 @@ def generate(
         from tools.colab_generation_process import run_isolated
         runner = run_isolated
     job_folder = WORK / "notebook_inputs" / uuid.uuid4().hex
-    if mode in ("inochi2d", "live2d") and layers_zip_path:
-        print("개별 PNG 27장 업로드 검증 완료: 사용자 추가 업로드 없음", flush=True)
+    if sheet_zip_path:
+        print("[sheet] 고정 격자 입력 · 파츠 분할 및 AI 업스케일 예정", flush=True)
+    elif mode in ("inochi2d", "live2d") and layers_zip_path:
+        print("[layers] supplied artwork archive verified",flush=True)
     elif mode != "accessory":
         print("기존 캐릭터 입력 이미지를 사용해 제작합니다.", flush=True)
     else:
@@ -348,6 +360,7 @@ def generate(
         reference_back_path=reference_back_path,
         reference_left_path=reference_left_path,
         reference_right_path=reference_right_path,
+        sheet_zip_path=sheet_zip_path,
     )
     print("생성 시작. 이 셀의 ■ 중지를 누르면 모델 작업까지 종료합니다.", flush=True)
     try:
