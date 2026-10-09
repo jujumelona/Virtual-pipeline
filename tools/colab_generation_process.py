@@ -106,7 +106,10 @@ def run_isolated(
         if log_path.is_file():
             with log_path.open("r", encoding="utf-8", errors="replace") as stream:
                 stream.seek(cursor)
-                for line in stream:
+                while True:
+                    line = stream.readline()
+                    if not line:
+                        break
                     relay_line(line)
                 cursor = stream.tell()
         status = process.poll()
