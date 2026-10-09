@@ -42,8 +42,6 @@ LAYER_PARTS = (
     ("arm_right", "Complete character-right neutral base arm with body-hidden shoulder. No removable sleeves or clothing cuffs."),
     ("hand_left", "Character-left hand, fully modeled even when sleeve obscures wrist."),
     ("hand_right", "Character-right hand, fully modeled even when sleeve obscures wrist."),
-    ("outfit_front", "Isolated detachable garment FRONT: all costume-specific fabric, front collar, front sleeve appearance and seams; no body skin."),
-    ("outfit_back", "Isolated detachable garment BACK: back coat/dress fabric, rear collar and seams, hidden cloth complete; no body anatomy."),
 )
 REQUIRED_2D = (
     "hair_back", "body", "face", "hair_front", "eye_left_white",
@@ -78,10 +76,10 @@ class Identity:
             "gender": self.gender,
             "hair_color": self.hair_color, "hairstyle": self.hairstyle,
             "eye_color": self.eye_color, "face_description": self.face_description,
-            "outfit": self.outfit, "palette": self.palette,
+            "neutral_underlayer": self.outfit, "palette": self.palette,
             "accessories": self.accessories, "extra": self.extra,
         }
-        for name in ("hair_color", "hairstyle", "eye_color", "face_description", "outfit"):
+        for name in ("hair_color", "hairstyle", "eye_color", "face_description"):
             if not data[name].strip():
                 raise ValueError("Character identity field missing: " + name)
         return "\n".join(f"{key}: {value.strip()}" for key, value in data.items()
@@ -92,7 +90,7 @@ def _common(identity: Identity) -> str:
     return (
         "CRITICAL IDENTITY LOCK: Keep a SINGLE identical original anime VTuber "
         "character across ALL outputs. Same proportions, line thickness, color "
-        "swatches, hairstyle, garment shapes, facial features and lighting. "
+        "swatches, hairstyle, neutral base anatomy, facial features and lighting. "
         "Use the supplied front_master.png as the exact pixel-coordinate "
         "reference for ALL subsequent layer images; do not redesign.\n"
         + identity.describe() + "\n"
@@ -124,7 +122,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
             "OUTPUT front_master.png. Render ONE complete clean front-view, "
             "neutral anime bust/upper-body reference, mouth CLOSED, eyes OPEN, "
             "arms neutral and consistent. Fully antialiased edges; full visible "
-            "hair silhouette, clothing, and face. "
+             "hair silhouette, neutral anatomy/underlayer, and face. "
             + geometry
             + " Master may use a solid neutral background for visual reference; "
             "all part layers MUST be transparent."
@@ -152,7 +150,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
                            "purpose": "part", "semantic_id": key,
                            "prompt": general + "\n" + prompt})
         packaging = (
-            "Deliver 27 separate PNG images: front_master.png and the 26 "
+             "Deliver 25 separate PNG images: front_master.png and the 24 "
             "named RGBA semantic layers. Every layer uses the same 2048x3072 "
             "full canvas and exact origin. No sprite sheet. Complete all "
             "occluded areas; JPEG is not accepted."
@@ -165,7 +163,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
             "shoulder line y=730; waist y=1550; knees y=2330; "
             "feet contact line y=2930. Occupies the same scale and exactly "
             "the same registered coordinates in front, back, left, right. "
-            "Entire body and shoes visible. NO perspective, orthographic camera "
+             "Entire outfit-free body and feet visible. NO perspective, orthographic camera "
             "at level height, neutral symmetric A-pose with arms separated "
             "from torso, fingers distinguishable. "
         )
