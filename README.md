@@ -436,199 +436,168 @@ character_2d_sheet_pack.zip
 
 **중요:** 이 ZIP에는 헤어·옷 이미지(`hair_front/back/left/right`, `outfit_front/back`)가 포함되면 안 됩니다. 완성 스타일은 후속 2D 헤어·의상 추가 단계에서 제작합니다. 2D 베이스는 20개의 독립 신체·얼굴 파츠로 구성하고 실제 옷은 별도 액세서리/의상 모드에서 만듭니다.
 
-### ① 캐릭터 생성 — 3D 기본 의상 포함 (전신 시트 2장 + 얼굴 1장)
+### ① 캐릭터 생성 — 3D 피부색 중립 신체 베이스 (전신 시트 2장 + 얼굴 1장)
 
-**현재 자동 3D 제작의 권장 경로:** 의상까지 입은 완성 캐릭터를 동일한 포즈로 정면·후면·좌·우에서 생성하고, 얼굴 확대를 추가합니다. **3D 이미지만으로 교체형 옷 메시·스킨 가중치를 생성하지 못하므로, 기본 아바타를 의상 없는 상태로 만들지 않습니다.** 이 3D 모델의 옷은 본체와 함께 복원·리깅되어 **자동 탈착·교체되지는 않습니다.**
+**목적:** 나중에 3D 의상을 따로 제작·피팅할 수 있도록 회색 슈트가 아닌 자연 피부색의 중립 신체를 기준으로 생성합니다. 다만 현행 3D 경로는 입력 외형을 **하나의 아바타 메시로 복원·스키닝**하며, 독립적인 의상 메시 생성이나 자동 탈착·교체는 구현되지 않았습니다. 따라서 **의상이 없는 베이스 VRM 제작**과 **의상 교체까지 완성된 VRM 제작**을 구분해야 합니다. 의상 착용 VRM이 필요하면 실제 의상 메시를 별도로 모델링·스키닝하고 호환되는 편집기에서 피팅해야 합니다. 본체에 타이츠/바디슈트를 그려 넣으면 옷 경계가 베이스 메시·텍스처에 굳어지므로 금지합니다.
+
+**2D와 3D의 머리카락 차이:** 2D 기본 마스터는 별도 헤어 파츠를 만들기 위해 무모(머리카락 없는 두피)입니다. 현재 3D는 입력 이미지에서 머리 형상을 재구성하므로 3D 정면·후면·측면 및 얼굴에는 **동일한 헤어스타일**을 표시합니다. 3D 머리카락 교체 자동화까지 보장한다는 뜻은 아닙니다.
 
 | 필요한 이미지 | 권장 비율 | 내용 | 출력 파일명 |
 |---|---|---|---|
-| 1장 | 전체 4:3 / 각 칸 2:3 | 기본 의상 착용 캐릭터 정면·후면 2뷰 | `sheet_front_back.png` |
-| 1장 | 전체 4:3 / 각 칸 2:3 | 같은 의상 착용 좌·우 2뷰 | `sheet_side_views.png` |
-| 1장 | 1:1 | 머리·얼굴 확대 (동일 의상/장식 유지) | `face.png` |
+| 1장 | 전체 4:3 / 각 칸 2:3 | 피부색 중립 신체 정면·후면 2뷰 | `sheet_front_back.png` |
+| 1장 | 전체 4:3 / 각 칸 2:3 | 같은 베이스 신체 좌·우 2뷰 | `sheet_side_views.png` |
+| 1장 | 1:1 | 동일 캐릭터의 얼굴 확대 | `face.png` |
 
-**권장 생성 이미지 수: 3장 (4방향 전신 4뷰 + 얼굴 확대 1뷰).** 이미지 AI 출력 해상도는 정확한 픽셀 숫자로 지정하지 않습니다. 비율만 지키고 가능한 높은 기본 해상도로 생성하세요. 업로드 후 시트 분할·AI 초해상도를 수행합니다. 모든 시점에서 의상 앞/뒤 디자인과 팔·신발 형태를 확인해야 합니다.
+**필수 3장 (4방향 전신 4뷰 + 얼굴 1뷰).** 인위적으로 출력 픽셀 크기를 고정하지 말고 이미지 AI의 네이티브 해상도로 제작합니다. 후속 시점에는 실제 생성한 이전 참조를 첨부하고, 색상과 체형이 일치하는지 확인합니다.
 
-#### `sheet_front_back.png` — 기본 의상 착용 정면·후면
+#### `sheet_front_back.png` — 피부색 신체 베이스 정면·후면
 
-**배치도: 가로 4:3, 2열 × 1행**
+**배치도: 가로 4:3, 2열 × 1행.** 첫 3D 이미지로 생성합니다.
 
 ![정면·후면 3D 레이아웃](docs/sheet_guides/sheet_front_back_layout.svg)
 
-[배치도 원본](docs/sheet_guides/sheet_front_back_layout.svg) — 이미지 AI에 배치도와 아래 프롬프트를 입력합니다.
+[배치도 원본](docs/sheet_guides/sheet_front_back_layout.svg)
 
 **완결된 복사용 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER (FILL ALL BRACED FIELDS):
+ORIGINAL ADULT ANIME VTUBER — PERMANENT 3D IDENTITY (FILL BRACES):
 Gender / presentation: {gender}
-Hair / color HEX / bangs / ornaments: {hairstyle}
-Eyes / shape / iris / pupils: {eyes}
-Face / ears / skin tone: {face}
+Hair color / style / bangs / ornaments: {hairstyle}
+Eye shape / iris / pupils: {eyes}
+Facial structure / ears / distinguishing marks: {face}
+Natural full-body skin color / exact HEX: {skin_color}
 Body proportions / height / silhouette: {body}
-DEFAULT INTEGRATED OUTFIT NAME: {outfit_name}
-Outfit upper / lower / dress / coat design: {outfit_design}
-Outfit fabric / material / thickness: {outfit_material}
-Outfit exact colors / HEX palette: {outfit_palette}
-Collars / sleeves / cuffs / buttons / seams / hem: {outfit_construction}
-Shoes / socks / gloves / outfit-related attachments: {outfit_extras}
 Other permanent identity details: {identity_details}
 
 FILE NAME AND OUTPUT:
-Generate ONE PNG and save the actual file EXACTLY as sheet_front_back.png.
-If the image AI downloads under another name, rename it to sheet_front_back.png.
-ASPECT RATIO width:height=4:3. Exactly TWO equal-width cells,
-ONE row. Each cell has portrait width:height=2:3.
-CELL LEFT: FRONT full-body dressed view.
-CELL RIGHT: BACK full-body dressed view.
+Generate ONE PNG. Save or rename EXACTLY to sheet_front_back.png.
+ASPECT RATIO width:height=4:3, TWO equal-width cells, ONE row.
+Each cell is portrait width:height=2:3.
+CELL LEFT: FRONT full-body skin-colored base view.
+CELL RIGHT: BACK full-body skin-colored base view.
+Attach sheet_front_back_layout.svg as a layout guide ONLY.
 
-SAME CHARACTER + COSTUME CONTRACT:
-Render the SAME anime VTuber with the SAME COMPLETE DEFAULT OUTFIT
-in all 3D reference views. The outfit is INTEGRATED into this original
-3D character, not a replaceable garment sheet or separate XWear asset.
-Clothes, shoes, collar, cuffs, sleeve widths, buttons, patterns and
-fabric layers must match across FRONT/BACK/LEFT/RIGHT without redesign.
-Hair/face, body proportions, color codes, garments and accessories
-stay identical. Each reference contains the WHOLE CLOTHED CHARACTER.
-Use orthographic view, neutral symmetric A-pose (arms gently away
-from torso about 25-35 degrees), straight camera at body center height.
-Maintain identical head-to-toe scale and feet position in every view.
-Character-LEFT and CHARACTER-RIGHT are anatomical, not viewer sides.
-Do NOT mirror to fake another view. Show garment silhouette and
-rear fabric, seam/collar continuity, shoe side profiles and proper
-layering. Avoid perspective, dramatic posing, strong shadow, logos,
-background objects and text. Use a flat plain contrasting background
-(or truly transparent PNG only if supported); the pipeline will
-segment character foreground. Generate at the model's true native
-image resolution and preserve requested aspect ratio.
-Attach sheet_front_back_layout.svg as the placement guide ONLY.
-No prior generated character reference is required.
-This is the FIRST 3D character image: draw the costume-front and
-costume-back details specified above, not an unclothed mannequin.
-Every skirt, jacket, cape or shoe must be fully visible and consistent.
-Do not draw multiple characters or a single full-frame portrait.
-NO label, panel number, layout guide text, grid divider or watermark
-may appear in the output PNG.
+PRODUCTION PURPOSE — 3D VTUBER BASE FOR SKELETAL RIGGING:
+Generate the SAME original adult anime VTuber as a neutral skin-colored
+base avatar for later VRM rigging and independently authored wardrobe.
+The base is a stylized, featureless, non-explicit anatomical surface,
+NOT a gray bodysuit, mannequin or a person wearing skin-colored clothes.
+Every visible body region including neck, torso, shoulders, arms,
+hands, hips, legs and feet has the SAME natural {skin_color} skin finish
+as the face. Keep chest/pelvis simplified; show no intimate anatomy.
+NO garment of any kind, underwear, leggings, bodysuit, latex suit,
+shirt, jacket, scarf, collar, zipper, seam, stitching, cuffs, socks,
+shoes or clothing silhouette. NO painted-on costume or accessories.
+This 3D base image MUST NOT include a default outfit; separate actual
+garments require modeling, fitting and skinning outside this generator.
+Retain the same defined hairstyle across views for the current 3D
+hair-reconstruction path; unlike 2D, this is not a hairless scalp base.
+Use the SAME neutral symmetric A-pose, arms ~25-35 degrees away from
+torso, orthographic camera, consistent body size and fixed lighting.
+Left/right are CHARACTER anatomical directions, not viewer directions.
+Never mirror a front view to fake a back/side view.
+Preserve head, hands, feet and complete body within every full-body tile.
+No props, text, watermark, frame, guides, labels or grid dividers.
+Use native resolution; plain contrasting background is acceptable
+because the pipeline segments the character.
+
+This is the FIRST 3D image; no earlier character image is required.
+Both cells must depict the same neutral body, with no outfit.
 ```
 
-#### `sheet_side_views.png` — 같은 기본 의상의 좌·우 측면
+#### `sheet_side_views.png` — 같은 신체 베이스 좌·우 측면
 
-**배치도: 가로 4:3, 2열 × 1행**
+**배치도: 가로 4:3, 2열 × 1행.** 앞서 만든 실제 `sheet_front_back.png`를 반드시 함께 첨부합니다.
 
 ![좌우 측면 3D 레이아웃](docs/sheet_guides/sheet_side_views_layout.svg)
 
-[배치도 원본](docs/sheet_guides/sheet_side_views_layout.svg) — **이전에 생성한 `sheet_front_back.png`를 함께 첨부**합니다.
+[배치도 원본](docs/sheet_guides/sheet_side_views_layout.svg)
 
 **완결된 복사용 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER (FILL ALL BRACED FIELDS):
+ORIGINAL ADULT ANIME VTUBER — PERMANENT 3D IDENTITY (FILL BRACES):
 Gender / presentation: {gender}
-Hair / color HEX / bangs / ornaments: {hairstyle}
-Eyes / shape / iris / pupils: {eyes}
-Face / ears / skin tone: {face}
+Hair color / style / bangs / ornaments: {hairstyle}
+Eye shape / iris / pupils: {eyes}
+Facial structure / ears / distinguishing marks: {face}
+Natural full-body skin color / exact HEX: {skin_color}
 Body proportions / height / silhouette: {body}
-DEFAULT INTEGRATED OUTFIT NAME: {outfit_name}
-Outfit upper / lower / dress / coat design: {outfit_design}
-Outfit fabric / material / thickness: {outfit_material}
-Outfit exact colors / HEX palette: {outfit_palette}
-Collars / sleeves / cuffs / buttons / seams / hem: {outfit_construction}
-Shoes / socks / gloves / outfit-related attachments: {outfit_extras}
 Other permanent identity details: {identity_details}
 
 FILE NAME AND OUTPUT:
-Generate ONE PNG and save the actual file EXACTLY as sheet_side_views.png.
-If the image AI downloads under another name, rename it to sheet_side_views.png.
-ASPECT RATIO width:height=4:3. Exactly TWO equal-width cells,
-ONE row. Each cell has portrait width:height=2:3.
-CELL LEFT: CHARACTER LEFT SIDE dressed full body.
-CELL RIGHT: CHARACTER RIGHT SIDE dressed full body.
+Generate ONE PNG. Save or rename EXACTLY to sheet_side_views.png.
+ASPECT RATIO width:height=4:3, TWO equal-width cells, ONE row.
+Each cell is portrait width:height=2:3.
+CELL LEFT: CHARACTER LEFT SIDE full-body skin-colored base view.
+CELL RIGHT: CHARACTER RIGHT SIDE full-body skin-colored base view.
+ATTACH the REAL previously generated sheet_front_back.png and
+sheet_side_views_layout.svg as separate visual references.
 
-SAME CHARACTER + COSTUME CONTRACT:
-Render the SAME anime VTuber with the SAME COMPLETE DEFAULT OUTFIT
-in all 3D reference views. The outfit is INTEGRATED into this original
-3D character, not a replaceable garment sheet or separate XWear asset.
-Clothes, shoes, collar, cuffs, sleeve widths, buttons, patterns and
-fabric layers must match across FRONT/BACK/LEFT/RIGHT without redesign.
-Hair/face, body proportions, color codes, garments and accessories
-stay identical. Each reference contains the WHOLE CLOTHED CHARACTER.
-Use orthographic view, neutral symmetric A-pose (arms gently away
-from torso about 25-35 degrees), straight camera at body center height.
-Maintain identical head-to-toe scale and feet position in every view.
-Character-LEFT and CHARACTER-RIGHT are anatomical, not viewer sides.
-Do NOT mirror to fake another view. Show garment silhouette and
-rear fabric, seam/collar continuity, shoe side profiles and proper
-layering. Avoid perspective, dramatic posing, strong shadow, logos,
-background objects and text. Use a flat plain contrasting background
-(or truly transparent PNG only if supported); the pipeline will
-segment character foreground. Generate at the model's true native
-image resolution and preserve requested aspect ratio.
-ATTACH the REAL already-generated sheet_front_back.png and
-sheet_side_views_layout.svg as TWO image references.
-Maintain the original outfit and face exactly.
-Verify fabric, buttons, hem lengths, skirt volume, jacket thickness,
-outfit back panels and both shoes against the FRONT/BACK reference.
-No omissions or newly designed garments; rotate character 90 degrees
-for each side view.
-NO label, panel number, layout guide text, grid divider or watermark
-may appear in the output PNG.
+PRODUCTION PURPOSE — 3D VTUBER BASE FOR SKELETAL RIGGING:
+Generate the SAME original adult anime VTuber as a neutral skin-colored
+base avatar for later VRM rigging and independently authored wardrobe.
+The base is a stylized, featureless, non-explicit anatomical surface,
+NOT a gray bodysuit, mannequin or a person wearing skin-colored clothes.
+Every visible body region including neck, torso, shoulders, arms,
+hands, hips, legs and feet has the SAME natural {skin_color} skin finish
+as the face. Keep chest/pelvis simplified; show no intimate anatomy.
+NO garment of any kind, underwear, leggings, bodysuit, latex suit,
+shirt, jacket, scarf, collar, zipper, seam, stitching, cuffs, socks,
+shoes or clothing silhouette. NO painted-on costume or accessories.
+This 3D base image MUST NOT include a default outfit; separate actual
+garments require modeling, fitting and skinning outside this generator.
+Retain the same defined hairstyle across views for the current 3D
+hair-reconstruction path; unlike 2D, this is not a hairless scalp base.
+Use the SAME neutral symmetric A-pose, arms ~25-35 degrees away from
+torso, orthographic camera, consistent body size and fixed lighting.
+Left/right are CHARACTER anatomical directions, not viewer directions.
+Never mirror a front view to fake a back/side view.
+Preserve head, hands, feet and complete body within every full-body tile.
+No props, text, watermark, frame, guides, labels or grid dividers.
+Use native resolution; plain contrasting background is acceptable
+because the pipeline segments the character.
+
+Rotate the same base avatar 90 degrees to its anatomical LEFT or RIGHT.
+Match FRONT/BACK body proportions, skin HEX, hairstyle, facial
+features, feet placement and anatomy. No new garments or accessories.
 ```
 
-#### `face.png` — 얼굴·머리 장식 확대
+#### `face.png` — 같은 신체 베이스의 얼굴 확대
 
-**권장 비율 1:1 정사각형.** 이전 정면 이미지를 참조합니다.
+**비율 1:1 정사각형.** 앞서 만든 `sheet_front_back.png`의 실제 정면 셀을 첨부합니다.
 
 **완결된 복사용 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER (FILL ALL BRACED FIELDS):
+ORIGINAL ADULT ANIME VTUBER — PERMANENT 3D IDENTITY (FILL BRACES):
 Gender / presentation: {gender}
-Hair / color HEX / bangs / ornaments: {hairstyle}
-Eyes / shape / iris / pupils: {eyes}
-Face / ears / skin tone: {face}
+Hair color / style / bangs / ornaments: {hairstyle}
+Eye shape / iris / pupils: {eyes}
+Facial structure / ears / distinguishing marks: {face}
+Natural full-body skin color / exact HEX: {skin_color}
 Body proportions / height / silhouette: {body}
-DEFAULT INTEGRATED OUTFIT NAME: {outfit_name}
-Outfit upper / lower / dress / coat design: {outfit_design}
-Outfit fabric / material / thickness: {outfit_material}
-Outfit exact colors / HEX palette: {outfit_palette}
-Collars / sleeves / cuffs / buttons / seams / hem: {outfit_construction}
-Shoes / socks / gloves / outfit-related attachments: {outfit_extras}
 Other permanent identity details: {identity_details}
 
 FILE NAME AND OUTPUT:
-Generate ONE PNG and save the actual file EXACTLY as face.png.
-If the image AI downloads under another name, rename it to face.png.
+Generate ONE PNG. Save or rename EXACTLY to face.png.
 ASPECT RATIO width:height=1:1 (square).
-ONE single front-facing orthographic close-up of the head/face.
-Eye lines, iris, eyelashes, ears, jawline, hairline and hairstyle
-in sharp detail. No collage or multi-panel sheet.
+ONE sharply detailed, front-facing orthographic close-up of the
+SAME original adult anime VTuber's face and head.
+ATTACH the real FRONT cell cropped from sheet_front_back.png.
+This is NOT a body view or a multi-panel character sheet.
 
-SAME CHARACTER + COSTUME CONTRACT:
-Render the SAME anime VTuber with the SAME COMPLETE DEFAULT OUTFIT
-in all 3D reference views. The outfit is INTEGRATED into this original
-3D character, not a replaceable garment sheet or separate XWear asset.
-Clothes, shoes, collar, cuffs, sleeve widths, buttons, patterns and
-fabric layers must match across FRONT/BACK/LEFT/RIGHT without redesign.
-Hair/face, body proportions, color codes, garments and accessories
-stay identical. Each reference contains the WHOLE CLOTHED CHARACTER.
-Use orthographic view, neutral symmetric A-pose (arms gently away
-from torso about 25-35 degrees), straight camera at body center height.
-Maintain identical head-to-toe scale and feet position in every view.
-Character-LEFT and CHARACTER-RIGHT are anatomical, not viewer sides.
-Do NOT mirror to fake another view. Show garment silhouette and
-rear fabric, seam/collar continuity, shoe side profiles and proper
-layering. Avoid perspective, dramatic posing, strong shadow, logos,
-background objects and text. Use a flat plain contrasting background
-(or truly transparent PNG only if supported); the pipeline will
-segment character foreground. Generate at the model's true native
-image resolution and preserve requested aspect ratio.
-ATTACH the real FRONT cell extracted from sheet_front_back.png,
-as reference for the SAME clothed character and hairstyle.
-Preserve the exact same facial expression, face markings, eyes,
-earrings, hair decorations and visible garment collar/neck details
-seen in the full-body FRONT image. Do NOT render a nude mannequin,
-invent new clothing, hide the face or crop the jaw.
-NO label, panel number, layout guide text, grid divider or watermark
-may appear in the output PNG.
+PRODUCTION PURPOSE — MATCH THE 3D VTUBER BASE IDENTITY:
+Match the exact natural {skin_color} skin color from head to neck.
+Preserve eyes, jaw, iris, eyelashes, scalp/hairstyle, facial markings,
+ears and lighting from the first FRONT reference.
+The existing 3D reconstruction can use the same hairstyle as the body
+views; do not invent a different hairstyle or hair accessory.
+NO costume collar, turtleneck, bodysuit neckline, cloth edge,
+stitching, scarf, jewelry, invented clothing or gray fabric.
+Keep an unoccluded, non-explicit head/neck skin reference.
+No full-body portrait, labels, grid, props, text or watermark.
 ```
 
 #### 3D 캐릭터 업로드 ZIP
@@ -641,7 +610,7 @@ character_3d_sheet_pack.zip
     └── face.png
 ```
 
-Colab ②에서 **캐릭터 생성 → 3d → 전신 다중 시점(기본값)**을 선택하고 ④에서 이 ZIP을 업로드합니다. ⑤에서 네 방향을 개별 컷으로 분할·고해상도 정규화하여 3D 복원·텍스처·리깅으로 전달합니다. **현재 결과의 기본 의상은 완성 아바타에 통합됩니다.** 다른 의상을 입힌 3D 아바타가 필요하면 해당 새 의상을 네 시점 전체에 일치하게 반영하여 **새 VRM으로 재제작**해야 합니다.
+Colab ②에서 **캐릭터 생성 → 3d → 전신 다중 시점(기본값)**을 선택하고 ④에서 ZIP을 업로드합니다. ⑤에서 네 방향을 개별 컷으로 분할·정규화하여 3D 복원·텍스처·리깅으로 전달합니다. 출력물은 피부색 신체 베이스 VRM이며 **별도 의상은 포함되지 않습니다.** 검증된 상업적 이용 가능 의상 모델을 나중에 별도 처리해야 하며, 이 파이프라인이 자동으로 옷을 피팅·스키닝하거나 전환하는 기능을 제공하지는 않습니다.
 
 ### ② 액세서리 제작 — 소품과 교체형 의상은 별개
 
@@ -745,9 +714,9 @@ Save exact filename outfit_variant.png, rename the download if needed.
 
 #### ②-3. 3D 외부 의상 교체 — 수동 편집기 전달만 지원 (고급)
 
-현재 레포의 3D 자동 본선은 **기본 의상 포함 VRM**을 생성하며, 3D 의상 자동 교체는 제공하지 않습니다. VRoid Studio의 별도 [Dress-up/XWear](https://vroid.pixiv.help/hc/en-us/articles/39512879834649-Introduction-to-VRoid-Studio-s-Dress-Up-Feature)는 외부 편집기 작업으로, 실제로 제작된 `costume.xwear`와 기준 `avatar.vrm`을 사용합니다. Colab의 **3D 교체 의상(XWear)**은 유효한 `base_avatar.vrm`과 `costume.xwear`를 받아 **편집기로 전달할 `vroid_dressup_handoff.zip`**만 구성합니다. 옷이 착용된 새로운 VRM을 자동 생성하지 않습니다. 기본 의상이 이미 있는 VRM에서는 의상 관통·중복 메시 삭제 및 피팅을 외부 편집기에서 수행해야 합니다.
+현재 레포의 3D 자동 본선은 **입력 이미지의 외형을 하나의 VRM 메시로 복원**하며, 위 기본 프롬프트는 의상 없이 피부색 신체를 생성합니다. 3D 의상 자동 교체는 제공하지 않습니다. VRoid Studio의 별도 [Dress-up/XWear](https://vroid.pixiv.help/hc/en-us/articles/39512879834649-Introduction-to-VRoid-Studio-s-Dress-Up-Feature)는 외부 편집기 작업으로, 실제로 제작된 `costume.xwear`와 기준 `avatar.vrm`을 사용합니다. Colab의 **3D 교체 의상(XWear)**은 유효한 `base_avatar.vrm`과 `costume.xwear`를 받아 **편집기로 전달할 `vroid_dressup_handoff.zip`**만 구성합니다. 옷이 착용된 새로운 VRM을 자동 생성하지 않습니다. 의상이나 기존 바디슈트가 이미 통합된 VRM에서는 의상 관통·중복 메시 삭제 및 피팅을 외부 편집기에서 수행해야 합니다.
 
-**기본 권장 경로는 위 3D 의상 통합 캐릭터 제작입니다.** 단순 PNG 의상 참조 이미지를 XWear 원본이라고 주장하거나, 고정 본 액세서리를 몸이 구부러지는 의상으로 취급하지 않습니다.
+**피부색 3D 신체 베이스를 먼저 만들고, 실제 별도 제작된 의상 메시를 외부 편집기에서 피팅하는 것이 교체형 의상의 출발점입니다.** 단순 PNG 의상 참조 이미지를 XWear 원본이라고 주장하거나, 고정 본 액세서리를 몸이 구부러지는 의상으로 취급하지 않습니다.
 
 ## 작업 모드
 
