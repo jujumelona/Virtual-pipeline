@@ -23,7 +23,11 @@ def inspect_native_inp(path: str) -> dict:
     if len(raw) < 32 or raw[:8] not in (INP1_MAGIC, INP2_MAGIC):
         raise ValueError("Inochi native INP header missing")
     if raw[:8] == INP2_MAGIC:
-        return {"format": "INP2", "file_size": len(raw)}
+        # Upstream 0.9's public deformation binding implementation is
+        # disabled. A magic-only INP2 check cannot demonstrate animation,
+        # so refuse an unparsed version until the native SDK proves both
+        # structure and functioning keyframes across reimport.
+        raise ValueError("INP2 native deformation/physics validation is unavailable")
     length = struct.unpack_from(">I", raw, 8)[0]
     offset = 12 + length
     if length < 32 or offset + 12 > len(raw):
