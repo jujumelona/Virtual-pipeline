@@ -905,12 +905,10 @@ def build_avatar_ui(
         head, setup_logs = require_runtime_ready()
         logs.extend(setup_logs)
 
-        # The official Blender binary/VRM extension is only needed for 3D.
-        # Installation and operator validation must finish before model work.
-        from tools.setup_blender_runtime import ensure_blender_runtime
-        blender_bin = ensure_blender_runtime(
-            str(WORK_ROOT / "third_party" / "blender")
-        )
+        # Generation is a read-only inference boundary: Blender must have
+        # passed an actual VRM operator probe during the 3D setup transition.
+        from tools.setup_blender_runtime import require_blender_runtime_ready
+        blender_bin = require_blender_runtime_ready()
         logs.append(f"Blender VRM extension verified: {blender_bin}")
         progress(0.30, desc="Avatar 생성 시작")
         build_avatar, _, _ = _pipeline_imports()
@@ -1268,6 +1266,10 @@ def choose_workflow(mode: str, usage: str):
         # selecting 3D never provisioned the required ANIME_SEGMENTATION_REPO.
         from tools.install_2d_workers import activate_alpha_environment
         _setup_stage("3D alpha-only worker environment", activate_alpha_environment)
+        from tools.setup_blender_runtime import ensure_blender_runtime
+        _setup_stage("3D Blender VRM operator verification", lambda: ensure_blender_runtime(
+            str(WORK_ROOT / "third_party" / "blender")
+        ))
     # Mode selection is the first checkpoint download boundary. Do not fetch
     # TripoSR/InstantMesh for 2D; do not fetch FLUX for 3D.
     prepare_models(mode)
