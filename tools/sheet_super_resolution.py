@@ -1,7 +1,7 @@
 """GPU-tiled anime super-resolution for extracted sprite parts.
 
-Model: official Real-ESRGAN release v0.2.5.0 / realesr-animevideov3.pth,
-BSD-3-Clause source, SRVGGNetCompact (BSD-3-Clause, Xintao Wang/BasicSR).
+Model: official Real-ESRGAN release v0.2.2.4 / RealESRGAN_x4plus_anime_6B.pth,
+BSD-3-Clause source, RRDBNet 6-block architecture (BSD-3-Clause, Xintao Wang/BasicSR).
 Downloads belong to Colab cell ③ only. Inference belongs to cell ⑤.
 No interpolated upscale is silently represented as neural super-resolution.
 """
@@ -15,12 +15,13 @@ from urllib.request import urlopen
 
 MODEL_URL = (
     "https://github.com/xinntao/Real-ESRGAN/releases/download/"
-    "v0.2.5.0/realesr-animevideov3.pth"
+    "v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth"
 )
-EXPECTED_BYTES = 2504012  # release asset byte count; not a cryptographic pin
-MODEL_NAME = "realesr-animevideov3.pth"
-# Explicitly stored provenance binds each inference to the downloaded bytes.
-# Upstream does not publish a SHA-256 in the GitHub release API.
+EXPECTED_BYTES = 17938799  # release asset byte count; not a cryptographic pin
+MODEL_NAME = "RealESRGAN_x4plus_anime_6B.pth"
+# Independently observed from the official v0.2.2.4 release asset; not a
+# publisher-provided checksum. Bind caches and subsequent downloads to it.
+EXPECTED_SHA256 = "f872d837d3c90ed2e05227bed711af5671a6fd1c9f7d7e91c911a61f155e99da"
 CACHE = Path(os.environ.get("VTUBER_SR_CACHE", "/content/vtuber_builder/models/anime_sr"))
 
 
@@ -43,7 +44,7 @@ def prepare_weights(cache: Path | None = None) -> str:
         if (data.get("source") == MODEL_URL
                 and data.get("bytes") == EXPECTED_BYTES
                 and weight.stat().st_size == EXPECTED_BYTES
-                and data.get("sha256") == _sha(weight)):
+                and data.get("sha256") == EXPECTED_SHA256 == _sha(weight)):
             print(f"[sheet-sr] verified cached model: {weight}", flush=True)
             return str(weight)
     if os.environ.get("VTUBER_NOTEBOOK_EXPLICIT_DOWNLOAD") == "1":
@@ -68,19 +69,21 @@ def prepare_weights(cache: Path | None = None) -> str:
                 f"expected {EXPECTED_BYTES}"
             )
         digest = _sha(tmp)
+        if digest != EXPECTED_SHA256:
+            raise RuntimeError("Official anime 6B asset digest mismatch")
         # Before trusting tensor deserialization, use safe weights_only=True
         # and check the expected architecture keys and tensor dimensions.
         import torch
         obj = torch.load(tmp, map_location="cpu", weights_only=True)
         state = obj.get("params_ema", obj.get("params", obj)) if isinstance(obj, dict) else {}
-        if not isinstance(state, dict) or "body.0.weight" not in state:
+        if not isinstance(state, dict) or "body.5.rdb3.conv5.weight" not in state:
             raise RuntimeError("Unexpected anime SR model architecture")
         tmp.replace(weight)
         marker = manifest.with_suffix(".tmp")
         marker.write_text(json.dumps({
             "source": MODEL_URL, "bytes": EXPECTED_BYTES,
             "sha256": digest, "license": "BSD-3-Clause",
-            "architecture": "SRVGGNetCompact(3,3,64,16,4,prelu)",
+            "architecture": "RRDBNet(3,3,64,6,32,4)",
         }, indent=2), encoding="utf-8")
         marker.replace(manifest)
         print(f"[sheet-sr] verified weights sha256={digest}", flush=True)
@@ -90,31 +93,52 @@ def prepare_weights(cache: Path | None = None) -> str:
 
 
 def _model_class():
-    # Architecturally identical to upstream BasicSR srvgg_arch.py, avoiding
-    # introducing basicsr/realesrgan's incompatible transitive dependencies.
+    # Inference-only equivalent of BasicSR RRDBNet(3,3,64,6,32,scale=4).
+    # Original architecture: Xintao Wang / BasicSR, BSD-3-Clause.
+    # https://github.com/XPixelGroup/BasicSR/blob/master/basicsr/archs/rrdbnet_arch.py
+    # Omit random training initialization: strict checkpoint loading replaces it.
     import torch
     from torch import nn
     from torch.nn import functional as F
 
+    class DenseBlock(nn.Module):
+        def __init__(self):
+            super().__init__()
+            for index in range(1, 6):
+                setattr(self, f"conv{index}", nn.Conv2d(
+                    64 + 32 * (index - 1), 64 if index == 5 else 32, 3, 1, 1))
+
+        def forward(self, x):
+            features = [x]
+            for index in range(1, 5):
+                features.append(F.leaky_relu(
+                    getattr(self, f"conv{index}")(torch.cat(features, dim=1)), 0.2))
+            return x + 0.2 * self.conv5(torch.cat(features, dim=1))
+
+    class RRDB(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.rdb1, self.rdb2, self.rdb3 = DenseBlock(), DenseBlock(), DenseBlock()
+
+        def forward(self, x):
+            return x + 0.2 * self.rdb3(self.rdb2(self.rdb1(x)))
+
     class AnimeSR(nn.Module):
         def __init__(self):
             super().__init__()
-            self.body = nn.ModuleList()
-            self.body.append(nn.Conv2d(3, 64, 3, 1, 1))
-            self.body.append(nn.PReLU(num_parameters=64))
-            for _ in range(16):
-                self.body.append(nn.Conv2d(64, 64, 3, 1, 1))
-                self.body.append(nn.PReLU(num_parameters=64))
-            self.body.append(nn.Conv2d(64, 3 * 16, 3, 1, 1))
-            self.upsampler = nn.PixelShuffle(4)
+            self.conv_first = nn.Conv2d(3, 64, 3, 1, 1)
+            self.body = nn.Sequential(*(RRDB() for _ in range(6)))
+            for name in ("conv_body", "conv_up1", "conv_up2", "conv_hr"):
+                setattr(self, name, nn.Conv2d(64, 64, 3, 1, 1))
+            self.conv_last = nn.Conv2d(64, 3, 3, 1, 1)
 
         def forward(self, x):
-            out = x
-            for layer in self.body:
-                out = layer(out)
-            return self.upsampler(out) + F.interpolate(
-                x, scale_factor=4, mode="nearest"
-            )
+            features = self.conv_first(x)
+            features = features + self.conv_body(self.body(features))
+            for layer in (self.conv_up1, self.conv_up2):
+                features = F.leaky_relu(layer(F.interpolate(
+                    features, scale_factor=2, mode="nearest")), 0.2)
+            return self.conv_last(F.leaky_relu(self.conv_hr(features), 0.2))
 
     return AnimeSR
 
@@ -130,6 +154,8 @@ def load_model(cache: Path | None = None):
     data = json.loads(receipt.read_text(encoding="utf-8"))
     if (data.get("source") != MODEL_URL
             or data.get("bytes") != weight.stat().st_size
+            or data.get("bytes") != EXPECTED_BYTES
+            or data.get("sha256") != EXPECTED_SHA256
             or data.get("sha256") != _sha(weight)):
         raise RuntimeError("Anime SR weights do not match downloaded provenance")
     state = torch.load(weight, map_location="cpu", weights_only=True)
@@ -174,7 +200,7 @@ def upscale_rgba(image, model, *, output_scale: int = 2, tile: int = 128):
     result = Image.new("RGB", (w * output_scale, h * output_scale))
     device = next(model.parameters()).device
     dtype = next(model.parameters()).dtype
-    pad = 12
+    pad = 10  # official Real-ESRGAN tile_pad default
     for y in range(0, h, tile):
         for x in range(0, w, tile):
             x0, y0 = max(0,x-pad), max(0,y-pad)

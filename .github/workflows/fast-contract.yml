@@ -77,6 +77,7 @@ jobs:
             tests/test_readme_sheet_prompts.py \
             tests/test_prompt_skin_base_contract.py \
             tests/test_sheet_input_loader.py \
+            tests/test_sheet_sr_official.py \
             tests/test_inochi_setup.py \
             tests/test_2d_runtime_failures.py \
             tests/integration/test_colab_bootstrap_imports.py \
