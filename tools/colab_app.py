@@ -504,6 +504,8 @@ def _model_fingerprint() -> str:
 
 
 def _model_scope(mode: str) -> str:
+    if mode == "common_2d_layers":
+        return "common_2d_layers"
     if mode in ("inochi2d", "live2d", "common_2d"):
         return "common_2d"
     if mode == "3d":
@@ -1230,18 +1232,22 @@ def build_2d_ui(image_path, commercial_usage, target="live2d"):
         return f"{target} 제작 실패: {exc}", traceback.format_exc(), None
 
 
-def _run_2d_production_inline(image_path, commercial_usage, target="live2d"):
+def _run_2d_production_inline(image_path, commercial_usage,
+                              user_layers_zip=None, target="live2d"):
     """Executed only by the detached ML worker, never by a Gradio handler."""
     if target not in {"inochi2d", "live2d"}:
         return "지원하지 않는 2D 모드", "", None
     if not image_path:
         return "원본 캐릭터 이미지를 업로드하세요.", "", None
     try:
+        if os.environ.get("VTUBER_2D_SUPPLIED_LAYERS") == "1" and not user_layers_zip:
+            raise ValueError("External 2D layers profile requires all 26 PNG layers ZIP")
         ensure_workflow_for_generation(target, commercial_usage)
         from vtuber_pipeline.common.schemas import SourceSet
         from vtuber_pipeline.two_d.build import build_inochi2d, build_live2d
         output = OUTPUT_ROOT / uuid.uuid4().hex[:10] / target
         source = SourceSet(mode=target, front_image=str(image_path),
+                           user_layers_zip=str(user_layers_zip) if user_layers_zip else None,
                            commercial_usage=commercial_usage, output_dir=str(output))
         result = build_inochi2d(source) if target == "inochi2d" else build_live2d(source)
         details = (f"mode: {target}\nstatus: {result.status}\n"
@@ -1370,8 +1376,12 @@ def _reattach_generation_workers(mode: str) -> None:
     model process must rebind them even when checkpoint downloads are cached.
     """
     if mode in {"inochi2d", "live2d"}:
-        from tools.install_2d_workers import activate_2d_environment
-        _setup_stage("Bind verified 2D workers", activate_2d_environment)
+        if os.environ.get("VTUBER_2D_SUPPLIED_LAYERS") == "1":
+            print("[2d-layers] Direct RGBA layer route: no SAM/Florence/FLUX "
+                  "worker environments to bind", flush=True)
+        else:
+            from tools.install_2d_workers import activate_2d_environment
+            _setup_stage("Bind verified 2D workers", activate_2d_environment)
         if mode == "inochi2d":
             if os.environ.get("VTUBER_NOTEBOOK_EXPLICIT_DOWNLOAD") == "1":
                 from tools.setup_inochi_runtime import bind_prepared_inochi_runtime
@@ -1406,7 +1416,12 @@ def ensure_workflow_for_generation(mode: str, usage: str) -> Tuple[str, List[str
     """One-click production: prepare missing models in an isolated subprocess."""
     was_prepared = False
     try:
-        result = require_runtime_ready(mode)
+        scope = (
+            "common_2d_layers" if mode in {"live2d", "inochi2d"}
+            and os.environ.get("VTUBER_2D_SUPPLIED_LAYERS") == "1"
+            else mode
+        )
+        result = require_runtime_ready(scope)
     except RuntimeError as exc:
         # The v8 notebook has a dedicated dependency/checkpoint download cell.
         # Never silently install models during its generation cell.
@@ -1421,7 +1436,7 @@ def ensure_workflow_for_generation(mode: str, usage: str) -> Tuple[str, List[str
         print(f"[workflow] {mode}: preparing missing models automatically", flush=True)
         choose_workflow(mode, usage)
         was_prepared = True
-        result = require_runtime_ready(mode)
+        result = require_runtime_ready(scope)
     if os.environ.get("VTUBER_GENERATION_WORKER") == "1" and not was_prepared:
         _reattach_generation_workers(mode)
     return result
