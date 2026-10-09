@@ -42,3 +42,14 @@ jobs:
       - name: Verify D SDK producer's binary is not silently faked
         run: |
           python -m pytest -q tests/production/test_inochi_native_compatibility.py
+      - name: Upload actual native INP and validation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: inochi-sdk-native-inp-proof
+          path: |
+            ${{ runner.temp }}/inochi-multi-parameter/result/avatar.inp
+            ${{ runner.temp }}/inochi-multi-parameter/result/native_export_report.json
+            ${{ runner.temp }}/inochi-multi-parameter/result/inochi_native.log
+          if-no-files-found: warn
+          retention-days: 14
