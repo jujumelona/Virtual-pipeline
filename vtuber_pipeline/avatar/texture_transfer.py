@@ -18,6 +18,7 @@ def transfer_texture(
     right_image_path: Optional[str] = None,
     full_body: bool = False,
     texture_size: int = 1024,
+    uv_map_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Transfer texture from source image to fitted mesh.
     
@@ -121,11 +122,14 @@ def transfer_texture(
             
             # Get UV coordinates from mesh or generate spherical mapping
             uv_coords = None
-            if hasattr(mesh, 'visual') and hasattr(mesh.visual, 'uv'):
+            if uv_map_path is not None:
+                uv_coords = np.load(uv_map_path, allow_pickle=False)
+                result["uv_source"] = "supplied_canonical_uv"
+                result["uv_input_path"] = str(pathlib.Path(uv_map_path).resolve())
+            elif hasattr(mesh, 'visual') and hasattr(mesh.visual, 'uv'):
                 uv_coords = np.array(mesh.visual.uv)
                 result["uv_source"] = "mesh"
             else:
-                # Generate spherical UV mapping as fallback
                 uv_coords = _generate_spherical_uv(vertices)
                 result["uv_source"] = "spherical_fallback"
 
@@ -317,6 +321,43 @@ def transfer_texture(
             texture.save(combined_path)
             result["texture_png"] = str(combined_path)
             
+            # MD 6.8 canonical materials/UV artifact contract. These files
+            # describe the exact atlas already sent to the VRM rig; never
+            # synthesize a different atlas that silently diverges from GLB.
+            import json
+            import shutil
+            canonical = pathlib.Path(output_dir) / "base_color.png"
+            shutil.copyfile(texture_path, canonical)
+            uv_manifest = pathlib.Path(output_dir) / "uv.json"
+            uv_manifest.write_text(json.dumps({
+                "schema": "vtuber-uv-mapping-v1",
+                "source": result["uv_source"],
+                "uv": uv_coords.tolist(),
+                "triangles": faces.tolist(),
+                "vertex_count": n_vertices,
+                "texture_size": texture_size,
+                "coordinate_system": "gltf-normalized",
+            }, allow_nan=False), encoding="utf-8")
+            materials_manifest = pathlib.Path(output_dir) / "materials.json"
+            materials_manifest.write_text(json.dumps({
+                "schema": "vtuber-materials-v1",
+                "materials": [{
+                    "name": "Observed character appearance",
+                    "baseColorTexture": canonical.name,
+                    "pbrMetallicRoughness": {
+                        "baseColorFactor": [1, 1, 1, 1],
+                        "metallicFactor": 0,
+                        "roughnessFactor": 1,
+                    },
+                    "alphaMode": "BLEND" if bool(np.any(texels[:, :, 3] < 255)) else "OPAQUE",
+                }],
+                "observation": visibility,
+                "view_sources": result["reference_sources"],
+                "unobserved_fill_is_inferred": True,
+            }, allow_nan=False), encoding="utf-8")
+            result["base_color"] = str(canonical)
+            result["uv_json"] = str(uv_manifest)
+            result["materials_json"] = str(materials_manifest)
             result["status"] = "complete"
             
         except ImportError as e:
