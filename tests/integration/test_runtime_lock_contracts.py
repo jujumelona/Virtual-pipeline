@@ -280,8 +280,8 @@ def test_readme_open_in_colab_badge_targets_canonical_separate_cells_notebook():
     notebook = json.loads(_read(notebook_file))
     cells = ["".join(c.get("source", [])) for c in notebook["cells"]
              if c.get("cell_type") == "code"]
-    assert len(cells) == 8
-    setup, selection, prefetch, upload, generate, download, diagnostics, final = cells
+    assert len(cells) == 12
+    setup, selection, live2d, inochi, three_d, accessory, prefetch, upload, generate, download, diagnostics, final = cells
     assert "prepare_2d_image_uploads" in upload
     assert "write_prompt_package(" not in "\n".join(cells)
     assert "setup_code" not in setup
@@ -289,8 +289,8 @@ def test_readme_open_in_colab_badge_targets_canonical_separate_cells_notebook():
     assert "colab_mode_prepare.py" in prefetch
     assert "--mode" in prefetch
     assert "stop_legacy_server()" in setup
-    assert 'TASK = "캐릭터 생성"' in selection
-    assert 'MODE = "3d"' in selection
+    assert 'TOP_MODE = "live2d" #@param' in selection
+    assert 'MODE = "3d" if TOP_MODE == "accessory" else TOP_MODE' in selection
     assert "prepare_models(" not in selection
     assert "subprocess.Popen(" not in selection
     assert "files.upload" in upload

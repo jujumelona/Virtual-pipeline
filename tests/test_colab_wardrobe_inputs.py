@@ -12,21 +12,21 @@ def code_cells():
             if x["cell_type"]=="code"]
 
 def test_wardrobe_cells_compile_without_notebook_controlflow_errors():
-    for index in (1,2,3,4):
+    for index in range(1, 9):
         ast.parse(code_cells()[index],filename=f"colab_v8_code_{index}")
 
 def test_wardrobe_is_accessory_subtype_not_falsely_static_bone_attachment():
     cells=code_cells()
-    options=cells[1]
-    uploads=cells[3]
-    build=cells[4]
-    assert 'ACCESSORY_SUBTYPE = "소품"' in options
+    options=cells[5]
+    uploads=cells[7]
+    build=cells[8]
+    assert 'ACCESSORY_SUBTYPE_OPTION = "소품"' in options
     # User-visible task options now live in the dynamic, scoped UI module.
     from tools.colab_mode_ui import ACCESSORY_LABELS
     assert "소품" in ACCESSORY_LABELS
     for subtype in ("2D 교체 의상","3D 교체 의상(XWear)"):
         assert subtype in ACCESSORY_LABELS and subtype in uploads and subtype in build
-    assert "render_notebook_controls(globals())" in options
+    assert 'globals().get("TOP_MODE") == "accessory"' in options
     assert 'OUTFIT_2D_TARGET' in options
     assert 'outfit_variant.png' in uploads
     assert 'costume.xwear' in uploads
@@ -44,10 +44,10 @@ def test_wardrobe_is_accessory_subtype_not_falsely_static_bone_attachment():
 
 def test_wardrobe_3d_never_claims_complete_automatically_skinned_vrm():
     cells=code_cells()
-    download=cells[2]
+    download=cells[6]
     assert 'if wardrobe_3d:' in download
     assert 'GPU를 설치하지 않습니다.' in download
-    generation=cells[4]
+    generation=cells[8]
     assert '착용 완료 VRM이 아닙니다' in generation
     assert 'prepare_vroid_dressup(' in generation
 

@@ -175,10 +175,10 @@ def test_character_mode_rejects_accessory_only_mode_in_ui_dispatch():
                            "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
     cells = ["".join(cell["source"]) for cell in notebook["cells"]
              if cell["cell_type"] == "code"]
-    assert 'TASK = "캐릭터 생성"' in cells[1]
-    assert 'ACCESSORY_ANCHOR = "AUTO"' in cells[1]
-    assert 'elif TASK == "액세서리 제작":' in cells[4]
-    tree = ast.parse(cells[4])
+    assert 'TOP_MODE = "live2d" #@param' in cells[1]
+    assert 'ACCESSORY_ANCHOR_OPTION = "AUTO" #@param' in cells[5]
+    assert 'elif TASK == "액세서리 제작":' in cells[8]
+    tree = ast.parse(cells[8])
     branches = [node for node in ast.walk(tree) if isinstance(node, ast.If)]
     work = next(node for node in branches if
                 ast.unparse(node.test) == "TASK == '캐릭터 생성'")
@@ -195,7 +195,7 @@ def test_v8_notebook_cells_are_independent_and_failure_is_not_success():
                            "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
     cells = ["".join(c["source"]) for c in notebook["cells"]
              if c["cell_type"] == "code"]
-    assert len(cells) == 8
+    assert len(cells) == 12
     for cell in cells:
         ast.parse(cell)
     setup, selection, prefetch, upload, build, download, diagnostics, last = cells

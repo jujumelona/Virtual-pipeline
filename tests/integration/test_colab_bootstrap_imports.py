@@ -210,52 +210,44 @@ def test_setup_stage_prints_and_persists_exception(tmp_path, capsys):
 
 
 def test_readme_canonical_notebook_uses_native_colab_cells():
-    notebook_path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v8.ipynb"
+    path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v8.ipynb"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb" in readme
     cells = ["".join(c["source"]) for c in json.loads(
-        notebook_path.read_text(encoding="utf-8"))["cells"] if c["cell_type"] == "code"]
-    assert len(cells) == 8
+        path.read_text(encoding="utf-8"))["cells"] if c["cell_type"] == "code"]
+    assert len(cells) == 12
     assert "subprocess.Popen(" in cells[0]
     assert "colab_bootstrap.log" in cells[0]
     assert "start_new_session=True" in cells[0]
     assert "stop_legacy_server()" in cells[0]
-    assert 'TASK = "캐릭터 생성"' in cells[1]
-    assert "ACCESSORY_ANCHOR = \"AUTO\"" in cells[1]
-    assert "colab_mode_prepare.py" in cells[2]
-    assert "generate(" not in cells[2]
-    assert "prepare_2d_image_uploads" in cells[3]
-    assert "files.upload" in cells[3]
-    assert "generate(" not in cells[3]
-    assert 'if TASK == "캐릭터 생성":' in cells[4]
-    assert 'elif TASK == "액세서리 제작":' in cells[4]
-    assert "MODE =" in cells[1]
-    assert "files.download(" not in cells[4]
-    assert "files.download(" in cells[5]
-    assert "colab_native import generate" in cells[4]
+    assert '#@param ["live2d", "inochi2d", "3d", "accessory"]' in cells[1]
+    assert all("#@param" in cells[i] for i in (2, 3, 4, 5))
+    assert "colab_mode_prepare.py" in cells[6]
+    assert "prepare_2d_image_uploads" in cells[7]
+    assert "files.upload" in cells[7]
+    assert 'if TASK == "캐릭터 생성":' in cells[8]
+    assert 'elif TASK == "액세서리 제작":' in cells[8]
+    assert "files.download(" in cells[9]
+    assert "from tools.colab_native import generate" in cells[8]
     assert "colab_ui_launcher" not in "".join(cells)
 
 
 def test_native_mode_picker_does_not_download_unselected_models(monkeypatch, capsys):
-    notebook = json.loads(
-        (ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v8.ipynb")
-        .read_text(encoding="utf-8"))
+    notebook = json.loads((ROOT/"notebooks"/"VTuber_Commercial_Pipeline_Colab_v8.ipynb")
+                          .read_text(encoding="utf-8"))
     cells = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
-    assert len(cells) == 8
-    assert "prepare_models(" not in cells[1]
-    assert "subprocess." not in cells[1]
+    assert len(cells) == 12
+    assert "subprocess." not in "\n".join(cells[1:6])
     def forbidden(*args, **kwargs):
-        raise AssertionError("mode selection must not spawn any process")
+        raise AssertionError("mode options must never download models")
     monkeypatch.setattr(subprocess, "Popen", forbidden)
-    import tools.colab_mode_ui as picker
-    called = []
-    def fake_browser(values):
-        called.append(True)
-        return ("캐릭터 생성", "3d", "personalNonProfit", True, "")
-    monkeypatch.setattr(picker, "choose_notebook_controls", fake_browser)
-    exec(compile(cells[1], "<colab-mode>", "exec"), {})
-    assert called == [True]
-    assert "② 제작 옵션 확정" in capsys.readouterr().out
+    scope = {}
+    exec(compile(cells[1], "<colab-parent>", "exec"), scope)
+    assert scope["TOP_MODE"] == "live2d"
+    for i in range(2, 6):
+        exec(compile(cells[i], "<colab-submode>", "exec"), scope)
+    assert scope["MODE_DETAILS_SELECTED"] == "live2d"
+    assert "Live2D 설정 완료" in capsys.readouterr().out
 
 
 def test_model_prepare_entrypoint_dumps_unmodified_traceback(tmp_path, capsys):
@@ -295,10 +287,10 @@ def test_all_colab_notebooks_use_native_cell_lifetimes():
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
         cells = ["".join(cell["source"]) for cell in notebook["cells"]
                  if cell["cell_type"] == "code"]
-        expected = 8 if suffix == "_v8" else 3
+        expected = 12 if suffix == "_v8" else 3
         assert len(cells) == expected, notebook_path
         if suffix == "_v8":
-            _, _, prefetch, upload, generate, download, diagnostics, final_cell = cells
+            _, _, _, _, _, _, prefetch, upload, generate, download, diagnostics, final_cell = cells
             assert "prepare_2d_image_uploads" in upload
             assert "colab_mode_prepare.py" in prefetch
             assert "generate(" not in prefetch
