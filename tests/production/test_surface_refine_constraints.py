@@ -16,8 +16,18 @@ def _run(tmp_path, confidence):
     generated.vertices = np.asarray(generated.vertices) + [0.02, 0.0, 0.0]
     aligned = tmp_path / "aligned.glb"
     generated.export(aligned)
+    # The downstream silhouette contract consumes a real local alpha image.
+    # A fake nonexistent "source.png" can no longer model an observed input.
+    from PIL import Image, ImageDraw
+    source_png = tmp_path / "source.png"
+    foreground = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+    ImageDraw.Draw(foreground).ellipse((12, 5, 115, 123),
+                                      fill=(150, 100, 200, 255))
+    foreground.save(source_png)
     references = tmp_path / "reference_quality.json"
-    references.write_text(json.dumps({"images": {"front": {"path": "source.png"}}}))
+    references.write_text(json.dumps({
+        "images": {"front": {"path": str(source_png.resolve())}}
+    }))
     constraints = tmp_path / "constraints.json"
     constraints.write_text(json.dumps({
         "contract": "vtuber-multiview-constraints-v1",
