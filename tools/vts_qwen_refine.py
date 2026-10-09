@@ -72,7 +72,7 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
     output_dir.mkdir(parents=True,exist_ok=True)
     quant_path=Path(snapshot_download(QUANT,local_files_only=True))
     lora_path=Path(snapshot_download(ADAPTER,local_files_only=True))/"model"
-    Path(snapshot_download(BASE,local_files_only=True))
+    base_path=Path(snapshot_download(BASE,local_files_only=True))
     if not (lora_path/"adapter_model.safetensors").is_file():
         raise FileNotFoundError("Stable-Layers adapter was not prepared in cell ③")
     patched=output_dir/"stable_layers_qwen_nf4_runtime.py"
@@ -82,14 +82,17 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
     cmd=[
         python or sys.executable, "-u", str(patched),
         "--input",str(input_image.resolve()),"--output",str(output_dir/"qwen_layers"),
-        "--base-model",BASE,"--lora",str(lora_path),
+        "--base-model",str(base_path),"--lora",str(lora_path),
         "--steps","50","--guidance-scale","1.0","--num-layers","4",
         "--size","640","--transparent","--device","cuda",
     ]
     log=output_dir/"stable_layers_full.log"
     begin=time.monotonic()
     with log.open("w",encoding="utf-8") as f:
-        p=subprocess.Popen(cmd,cwd=third_party/"Stable-Layers",
+        runtime_env=os.environ.copy()
+        runtime_env["HF_HUB_OFFLINE"]="1"
+        runtime_env["TRANSFORMERS_OFFLINE"]="1"
+        p=subprocess.Popen(cmd,cwd=third_party/"Stable-Layers",env=runtime_env,
                            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
                            text=True,bufsize=1)
         try:
