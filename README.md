@@ -615,6 +615,7 @@ Exact palette / HEX swatches: {palette}
 Accessories / locations: {accessories}
 Other permanent character details: {other_details}
 
+OUTPUT FILE NAME: face.png.
 TASK: One frontal orthographic close-up of the exact SAME character
 from column 1 of sheet_front_back.png.
 ASPECT RATIO WIDTH:HEIGHT=1:1 (square).
