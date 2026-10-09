@@ -102,8 +102,9 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
                 or left + tile.width <= 0 or top + tile.height <= 0):
             continue
         # Exclude opaque painted scene backgrounds: VTuber ArtMeshes only.
-        coverage = sum(1 for pixel in tile.getchannel("A").getdata() if pixel > 0)
-        if coverage / (size[0] * size[1]) > 0.85:
+        from PIL import ImageStat
+        opacity_ratio = ImageStat.Stat(tile.getchannel("A")).sum[0] / (255 * size[0] * size[1])
+        if opacity_ratio > 0.85:
             print("[VTS PSD] skipping near-full-canvas background:",layer.name,flush=True)
             continue
         leaves.append((str(layer.name or "layer"), tile, left, top))
