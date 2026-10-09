@@ -928,7 +928,7 @@ def build_avatar_ui(
         if not image_path:
             return "❌ 캐릭터 이미지를 선택하세요.", "", None, previous_avatar
 
-        head, setup_logs = require_runtime_ready()
+        head, setup_logs = ensure_workflow_for_generation("3d", commercial_usage)
         logs.extend(setup_logs)
 
         # Generation is a read-only inference boundary: Blender must have
@@ -1036,7 +1036,7 @@ def build_accessories_ui(
     logs: List[str] = []
 
     try:
-        head, setup_logs = require_runtime_ready()
+        head, setup_logs = ensure_workflow_for_generation("3d", "corporation")
         logs.extend(setup_logs)
         _, reconstruct_accessories, AccessoryPipeline = _pipeline_imports()
 
@@ -1318,13 +1318,24 @@ def choose_workflow(mode: str, usage: str):
     )
 
 
+def ensure_workflow_for_generation(mode: str, usage: str) -> Tuple[str, List[str]]:
+    """Prepare selected-mode models on Build; keep uploads independent of setup."""
+    try:
+        return require_runtime_ready(mode)
+    except RuntimeError as exc:
+        if "② 모델 다운로드·검증을 먼저 완료하세요." not in str(exc):
+            raise
+    print(f"[workflow] {mode}: preparing missing models automatically", flush=True)
+    choose_workflow(mode, usage)
+    return require_runtime_ready(mode)
+
+
 def select_workflow_view(mode: str, usage: str):
-    """Show image uploads immediately; do not block navigation on pip/HF."""
+    """Mode selection only displays image inputs; setup is part of Build."""
     if mode not in {"inochi2d", "live2d", "3d"}:
         raise ValueError(f"Unsupported workflow mode: {mode!r}")
     if usage not in {"corporation", "personalProfit", "personalNonProfit"}:
         raise ValueError(f"Unsupported use scope: {usage!r}")
-    label = {"inochi2d": "Inochi2D", "live2d": "Live2D", "3d": "3D VRM"}[mode]
     return (
         gr.update(visible=False),
         gr.update(visible=(mode == "inochi2d")),
@@ -1332,35 +1343,7 @@ def select_workflow_view(mode: str, usage: str):
         gr.update(visible=(mode == "3d")),
         gr.update(visible=False),
         usage,
-        mode,
-        f"{label} 이미지 업로드 화면입니다. 모델 및 환경 준비 중입니다. "
-        "준비 완료 전에는 제작을 시작하지 마세요.",
-        None,
     )
-
-
-def prepare_selected_workflow_ui(mode: str, usage: str):
-    """Retain the selected upload screen when an on-demand setup fails."""
-    label = {"inochi2d": "Inochi2D", "live2d": "Live2D", "3d": "3D VRM"}.get(mode, mode)
-    try:
-        choose_workflow(mode, usage)
-    except Exception as exc:
-        path = WORK_ROOT / "logs" / f"workflow_setup_{mode}.log"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as output:
-            output.write(f"\n[{datetime.now(timezone.utc).isoformat()}] {label} setup failure\n")
-            output.write(traceback.format_exc() + "\n")
-        # The failed command's stdout/stderr is also persisted in
-        # worker_envs/two_d/logs/dependency_setup.log or runtime_setup.log.
-        print(f"[workflow] {label} FAILED: {exc} (traceback: {path})", flush=True)
-        return (
-            f"{label} 환경/모델 준비 실패: {exc}\n"
-            f"전체 호출 오류: {path}\n"
-            f"pip 설치 상세: {WORK_ROOT / 'worker_envs' / 'two_d' / 'logs' / 'dependency_setup.log'}\n"
-            "이미지는 계속 올릴 수 있습니다. 원인 수정 후 '환경·모델 준비 재시도'를 누르세요.",
-            str(path),
-        )
-    return f"{label} 환경·모델 준비 및 검증 완료. 이미지 업로드 후 제작할 수 있습니다.", None
 
 
 def return_to_workflow_choice():
@@ -1383,7 +1366,6 @@ def build_app() -> gr.Blocks:
     with gr.Blocks(title="VTuber Builder") as demo:
         latest_avatar = gr.State(value=None)
         selected_usage = gr.State(value="corporation")
-        selected_mode = gr.State(value="3d")
         gr.Markdown("# VTuber Builder")
 
         with gr.Group(visible=True, elem_id="workflow-start") as workflow_start:
@@ -1403,14 +1385,6 @@ def build_app() -> gr.Blocks:
             )
             enter_workflow = gr.Button("다음", variant="primary")
 
-        workflow_setup_status = gr.Textbox(
-            label="선택한 모드의 환경·모델 준비 상태", lines=4,
-            interactive=False, value="작업 모드를 선택하고 다음을 누르세요.",
-        )
-        workflow_setup_log = gr.File(
-            label="실패 시 전체 호출 오류 로그", interactive=False,
-        )
-
         with gr.Column(visible=False) as inochi2d_view:
             gr.Markdown(
                 "## Inochi2D\n"
@@ -1419,7 +1393,6 @@ def build_app() -> gr.Blocks:
                 "네이티브 SDK가 실제 .inp를 출력해야만 complete입니다."
             )
             inochi_back = gr.Button("← 모드 선택", size="sm", variant="secondary")
-            inochi_retry = gr.Button("Inochi2D 환경·모델 준비 재시도", size="sm")
             inochi_image = gr.Image(
                 label="Inochi2D 캐릭터 그림", sources=["upload"],
                 type="filepath", height=390,
@@ -1460,7 +1433,6 @@ def build_app() -> gr.Blocks:
                 "공식 Cubism Editor 내보내기 전에는 needs_editor_export입니다."
             )
             live2d_back = gr.Button("← 모드 선택", size="sm", variant="secondary")
-            live2d_retry = gr.Button("Live2D 환경·모델 준비 재시도", size="sm")
             two_d_image = gr.Image(
                 label="2D 캐릭터 원본 일러스트 (필수)",
                 sources=["upload"], type="filepath", height=390,
@@ -1508,7 +1480,6 @@ def build_app() -> gr.Blocks:
         with gr.Column(visible=False) as avatar_view:
             gr.Markdown("## 사용자 이미지 → 전신 VRM\n외부 AI에서 직접 만든 이미지를 업로드합니다. 이 프로그램은 이미지를 생성하지 않습니다.")
             avatar_back = gr.Button("← 2D / 3D 선택", size="sm", variant="secondary")
-            avatar_retry = gr.Button("3D 환경·모델 준비 재시도", size="sm")
             avatar_to_accessory = gr.Button("3D 액세서리 제작 →", size="sm", variant="secondary")
             with gr.Row():
                 with gr.Column(scale=2, min_width=360):
@@ -1720,32 +1691,14 @@ def build_app() -> gr.Blocks:
                 concurrency_limit=1,
             )
 
-        selected_event = enter_workflow.click(
+        enter_workflow.click(
             fn=select_workflow_view, inputs=[mode, usage],
             outputs=[
-                workflow_start, inochi2d_view, live2d_view, avatar_view,
-                accessory_view, selected_usage, selected_mode,
-                workflow_setup_status, workflow_setup_log,
+                workflow_start, inochi2d_view, live2d_view,
+                avatar_view, accessory_view, selected_usage,
             ],
             show_progress="hidden",
         )
-        selected_event.then(
-            fn=prepare_selected_workflow_ui,
-            inputs=[selected_mode, selected_usage],
-            outputs=[workflow_setup_status, workflow_setup_log],
-            show_progress="full",
-            concurrency_id="vtuber_model_setup",
-            concurrency_limit=1,
-        )
-        for retry in (inochi_retry, live2d_retry, avatar_retry):
-            retry.click(
-                fn=prepare_selected_workflow_ui,
-                inputs=[selected_mode, selected_usage],
-                outputs=[workflow_setup_status, workflow_setup_log],
-                show_progress="full",
-                concurrency_id="vtuber_model_setup",
-                concurrency_limit=1,
-            )
         for back in (inochi_back, live2d_back, avatar_back):
             back.click(
                 fn=return_to_workflow_choice,
