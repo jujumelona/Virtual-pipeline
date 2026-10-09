@@ -16,6 +16,9 @@ MODELS = {
     "depth_anything_v2_small": ("depth-anything/Depth-Anything-V2-Small-hf", "Apache-2.0"),
 }
 MODE_ASSETS = {
+    # Direct supplied-layer production needs only the real face detector for
+    # aligned landmark/keyform extraction; never downloads 4B FLUX / SAM.
+    "common_2d_layers": ("anime_face_yolov3", "anime_face_hrnetv2"),
     "common_2d": ("skytnt_anime_seg_isnet_is", "florence2_base", "sam2_1_hiera_tiny",
                   "anime_face_yolov3", "anime_face_hrnetv2", "flux2_klein_4b"),
     # Do not prefetch restricted InstantMesh checkpoints. The production
