@@ -266,8 +266,8 @@ class AvatarPipeline:
         if not isinstance(rigging_cfg, dict) or set(rigging_cfg) - {"provider"}:
             return config_failure("rigging must be an object with only provider")
         rigging_provider = rigging_cfg.get("provider", "canonical")
-        if rigging_provider not in {"canonical", "skintokens"}:
-            return config_failure("rigging.provider must be canonical or skintokens")
+        if rigging_provider not in {"canonical", "skintokens", "blender_heat"}:
+            return config_failure("rigging.provider must be canonical, blender_heat or skintokens")
         skintokens_identity = None
         if rigging_provider == "skintokens":
             # Experimental CUDA provider is preflighted before spending time on
@@ -775,6 +775,22 @@ class AvatarPipeline:
                 return self._fail(results, "skintokens_skin",
                                   skintokens.get("error") or "SkinTokens produced no validated rig")
             rigged_mesh = skintokens["rigged_mesh"]
+            results["rigged_mesh"] = rigged_mesh
+
+        if rigging_provider == "blender_heat":
+            from vtuber_pipeline.avatar.blender_heat_bridge import run_blender_heat
+            heat = self._run_stage(
+                "blender_heat_skin", (rigged_mesh,),
+                lambda: run_blender_heat(
+                    rigged_mesh, str(pathlib.Path(output_dir) / "blender_heat"),
+                ),
+            )
+            results["stages"]["blender_heat_skin"] = heat
+            if (heat.get("status") != "complete"
+                    or not pathlib.Path(heat.get("rigged_mesh") or "").is_file()):
+                return self._fail(results, "blender_heat_skin",
+                                  heat.get("error") or "Blender heat skin is not validated")
+            rigged_mesh = heat["rigged_mesh"]
             results["rigged_mesh"] = rigged_mesh
 
         # 6. Generate required broadcast expressions and reject empty morphs.
