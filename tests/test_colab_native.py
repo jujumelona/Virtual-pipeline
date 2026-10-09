@@ -201,9 +201,14 @@ def test_v8_notebook_cells_are_independent_and_failure_is_not_success():
     setup, selection, prefetch, upload, build, download, diagnostics, last = cells
     assert "build_prompts(" not in "\n".join(cells)
     assert "write_prompt_package" not in "\n".join(cells)
-    assert "prepare_2d_image_uploads" in upload
+    assert "store_uploaded_zip" in upload
+    assert "SHEET_PACK_PATH" in upload
+    assert "sheet_zip_path=" in build
+    assert "prepare_2d_image_uploads" in upload  # optional legacy mode
     assert "LAYER_ZIP_PATH" in upload
     assert "layers_zip_path=" in build
+    assert "--sheet-pack" in prefetch
+    assert "TWO_D_INPUT = \\"sheets\\"" in selection
     assert "colab_mode_prepare.py" in prefetch
     assert "--mode" in prefetch
     assert "generate(" not in prefetch
