@@ -246,7 +246,8 @@ def test_bake_preserves_preexisting_accessory_root_transforms(tmp_path):
         }},
     )
     assert result["status"] == "complete", result
-    output = GLTF2().load(str(combined))
+    from vtuber_pipeline.core.gltf import load_gltf
+    output = load_gltf(combined)
     validate_gltf(output)
     root = result["merged_accessories"][0]["root_nodes"][0]
     wrapper = result["merged_accessories"][0]["attachment_wrapper_node"]
