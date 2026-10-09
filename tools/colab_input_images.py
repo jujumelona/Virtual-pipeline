@@ -1,7 +1,7 @@
 """Accept raw image files from the Colab uploader; never ask for archives.
 
 An internal ZIP adapts the validated images to the stable 2D builder contract.
-Users provide only 27 individual PNGs. Original filenames, geometry and
+Users provide only 25 individual PNGs (neutral master + 24 parts). Original filenames, geometry and
 alpha are validated before writing any generation-ready receipt.
 """
 from __future__ import annotations
@@ -27,7 +27,7 @@ def prepare_2d_image_uploads(uploaded: dict[str, bytes], output_dir: str) -> tup
     unexpected = names - EXPECTED
     if missing or unexpected:
         raise ValueError(
-            "2D 이미지는 정확히 27장이어야 합니다. "
+            f"2D 이미지는 정확히 {len(EXPECTED)}장이어야 합니다. "
             f"빠진 파일: {sorted(missing)}; 잘못된 파일: {sorted(unexpected)}"
         )
     prepared = {}
