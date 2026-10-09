@@ -26,7 +26,9 @@ def test_wardrobe_is_accessory_subtype_not_falsely_static_bone_attachment():
     assert 'OUTFIT_2D_TARGET' in options
     assert 'outfit_variant.png' in uploads
     assert 'costume.xwear' in uploads
-    assert 'change_outfit(' in build
+    assert 'sheet_prepare_worker.py' in build
+    assert 'wardrobe_2d' in build
+    assert 'inspect_garment_image' in uploads
     assert 'prepare_vroid_dressup(' in build
     assert 'generate(' in build
     # The generic static attach path must be the last accessory branch.
