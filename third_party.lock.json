@@ -178,25 +178,25 @@
       "license_url": "https://huggingface.co/skytnt/anime-seg/blob/493cb60893f47441b26ec4fb9a306bce9e342982/README.md"
     },
     "florence2_base": {
-      "model_id": "microsoft/Florence-2-base",
+      "model_id": "florence-community/Florence-2-base",
       "code_license": "MIT",
       "weights_license": "MIT",
-      "model_revision": "5ca5edf5bd017b9919c05d08aebef5e4c7ac3bac",
+      "model_revision": "0ae188f8620727704bcffa9292a0fdb92f127480",
       "model_weight_sha256": null,
       "commercial_safe": true,
       "license": "MIT",
       "download_allow_patterns": [
         "*.json",
-        "*.py",
         "*.safetensors",
+        "*.txt",
         "LICENSE",
         "README.md"
       ],
-      "cache_path": "~/.cache/huggingface/hub/models--microsoft--Florence-2-base",
-      "model_url": "https://huggingface.co/microsoft/Florence-2-base/tree/5ca5edf5bd017b9919c05d08aebef5e4c7ac3bac",
-      "source_commit": "5ca5edf5bd017b9919c05d08aebef5e4c7ac3bac",
-      "source_url": "https://huggingface.co/microsoft/Florence-2-base/tree/5ca5edf5bd017b9919c05d08aebef5e4c7ac3bac",
-      "license_url": "https://huggingface.co/microsoft/Florence-2-base/blob/5ca5edf5bd017b9919c05d08aebef5e4c7ac3bac/README.md"
+      "cache_path": "~/.cache/huggingface/hub/models--florence-community--Florence-2-base",
+      "model_url": "https://huggingface.co/florence-community/Florence-2-base/tree/0ae188f8620727704bcffa9292a0fdb92f127480",
+      "source_commit": "0ae188f8620727704bcffa9292a0fdb92f127480",
+      "source_url": "https://huggingface.co/florence-community/Florence-2-base/tree/0ae188f8620727704bcffa9292a0fdb92f127480",
+      "license_url": "https://huggingface.co/florence-community/Florence-2-base/blob/0ae188f8620727704bcffa9292a0fdb92f127480/README.md"
     },
     "sam2_1_hiera_tiny": {
       "model_id": "facebook/sam2.1-hiera-tiny",
