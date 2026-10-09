@@ -91,6 +91,13 @@ def test_avatar_ui_passes_usage_to_avatar_and_exposes_vrm(ui, tmp_path, monkeypa
             "texture_size": 2048,
         },
     })]
+    # Nondefault engine selection must reach AvatarPipeline, not just exist
+    # in the Gradio dropdown without a live data binding.
+    second_status, _, _, _ = ui.build_avatar_ui(
+        str(image), "personalProfit", None, rigging_provider="blender_heat",
+    )
+    assert second_status.startswith("✅")
+    assert calls[-1][1]["rigging"] == {"provider": "blender_heat"}
 
 
 def test_accessory_ui_forwards_each_slot_and_chains_combined_vrm(
