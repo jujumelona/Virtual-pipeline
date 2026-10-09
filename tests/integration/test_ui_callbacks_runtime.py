@@ -566,3 +566,43 @@ def test_live_2d_empty_photo_does_not_spawn_model_worker(ui, monkeypatch, mode):
     assert list(handler(None, "corporation", progress=FakeProgress())) == [
         ("원본 캐릭터 이미지를 업로드하세요.", "", None)
     ]
+
+
+def test_same_accessory_image_at_multiple_anchors_only_reconstructs_once(
+    ui, tmp_path, monkeypatch,
+):
+    """The ALL option must not duplicate expensive 3D image reconstruction."""
+    latest = tmp_path / "base.vrm"
+    latest.write_bytes(b"vrm")
+    image = tmp_path / "crown.png"
+    image.write_bytes(b"pixels")
+    mesh = tmp_path / "crown.glb"
+    mesh.write_bytes(b"mesh")
+    reconstructed = []
+    baked = []
+
+    def reconstruct(inputs, output_dir, *, profile):
+        reconstructed.append(inputs)
+        return [{"status": "complete", "mesh": str(mesh)}]
+
+    class Baker:
+        def __init__(self, folder):
+            self.folder = pathlib.Path(folder)
+        def build(self, *, base_vrm, accessory_glb, config):
+            baked.append((base_vrm, accessory_glb, config["anchor_name"]))
+            self.folder.mkdir(parents=True, exist_ok=True)
+            path = self.folder / "combined.vrm"
+            path.write_bytes(b"fake combined")
+            return {"status": "complete", "output_vrm": str(path), "stages": {}}
+
+    monkeypatch.setattr(ui, "_pipeline_imports", lambda: (None, reconstruct, Baker))
+    values = [
+        str(image), "HEAD_TOP", "", 0., 0., 0., 1.,
+        str(image), "FACE", "", 0., 0., 0., 1.,
+    ]
+    status, logs, output = ui.build_accessories_ui(True, None, str(latest), *values)
+    assert status.startswith("✅"), (status, logs)
+    assert reconstructed == [[str(image)]]
+    assert [item[2] for item in baked] == ["HEAD_TOP", "FACE"]
+    assert all(item[1] == str(mesh) for item in baked)
+    assert pathlib.Path(output).is_file()
