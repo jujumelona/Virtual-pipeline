@@ -1,7 +1,7 @@
 """Deterministic high-resolution sprite atlas geometry shared by all boundaries.
 
-Small facial parts are rendered at 2x spatial sampling: 2048px cells
-represent 1024px-wide ROIs of the master. Do not recenter parts within a cell.
+Small facial parts occupy a 2x sampling atlas; the single body sheet
+remains an outfit-free base and never includes garment cells. Do not recenter parts within a cell.
 3D views each retain a full 2048x3072 orthographic tile. All ROI transforms
 are uniform; cropped artwork never changes aspect ratio.
 """
@@ -83,10 +83,10 @@ SHEETS_2D=(
         _t("hair_left",1,0,FULL),
         _t("hair_right",1,1,FULL),
     )),
-    Sheet("sheet_body_outfit.png",(4096,3072),2,2,(
-        _t("body",0,0,BODY),
-        _t("outfit_front",0,1,BODY),
-        _t("outfit_back",1,0,BODY),
+    # The permanent body, not clothing. A single portrait cell maximizes
+    # usable native image resolution and avoids wasted empty garment tiles.
+    Sheet("sheet_body_base.png",(2048,3072),1,1,(
+        _t("body",0,0,FULL),
     )),
     Sheet("sheet_arms_hands.png",(4096,3072),2,2,(
         _t("arm_left",0,0,ARMS),
@@ -116,7 +116,9 @@ def assert_contract()->None:
     from vtuber_pipeline.prompt_contract import LAYER_PARTS
     expected={name for name,_ in LAYER_PARTS}
     found=[t.name for s in SHEETS_2D for t in s.tiles]
-    assert len(found)==len(expected)==26 and set(found)==expected
+    outfit={"outfit_front","outfit_back"}
+    assert len(found)==len(expected-outfit)==24 and set(found)==expected-outfit
+    assert not (set(found)&outfit), "No replaceable garment in base character"
     found_views=[t.name for s in VIEWS_3D for t in s.tiles]
     assert len(found_views)==4 and set(found_views)=={"front","back","left","right"}
     for sheet in (*SHEETS_2D,*VIEWS_3D):
