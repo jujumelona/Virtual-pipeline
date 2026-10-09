@@ -101,6 +101,63 @@ def commit_repaired_part(part, mask: Image.Image, restored_patch: np.ndarray,
     }
 
 
+def configure_low_memory_decode(pipe, *, tile_pixels: int = 256) -> None:
+    """Limit FLUX.2 VAE decode peak without lowering output resolution.
+
+    The pinned AutoencoderKLFlux2 uses a 1024-pixel default tile, so merely
+    enabling tiling is ineffective for most occlusion crops. Explicit 256px
+    sample / 32px latent tiles activate the *actual* tiled decoder in the
+    immutable pinned Diffusers revision.
+    """
+    if tile_pixels < 256 or tile_pixels % 16:
+        raise ValueError("VAE tile size must be a multiple of 16 and >=256")
+    vae = pipe.vae
+    scale = 2 ** (len(vae.config.block_out_channels) - 1)
+    vae.tile_sample_min_size = tile_pixels
+    vae.tile_latent_min_size = tile_pixels // scale
+    vae.tile_overlap_factor = 0.25
+    vae.enable_tiling()
+    vae.enable_slicing()
+    if not vae.use_tiling or vae.tile_latent_min_size != tile_pixels // scale:
+        raise RuntimeError("FLUX.2 decoder tiled-memory contract not enabled")
+    print(
+        "[flux-memory] VAE tiled decode "
+        f"sample_tile={vae.tile_sample_min_size} "
+        f"latent_tile={vae.tile_latent_min_size} "
+        "slicing=enabled full_output_resolution=preserved",
+        flush=True,
+    )
+
+
+def memory_snapshot(stage: str) -> None:
+    """Print cgroup/RSS/CUDA consumption at decoder boundary (before SIGKILL)."""
+    import os
+    import resource
+
+    rss_kib = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    metrics = [f"rss_peak_mib={rss_kib // 1024}"]
+    for key, name in (("memory.current", "cgroup_current_mib"),
+                      ("memory.max", "cgroup_limit_mib")):
+        try:
+            value = (Path("/sys/fs/cgroup") / key).read_text().strip()
+            metrics.append(f"{name}={int(value)//1048576}" if value != "max"
+                           else f"{name}=unlimited")
+        except (OSError, ValueError):
+            pass
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            metrics.extend([
+                f"cuda_allocated_mib={torch.cuda.memory_allocated()//1048576}",
+                f"cuda_reserved_mib={torch.cuda.memory_reserved()//1048576}",
+                f"cuda_free_mib={torch.cuda.mem_get_info()[0]//1048576}",
+            ])
+    except (ImportError, RuntimeError):
+        pass
+    print(f"[flux-memory] stage={stage} " + " ".join(metrics), flush=True)
+
+
 def infer(req):
     from vtuber_pipeline.common.model_assets import resolve_snapshot
     from vtuber_pipeline.common.schemas import PartsDocument
@@ -126,16 +183,32 @@ def infer(req):
     from diffusers import Flux2KleinPipeline
     snapshot = resolve_snapshot("flux2_klein_4b")
     dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
-    pipe = Flux2KleinPipeline.from_pretrained(snapshot, torch_dtype=dtype)
+    memory_snapshot("before_checkpoint_load")
+    pipe = Flux2KleinPipeline.from_pretrained(
+        snapshot, torch_dtype=dtype, low_cpu_mem_usage=True,
+    )
+    configure_low_memory_decode(pipe)
     pipe.enable_model_cpu_offload()
+    memory_snapshot("after_checkpoint_load_offload")
     reports = []
     for index, (part, mask) in enumerate(planned):
         marked, box = prepare_masked_edit(original, mask)
         prompt = PROMPT + f" Target layer: {part.semantic_id}. Restore the gray missing region only."
+        memory_snapshot(f"before_denoise_part_{index}")
+        def _denoise_step(_pipeline, step, timestep, callback_kwargs):
+            if step == 3:
+                # In the pinned pipeline, VAE decoding happens immediately
+                # after the final step callback. This survives if SIGKILL
+                # occurs in decoder memory allocation.
+                memory_snapshot(f"before_vae_decode_part_{index}")
+            return callback_kwargs
+
         edited = pipe(
             image=marked, prompt=prompt, num_inference_steps=4,
             guidance_scale=1.0, width=marked.width, height=marked.height,
+            callback_on_step_end=_denoise_step,
         ).images[0].convert("RGB")
+        memory_snapshot(f"after_vae_decode_part_{index}")
         x0, y0, x1, y1 = box
         restored_patch = np.asarray(
             edited.resize((x1 - x0, y1 - y0), Image.Resampling.LANCZOS),
