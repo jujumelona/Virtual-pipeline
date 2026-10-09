@@ -11,6 +11,68 @@ from vtuber_pipeline.two_d.layer_export import write_psd_and_ora
 from tools.vts_production import _semantic_family, psd_to_registered_rgba
 
 
+@pytest.mark.parametrize("case", ["disabled", "shifted", "white_outside"])
+def test_import_respects_psd_mask_state_and_canvas_coordinates(tmp_path, case):
+    from io import BytesIO
+    from psd_tools import PSDImage
+    from psd_tools.api.layers import PixelLayer
+    psd = PSDImage.new("RGB", (256, 256))
+    layer = PixelLayer.frompil(Image.new("RGB", (32, 32), "red"), psd,
+                               name="hair.front", left=10, top=10)
+    mask = layer.create_mask(Image.new("L", (32 if case == "shifted" else 8, 32 if case == "shifted" else 8), 128),
+                             left=20, top=20)
+    if case == "disabled":
+        mask.disabled = True
+    if case == "white_outside":
+        mask.data.background_color = 255
+    path = tmp_path / "masked.psd"
+    psd.save(path)
+    _, archive, count = psd_to_registered_rgba(path, tmp_path / "result", artmesh_max=100)
+    assert count == 1
+    with ZipFile(archive) as z:
+        rgba = Image.open(BytesIO(z.read(z.namelist()[0]))).convert("RGBA")
+    assert rgba.getpixel((10, 10))[3] == (0 if case == "shifted" else 255)
+    assert rgba.getpixel((20, 20))[3] == (255 if case == "disabled" else 128)
+
+
+def test_large_named_foreground_is_not_dropped_as_background(tmp_path):
+    from psd_tools import PSDImage
+    from psd_tools.api.layers import PixelLayer
+    psd = PSDImage.new("RGB", (256, 256))
+    PixelLayer.frompil(Image.new("RGB", (256, 256), "red"), psd, name="hair.back")
+    path = tmp_path / "foreground.psd"
+    psd.save(path)
+    _, _, count = psd_to_registered_rgba(path, tmp_path / "result", artmesh_max=100)
+    assert count == 1
+
+
+def test_import_combines_transparency_channel_with_user_mask(tmp_path):
+    from io import BytesIO
+    from psd_tools import PSDImage
+    from psd_tools.api.layers import PixelLayer
+    psd = PSDImage.new("RGBA", (256, 256))
+    PixelLayer.frompil(Image.new("RGBA", (32, 32), (255, 0, 0, 128)),
+                       psd, name="hair.front", left=10, top=10)
+    path = tmp_path / "alpha_and_mask.psd"
+    psd.save(path)
+    _, archive, _ = psd_to_registered_rgba(path, tmp_path / "result", artmesh_max=100)
+    with ZipFile(archive) as z:
+        rgba = Image.open(BytesIO(z.read(z.namelist()[0]))).convert("RGBA")
+    assert rgba.getpixel((10, 10)) == (255, 0, 0, 64)
+
+
+def test_explicit_opaque_background_is_excluded(tmp_path):
+    from psd_tools import PSDImage
+    from psd_tools.api.layers import PixelLayer
+    psd = PSDImage.new("RGB", (256, 256))
+    PixelLayer.frompil(Image.new("RGB", (256, 256), "white"), psd, name="background")
+    PixelLayer.frompil(Image.new("RGB", (32, 32), "red"), psd, name="hair.front")
+    path = tmp_path / "background.psd"
+    psd.save(path)
+    _, _, count = psd_to_registered_rgba(path, tmp_path / "result", artmesh_max=100)
+    assert count == 1
+
+
 @pytest.mark.parametrize("name,expected",[
     ("Back Hair", "hair.back"),
     ("front bangs", "hair.front"),

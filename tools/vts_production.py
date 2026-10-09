@@ -134,7 +134,7 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
     Transparent empty leaves are omitted; all image coordinates are preserved.
     """
     from psd_tools import PSDImage
-    from PIL import Image
+    from PIL import Image, ImageChops
 
     dest.mkdir(parents=True, exist_ok=True)
     psd = PSDImage.open(psd_path)
@@ -152,17 +152,15 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
         if tile is None:
             continue
         tile = tile.convert("RGBA")
-        if layer.mask is not None:
+        if layer.mask is not None and not layer.mask.disabled:
             actual_alpha = layer.mask.topil()
             if actual_alpha is None:
                 raise ValueError("PSD layer mask cannot be decoded: "+str(layer.name))
-            if actual_alpha.size != tile.size:
-                full_alpha = Image.new("L", tile.size, 0)
-                full_alpha.paste(actual_alpha.convert("L"),
-                                 (int(layer.mask.left)-int(layer.left),
-                                  int(layer.mask.top)-int(layer.top)))
-                actual_alpha = full_alpha
-            tile.putalpha(actual_alpha.convert("L"))
+            full_alpha = Image.new("L", tile.size, layer.mask.background_color)
+            full_alpha.paste(actual_alpha.convert("L"),
+                             (int(layer.mask.left)-int(layer.left),
+                              int(layer.mask.top)-int(layer.top)))
+            tile.putalpha(ImageChops.multiply(tile.getchannel("A"), full_alpha))
         if not tile.getchannel("A").getbbox():
             continue
         left, top = int(layer.left), int(layer.top)
@@ -172,7 +170,9 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
         # Exclude opaque painted scene backgrounds: VTuber ArtMeshes only.
         from PIL import ImageStat
         opacity_ratio = ImageStat.Stat(tile.getchannel("A")).sum[0] / (255 * size[0] * size[1])
-        if opacity_ratio > 0.85:
+        background_name = bool(re.search(r"(?:^|[ ._-])(background|bg)(?:$|[ ._-])",
+                                         str(layer.name), re.IGNORECASE))
+        if background_name and opacity_ratio > 0.85:
             print("[VTS PSD] skipping near-full-canvas background:",layer.name,flush=True)
             continue
         leaves.append((str(layer.name or "layer"), tile, left, top))
