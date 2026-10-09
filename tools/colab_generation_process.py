@@ -106,7 +106,7 @@ def run_isolated(
 
     def flush_pending() -> None:
         if pending_lines and on_event:
-            on_event(("log", "\\n".join(pending_lines[-12:])))
+            on_event(("log", "\n".join(pending_lines[-12:])))
         pending_lines.clear()
 
     # Do not hold an open pipe or read model weights into the UI process.
