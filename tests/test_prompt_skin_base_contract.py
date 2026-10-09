@@ -33,7 +33,7 @@ def test_3d_generated_prompts_stay_outfit_free_in_all_views():
     identity = _identity()
     data = build_prompts("3d", identity)
     assert data["image_count"] == 5
-    assert "same natural skin" in data["packaging"].lower()
+    assert "neutral natural-skin" in data["packaging"].lower()
     for item in data["images"]:
         prompt = item["prompt"]
         assert "#EBC9B8" in prompt
