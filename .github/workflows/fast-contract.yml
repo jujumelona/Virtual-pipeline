@@ -33,6 +33,7 @@ jobs:
           python -m pytest -q \
             tests/test_multiview_fitting.py \
             tests/production/test_2d_mesh_components.py \
+            tests/production/test_flux_local_edit_contract.py \
             tests/production/test_licensed_multiview.py \
             tests/production/test_uv_projection.py \
             tests/test_visual_alignment.py \
