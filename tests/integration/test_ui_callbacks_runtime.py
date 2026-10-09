@@ -334,6 +334,7 @@ def test_both_2d_modes_do_not_require_3d_gpu_runtime(
         observed_sources.append(source)
         assert source.mode == target
         assert source.commercial_usage == "personalProfit"
+        assert source.user_layers_zip is None, "user must only supply the original character image"
         folder = pathlib.Path(source.output_dir)
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / output_name
@@ -347,7 +348,7 @@ def test_both_2d_modes_do_not_require_3d_gpu_runtime(
         fake_native_graph,
     )
     handler = ui.build_inochi2d_ui if target == "inochi2d" else ui.build_live2d_ui
-    status, report, path = handler(str(artwork), None, "personalProfit")
+    status, report, path = handler(str(artwork), "personalProfit")
     assert checked == [target]
     assert len(observed_sources) == 1
     assert pathlib.Path(path).is_file()
@@ -461,3 +462,61 @@ def test_failed_avatar_does_not_publish_or_download(tmp_path, ui, monkeypatch):
     assert status.startswith("❌"), (status, logs)
     assert download is None
     assert not list(queue.glob("request-*.json")) if queue.is_dir() else True
+
+
+def test_2d_build_autoprepares_missing_model_marker_without_extra_user_steps(ui, tmp_path, monkeypatch):
+    """The user presses Generate once, without a separate 'step 2' button."""
+    from PIL import Image
+    import vtuber_pipeline.two_d.build as production
+    artwork = tmp_path / "character.png"
+    Image.new("RGBA", (300, 400), "white").save(artwork)
+    events = []
+    def ready(mode):
+        events.append(("check", mode))
+        if len(events) == 1:
+            raise RuntimeError("② 모델 다운로드·검증을 먼저 완료하세요.")
+        return ("head", ["verified"])
+    def prepare(mode, usage):
+        events.append(("install", mode, usage))
+    monkeypatch.setattr(ui, "require_runtime_ready", ready)
+    monkeypatch.setattr(ui, "choose_workflow", prepare)
+
+    def build(source):
+        events.append(("build", source.mode, source.user_layers_zip))
+        folder = pathlib.Path(source.output_dir)
+        folder.mkdir(parents=True, exist_ok=True)
+        output = folder / "layers.zip"
+        output.write_bytes(b"valid-test-package")
+        return types.SimpleNamespace(
+            status="needs_editor_export", primary_file=str(output),
+            editable_file=str(output), error=None,
+        )
+
+    monkeypatch.setattr(production, "build_live2d", build)
+    status, report, path = ui.build_live2d_ui(str(artwork), "corporation")
+    assert "needs_editor_export" in report
+    assert pathlib.Path(path).is_file()
+    assert events == [
+        ("check", "live2d"),
+        ("install", "live2d", "corporation"),
+        ("check", "live2d"),
+        ("build", "live2d", None),
+    ]
+
+
+def test_model_install_failure_stops_2d_build_without_faking_success(ui, tmp_path, monkeypatch):
+    import vtuber_pipeline.two_d.build as production
+    image = tmp_path / "character.png"
+    image.write_bytes(b"source")
+    monkeypatch.setattr(ui, "require_runtime_ready", lambda mode: (_ for _ in ()).throw(
+        RuntimeError("② 모델 다운로드·검증을 먼저 완료하세요.")
+    ))
+    def fail(mode, usage):
+        raise RuntimeError("missing compatible CUDA wheel")
+    monkeypatch.setattr(ui, "choose_workflow", fail)
+    monkeypatch.setattr(production, "build_inochi2d",
+                        lambda source: pytest.fail("Cannot build without verified models"))
+    status, report, output = ui.build_inochi2d_ui(str(image), "corporation")
+    assert "제작 실패" in status
+    assert "missing compatible CUDA wheel" in report
+    assert output is None
