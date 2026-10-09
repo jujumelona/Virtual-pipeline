@@ -14,9 +14,6 @@
 
 ### 2D — 총 8개 PNG (기준 이미지 1장 + 파츠 시트 7장)
 
-
-
-
 #### 2D-0. `front_master.png` — 기준 캐릭터
 
 **복사할 프롬프트**
@@ -38,8 +35,7 @@ This is the first image; future 2D sheets must use it as their fixed
 reference. Preserve colors, silhouette, linework,
 gender presentation, facial anatomy, proportions, garment construction,
 lighting, hair roots and all character-defining details exactly.
-The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
-numbers and text MUST NOT appear in the generated image.
+No layout diagram is needed for the first master image.
 One high-resolution RGBA PNG per request; no visible panel borders,
 annotations, guide colors, checkerboard, watermark or extraneous art.
 
@@ -864,8 +860,7 @@ Attach the completed FRONT image from sheet_front_back.png as
 this character's exact size, design and appearance reference.
 Preserve colors, silhouette, linework, gender presentation, anatomy,
 proportions, costume seams and lighting consistently across all views.
-The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
-numbers and text MUST NOT appear in the generated image.
+The image should be a single face closeup, not a sprite sheet or grid.
 One high-resolution RGBA PNG per request; no visible panel borders,
 annotations, guide colors, checkerboard, watermark or extraneous art.
 
