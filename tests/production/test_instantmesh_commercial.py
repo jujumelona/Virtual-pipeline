@@ -27,7 +27,7 @@ def test_triposr_mesh_renders_six_inferred_lrm_views(tmp_path):
 
 def test_commercial_instantmesh_cannot_fall_back_to_nc_upstream(tmp_path, monkeypatch):
     monkeypatch.delenv("INSTANTMESH_DIR", raising=False)
-    with pytest.raises(RuntimeError, match="Commercial LRM requires"):
+    with pytest.raises(RuntimeError, match="Commercial InstantMesh source is not license-cleared"):
         infer({"front_rgba": str(tmp_path / "front.png"),
                "output_dir": str(tmp_path / "out"),
                "commercial_usage": "corporation",
