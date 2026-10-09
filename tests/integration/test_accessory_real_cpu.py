@@ -210,3 +210,48 @@ def test_real_cpu_accessory_geometry_chain_and_bake(tmp_path):
     assert int(appended_view.byteOffset or 0) >= len(base_before.binary_blob() or b"")
 
     assert merged.extensions["VRMC_vrm"] == base_before.extensions["VRMC_vrm"]
+
+
+def test_bake_preserves_preexisting_accessory_root_transforms(tmp_path):
+    """The attachment transform must COMPOSE with a source GLB root TRS."""
+    from pygltflib import GLTF2
+    from pygltflib.validator import validate as validate_gltf
+    from vtuber_pipeline.accessory.bake import (
+        bake_accessories, _root_node_indices,
+    )
+
+    avatar = tmp_path / "base.vrm"
+    raw_glb = tmp_path / "transformed.glb"
+    combined = tmp_path / "merged.vrm"
+    head = _write_base_vrm(avatar)
+    _write_accessory(raw_glb)
+
+    original = GLTF2().load(str(raw_glb))
+    roots = _root_node_indices(original)
+    assert roots
+    source_root = roots[0]
+    source_translation = [0.14, 0.03, -0.21]
+    original.nodes[source_root].translation = source_translation
+    original.save_binary(str(raw_glb))
+    validate_gltf(GLTF2().load(str(raw_glb)))
+
+    attachment_translation = [0.0, 0.2, 0.04]
+    result = bake_accessories(
+        str(avatar), [str(raw_glb)], str(combined),
+        attachment_config={raw_glb.stem: {
+            "parent_bone": "head",
+            "translation": attachment_translation,
+            "rotation": [0.0, 0.0, 0.0, 1.0],
+            "scale": [1.0, 1.0, 1.0],
+        }},
+    )
+    assert result["status"] == "complete", result
+    output = GLTF2().load(str(combined))
+    validate_gltf(output)
+    root = result["merged_accessories"][0]["root_nodes"][0]
+    wrapper = result["merged_accessories"][0]["attachment_wrapper_node"]
+    assert isinstance(wrapper, int)
+    assert wrapper in output.nodes[head].children
+    assert root in output.nodes[wrapper].children
+    assert output.nodes[wrapper].translation == attachment_translation
+    assert output.nodes[root].translation == source_translation
