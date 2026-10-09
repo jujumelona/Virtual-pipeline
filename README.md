@@ -6,702 +6,434 @@
 
 외부 이미지 생성 AI가 만든 캐릭터 이미지를 입력받아 **Inochi2D**, **Live2D**, **3D VRM** 모델을 제작합니다. 모드별 이미지 생성 사양과 프롬프트는 아래에 정리되어 있습니다.
 
-## 고화질 시트 제작 — 배치도와 이미지 생성 프롬프트
+## 캐릭터 이미지 제작: 비율 고정 · 자동 업스케일 · 분리형 의상
 
-각 **배치도 이미지**를 열어 외부 이미지 생성 AI에 *참고 이미지*로 첨부하고, 배치도 바로 아래 프롬프트의 `{...}` 외형 값을 채워 붙여넣습니다. **배치도의 글자·색·격자는 위치 표시용으로만 사용하며 완성된 파츠 이미지에는 포함하지 않습니다.**
+**이미지 생성 AI에는 정확한 픽셀 크기를 강제하지 않습니다.** 아래 프롬프트에서 필요한 것은 **가로:세로 비율**, 시트의 행·열 개수, 각 칸의 파츠 이름, 캐릭터의 일관성입니다. 이미지 AI가 지원하는 실제 기본 해상도로 생성하고, Colab ④ 셀에 올리면 비율을 검사한 뒤 ⑤ 셀에서 **셀 먼저 분할 → 필요할 때 Real-ESRGAN AI 확대 → 리깅 내부 규격으로 정규화**합니다. 비율이 틀어지거나 전체 캐릭터가 파츠 칸을 채우거나 배경이 불투명한 결과는 업스케일만으로 고칠 수 없으므로 다시 생성해야 합니다.
 
-**생성 순서:** 2D는 `front_master.png`를 먼저 만들고, 아래 7개 고해상도 시트를 순서대로 생성합니다. 3D는 정면·후면 시트, 양쪽 측면 시트, 얼굴 확대 순서로 만듭니다. 생성한 PNG를 정해진 파일명으로 저장하고 모드별 ZIP 한 개로 묶습니다.
+**주의:** 이미지 생성 AI가 격자 순서·알파 투명도·부품 종류까지 자동으로 보장하지는 않습니다. 배치도를 첨부하고 결과를 확인해야 합니다. 배치도에 보이는 글자·색상은 최종 이미지에 포함하지 마세요.
 
-### 2D — 총 8개 PNG (기준 이미지 1장 + 파츠 시트 7장)
+### 2D Live2D / Inochi2D — 기준 이미지 1장 + 파츠 시트 7장
 
-#### 2D-0. `front_master.png` — 기준 캐릭터
+제작 순서는 **기준 정면 1장 → 얼굴 1장 → 양쪽 눈 2장 → 입 1장 → 머리 1장 → 몸/의상 1장 → 팔·손 1장**입니다. 이후 시트마다 완성된 기준 정면과 해당 배치도 2개를 이미지 AI에 첨부합니다.
 
-**복사할 프롬프트**
+#### 2D-0. `front_master.png` — 기준 정면
 
-```text
-ORIGINAL VTUBER CHARACTER IDENTITY — EDIT THE BRACED FIELDS:
-Gender / gender presentation: {gender}
-Hair color and HEX: {hair_color}
-Hairstyle / bangs / roots / length / hair ornaments: {hairstyle}
-Eye shape / color / iris patterns / pupils: {eyes}
-Face / skin tone / ears / distinct features: {face}
-Outfit / textiles / garment seams: {outfit}
-Palette and exact HEX color swatches: {palette}
-Accessories and positions: {accessories}
-Other permanent body and character traits: {other_details}
-
-IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-This is the first image; future 2D sheets must use it as their fixed
-reference. Preserve colors, silhouette, linework,
-gender presentation, facial anatomy, proportions, garment construction,
-lighting, hair roots and all character-defining details exactly.
-No layout diagram is needed for the first master image.
-One high-resolution RGBA PNG per request; no visible panel borders,
-annotations, guide colors, checkerboard, watermark or extraneous art.
-
-ABSOLUTE FRONT-MASTER OUTPUT AND COORDINATES:
-File front_master.png; PNG WIDTH=2048 HEIGHT=3072 pixels.
-Origin TOP-LEFT (0,0), +X RIGHT, +Y DOWN; center x=1024.
-Crown y≈240; eyes y≈1110; nose y≈1280; mouth y≈1380;
-chin y≈1510; neck y≈1590; shoulders y≈1730; waist y≈2700.
-CHARACTER LEFT is viewer-RIGHT, CHARACTER RIGHT is viewer-LEFT.
-No mirroring, changing proportions, reframing or tiling.
-This is the first identity reference image: no previous master exists.
-
-TASK:
-Create exactly ONE PNG file named front_master.png, 2048x3072 pixels.
-A single original anime VTuber in straight orthographic FRONT view,
-neutral upright pose, eyes OPEN, mouth CLOSED, visible clean hair
-silhouette, garment seams, detached arms and complete intended
-upper-body design. Full details, no labels, no scene/background clutter.
-Registration anchors: crown y=240, eye line y=1110, nose y=1280,
-mouth y=1380, chin y=1510, shoulder line y=1730, waist y=2700,
-body center x=1024. Uniform light and detailed clean line art.
-Preserve this geometry for all following 2D image sheets.
-```
-
-#### 2D-1. `sheet_face_base.png` — 얼굴 바탕·양쪽 귀·목
-
-![얼굴 바탕·양쪽 귀·목 2×2 배치도 — 시트 셀 위치 참고용](docs/sheet_guides/sheet_face_base_layout.svg)
-
-[배치도 이미지 열기](docs/sheet_guides/sheet_face_base_layout.svg)
-
+**생성 비율: 세로형 2:3.** 시트가 아닌 캐릭터 기준 이미지 한 장입니다.
 
 **복사할 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER IDENTITY — EDIT THE BRACED FIELDS:
-Gender / gender presentation: {gender}
-Hair color and HEX: {hair_color}
-Hairstyle / bangs / roots / length / hair ornaments: {hairstyle}
-Eye shape / color / iris patterns / pupils: {eyes}
-Face / skin tone / ears / distinct features: {face}
-Outfit / textiles / garment seams: {outfit}
-Palette and exact HEX color swatches: {palette}
-Accessories and positions: {accessories}
-Other permanent body and character traits: {other_details}
+CHARACTER IDENTITY (fill in every bracketed field):
+Gender / presentation: {gender}
+Hair color / HEX: {hair_color}
+Hairstyle / bangs / roots / ornaments: {hairstyle}
+Eyes / color / pupils / reflections: {eyes}
+Face / skin / ears / special markings: {face}
+BASE character anatomy / neutral undersuit: {base_body}
+DEFAULT removable outfit / fabric / seams: {outfit}
+Exact palette / HEX swatches: {palette}
+Accessories / locations: {accessories}
+Other permanent character details: {other_details}
 
-IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Use the previously created front_master.png as a real attached reference
-for each subsequent 2D sheet. Preserve colors, silhouette, linework,
-gender presentation, facial anatomy, proportions, garment construction,
-lighting, hair roots and all character-defining details exactly.
-The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
-numbers and text MUST NOT appear in the generated image.
-One high-resolution RGBA PNG per request; no visible panel borders,
-annotations, guide colors, checkerboard, watermark or extraneous art.
-
-PIXEL-REGISTRATION CONTRACT:
-Master front view has size 2048x3072, origin (0,0) at TOP-LEFT,
-+X to the right and +Y down. Each tile corresponds to the
-SPECIFIED MASTER ROI rectangle (x0,y0)-(x1,y1).
-The entire master ROI is magnified to occupy the entire tile if
-cell pixels are 2x the ROI pixels. Maintain the relative pixel
-position of the semantic part inside the ROI; DO NOT recenter,
-shift, flip, independently crop, reframe or stretch its contents.
-Only the named part has true RGBA alpha>0. All other pixels alpha=0.
-Finish occluded structures (scalp/skin beneath hair, full eyelids,
-pupil disks, lips, sleeves under garments, hidden seam continuation).
-No hand-written labels or image layout lines in the final PNG.
-Reserved EMPTY tile is completely transparent alpha=0.
-
-ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
-MASTER RESOLUTION 2048x3072 (width x height).
-ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
-Character CENTER x=1024. Landmarks in MASTER PIXELS:
-crown/top of head y≈240; eyes y≈1110; nose y≈1280;
-mouth y≈1380; chin y≈1510; neck y≈1590;
-shoulders y≈1730; waist y≈2700.
-Preserve these shared physical registration landmarks and character
-anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
-CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
-CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
-Attach the actual previously generated front_master.png to this request
-and use its character appearance AND coordinates as a strict reference.
-
-COMPLETE OUTPUT SPECIFICATIONS:
-EXACT OUTPUT FILE: sheet_face_base.png (RGBA PNG, REAL transparent alpha).
-EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 4096 pixels.
-GRID: 2 columns x 2 rows; CELL: 2048 x 2048 pixels.
-Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
-row1 col1 ear_left: SHEET [0,0,2048,2048)
-row1 col2 ear_right: SHEET [2048,0,4096,2048)
-row2 col1 neck: SHEET [0,2048,2048,4096)
-row2 col2 face: SHEET [2048,2048,4096,4096)
-Each 2048x2048 tile is a native 2x-detail render of one
-1024x1024 ROI in the master; do not upscale a smaller image.
-Do NOT center the part in its tile; preserve the master ROI-relative
-position. All pixels outside the isolated semantic part alpha=0.
-Any EMPTY cell must be entirely transparent. Do not render guide labels.
-
-EXACT OUTPUT: sheet_face_base.png; PNG RGBA; image size 4096x4096.
-EXACT GRID: 2 columns × 2 rows; each cell 2048x2048.
-Attach front_master.png AND docs/sheet_guides/sheet_face_base_layout.svg
-as reference images. The layout reference is NOT meant to be
-reproduced as grid lines, labels or colored backgrounds.
-Tile assignments (ROWS IN ORDER):
-row1 col1: ear_left  master ROI (1024,650)-(2048,1674)
-row1 col2: ear_right  master ROI (0,650)-(1024,1674)
-row2 col1: neck  master ROI (512,1420)-(1536,2444)
-row2 col2: face  master ROI (512,512)-(1536,1536)
-Draw each part completely, including portions hidden behind other
-parts in front_master.png. Never paint any other semantic part.
-No fictitious transparency: background/unused pixels alpha=0.
-Keep identical character appearance and exact absolute ROI alignment.
+TASK: Generate one original anime VTuber FRONT reference image.
+ASPECT RATIO: portrait WIDTH:HEIGHT = 2:3.
+Do not require a specific pixel resolution; render at the model's best
+native supported quality. Neutral upright pose, consistent scale,
+unoccluded facial landmarks, mouth closed, eyes open, complete hair and
+shoulder/arm silhouette, outfit folds and color patches readable.
+This front image will be attached to each later sheet as the SAME
+character reference. This is a SINGLE character, not a parts worksheet.
+No labels, borders, screenshot UI or reference instructions drawn.
 ```
 
-#### 2D-2. `sheet_eye_left.png` — 왼쪽 눈·홍채·눈꺼풀·눈썹
+#### `sheet_face_base.png` — 얼굴 바탕·귀·목
 
-![왼쪽 눈·홍채·눈꺼풀·눈썹 2×2 배치도 — 시트 셀 위치 참고용](docs/sheet_guides/sheet_eye_left_layout.svg)
+**시트 비율: 1:1, 2열 × 2행.** 각 칸은 동일한 크기입니다. [배치도 원본](docs/sheet_guides/sheet_face_base_layout.svg)
 
-[배치도 이미지 열기](docs/sheet_guides/sheet_eye_left_layout.svg)
-
+![얼굴 바탕·귀·목 시트](docs/sheet_guides/sheet_face_base_layout.svg)
 
 **복사할 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER IDENTITY — EDIT THE BRACED FIELDS:
-Gender / gender presentation: {gender}
-Hair color and HEX: {hair_color}
-Hairstyle / bangs / roots / length / hair ornaments: {hairstyle}
-Eye shape / color / iris patterns / pupils: {eyes}
-Face / skin tone / ears / distinct features: {face}
-Outfit / textiles / garment seams: {outfit}
-Palette and exact HEX color swatches: {palette}
-Accessories and positions: {accessories}
-Other permanent body and character traits: {other_details}
+CHARACTER IDENTITY (fill in every bracketed field):
+Gender / presentation: {gender}
+Hair color / HEX: {hair_color}
+Hairstyle / bangs / roots / ornaments: {hairstyle}
+Eyes / color / pupils / reflections: {eyes}
+Face / skin / ears / special markings: {face}
+BASE character anatomy / neutral undersuit: {base_body}
+DEFAULT removable outfit / fabric / seams: {outfit}
+Exact palette / HEX swatches: {palette}
+Accessories / locations: {accessories}
+Other permanent character details: {other_details}
 
-IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Use the previously created front_master.png as a real attached reference
-for each subsequent 2D sheet. Preserve colors, silhouette, linework,
-gender presentation, facial anatomy, proportions, garment construction,
-lighting, hair roots and all character-defining details exactly.
-The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
-numbers and text MUST NOT appear in the generated image.
-One high-resolution RGBA PNG per request; no visible panel borders,
-annotations, guide colors, checkerboard, watermark or extraneous art.
+IDENTITY LOCK:
+ONE identical original VTuber for all images in this mode.
+Reference the attached actual front_master.png (not the placement guide)
+for character design, neutral pose, perspective, proportions and line art.
+The diagram is for sheet CELL ORDER ONLY. Never draw its borders,
+text, numbers, colored backgrounds or any watermark.
+Character LEFT means its own left (viewer RIGHT in the front view).
+Every cell is a separate SEMANTIC layer, not another full character.
+True transparent RGBA PNG; invisible content has real alpha=0.
+Complete hidden outlines where another part will cover a layer.
+Keep relative positions and scale consistent with front_master.png.
+Exact pixel-for-pixel registration may require manual correction;
+the pipeline can normalize size/aspect but cannot invent missing anatomy.
 
-PIXEL-REGISTRATION CONTRACT:
-Master front view has size 2048x3072, origin (0,0) at TOP-LEFT,
-+X to the right and +Y down. Each tile corresponds to the
-SPECIFIED MASTER ROI rectangle (x0,y0)-(x1,y1).
-The entire master ROI is magnified to occupy the entire tile if
-cell pixels are 2x the ROI pixels. Maintain the relative pixel
-position of the semantic part inside the ROI; DO NOT recenter,
-shift, flip, independently crop, reframe or stretch its contents.
-Only the named part has true RGBA alpha>0. All other pixels alpha=0.
-Finish occluded structures (scalp/skin beneath hair, full eyelids,
-pupil disks, lips, sleeves under garments, hidden seam continuation).
-No hand-written labels or image layout lines in the final PNG.
-Reserved EMPTY tile is completely transparent alpha=0.
+TASK: Create a single sheet_face_base.png sprite sheet.
+OUTPUT CANVAS ASPECT RATIO WIDTH:HEIGHT = 1:1.
+LAYOUT = exactly 2 columns and 2 rows, equal-sized rectangular cells.
+Render at the highest NATIVE resolution the image AI truly supports.
+Do not request a fake large resolution or upscale the sheet yourself.
+Row 1, column 1: ear_left
+Row 1, column 2: ear_right
+Row 2, column 1: neck
+Row 2, column 2: face
+The face base is skin and jaw only; no baked eyes, hair, brows or mouth.
 
-ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
-MASTER RESOLUTION 2048x3072 (width x height).
-ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
-Character CENTER x=1024. Landmarks in MASTER PIXELS:
-crown/top of head y≈240; eyes y≈1110; nose y≈1280;
-mouth y≈1380; chin y≈1510; neck y≈1590;
-shoulders y≈1730; waist y≈2700.
-Preserve these shared physical registration landmarks and character
-anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
-CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
-CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
-Attach the actual previously generated front_master.png to this request
-and use its character appearance AND coordinates as a strict reference.
-
-COMPLETE OUTPUT SPECIFICATIONS:
-EXACT OUTPUT FILE: sheet_eye_left.png (RGBA PNG, REAL transparent alpha).
-EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 4096 pixels.
-GRID: 2 columns x 2 rows; CELL: 2048 x 2048 pixels.
-Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
-row1 col1 eye_left_white: SHEET [0,0,2048,2048)
-row1 col2 eye_left_iris: SHEET [2048,0,4096,2048)
-row2 col1 eye_left_lid: SHEET [0,2048,2048,4096)
-row2 col2 brow_left: SHEET [2048,2048,4096,4096)
-Each 2048x2048 tile is a native 2x-detail render of one
-1024x1024 ROI in the master; do not upscale a smaller image.
-Do NOT center the part in its tile; preserve the master ROI-relative
-position. All pixels outside the isolated semantic part alpha=0.
-Any EMPTY cell must be entirely transparent. Do not render guide labels.
-
-EXACT OUTPUT: sheet_eye_left.png; PNG RGBA; image size 4096x4096.
-EXACT GRID: 2 columns × 2 rows; each cell 2048x2048.
-Attach front_master.png AND docs/sheet_guides/sheet_eye_left_layout.svg
-as reference images. The layout reference is NOT meant to be
-reproduced as grid lines, labels or colored backgrounds.
-Tile assignments (ROWS IN ORDER):
-row1 col1: eye_left_white  master ROI (1024,650)-(2048,1674)
-row1 col2: eye_left_iris  master ROI (1024,650)-(2048,1674)
-row2 col1: eye_left_lid  master ROI (1024,650)-(2048,1674)
-row2 col2: brow_left  master ROI (1024,650)-(2048,1674)
-Draw each part completely, including portions hidden behind other
-parts in front_master.png. Never paint any other semantic part.
-No fictitious transparency: background/unused pixels alpha=0.
-Keep identical character appearance and exact absolute ROI alignment.
-Maximize detailed anime eye textures: iris, pupil and catchlights,
-complete eyelids, lashes, full sclera and eyebrow beneath bangs.
-The left/right designation refers to CHARACTER left/right.
+For each occupied cell, draw ONLY the named part in isolation,
+preserving its position and size RELATIVE to the master reference
+(front_master.png). Do not draw a complete face or full character in
+a component cell. Keep the cell geometry and surrounding area truly
+transparent (alpha=0). A reserved EMPTY cell must be fully alpha=0.
+Every cell is a part to be independently rigged after extraction.
 ```
 
-#### 2D-3. `sheet_eye_right.png` — 오른쪽 눈·홍채·눈꺼풀·눈썹
+#### `sheet_eye_left.png` — 캐릭터 왼쪽 눈
 
-![오른쪽 눈·홍채·눈꺼풀·눈썹 2×2 배치도 — 시트 셀 위치 참고용](docs/sheet_guides/sheet_eye_right_layout.svg)
+**시트 비율: 1:1, 2열 × 2행.** 각 칸은 동일한 크기입니다. [배치도 원본](docs/sheet_guides/sheet_eye_left_layout.svg)
 
-[배치도 이미지 열기](docs/sheet_guides/sheet_eye_right_layout.svg)
-
+![캐릭터 왼쪽 눈 시트](docs/sheet_guides/sheet_eye_left_layout.svg)
 
 **복사할 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER IDENTITY — EDIT THE BRACED FIELDS:
-Gender / gender presentation: {gender}
-Hair color and HEX: {hair_color}
-Hairstyle / bangs / roots / length / hair ornaments: {hairstyle}
-Eye shape / color / iris patterns / pupils: {eyes}
-Face / skin tone / ears / distinct features: {face}
-Outfit / textiles / garment seams: {outfit}
-Palette and exact HEX color swatches: {palette}
-Accessories and positions: {accessories}
-Other permanent body and character traits: {other_details}
+CHARACTER IDENTITY (fill in every bracketed field):
+Gender / presentation: {gender}
+Hair color / HEX: {hair_color}
+Hairstyle / bangs / roots / ornaments: {hairstyle}
+Eyes / color / pupils / reflections: {eyes}
+Face / skin / ears / special markings: {face}
+BASE character anatomy / neutral undersuit: {base_body}
+DEFAULT removable outfit / fabric / seams: {outfit}
+Exact palette / HEX swatches: {palette}
+Accessories / locations: {accessories}
+Other permanent character details: {other_details}
 
-IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Use the previously created front_master.png as a real attached reference
-for each subsequent 2D sheet. Preserve colors, silhouette, linework,
-gender presentation, facial anatomy, proportions, garment construction,
-lighting, hair roots and all character-defining details exactly.
-The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
-numbers and text MUST NOT appear in the generated image.
-One high-resolution RGBA PNG per request; no visible panel borders,
-annotations, guide colors, checkerboard, watermark or extraneous art.
+IDENTITY LOCK:
+ONE identical original VTuber for all images in this mode.
+Reference the attached actual front_master.png (not the placement guide)
+for character design, neutral pose, perspective, proportions and line art.
+The diagram is for sheet CELL ORDER ONLY. Never draw its borders,
+text, numbers, colored backgrounds or any watermark.
+Character LEFT means its own left (viewer RIGHT in the front view).
+Every cell is a separate SEMANTIC layer, not another full character.
+True transparent RGBA PNG; invisible content has real alpha=0.
+Complete hidden outlines where another part will cover a layer.
+Keep relative positions and scale consistent with front_master.png.
+Exact pixel-for-pixel registration may require manual correction;
+the pipeline can normalize size/aspect but cannot invent missing anatomy.
 
-PIXEL-REGISTRATION CONTRACT:
-Master front view has size 2048x3072, origin (0,0) at TOP-LEFT,
-+X to the right and +Y down. Each tile corresponds to the
-SPECIFIED MASTER ROI rectangle (x0,y0)-(x1,y1).
-The entire master ROI is magnified to occupy the entire tile if
-cell pixels are 2x the ROI pixels. Maintain the relative pixel
-position of the semantic part inside the ROI; DO NOT recenter,
-shift, flip, independently crop, reframe or stretch its contents.
-Only the named part has true RGBA alpha>0. All other pixels alpha=0.
-Finish occluded structures (scalp/skin beneath hair, full eyelids,
-pupil disks, lips, sleeves under garments, hidden seam continuation).
-No hand-written labels or image layout lines in the final PNG.
-Reserved EMPTY tile is completely transparent alpha=0.
+TASK: Create a single sheet_eye_left.png sprite sheet.
+OUTPUT CANVAS ASPECT RATIO WIDTH:HEIGHT = 1:1.
+LAYOUT = exactly 2 columns and 2 rows, equal-sized rectangular cells.
+Render at the highest NATIVE resolution the image AI truly supports.
+Do not request a fake large resolution or upscale the sheet yourself.
+Row 1, column 1: eye_left_white
+Row 1, column 2: eye_left_iris
+Row 2, column 1: eye_left_lid
+Row 2, column 2: brow_left
+Preserve iris/pupil/reflection detail; only the named component in each cell.
 
-ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
-MASTER RESOLUTION 2048x3072 (width x height).
-ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
-Character CENTER x=1024. Landmarks in MASTER PIXELS:
-crown/top of head y≈240; eyes y≈1110; nose y≈1280;
-mouth y≈1380; chin y≈1510; neck y≈1590;
-shoulders y≈1730; waist y≈2700.
-Preserve these shared physical registration landmarks and character
-anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
-CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
-CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
-Attach the actual previously generated front_master.png to this request
-and use its character appearance AND coordinates as a strict reference.
-
-COMPLETE OUTPUT SPECIFICATIONS:
-EXACT OUTPUT FILE: sheet_eye_right.png (RGBA PNG, REAL transparent alpha).
-EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 4096 pixels.
-GRID: 2 columns x 2 rows; CELL: 2048 x 2048 pixels.
-Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
-row1 col1 eye_right_white: SHEET [0,0,2048,2048)
-row1 col2 eye_right_iris: SHEET [2048,0,4096,2048)
-row2 col1 eye_right_lid: SHEET [0,2048,2048,4096)
-row2 col2 brow_right: SHEET [2048,2048,4096,4096)
-Each 2048x2048 tile is a native 2x-detail render of one
-1024x1024 ROI in the master; do not upscale a smaller image.
-Do NOT center the part in its tile; preserve the master ROI-relative
-position. All pixels outside the isolated semantic part alpha=0.
-Any EMPTY cell must be entirely transparent. Do not render guide labels.
-
-EXACT OUTPUT: sheet_eye_right.png; PNG RGBA; image size 4096x4096.
-EXACT GRID: 2 columns × 2 rows; each cell 2048x2048.
-Attach front_master.png AND docs/sheet_guides/sheet_eye_right_layout.svg
-as reference images. The layout reference is NOT meant to be
-reproduced as grid lines, labels or colored backgrounds.
-Tile assignments (ROWS IN ORDER):
-row1 col1: eye_right_white  master ROI (0,650)-(1024,1674)
-row1 col2: eye_right_iris  master ROI (0,650)-(1024,1674)
-row2 col1: eye_right_lid  master ROI (0,650)-(1024,1674)
-row2 col2: brow_right  master ROI (0,650)-(1024,1674)
-Draw each part completely, including portions hidden behind other
-parts in front_master.png. Never paint any other semantic part.
-No fictitious transparency: background/unused pixels alpha=0.
-Keep identical character appearance and exact absolute ROI alignment.
-Maximize detailed anime eye textures: iris, pupil and catchlights,
-complete eyelids, lashes, full sclera and eyebrow beneath bangs.
-The left/right designation refers to CHARACTER left/right.
+For each occupied cell, draw ONLY the named part in isolation,
+preserving its position and size RELATIVE to the master reference
+(front_master.png). Do not draw a complete face or full character in
+a component cell. Keep the cell geometry and surrounding area truly
+transparent (alpha=0). A reserved EMPTY cell must be fully alpha=0.
+Every cell is a part to be independently rigged after extraction.
 ```
 
-#### 2D-4. `sheet_mouth.png` — 코·닫힌 입·열린 입
+#### `sheet_eye_right.png` — 캐릭터 오른쪽 눈
 
-![코·닫힌 입·열린 입 2×2 배치도 — 시트 셀 위치 참고용](docs/sheet_guides/sheet_mouth_layout.svg)
+**시트 비율: 1:1, 2열 × 2행.** 각 칸은 동일한 크기입니다. [배치도 원본](docs/sheet_guides/sheet_eye_right_layout.svg)
 
-[배치도 이미지 열기](docs/sheet_guides/sheet_mouth_layout.svg)
-
+![캐릭터 오른쪽 눈 시트](docs/sheet_guides/sheet_eye_right_layout.svg)
 
 **복사할 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER IDENTITY — EDIT THE BRACED FIELDS:
-Gender / gender presentation: {gender}
-Hair color and HEX: {hair_color}
-Hairstyle / bangs / roots / length / hair ornaments: {hairstyle}
-Eye shape / color / iris patterns / pupils: {eyes}
-Face / skin tone / ears / distinct features: {face}
-Outfit / textiles / garment seams: {outfit}
-Palette and exact HEX color swatches: {palette}
-Accessories and positions: {accessories}
-Other permanent body and character traits: {other_details}
+CHARACTER IDENTITY (fill in every bracketed field):
+Gender / presentation: {gender}
+Hair color / HEX: {hair_color}
+Hairstyle / bangs / roots / ornaments: {hairstyle}
+Eyes / color / pupils / reflections: {eyes}
+Face / skin / ears / special markings: {face}
+BASE character anatomy / neutral undersuit: {base_body}
+DEFAULT removable outfit / fabric / seams: {outfit}
+Exact palette / HEX swatches: {palette}
+Accessories / locations: {accessories}
+Other permanent character details: {other_details}
 
-IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Use the previously created front_master.png as a real attached reference
-for each subsequent 2D sheet. Preserve colors, silhouette, linework,
-gender presentation, facial anatomy, proportions, garment construction,
-lighting, hair roots and all character-defining details exactly.
-The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
-numbers and text MUST NOT appear in the generated image.
-One high-resolution RGBA PNG per request; no visible panel borders,
-annotations, guide colors, checkerboard, watermark or extraneous art.
+IDENTITY LOCK:
+ONE identical original VTuber for all images in this mode.
+Reference the attached actual front_master.png (not the placement guide)
+for character design, neutral pose, perspective, proportions and line art.
+The diagram is for sheet CELL ORDER ONLY. Never draw its borders,
+text, numbers, colored backgrounds or any watermark.
+Character LEFT means its own left (viewer RIGHT in the front view).
+Every cell is a separate SEMANTIC layer, not another full character.
+True transparent RGBA PNG; invisible content has real alpha=0.
+Complete hidden outlines where another part will cover a layer.
+Keep relative positions and scale consistent with front_master.png.
+Exact pixel-for-pixel registration may require manual correction;
+the pipeline can normalize size/aspect but cannot invent missing anatomy.
 
-PIXEL-REGISTRATION CONTRACT:
-Master front view has size 2048x3072, origin (0,0) at TOP-LEFT,
-+X to the right and +Y down. Each tile corresponds to the
-SPECIFIED MASTER ROI rectangle (x0,y0)-(x1,y1).
-The entire master ROI is magnified to occupy the entire tile if
-cell pixels are 2x the ROI pixels. Maintain the relative pixel
-position of the semantic part inside the ROI; DO NOT recenter,
-shift, flip, independently crop, reframe or stretch its contents.
-Only the named part has true RGBA alpha>0. All other pixels alpha=0.
-Finish occluded structures (scalp/skin beneath hair, full eyelids,
-pupil disks, lips, sleeves under garments, hidden seam continuation).
-No hand-written labels or image layout lines in the final PNG.
-Reserved EMPTY tile is completely transparent alpha=0.
+TASK: Create a single sheet_eye_right.png sprite sheet.
+OUTPUT CANVAS ASPECT RATIO WIDTH:HEIGHT = 1:1.
+LAYOUT = exactly 2 columns and 2 rows, equal-sized rectangular cells.
+Render at the highest NATIVE resolution the image AI truly supports.
+Do not request a fake large resolution or upscale the sheet yourself.
+Row 1, column 1: eye_right_white
+Row 1, column 2: eye_right_iris
+Row 2, column 1: eye_right_lid
+Row 2, column 2: brow_right
+Same iris design and rendering as the left eye, no mirroring the whole face.
 
-ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
-MASTER RESOLUTION 2048x3072 (width x height).
-ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
-Character CENTER x=1024. Landmarks in MASTER PIXELS:
-crown/top of head y≈240; eyes y≈1110; nose y≈1280;
-mouth y≈1380; chin y≈1510; neck y≈1590;
-shoulders y≈1730; waist y≈2700.
-Preserve these shared physical registration landmarks and character
-anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
-CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
-CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
-Attach the actual previously generated front_master.png to this request
-and use its character appearance AND coordinates as a strict reference.
-
-COMPLETE OUTPUT SPECIFICATIONS:
-EXACT OUTPUT FILE: sheet_mouth.png (RGBA PNG, REAL transparent alpha).
-EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 4096 pixels.
-GRID: 2 columns x 2 rows; CELL: 2048 x 2048 pixels.
-Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
-row1 col1 nose: SHEET [0,0,2048,2048)
-row1 col2 mouth_closed: SHEET [2048,0,4096,2048)
-row2 col1 mouth_open: SHEET [0,2048,2048,4096)
-row2 col2 EMPTY: SHEET [2048,2048,4096,4096)
-Each 2048x2048 tile is a native 2x-detail render of one
-1024x1024 ROI in the master; do not upscale a smaller image.
-Do NOT center the part in its tile; preserve the master ROI-relative
-position. All pixels outside the isolated semantic part alpha=0.
-Any EMPTY cell must be entirely transparent. Do not render guide labels.
-
-EXACT OUTPUT: sheet_mouth.png; PNG RGBA; image size 4096x4096.
-EXACT GRID: 2 columns × 2 rows; each cell 2048x2048.
-Attach front_master.png AND docs/sheet_guides/sheet_mouth_layout.svg
-as reference images. The layout reference is NOT meant to be
-reproduced as grid lines, labels or colored backgrounds.
-Tile assignments (ROWS IN ORDER):
-row1 col1: nose  master ROI (512,900)-(1536,1924)
-row1 col2: mouth_closed  master ROI (512,900)-(1536,1924)
-row2 col1: mouth_open  master ROI (512,900)-(1536,1924)
-row2 col2: EMPTY  FULL ALPHA=0
-Draw each part completely, including portions hidden behind other
-parts in front_master.png. Never paint any other semantic part.
-No fictitious transparency: background/unused pixels alpha=0.
-Keep identical character appearance and exact absolute ROI alignment.
-Distinguish mouth_closed and mouth_open as TWO alternate animation states.
-Open mouth includes lips, teeth, tongue and interior. Paint nose alone
-in the nose tile, not the whole surrounding face.
+For each occupied cell, draw ONLY the named part in isolation,
+preserving its position and size RELATIVE to the master reference
+(front_master.png). Do not draw a complete face or full character in
+a component cell. Keep the cell geometry and surrounding area truly
+transparent (alpha=0). A reserved EMPTY cell must be fully alpha=0.
+Every cell is a part to be independently rigged after extraction.
 ```
 
-#### 2D-5. `sheet_hair.png` — 앞머리·뒷머리·양쪽 옆머리
+#### `sheet_mouth.png` — 코·표정용 입
 
-![앞머리·뒷머리·양쪽 옆머리 2×2 배치도 — 시트 셀 위치 참고용](docs/sheet_guides/sheet_hair_layout.svg)
+**시트 비율: 1:1, 2열 × 2행.** 각 칸은 동일한 크기입니다. [배치도 원본](docs/sheet_guides/sheet_mouth_layout.svg)
 
-[배치도 이미지 열기](docs/sheet_guides/sheet_hair_layout.svg)
-
+![코·표정용 입 시트](docs/sheet_guides/sheet_mouth_layout.svg)
 
 **복사할 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER IDENTITY — EDIT THE BRACED FIELDS:
-Gender / gender presentation: {gender}
-Hair color and HEX: {hair_color}
-Hairstyle / bangs / roots / length / hair ornaments: {hairstyle}
-Eye shape / color / iris patterns / pupils: {eyes}
-Face / skin tone / ears / distinct features: {face}
-Outfit / textiles / garment seams: {outfit}
-Palette and exact HEX color swatches: {palette}
-Accessories and positions: {accessories}
-Other permanent body and character traits: {other_details}
+CHARACTER IDENTITY (fill in every bracketed field):
+Gender / presentation: {gender}
+Hair color / HEX: {hair_color}
+Hairstyle / bangs / roots / ornaments: {hairstyle}
+Eyes / color / pupils / reflections: {eyes}
+Face / skin / ears / special markings: {face}
+BASE character anatomy / neutral undersuit: {base_body}
+DEFAULT removable outfit / fabric / seams: {outfit}
+Exact palette / HEX swatches: {palette}
+Accessories / locations: {accessories}
+Other permanent character details: {other_details}
 
-IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Use the previously created front_master.png as a real attached reference
-for each subsequent 2D sheet. Preserve colors, silhouette, linework,
-gender presentation, facial anatomy, proportions, garment construction,
-lighting, hair roots and all character-defining details exactly.
-The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
-numbers and text MUST NOT appear in the generated image.
-One high-resolution RGBA PNG per request; no visible panel borders,
-annotations, guide colors, checkerboard, watermark or extraneous art.
+IDENTITY LOCK:
+ONE identical original VTuber for all images in this mode.
+Reference the attached actual front_master.png (not the placement guide)
+for character design, neutral pose, perspective, proportions and line art.
+The diagram is for sheet CELL ORDER ONLY. Never draw its borders,
+text, numbers, colored backgrounds or any watermark.
+Character LEFT means its own left (viewer RIGHT in the front view).
+Every cell is a separate SEMANTIC layer, not another full character.
+True transparent RGBA PNG; invisible content has real alpha=0.
+Complete hidden outlines where another part will cover a layer.
+Keep relative positions and scale consistent with front_master.png.
+Exact pixel-for-pixel registration may require manual correction;
+the pipeline can normalize size/aspect but cannot invent missing anatomy.
 
-PIXEL-REGISTRATION CONTRACT:
-Master front view has size 2048x3072, origin (0,0) at TOP-LEFT,
-+X to the right and +Y down. Each tile corresponds to the
-SPECIFIED MASTER ROI rectangle (x0,y0)-(x1,y1).
-The entire master ROI is magnified to occupy the entire tile if
-cell pixels are 2x the ROI pixels. Maintain the relative pixel
-position of the semantic part inside the ROI; DO NOT recenter,
-shift, flip, independently crop, reframe or stretch its contents.
-Only the named part has true RGBA alpha>0. All other pixels alpha=0.
-Finish occluded structures (scalp/skin beneath hair, full eyelids,
-pupil disks, lips, sleeves under garments, hidden seam continuation).
-No hand-written labels or image layout lines in the final PNG.
-Reserved EMPTY tile is completely transparent alpha=0.
+TASK: Create a single sheet_mouth.png sprite sheet.
+OUTPUT CANVAS ASPECT RATIO WIDTH:HEIGHT = 1:1.
+LAYOUT = exactly 2 columns and 2 rows, equal-sized rectangular cells.
+Render at the highest NATIVE resolution the image AI truly supports.
+Do not request a fake large resolution or upscale the sheet yourself.
+Row 1, column 1: nose
+Row 1, column 2: mouth_closed
+Row 2, column 1: mouth_open
+Row 2, column 2: EMPTY
+Mouth-open is an alternative mouth animation with tongue, teeth, interior; EMPTY is alpha=0.
 
-ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
-MASTER RESOLUTION 2048x3072 (width x height).
-ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
-Character CENTER x=1024. Landmarks in MASTER PIXELS:
-crown/top of head y≈240; eyes y≈1110; nose y≈1280;
-mouth y≈1380; chin y≈1510; neck y≈1590;
-shoulders y≈1730; waist y≈2700.
-Preserve these shared physical registration landmarks and character
-anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
-CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
-CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
-Attach the actual previously generated front_master.png to this request
-and use its character appearance AND coordinates as a strict reference.
-
-COMPLETE OUTPUT SPECIFICATIONS:
-EXACT OUTPUT FILE: sheet_hair.png (RGBA PNG, REAL transparent alpha).
-EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 6144 pixels.
-GRID: 2 columns x 2 rows; CELL: 2048 x 3072 pixels.
-Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
-row1 col1 hair_front: SHEET [0,0,2048,3072)
-row1 col2 hair_back: SHEET [2048,0,4096,3072)
-row2 col1 hair_left: SHEET [0,3072,2048,6144)
-row2 col2 hair_right: SHEET [2048,3072,4096,6144)
-Each tile corresponds 1:1 to the master ROI indicated below;
-after extraction the pipeline may perform per-part neural upscale.
-Do NOT center the part in its tile; preserve the master ROI-relative
-position. All pixels outside the isolated semantic part alpha=0.
-Any EMPTY cell must be entirely transparent. Do not render guide labels.
-
-EXACT OUTPUT: sheet_hair.png; PNG RGBA; image size 4096x6144.
-EXACT GRID: 2 columns × 2 rows; each cell 2048x3072.
-Attach front_master.png AND docs/sheet_guides/sheet_hair_layout.svg
-as reference images. The layout reference is NOT meant to be
-reproduced as grid lines, labels or colored backgrounds.
-Tile assignments (ROWS IN ORDER):
-row1 col1: hair_front  master ROI (0,0)-(2048,3072)
-row1 col2: hair_back  master ROI (0,0)-(2048,3072)
-row2 col1: hair_left  master ROI (0,0)-(2048,3072)
-row2 col2: hair_right  master ROI (0,0)-(2048,3072)
-Draw each part completely, including portions hidden behind other
-parts in front_master.png. Never paint any other semantic part.
-No fictitious transparency: background/unused pixels alpha=0.
-Keep identical character appearance and exact absolute ROI alignment.
-Every tile retains the entire 2048x3072 front master coordinate system.
-Keep realistic strand detail, filled hidden roots, and hair-tip shape.
+For each occupied cell, draw ONLY the named part in isolation,
+preserving its position and size RELATIVE to the master reference
+(front_master.png). Do not draw a complete face or full character in
+a component cell. Keep the cell geometry and surrounding area truly
+transparent (alpha=0). A reserved EMPTY cell must be fully alpha=0.
+Every cell is a part to be independently rigged after extraction.
 ```
 
-#### 2D-6. `sheet_body_outfit.png` — 몸통·의상 앞·뒤
+#### `sheet_hair.png` — 앞·뒤·옆머리
 
-![몸통·의상 앞·뒤 2×2 배치도 — 시트 셀 위치 참고용](docs/sheet_guides/sheet_body_outfit_layout_v2.svg)
+**시트 비율: 2:3, 2열 × 2행.** 각 칸은 동일한 크기입니다. [배치도 원본](docs/sheet_guides/sheet_hair_layout.svg)
 
-[배치도 이미지 열기](docs/sheet_guides/sheet_body_outfit_layout_v2.svg)
-
+![앞·뒤·옆머리 시트](docs/sheet_guides/sheet_hair_layout.svg)
 
 **복사할 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER IDENTITY — EDIT THE BRACED FIELDS:
-Gender / gender presentation: {gender}
-Hair color and HEX: {hair_color}
-Hairstyle / bangs / roots / length / hair ornaments: {hairstyle}
-Eye shape / color / iris patterns / pupils: {eyes}
-Face / skin tone / ears / distinct features: {face}
-Outfit / textiles / garment seams: {outfit}
-Palette and exact HEX color swatches: {palette}
-Accessories and positions: {accessories}
-Other permanent body and character traits: {other_details}
+CHARACTER IDENTITY (fill in every bracketed field):
+Gender / presentation: {gender}
+Hair color / HEX: {hair_color}
+Hairstyle / bangs / roots / ornaments: {hairstyle}
+Eyes / color / pupils / reflections: {eyes}
+Face / skin / ears / special markings: {face}
+BASE character anatomy / neutral undersuit: {base_body}
+DEFAULT removable outfit / fabric / seams: {outfit}
+Exact palette / HEX swatches: {palette}
+Accessories / locations: {accessories}
+Other permanent character details: {other_details}
 
-IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Use the previously created front_master.png as a real attached reference
-for each subsequent 2D sheet. Preserve colors, silhouette, linework,
-gender presentation, facial anatomy, proportions, garment construction,
-lighting, hair roots and all character-defining details exactly.
-The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
-numbers and text MUST NOT appear in the generated image.
-One high-resolution RGBA PNG per request; no visible panel borders,
-annotations, guide colors, checkerboard, watermark or extraneous art.
+IDENTITY LOCK:
+ONE identical original VTuber for all images in this mode.
+Reference the attached actual front_master.png (not the placement guide)
+for character design, neutral pose, perspective, proportions and line art.
+The diagram is for sheet CELL ORDER ONLY. Never draw its borders,
+text, numbers, colored backgrounds or any watermark.
+Character LEFT means its own left (viewer RIGHT in the front view).
+Every cell is a separate SEMANTIC layer, not another full character.
+True transparent RGBA PNG; invisible content has real alpha=0.
+Complete hidden outlines where another part will cover a layer.
+Keep relative positions and scale consistent with front_master.png.
+Exact pixel-for-pixel registration may require manual correction;
+the pipeline can normalize size/aspect but cannot invent missing anatomy.
 
-PIXEL-REGISTRATION CONTRACT:
-Master front view has size 2048x3072, origin (0,0) at TOP-LEFT,
-+X to the right and +Y down. Each tile corresponds to the
-SPECIFIED MASTER ROI rectangle (x0,y0)-(x1,y1).
-The entire master ROI is magnified to occupy the entire tile if
-cell pixels are 2x the ROI pixels. Maintain the relative pixel
-position of the semantic part inside the ROI; DO NOT recenter,
-shift, flip, independently crop, reframe or stretch its contents.
-Only the named part has true RGBA alpha>0. All other pixels alpha=0.
-Finish occluded structures (scalp/skin beneath hair, full eyelids,
-pupil disks, lips, sleeves under garments, hidden seam continuation).
-No hand-written labels or image layout lines in the final PNG.
-Reserved EMPTY tile is completely transparent alpha=0.
+TASK: Create a single sheet_hair.png sprite sheet.
+OUTPUT CANVAS ASPECT RATIO WIDTH:HEIGHT = 2:3.
+LAYOUT = exactly 2 columns and 2 rows, equal-sized rectangular cells.
+Render at the highest NATIVE resolution the image AI truly supports.
+Do not request a fake large resolution or upscale the sheet yourself.
+Row 1, column 1: hair_front
+Row 1, column 2: hair_back
+Row 2, column 1: hair_left
+Row 2, column 2: hair_right
+Four isolated hair layers, continuous hidden roots and ends, not four portraits.
 
-ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
-MASTER RESOLUTION 2048x3072 (width x height).
-ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
-Character CENTER x=1024. Landmarks in MASTER PIXELS:
-crown/top of head y≈240; eyes y≈1110; nose y≈1280;
-mouth y≈1380; chin y≈1510; neck y≈1590;
-shoulders y≈1730; waist y≈2700.
-Preserve these shared physical registration landmarks and character
-anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
-CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
-CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
-Attach the actual previously generated front_master.png to this request
-and use its character appearance AND coordinates as a strict reference.
-
-COMPLETE OUTPUT SPECIFICATIONS:
-EXACT OUTPUT FILE: sheet_body_outfit.png (RGBA PNG, REAL transparent alpha).
-EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 3072 pixels.
-GRID: 2 columns x 2 rows; CELL: 2048 x 1536 pixels.
-Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
-row1 col1 body: SHEET [0,0,2048,1536)
-row1 col2 outfit_front: SHEET [2048,0,4096,1536)
-row2 col1 outfit_back: SHEET [0,1536,2048,3072)
-row2 col2 EMPTY: SHEET [2048,1536,4096,3072)
-Each tile corresponds 1:1 to the master ROI indicated below;
-after extraction the pipeline may perform per-part neural upscale.
-Do NOT center the part in its tile; preserve the master ROI-relative
-position. All pixels outside the isolated semantic part alpha=0.
-Any EMPTY cell must be entirely transparent. Do not render guide labels.
-
-EXACT OUTPUT: sheet_body_outfit.png; PNG RGBA; image size 4096x3072.
-EXACT GRID: 2 columns × 2 rows; each cell 2048x1536.
-Attach front_master.png AND docs/sheet_guides/sheet_body_outfit_layout_v2.svg
-as reference images. The layout reference is NOT meant to be
-reproduced as grid lines, labels or colored backgrounds.
-Tile assignments (ROWS IN ORDER):
-row1 col1: body  master ROI (0,1300)-(2048,2836)
-row1 col2: outfit_front  master ROI (0,1300)-(2048,2836)
-row2 col1: outfit_back  master ROI (0,1300)-(2048,2836)
-row2 col2: EMPTY  FULL ALPHA=0
-Draw each part completely, including portions hidden behind other
-parts in front_master.png. Never paint any other semantic part.
-No fictitious transparency: background/unused pixels alpha=0.
-Keep identical character appearance and exact absolute ROI alignment.
+For each occupied cell, draw ONLY the named part in isolation,
+preserving its position and size RELATIVE to the master reference
+(front_master.png). Do not draw a complete face or full character in
+a component cell. Keep the cell geometry and surrounding area truly
+transparent (alpha=0). A reserved EMPTY cell must be fully alpha=0.
+Every cell is a part to be independently rigged after extraction.
 ```
 
-#### 2D-7. `sheet_arms_hands.png` — 양쪽 팔·양쪽 손
+#### `sheet_body_outfit.png` — 몸과 옷 분리
 
-![양쪽 팔·양쪽 손 2×2 배치도 — 시트 셀 위치 참고용](docs/sheet_guides/sheet_arms_hands_layout.svg)
+**시트 비율: 4:3, 2열 × 2행.** 각 칸은 동일한 크기입니다. [배치도 원본](docs/sheet_guides/sheet_body_outfit_layout_v2.svg)
 
-[배치도 이미지 열기](docs/sheet_guides/sheet_arms_hands_layout.svg)
-
+![몸과 옷 분리 시트](docs/sheet_guides/sheet_body_outfit_layout_v2.svg)
 
 **복사할 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER IDENTITY — EDIT THE BRACED FIELDS:
-Gender / gender presentation: {gender}
-Hair color and HEX: {hair_color}
-Hairstyle / bangs / roots / length / hair ornaments: {hairstyle}
-Eye shape / color / iris patterns / pupils: {eyes}
-Face / skin tone / ears / distinct features: {face}
-Outfit / textiles / garment seams: {outfit}
-Palette and exact HEX color swatches: {palette}
-Accessories and positions: {accessories}
-Other permanent body and character traits: {other_details}
+CHARACTER IDENTITY (fill in every bracketed field):
+Gender / presentation: {gender}
+Hair color / HEX: {hair_color}
+Hairstyle / bangs / roots / ornaments: {hairstyle}
+Eyes / color / pupils / reflections: {eyes}
+Face / skin / ears / special markings: {face}
+BASE character anatomy / neutral undersuit: {base_body}
+DEFAULT removable outfit / fabric / seams: {outfit}
+Exact palette / HEX swatches: {palette}
+Accessories / locations: {accessories}
+Other permanent character details: {other_details}
 
-IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Use the previously created front_master.png as a real attached reference
-for each subsequent 2D sheet. Preserve colors, silhouette, linework,
-gender presentation, facial anatomy, proportions, garment construction,
-lighting, hair roots and all character-defining details exactly.
-The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
-numbers and text MUST NOT appear in the generated image.
-One high-resolution RGBA PNG per request; no visible panel borders,
-annotations, guide colors, checkerboard, watermark or extraneous art.
+IDENTITY LOCK:
+ONE identical original VTuber for all images in this mode.
+Reference the attached actual front_master.png (not the placement guide)
+for character design, neutral pose, perspective, proportions and line art.
+The diagram is for sheet CELL ORDER ONLY. Never draw its borders,
+text, numbers, colored backgrounds or any watermark.
+Character LEFT means its own left (viewer RIGHT in the front view).
+Every cell is a separate SEMANTIC layer, not another full character.
+True transparent RGBA PNG; invisible content has real alpha=0.
+Complete hidden outlines where another part will cover a layer.
+Keep relative positions and scale consistent with front_master.png.
+Exact pixel-for-pixel registration may require manual correction;
+the pipeline can normalize size/aspect but cannot invent missing anatomy.
 
-PIXEL-REGISTRATION CONTRACT:
-Master front view has size 2048x3072, origin (0,0) at TOP-LEFT,
-+X to the right and +Y down. Each tile corresponds to the
-SPECIFIED MASTER ROI rectangle (x0,y0)-(x1,y1).
-The entire master ROI is magnified to occupy the entire tile if
-cell pixels are 2x the ROI pixels. Maintain the relative pixel
-position of the semantic part inside the ROI; DO NOT recenter,
-shift, flip, independently crop, reframe or stretch its contents.
-Only the named part has true RGBA alpha>0. All other pixels alpha=0.
-Finish occluded structures (scalp/skin beneath hair, full eyelids,
-pupil disks, lips, sleeves under garments, hidden seam continuation).
-No hand-written labels or image layout lines in the final PNG.
-Reserved EMPTY tile is completely transparent alpha=0.
+TASK: Create a single sheet_body_outfit.png sprite sheet.
+OUTPUT CANVAS ASPECT RATIO WIDTH:HEIGHT = 4:3.
+LAYOUT = exactly 2 columns and 2 rows, equal-sized rectangular cells.
+Render at the highest NATIVE resolution the image AI truly supports.
+Do not request a fake large resolution or upscale the sheet yourself.
+Row 1, column 1: body
+Row 1, column 2: outfit_front
+Row 2, column 1: outfit_back
+Row 2, column 2: EMPTY
+WARDROBE / OUTFIT SEPARATION (CRITICAL):
+The base body is NOT the selected costume. It is a covered neutral
+fitted underlayer/skin base with correct limb and shoulder geometry.
+Never bake shirt fabric, coat collars, cuffs or dress details into the
+skin/body layer. Hair, head, eyes and body never change with the outfit.
+Draw the removable OUTFIT_FRONT and OUTFIT_BACK as two isolated garment
+layers. Put all removable collar/fabric/sleeve artwork into clothing
+layers, not body or arms. This 26-layer format currently has no separate
+sleeve deformation meshes: complex moving sleeves require an editor
+adjustment or an extended clothing rig, not a simple layer toggle.
 
-ABSOLUTE 2D MASTER GEOMETRY (MANDATORY FOR THIS IMAGE):
-MASTER RESOLUTION 2048x3072 (width x height).
-ORIGIN top-left (0,0); X positive RIGHT, Y positive DOWN.
-Character CENTER x=1024. Landmarks in MASTER PIXELS:
-crown/top of head y≈240; eyes y≈1110; nose y≈1280;
-mouth y≈1380; chin y≈1510; neck y≈1590;
-shoulders y≈1730; waist y≈2700.
-Preserve these shared physical registration landmarks and character
-anatomy across ALL 2D images. All ROI bounds use [start,end) pixels.
-CHARACTER LEFT = VIEWER RIGHT in a front-facing image.
-CHARACTER RIGHT = VIEWER LEFT. Never mirror the image or the part.
-Attach the actual previously generated front_master.png to this request
-and use its character appearance AND coordinates as a strict reference.
-
-COMPLETE OUTPUT SPECIFICATIONS:
-EXACT OUTPUT FILE: sheet_arms_hands.png (RGBA PNG, REAL transparent alpha).
-EXACT IMAGE SIZE: WIDTH 4096 x HEIGHT 3072 pixels.
-GRID: 2 columns x 2 rows; CELL: 2048 x 1536 pixels.
-Absolute sheet pixel bounds (x0,y0,x1,y1), right/bottom exclusive:
-row1 col1 arm_left: SHEET [0,0,2048,1536)
-row1 col2 arm_right: SHEET [2048,0,4096,1536)
-row2 col1 hand_left: SHEET [0,1536,2048,3072)
-row2 col2 hand_right: SHEET [2048,1536,4096,3072)
-Each tile corresponds 1:1 to the master ROI indicated below;
-after extraction the pipeline may perform per-part neural upscale.
-Do NOT center the part in its tile; preserve the master ROI-relative
-position. All pixels outside the isolated semantic part alpha=0.
-Any EMPTY cell must be entirely transparent. Do not render guide labels.
-
-EXACT OUTPUT: sheet_arms_hands.png; PNG RGBA; image size 4096x3072.
-EXACT GRID: 2 columns × 2 rows; each cell 2048x1536.
-Attach front_master.png AND docs/sheet_guides/sheet_arms_hands_layout.svg
-as reference images. The layout reference is NOT meant to be
-reproduced as grid lines, labels or colored backgrounds.
-Tile assignments (ROWS IN ORDER):
-row1 col1: arm_left  master ROI (0,1100)-(2048,2636)
-row1 col2: arm_right  master ROI (0,1100)-(2048,2636)
-row2 col1: hand_left  master ROI (0,1400)-(2048,2936)
-row2 col2: hand_right  master ROI (0,1400)-(2048,2936)
-Draw each part completely, including portions hidden behind other
-parts in front_master.png. Never paint any other semantic part.
-No fictitious transparency: background/unused pixels alpha=0.
-Keep identical character appearance and exact absolute ROI alignment.
+For each occupied cell, draw ONLY the named part in isolation,
+preserving its position and size RELATIVE to the master reference
+(front_master.png). Do not draw a complete face or full character in
+a component cell. Keep the cell geometry and surrounding area truly
+transparent (alpha=0). A reserved EMPTY cell must be fully alpha=0.
+Every cell is a part to be independently rigged after extraction.
 ```
 
-#### 2D ZIP 폴더 구성
+#### `sheet_arms_hands.png` — 양쪽 팔·손
+
+**시트 비율: 4:3, 2열 × 2행.** 각 칸은 동일한 크기입니다. [배치도 원본](docs/sheet_guides/sheet_arms_hands_layout.svg)
+
+![양쪽 팔·손 시트](docs/sheet_guides/sheet_arms_hands_layout.svg)
+
+**복사할 프롬프트**
+
+```text
+CHARACTER IDENTITY (fill in every bracketed field):
+Gender / presentation: {gender}
+Hair color / HEX: {hair_color}
+Hairstyle / bangs / roots / ornaments: {hairstyle}
+Eyes / color / pupils / reflections: {eyes}
+Face / skin / ears / special markings: {face}
+BASE character anatomy / neutral undersuit: {base_body}
+DEFAULT removable outfit / fabric / seams: {outfit}
+Exact palette / HEX swatches: {palette}
+Accessories / locations: {accessories}
+Other permanent character details: {other_details}
+
+IDENTITY LOCK:
+ONE identical original VTuber for all images in this mode.
+Reference the attached actual front_master.png (not the placement guide)
+for character design, neutral pose, perspective, proportions and line art.
+The diagram is for sheet CELL ORDER ONLY. Never draw its borders,
+text, numbers, colored backgrounds or any watermark.
+Character LEFT means its own left (viewer RIGHT in the front view).
+Every cell is a separate SEMANTIC layer, not another full character.
+True transparent RGBA PNG; invisible content has real alpha=0.
+Complete hidden outlines where another part will cover a layer.
+Keep relative positions and scale consistent with front_master.png.
+Exact pixel-for-pixel registration may require manual correction;
+the pipeline can normalize size/aspect but cannot invent missing anatomy.
+
+TASK: Create a single sheet_arms_hands.png sprite sheet.
+OUTPUT CANVAS ASPECT RATIO WIDTH:HEIGHT = 4:3.
+LAYOUT = exactly 2 columns and 2 rows, equal-sized rectangular cells.
+Render at the highest NATIVE resolution the image AI truly supports.
+Do not request a fake large resolution or upscale the sheet yourself.
+Row 1, column 1: arm_left
+Row 1, column 2: arm_right
+Row 2, column 1: hand_left
+Row 2, column 2: hand_right
+Bare anatomical arms/hands or neutral non-costume undersuit only. No outfit-specific sleeves/cuffs/gloves baked onto base arms or hands.
+
+For each occupied cell, draw ONLY the named part in isolation,
+preserving its position and size RELATIVE to the master reference
+(front_master.png). Do not draw a complete face or full character in
+a component cell. Keep the cell geometry and surrounding area truly
+transparent (alpha=0). A reserved EMPTY cell must be fully alpha=0.
+Every cell is a part to be independently rigged after extraction.
+```
+
+#### 2D 입력 ZIP
 
 ```text
 character_2d_sheet_pack.zip
@@ -716,177 +448,154 @@ character_2d_sheet_pack.zip
     └── sheet_arms_hands.png
 ```
 
-모든 PNG 파일을 같은 최상위 폴더에 넣어도 됩니다. Colab ④ 셀에서 ZIP 한 개를 업로드합니다. 프로그램은 각 시트의 파일명·실제 해상도·진짜 RGBA 투명도·비어 있어야 하는 셀을 검사합니다. 얼굴의 2배 샘플링 파츠는 원본 고해상도 픽셀을 유지하고, 큰 머리/신체 파츠는 **잘라낸 뒤 선택적으로 신경망 초해상도**를 적용합니다. 리깅용 최종 캔버스는 4096×6144입니다.
+### 의상 교체 — 현재 제작 구조의 정확한 범위
 
-### 3D VRM — 총 3개 PNG (전신 시트 2장 + 얼굴 확대 1장)
+**기본 몸 `body`와 팔 `arm_left/right`는 옷을 제외한 중립 베이스**, `outfit_front` 및 `outfit_back`는 기본 옷 전용 레이어입니다. 의상을 교체하려면 **같은 `front_master.png`와 같은 비율·포즈·팔 위치로 새로운 `sheet_body_outfit.png`를 생성하고, 두 `outfit_* ` 레이어만 교체**해야 합니다. 얼굴·머리·피부·팔까지 다시 그리면 캐릭터가 달라집니다.
 
+단, 현재의 두 의상 레이어만으로는 **움직이는 양쪽 소매, 후드, 치마 물리, 옷별 마스크·스킨·메시·키폼이 자동으로 교체되는 기능은 없습니다.** PSD/ORA에서 옷 레이어 교체 후 리깅을 다시 조정해야 합니다. 이 기능을 구현하지 않은 상태에서 방송 중 원클릭 옷 변경이 지원된다고 설명하지 않습니다.
 
+**옷만 다시 생성하는 프롬프트**
 
-#### 3D-1. `sheet_front_back.png` — 정면·후면 전신
+```text
+CHARACTER IDENTITY (fill in every bracketed field):
+Gender / presentation: {gender}
+Hair color / HEX: {hair_color}
+Hairstyle / bangs / roots / ornaments: {hairstyle}
+Eyes / color / pupils / reflections: {eyes}
+Face / skin / ears / special markings: {face}
+BASE character anatomy / neutral undersuit: {base_body}
+DEFAULT removable outfit / fabric / seams: {outfit}
+Exact palette / HEX swatches: {palette}
+Accessories / locations: {accessories}
+Other permanent character details: {other_details}
 
-![정면·후면 전신 배치도 — 시트 셀 위치 참고용](docs/sheet_guides/sheet_front_back_layout.svg)
+TASK: Redesign ONLY the detachable costume for the SAME VTuber.
+Attach the actual original front_master.png as identity reference.
+Aspect ratio WIDTH:HEIGHT = 4:3, 2 columns x 2 rows.
+Row1 Col1: unchanged clean BASE BODY, no costume.
+Row1 Col2: NEW removable OUTFIT FRONT (fabric, collar, bodice,
+sleeves, straps and front garment features only).
+Row2 Col1: NEW removable OUTFIT BACK (back panel, rear garment
+seams, back accessories).
+Row2 Col2: COMPLETELY EMPTY transparent cell.
+Keep face, eye, skin tone, anatomy, arms, hair, base pose,
+relative size, light, linework and all permanent identity unchanged.
+Each cell is its assigned semantic layer only. True alpha transparency.
+No grid lines, captions or drawn placement guide.
+Render at native supported resolution; no exact pixel requirement.
+```
 
-[배치도 이미지 열기](docs/sheet_guides/sheet_front_back_layout.svg)
+### 3D VRM — 전신 2뷰 시트 2장 + 얼굴 확대 1장
+
+3D도 이미지 생성 단계에서는 픽셀 수 대신 **전신 시트 비율 4:3**과 **얼굴 정사각형 1:1**만 지정합니다. 실제 3D 복원 모델에 전달하기 전 프로그램이 시점을 개별 분할하고 내부 크기로 정규화합니다.
+
+#### `sheet_front_back.png` — 정면·후면
+
+**시트 비율: 4:3, 2열 × 1행.** [배치도 원본](docs/sheet_guides/sheet_front_back_layout.svg)
+
+![정면·후면 시트](docs/sheet_guides/sheet_front_back_layout.svg)
 
 **복사할 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER IDENTITY — EDIT THE BRACED FIELDS:
-Gender / gender presentation: {gender}
-Hair color and HEX: {hair_color}
-Hairstyle / bangs / roots / length / hair ornaments: {hairstyle}
-Eye shape / color / iris patterns / pupils: {eyes}
-Face / skin tone / ears / distinct features: {face}
-Outfit / textiles / garment seams: {outfit}
-Palette and exact HEX color swatches: {palette}
-Accessories and positions: {accessories}
-Other permanent body and character traits: {other_details}
+CHARACTER IDENTITY (fill in every bracketed field):
+Gender / presentation: {gender}
+Hair color / HEX: {hair_color}
+Hairstyle / bangs / roots / ornaments: {hairstyle}
+Eyes / color / pupils / reflections: {eyes}
+Face / skin / ears / special markings: {face}
+BASE character anatomy / neutral undersuit: {base_body}
+DEFAULT removable outfit / fabric / seams: {outfit}
+Exact palette / HEX swatches: {palette}
+Accessories / locations: {accessories}
+Other permanent character details: {other_details}
 
-IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-This is the first 3D view sheet; no prior reference is required.
-Preserve colors, silhouette, linework, gender presentation, anatomy,
-proportions, costume seams and lighting consistently across all views.
-The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
-numbers and text MUST NOT appear in the generated image.
-One high-resolution RGBA PNG per request; no visible panel borders,
-annotations, guide colors, checkerboard, watermark or extraneous art.
-
-3D MULTIVIEW OUTPUT RESOLUTION AND PIXEL COORDINATES:
-EXACT FILE sheet_front_back.png; 4096x3072 RGBA PNG (width x height).
-Origin TOP-LEFT (0,0), +X RIGHT, +Y DOWN.
-2 COLUMNS x 1 ROW; EACH CELL 2048x3072 pixels.
-row1 col1 FRONT: SHEET [0,0,2048,3072).
-row1 col2 BACK: SHEET [2048,0,4096,3072).
-LOCAL COORDINATES IN EACH CELL: center x=1024; crown y≈150;
-neck y≈600; shoulders y≈730; waist y≈1550;
-knees y≈2330; ground baseline y≈2930.
-Same exact orthographic figure height and body placement in every view.
-LEFT/RIGHT refer to CHARACTER orientation; do not mirror a view.
-True alpha transparency, no visible reference labels or grid lines.
-
-TASK:
-Output exactly sheet_front_back.png as ONE 4096x3072 PNG,
-2 columns and ONE row of 2048x3072 tiles.
-Attach docs/sheet_guides/sheet_front_back_layout.svg as placement reference.
-row1 col1: FRONT orthographic full-body view, fixed 2048x3072 cell
-row1 col2: BACK orthographic full-body view, fixed 2048x3072 cell
-Same single original character in neutral orthographic A-pose.
-Head crown y=150, neck y=600, shoulders y=730, waist y=1550,
-knees y=2330, feet baseline y=2930, body center x=1024 per tile.
-Same camera height, orthographic projection, apparent body size,
-costume textures and character proportions. Do not mirror images,
-change gender presentation, redesign the outfit or accessories.
-The sheet layout guide is NOT part of the art. No visible grid borders,
-printed labels, gray boxes, background text or watermarks.
+TASK: Generate the SAME original VTuber as TWO separate full-body
+ORTHOGRAPHIC reference views in one sheet_front_back.png image.
+CANVAS ASPECT RATIO WIDTH:HEIGHT = 4:3.
+LAYOUT exactly 2 equal-width columns in one row.
+Column 1: FRONT full body
+Column 2: BACK full body
+Each individual view cell is portrait WIDTH:HEIGHT=2:3.
+Match crown, shoulders, waist, feet and body centerline between views,
+with the same visual scale, neutral A-pose and head-to-foot framing.
+Rotate the character naturally, never mirror the front image.
+This is the first 3D multiview image; preserve this reference identity for the other views.
+Render in the best NATIVE resolution supported by your image model;
+do not specify an absolute pixel width or height.
+The attached diagram is only a layout reference, not image content.
+No drawn dividers, labels, colored boxes, text or watermark.
 ```
 
-#### 3D-2. `sheet_side_views.png` — 좌·우 측면 전신
+#### `sheet_side_views.png` — 좌·우 측면
 
-![좌·우 측면 전신 배치도 — 시트 셀 위치 참고용](docs/sheet_guides/sheet_side_views_layout.svg)
+**시트 비율: 4:3, 2열 × 1행.** [배치도 원본](docs/sheet_guides/sheet_side_views_layout.svg)
 
-[배치도 이미지 열기](docs/sheet_guides/sheet_side_views_layout.svg)
+![좌·우 측면 시트](docs/sheet_guides/sheet_side_views_layout.svg)
 
 **복사할 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER IDENTITY — EDIT THE BRACED FIELDS:
-Gender / gender presentation: {gender}
-Hair color and HEX: {hair_color}
-Hairstyle / bangs / roots / length / hair ornaments: {hairstyle}
-Eye shape / color / iris patterns / pupils: {eyes}
-Face / skin tone / ears / distinct features: {face}
-Outfit / textiles / garment seams: {outfit}
-Palette and exact HEX color swatches: {palette}
-Accessories and positions: {accessories}
-Other permanent body and character traits: {other_details}
+CHARACTER IDENTITY (fill in every bracketed field):
+Gender / presentation: {gender}
+Hair color / HEX: {hair_color}
+Hairstyle / bangs / roots / ornaments: {hairstyle}
+Eyes / color / pupils / reflections: {eyes}
+Face / skin / ears / special markings: {face}
+BASE character anatomy / neutral undersuit: {base_body}
+DEFAULT removable outfit / fabric / seams: {outfit}
+Exact palette / HEX swatches: {palette}
+Accessories / locations: {accessories}
+Other permanent character details: {other_details}
 
-IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Attach the completed FRONT image from sheet_front_back.png as
-this character's exact size, design and appearance reference.
-Preserve colors, silhouette, linework, gender presentation, anatomy,
-proportions, costume seams and lighting consistently across all views.
-The extra diagram is a BLANK LAYOUT REFERENCE ONLY: its colored boxes,
-numbers and text MUST NOT appear in the generated image.
-One high-resolution RGBA PNG per request; no visible panel borders,
-annotations, guide colors, checkerboard, watermark or extraneous art.
-
-3D MULTIVIEW OUTPUT RESOLUTION AND PIXEL COORDINATES:
-EXACT FILE sheet_side_views.png; 4096x3072 RGBA PNG (width x height).
-Origin TOP-LEFT (0,0), +X RIGHT, +Y DOWN.
-2 COLUMNS x 1 ROW; EACH CELL 2048x3072 pixels.
-row1 col1 LEFT: SHEET [0,0,2048,3072).
-row1 col2 RIGHT: SHEET [2048,0,4096,3072).
-LOCAL COORDINATES IN EACH CELL: center x=1024; crown y≈150;
-neck y≈600; shoulders y≈730; waist y≈1550;
-knees y≈2330; ground baseline y≈2930.
-Same exact orthographic figure height and body placement in every view.
-LEFT/RIGHT refer to CHARACTER orientation; do not mirror a view.
-True alpha transparency, no visible reference labels or grid lines.
-
-TASK:
-Output exactly sheet_side_views.png as ONE 4096x3072 PNG,
-2 columns and ONE row of 2048x3072 tiles.
-Attach docs/sheet_guides/sheet_side_views_layout.svg as placement reference.
-row1 col1: LEFT orthographic full-body view, fixed 2048x3072 cell
-row1 col2: RIGHT orthographic full-body view, fixed 2048x3072 cell
-Same single original character in neutral orthographic A-pose.
-Head crown y=150, neck y=600, shoulders y=730, waist y=1550,
-knees y=2330, feet baseline y=2930, body center x=1024 per tile.
-Same camera height, orthographic projection, apparent body size,
-costume textures and character proportions. Do not mirror images,
-change gender presentation, redesign the outfit or accessories.
-The sheet layout guide is NOT part of the art. No visible grid borders,
-printed labels, gray boxes, background text or watermarks.
+TASK: Generate the SAME original VTuber as TWO separate full-body
+ORTHOGRAPHIC reference views in one sheet_side_views.png image.
+CANVAS ASPECT RATIO WIDTH:HEIGHT = 4:3.
+LAYOUT exactly 2 equal-width columns in one row.
+Column 1: CHARACTER LEFT full body
+Column 2: CHARACTER RIGHT full body
+Each individual view cell is portrait WIDTH:HEIGHT=2:3.
+Match crown, shoulders, waist, feet and body centerline between views,
+with the same visual scale, neutral A-pose and head-to-foot framing.
+Rotate the character naturally, never mirror the front image.
+Attach the already-generated FRONT/BACK image as identity reference.
+Render in the best NATIVE resolution supported by your image model;
+do not specify an absolute pixel width or height.
+The attached diagram is only a layout reference, not image content.
+No drawn dividers, labels, colored boxes, text or watermark.
 ```
 
-#### 3D-3. `face.png` — 얼굴 확대
+#### `face.png` — 3D 정면 얼굴 확대
 
-**복사할 프롬프트 (전신 시트의 정면 뷰 참조)**
+**이미지 비율: 1:1.** 전신 시트 정면을 실제 참조 이미지로 첨부합니다.
+
+**복사할 프롬프트**
 
 ```text
-ORIGINAL VTUBER CHARACTER IDENTITY — EDIT THE BRACED FIELDS:
-Gender / gender presentation: {gender}
-Hair color and HEX: {hair_color}
-Hairstyle / bangs / roots / length / hair ornaments: {hairstyle}
-Eye shape / color / iris patterns / pupils: {eyes}
-Face / skin tone / ears / distinct features: {face}
-Outfit / textiles / garment seams: {outfit}
-Palette and exact HEX color swatches: {palette}
-Accessories and positions: {accessories}
-Other permanent body and character traits: {other_details}
+CHARACTER IDENTITY (fill in every bracketed field):
+Gender / presentation: {gender}
+Hair color / HEX: {hair_color}
+Hairstyle / bangs / roots / ornaments: {hairstyle}
+Eyes / color / pupils / reflections: {eyes}
+Face / skin / ears / special markings: {face}
+BASE character anatomy / neutral undersuit: {base_body}
+DEFAULT removable outfit / fabric / seams: {outfit}
+Exact palette / HEX swatches: {palette}
+Accessories / locations: {accessories}
+Other permanent character details: {other_details}
 
-IDENTITY LOCK: Same ONE original anime VTuber in all requests.
-Attach the completed FRONT image from sheet_front_back.png as
-this character's exact size, design and appearance reference.
-Preserve colors, silhouette, linework, gender presentation, anatomy,
-proportions, costume seams and lighting consistently across all views.
-The image should be a single face closeup, not a sprite sheet or grid.
-One high-resolution RGBA PNG per request; no visible panel borders,
-annotations, guide colors, checkerboard, watermark or extraneous art.
-
-FACE CLOSEUP OUTPUT/ABSOLUTE COORDINATES:
-EXACT FILE face.png; 2048x2048 RGBA PNG (width x height).
-Origin TOP-LEFT (0,0); +X RIGHT, +Y DOWN.
-Front-face center x≈1024, y≈1050 in THIS closeup image.
-These are not full-body y-coordinates. Include entire visible face,
-eyes, ears, jaw and hairline without cropping.
-CHARACTER LEFT is viewer-RIGHT in a front view.
-Use the front tile in sheet_front_back.png as the reference.
-No mirroring, distortion, captions, guide colors or borders.
-
-TASK:
-Output only face.png, exactly 2048x2048 PNG.
-True front-facing orthographic close-up of the SAME character
-as the front tile of sheet_front_back.png. Use that actual front
-view as a visual reference. Head, hairline, both ears, eyelids,
-iris/pupil detail, nose, lips and jaw fully visible. Face center
-approximately x=1024, y=1050. Keep facial proportion, makeup,
-hair shade and all accessories exactly consistent with 3D views.
-Do not imitate the 2D full-body pixel coordinates for this closeup.
-No other characters, text, watermarks or reference overlay.
+TASK: One frontal orthographic close-up of the exact SAME character
+from column 1 of sheet_front_back.png.
+ASPECT RATIO WIDTH:HEIGHT=1:1 (square).
+High-detail eyes, eyelids, iris, nose, mouth, hairline and ears.
+Face centered naturally, no cropping or perspective distortion.
+Match original hair, face shape, gender presentation, makeup,
+earrings, skin tone and linework exactly.
+Use your AI image model's native available resolution, not a fixed
+pixel count. No grid lines, labels, text, collage or watermark.
 ```
 
-#### 3D ZIP 폴더 구성
+#### 3D 입력 ZIP
 
 ```text
 character_3d_sheet_pack.zip
@@ -896,29 +605,21 @@ character_3d_sheet_pack.zip
     └── face.png
 ```
 
-Colab ④ 셀에서 ZIP 한 개를 업로드합니다. 3D의 정면·후면·좌·우 측면은 격자대로 자르고, 얼굴 확대는 별도 고화질 참조로 처리합니다.
+**3D 의상 변경:** 현재 3D 경로는 완성된 VRM의 임의 옷을 자동 탈착·교환하는 전용 의상 리깅 기능이 아닙니다. 새 의상의 정면·후면·측면 이미지로 모델을 다시 생성하거나, 별도 의상 메시와 스킨을 제작해 Blender 등에서 VRM에 연결해야 합니다. 액세서리 모드를 옷 교체 기능으로 간주하지 않습니다.
 
 ### 액세서리 이미지
 
-액세서리는 별도의 시트 분할 대상이 아닙니다. 하나의 물건을 단독 PNG로 생성합니다(최대 8개).
-
-**복사할 프롬프트**
-
 ```text
 Accessory type: {accessory_type}
-Material: {material}
+Materials: {material}
 Colors: {color}
-Decorative details: {decoration}
-Attachment point on VTuber body: {anchor}
-Extra design requirements: {details}
-
-Render ONE complete original anime VTuber accessory per PNG.
-Clear attachment geometry, no cropped components, visible depth,
-clean detailed linework and true transparent background.
-No character body, mannequin, other accessories, text, label or watermark.
+Decorations: {decoration}
+Attachment location: {anchor}
+Output a single isolated original VTuber accessory, transparent PNG.
+Use any reasonable native resolution. No other character or text.
 ```
 
-**제작 품질 주의:** 시트를 나눠도 모델이 해당 해상도를 직접 생성하지 못하면 출력 품질이 떨어질 수 있습니다. 또한 프롬프트만으로 정밀 좌표 일치가 보장되지는 않습니다. 픽셀 수·파일명·알파는 업로드 단계에서 검사되지만 캐릭터의 디자인·가림 구조가 일치하는지는 별도 시각 검증이 필요합니다.
+**입력 진단:** 프로그램은 ZIP 파일 수·PNG·비율·RGBA/빈칸을 우선 검사합니다. 합격해도 외형 일치나 가려진 파츠를 보증하지 않습니다. 비율·실제 투명도·파트 내용이 틀린 이미지를 단순 AI 업스케일로 정상 파츠로 위장하지 않습니다.
 
 ## 작업 모드
 
