@@ -1455,17 +1455,18 @@ def build_app() -> gr.Blocks:
                 concurrency_limit=1,
             )
 
-            gr.Markdown("### 공식 Cubism Editor에서 출력한 모델 수집")
-            cubism_official_zip = gr.File(label="공식 Cubism 출력 폴더 ZIP (.model3.json, .moc3, textures 포함)", file_types=[".zip"], type="filepath")
-            cubism_import_button = gr.Button("공식 MOC3 수집 및 검증")
-            cubism_import_button.click(
-                fn=collect_cubism_zip_ui,
-                inputs=[cubism_official_zip],
-                outputs=[two_d_status, two_d_report, two_d_result],
-                show_progress="full",
-                concurrency_id="vtuber_gpu_pipeline",
-                concurrency_limit=1,
-            )
+            with gr.Accordion("Cubism에서 이미 내보낸 모델 수집 (후처리·선택)", open=False):
+                gr.Markdown("### 공식 Cubism Editor에서 출력한 모델 수집")
+                cubism_official_zip = gr.File(label="공식 Cubism 출력 폴더 ZIP (.model3.json, .moc3, textures 포함)", file_types=[".zip"], type="filepath")
+                cubism_import_button = gr.Button("공식 MOC3 수집 및 검증")
+                cubism_import_button.click(
+                    fn=collect_cubism_zip_ui,
+                    inputs=[cubism_official_zip],
+                    outputs=[two_d_status, two_d_report, two_d_result],
+                    show_progress="full",
+                    concurrency_id="vtuber_gpu_pipeline",
+                    concurrency_limit=1,
+                )
 
         with gr.Column(visible=False) as avatar_view:
             gr.Markdown("## 사용자 이미지 → 전신 VRM\n외부 AI에서 직접 만든 이미지를 업로드합니다. 이 프로그램은 이미지를 생성하지 않습니다.")
