@@ -31,12 +31,12 @@ def run_request(request: dict) -> list:
     # the subprocess is missing/changing server-side UI dependencies.
     app = runpy.run_path(str(ROOT / "tools" / "colab_app.py"), run_name="vtuber_prepare")
     if kind == "inochi2d":
-        if len(values) != 2:
-            raise ValueError("Inochi2D expects character image and usage")
+        if len(values) not in (2, 3):
+            raise ValueError("Inochi2D expects master image, usage, optional layer ZIP")
         return list(app["_run_2d_production_inline"](*values, target="inochi2d"))
     if kind == "live2d":
-        if len(values) != 2:
-            raise ValueError("Live2D expects character image and usage")
+        if len(values) not in (2, 3):
+            raise ValueError("Live2D expects master image, usage, optional layer ZIP")
         return list(app["_run_2d_production_inline"](*values, target="live2d"))
     if kind == "avatar":
         if len(values) != 10:
