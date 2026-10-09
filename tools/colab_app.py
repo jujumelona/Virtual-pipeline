@@ -1388,7 +1388,7 @@ def build_app() -> gr.Blocks:
         with gr.Column(visible=False) as inochi2d_view:
             gr.Markdown(
                 "## Inochi2D\n"
-                "외부에서 제작한 캐릭터 원본/투명 파츠를 업로드합니다. "
+                "캐릭터 사진 한 장을 올리면 필요한 파츠는 내부에서 자동 분리합니다. "
                 "**오픈소스 Inochi Creator / Inochi Session**을 목표로 합니다. "
                 "네이티브 SDK가 실제 .inp를 출력해야만 complete입니다."
             )
@@ -1403,10 +1403,7 @@ def build_app() -> gr.Blocks:
                     label="Inochi2D 기본 캐릭터",
                     value="[TASK] Generate ONE high-resolution original anime VTuber character image, not a collage or model sheet. [FRAMING] 3:4 portrait, symmetrical straight FRONT orthographic view, head through mid-torso, neutral relaxed pose, shoulders and neck fully visible, both eyes open, mouth gently closed, ample margin around hair and shoulders. [DESIGN] Clear bangs, separate left/right side locks and rear hair, eyebrows, eyelids, irises and lips with sharply legible outlines; distinctive yet riggable costume details; coherent lighting, clean silhouette, consistent anatomy and color. [FOR 2D RIGGING] Nothing crosses eyes, cheeks, mouth or neck; allow space for head tilt and hair sway. [AVOID] angled camera, multiple characters, cropped hair, speech bubbles, accessories covering facial parts, lettering, watermark, cluttered background.", lines=5,
                 )
-                gr.Textbox(
-                    label="Inochi2D 투명 파츠 보완",
-                    value="[REFERENCE LOCK] Use the uploaded original FRONT character image as a strict identity, costume, palette, stroke-weight, head-shape and framing reference. [DELIVERABLE] Supply independent transparent RGBA PNG art for each requested Inochi2D layer, one layer per file, all EXACTLY the original image width and height and with identical pixel coordinates; preserve natural antialiased edges and unmodified visible pixels. [PARTS] Front/back hair segments, side locks, face/ears, separate eyes including closed-eye variants, eyebrows, mouth closed/open/interior, neck, torso and deformable costume details. [HIDDEN ART] Extend scalp behind bangs, cheeks under hair and skin/clothing behind movable boundaries so deformation does not expose holes. [AVOID] redrawing the design, shifting the character, flattening the background into layers, montage sheets or opaque rectangles. If separate aligned PNG files cannot be produced, supply only an explicit reference, not falsely labeled rig-ready layers.", lines=5,
-                )
+                gr.Markdown("파츠 이미지는 따로 제작하거나 업로드할 필요가 없습니다. 업로드한 캐릭터 사진에서 머리카락·눈·입·얼굴을 자동 분리합니다.")
             inochi_run = gr.Button("Inochi2D 네이티브 퍼펫 제작", variant="primary")
             inochi_status = gr.Markdown("대기 중")
             inochi_report = gr.Textbox(
@@ -1428,7 +1425,7 @@ def build_app() -> gr.Blocks:
         with gr.Column(visible=False) as live2d_view:
             gr.Markdown(
                 "## Live2D\n"
-                "외부 AI/일러스트 프로그램으로 제작한 이미지를 올리세요. "
+                "캐릭터 사진 한 장만 올리세요. 파츠는 내부에서 자동 분리합니다. "
                 "레이어 패키지를 생성하며, Cubism 리깅과 .moc3 출력은 별도로 필요합니다. "
                 "공식 Cubism Editor 내보내기 전에는 needs_editor_export입니다."
             )
@@ -1443,10 +1440,7 @@ def build_app() -> gr.Blocks:
                     label="2D 전면 캐릭터 일러스트",
                     value="[TASK] Draw ONE original anime VTuber bust-up FRONT master image optimized for Live2D Cubism layer separation, not a character sheet. [GEOMETRY] Symmetric orthographic viewpoint, straight head, relaxed neck and shoulders, calm neutral expression, eyes fully open and mouth closed, head and hair fully inside 3:4 portrait canvas. [SEPARATION] Clearly defined independent bangs, side/back hair, ears, brows, upper/lower lids, eye whites, irises, pupils, highlights, nose, lips, mouth opening, neck, clothing and accessories. [QUALITY] High resolution, sharp antialiased outlines, simple uniform backdrop, consistent lighting and visible skin boundaries for yaw/pitch and blinking deformers. [AVOID] three-quarter pose, face obstruction, exaggerated perspective, merged hair/face borders, multi-panel layout, lettering or watermark.", lines=5,
                 )
-                gr.Textbox(
-                    label="파츠 분리 보완 프롬프트",
-                    value="[REFERENCE LOCK] Match the uploaded Live2D FRONT master image pixel-for-pixel in appearance, color, line style, proportions and original canvas coordinates. [OUTPUT] Each separable part must be an individual full-canvas RGBA PNG with transparent pixels everywhere outside the painted part; use unchanged width, height, registration and scale for every file, suitable for assembling into a layered PSD. [LAYERS] Face/base scalp/ears; individual front, side and rear hair groups; left and right eyebrows, sclera, iris/pupil, upper and lower eyelids and lashes; upper/lower lips, internal mouth, tongue and teeth; torso, neck and costume ornaments. [DEFORMATION COVERAGE] Paint plausible hidden skin, hair roots and mouth interiors underneath moving layers, with closed-eye, smile and phoneme reference shapes exported separately and precisely aligned. [AVOID] sprite sheets, perspective changes, mismatched expressions between base layers, cropped parts, baked background, shifted canvas and fictional alpha. If the tool cannot deliver actual layered PNG files, request art references only and do not claim Cubism-ready layers.", lines=6,
-                )
+                gr.Markdown("별도 파츠 이미지를 요구하지 않습니다. 사진 한 장으로 레이어·마스크·메시·키폼·물리 자료를 제작합니다. 공식 Live2D MOC3 출력은 Cubism Editor가 필요합니다.")
             two_d_run = gr.Button("Live2D Cubism 제작 자료 생성", variant="primary")
             two_d_status = gr.Markdown("대기 중")
             two_d_report = gr.Textbox(
