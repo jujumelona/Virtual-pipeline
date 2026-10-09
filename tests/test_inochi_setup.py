@@ -119,9 +119,14 @@ def test_linker_preflight_compiles_c_graphics_and_ldc_phobos(tmp_path, monkeypat
     setup._verify_native_linker()
     assert len(called) == 2
     assert called[0][0] == "cc"
-    assert {"-lSDL2", "-lGL", "-lGLU", "-lz"}.issubset(set(called[0]))
+    assert {"-lSDL2", "-lGL", "-lGLdispatch", "-lGLU", "-lz"}.issubset(set(called[0]))
+    c_flags = called[0]
+    assert c_flags.index("-lGL") < c_flags.index("-lGLdispatch")
+    assert "glGetString(GL_VERSION)" in Path(called[0][1]).read_text()
     assert called[1][0] == "ldc2"
     assert "-v" in called[1]
+    assert "-L-lGL" in called[1]
+    assert "-L-lGLdispatch" in called[1]
 
 
 def test_linker_preflight_failure_is_not_swallowed(tmp_path, monkeypatch):
@@ -138,3 +143,12 @@ def test_real_native_build_follows_linker_preflight_before_verbose_dub():
     code = inspect.getsource(setup.ensure_inochi_native_runtime)
     assert code.index("_verify_native_linker()") < code.index('["dub", "build"')
     assert '"--force", "--verbose"' in code
+
+
+def test_real_dub_link_contract_resolves_libgldispatch_symbol():
+    path = setup.PROJECT / "dub.sdl"
+    code = path.read_text(encoding="utf-8")
+    assert '"-lGLdispatch"' in code
+    assert code.index('"-lGL"') < code.index('"-lGLdispatch"')
+    installer = (setup.ROOT / "tools/setup_inochi_runtime.py").read_text()
+    assert '"libglvnd-dev"' in installer
