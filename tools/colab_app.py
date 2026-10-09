@@ -734,6 +734,12 @@ def _gpu_snapshot() -> str:
         return "GPU 계측 불가 (GPU 런타임 연결 확인)"
 
 
+def _run_isolated_generation(mode: str, args, on_event=None):
+    """Worker-only production boundary; UI process never imports ML runtimes."""
+    from tools.colab_generation_process import run_isolated
+    return run_isolated(mode, args, on_event=on_event)
+
+
 def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
     """Bridge synchronous pipeline stages to live Gradio progress and log outputs."""
     # Import inside worker's try block. If any native package import fails,
@@ -751,37 +757,15 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
     current_stage = "대기 중"
 
     def worker() -> None:
-        pipeline_logger = logging.getLogger("vtuber_pipeline")
-        old_level = pipeline_logger.level
-        worker_id = threading.get_ident()
-
-        class PipelineLogHandler(logging.Handler):
-            def emit(self, record):
-                if record.thread == worker_id:
-                    events.put(("python_log", record.name, self.format(record)))
-
-        logging_sink = PipelineLogHandler()
-        logging_sink.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
-        pipeline_logger.addHandler(logging_sink)
-        pipeline_logger.setLevel(logging.INFO)
+        # All model installs, CUDA imports and neural inference take place in
+        # a detached Python worker. Gradio itself never touches model code.
         try:
-            from vtuber_pipeline.core.stage_progress import stage_reporter
-            events.put(("stage", "pipeline", "running", "입력 검사"))
-            with stage_reporter(lambda name, status, detail: events.put(
-                ("stage", name, status, detail)
-            )):
-                result = handler(
-                    *args,
-                    progress=lambda fraction, desc="": events.put(
-                        ("progress", float(fraction), str(desc))
-                    ),
-                )
+            mode = "avatar" if count == 5 else "accessory"
+            events.put(("stage", "pipeline", "running", "독립 프로세스 준비"))
+            result = _run_isolated_generation(mode, args, on_event=events.put)
             events.put(("done", result))
         except Exception:
             events.put(("crash", traceback.format_exc()))
-        finally:
-            pipeline_logger.removeHandler(logging_sink)
-            pipeline_logger.setLevel(old_level)
 
     def append(message: str) -> str:
         timestamp = datetime.now(timezone.utc).astimezone().strftime("%H:%M:%S")
@@ -815,9 +799,9 @@ def _stream_ui_task(handler, args, count, progress, *, preserve_avatar=None):
             continue
 
         kind = event[0]
-        if kind == "python_log":
-            _, name, detail = event
-            logs = append(f"[{name}] {detail}")
+        if kind == "log":
+            detail = event[1]
+            logs = append(detail)
             yield show("⏳ " + current_stage, logs, avatar_state=preserve_avatar)
         elif kind == "stage":
             _, name, status, detail = event
@@ -1203,6 +1187,18 @@ CSS = """
 
 def build_2d_ui(image_path, commercial_usage, target="live2d"):
     """Run actual 2D production graph, with strict editor/native status."""
+    if target not in {"inochi2d", "live2d"}:
+        return "지원하지 않는 2D 모드", "", None
+    if not image_path:
+        return "원본 캐릭터 이미지를 업로드하세요.", "", None
+    try:
+        return _run_isolated_generation(target, (image_path, commercial_usage))
+    except Exception as exc:
+        return f"{target} 제작 실패: {exc}", traceback.format_exc(), None
+
+
+def _run_2d_production_inline(image_path, commercial_usage, target="live2d"):
+    """Executed only by the detached ML worker, never by a Gradio handler."""
     if target not in {"inochi2d", "live2d"}:
         return "지원하지 않는 2D 모드", "", None
     if not image_path:
