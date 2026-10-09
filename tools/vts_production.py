@@ -145,7 +145,7 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
     # filename and input-only checksum avoid accepting a stale PSD from past jobs.
     unique_source = work / ("vts_" + work.name + master.suffix.lower())
     shutil.copyfile(master, unique_source)
-    base = third_party / "workspace/layerdiff_output"
+    base = work / "see_through_output"
     base.mkdir(parents=True, exist_ok=True)
     before = {str(f): (f.stat().st_size, f.stat().st_mtime_ns)
               for f in base.rglob("*.psd")}
@@ -155,7 +155,8 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
     worker_python = os.environ.get("VTUBER_SEETHROUGH_PYTHON", sys.executable)
     command = [
         worker_python, "-u", str(program),
-        "--srcp", str(unique_source), "--save_to_psd", "--resolution", "1024",
+        "--srcp", str(unique_source), "--save_dir", str(base),
+        "--save_to_psd", "--resolution", "1024",
     ]
     print("[VTS] See-through NF4:", " ".join(command), flush=True)
     started = time.monotonic()
