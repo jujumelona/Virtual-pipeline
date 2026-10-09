@@ -8,7 +8,7 @@
 
 ## 모드별 이미지 생성 — 영구 베이스 캐릭터와 교체형 의상 분리
 
-**2D와 3D 제작 방식은 서로 다릅니다.** 2D는 **옷 없는 중립 신체·얼굴 20파츠**를 먼저 제작하고, 헤어(`hair_variant.png`)와 교체할 옷(`outfit_variant.png`)을 별도 파츠로 추가합니다. 피부 표현의 프라이버시를 위한 신체 밀착 중립 베이스 레이어는 허용합니다. 반면 **3D는 기본 의상을 입힌 캐릭터 전체를 한꺼번에 복원·리깅**합니다. 현재 3D 의상 자동 교체/스키닝 생성기는 없으므로 3D를 옷 없는 베이스로 만드는 것이 기본 권장 경로가 아닙니다.
+**2D와 3D 제작 방식은 서로 다릅니다.** 2D는 **옷 없는 중립 신체·얼굴 20파츠**를 먼저 제작하고, 헤어(`hair_variant.png`)와 교체할 옷(`outfit_variant.png`)을 별도 파츠로 추가합니다. 베이스는 얼굴·목·몸통·팔·손에 동일한 자연 피부색을 사용한 비노골적·특징 없는 신체 표면이어야 합니다. 회색 타이츠·바디슈트·봉제선·목 칼라 등의 의상 표현은 허용하지 않습니다. 반면 **3D는 기본 의상을 입힌 캐릭터 전체를 한꺼번에 복원·리깅**합니다. 현재 3D 의상 자동 교체/스키닝 생성기는 없으므로 3D를 옷 없는 베이스로 만드는 것이 기본 권장 경로가 아닙니다.
 
 이미지 AI에게 고정 픽셀 크기를 강요하지 않습니다. *각 프롬프트에 출력 파일명, 가로:세로 비율, 파츠 배치, 좌우, 첨부할 참조 이미지가 전부 명시되어 있습니다.* 생성된 다운로드 파일의 이름이 다르면 ZIP을 만들기 전에 반드시 명시된 이름으로 저장/변경합니다. 투명도는 실제 RGBA여야 하며, 배경이 그려진 이미지나 파츠 칸에 전체 캐릭터가 있는 이미지는 비율 조정·업스케일링으로 수정할 수 없습니다.
 
@@ -26,9 +26,9 @@ Gender / presentation: {gender}
 Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
-Skin color, facial structure, ears: {face}
+Facial structure, ears, distinguishing features: {face}
+Natural skin color / HEX for face AND ENTIRE body: {skin_color}
 Body type, anatomy and proportions: {body}
-Neutral fitted UNDERLAYER color (NOT a costume): {base_layer}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
@@ -43,9 +43,17 @@ BASE reference (draw the uncovered scalp/head instead). The listed
 hairstyle is an identity specification reserved for hair_variant.png.
 NO detachable costume, clothing, skirt, jacket, shirt, sleeves,
 gloves, shoes or costume accessories in this base artwork.
-A plain fitted neutral body-covering underlayer is acceptable and
-is not a removable costume. Hair and clothing will be authored
-later as isolated transparent, deformable parts.
+THIS IS A MODULAR ADULT VTUBER AVATAR BASE for later 2D Live2D/Inochi2D
+rigging and independently replaceable hair, clothes and accessories.
+Render the uncovered scalp and EVERY visible anatomical body surface
+(face, neck, shoulders, torso, arms, hands and any visible hips/legs)
+using the SAME natural {skin_color} skin material, never gray fabric.
+Keep chest and pelvic surfaces smooth, simplified and non-explicit.
+Do NOT draw a bodysuit, undersuit, leotard, tights, underwear, collar,
+zipper, seams, stitches, cuffs, gloves, shoes or any clothing edges.
+The body is a featureless skin-colored anatomical base, NOT a person
+wearing flesh-colored clothing. Clothing and hair will be separate
+transparent deformable VTuber rigging assets generated later.
 Do not generate a collage, labels, guides, text, or grid cells.
 ```
 
@@ -65,17 +73,22 @@ Gender / presentation: {gender}
 Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
-Skin color, facial structure, ears: {face}
+Facial structure, ears, distinguishing features: {face}
+Natural skin color / HEX for face AND ENTIRE body: {skin_color}
 Body type, anatomy and proportions: {body}
-Neutral fitted UNDERLAYER color (NOT a costume): {base_layer}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
 PERMANENT OUTFIT-FREE AVATAR CONTRACT:
 This is the same ONE character as the actual attached front_master.png.
-A neutral, non-explicit, form-fitting base/underlayer is permitted for
-privacy and body shape, but NO detachable clothing, outfit, hoodie,
-jacket, shirt, dress, skirt, costume collar, detachable gloves or shoes.
+PROFESSIONAL MODULAR VTUBER RIGGING ASSET, not a finished dressed portrait.
+Natural {skin_color} skin must cover every visible base body surface,
+matching face, ears, neck, torso, shoulders, arms and hands seamlessly.
+Use simplified, smooth, non-explicit adult anatomy with no intimate details.
+NO gray/flesh-colored bodysuit, underlayer, leotard, tights, underwear,
+collar, zipper, fabric texture, stitched panels, cuffs, shoes or garments.
+NO removable hair, outfit, hoodie, jacket, shirt, skirt or costume parts.
+Skin material is the anatomy itself, NOT a skin-colored garment.
 Hair, face, base anatomy, arms and hands must be independent of clothing.
 In FRONT view, character-left is viewer-right; NEVER mirror the person.
 The attached colored grid diagram is only a LAYOUT GUIDE:
@@ -121,17 +134,22 @@ Gender / presentation: {gender}
 Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
-Skin color, facial structure, ears: {face}
+Facial structure, ears, distinguishing features: {face}
+Natural skin color / HEX for face AND ENTIRE body: {skin_color}
 Body type, anatomy and proportions: {body}
-Neutral fitted UNDERLAYER color (NOT a costume): {base_layer}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
 PERMANENT OUTFIT-FREE AVATAR CONTRACT:
 This is the same ONE character as the actual attached front_master.png.
-A neutral, non-explicit, form-fitting base/underlayer is permitted for
-privacy and body shape, but NO detachable clothing, outfit, hoodie,
-jacket, shirt, dress, skirt, costume collar, detachable gloves or shoes.
+PROFESSIONAL MODULAR VTUBER RIGGING ASSET, not a finished dressed portrait.
+Natural {skin_color} skin must cover every visible base body surface,
+matching face, ears, neck, torso, shoulders, arms and hands seamlessly.
+Use simplified, smooth, non-explicit adult anatomy with no intimate details.
+NO gray/flesh-colored bodysuit, underlayer, leotard, tights, underwear,
+collar, zipper, fabric texture, stitched panels, cuffs, shoes or garments.
+NO removable hair, outfit, hoodie, jacket, shirt, skirt or costume parts.
+Skin material is the anatomy itself, NOT a skin-colored garment.
 Hair, face, base anatomy, arms and hands must be independent of clothing.
 In FRONT view, character-left is viewer-right; NEVER mirror the person.
 The attached colored grid diagram is only a LAYOUT GUIDE:
@@ -177,17 +195,22 @@ Gender / presentation: {gender}
 Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
-Skin color, facial structure, ears: {face}
+Facial structure, ears, distinguishing features: {face}
+Natural skin color / HEX for face AND ENTIRE body: {skin_color}
 Body type, anatomy and proportions: {body}
-Neutral fitted UNDERLAYER color (NOT a costume): {base_layer}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
 PERMANENT OUTFIT-FREE AVATAR CONTRACT:
 This is the same ONE character as the actual attached front_master.png.
-A neutral, non-explicit, form-fitting base/underlayer is permitted for
-privacy and body shape, but NO detachable clothing, outfit, hoodie,
-jacket, shirt, dress, skirt, costume collar, detachable gloves or shoes.
+PROFESSIONAL MODULAR VTUBER RIGGING ASSET, not a finished dressed portrait.
+Natural {skin_color} skin must cover every visible base body surface,
+matching face, ears, neck, torso, shoulders, arms and hands seamlessly.
+Use simplified, smooth, non-explicit adult anatomy with no intimate details.
+NO gray/flesh-colored bodysuit, underlayer, leotard, tights, underwear,
+collar, zipper, fabric texture, stitched panels, cuffs, shoes or garments.
+NO removable hair, outfit, hoodie, jacket, shirt, skirt or costume parts.
+Skin material is the anatomy itself, NOT a skin-colored garment.
 Hair, face, base anatomy, arms and hands must be independent of clothing.
 In FRONT view, character-left is viewer-right; NEVER mirror the person.
 The attached colored grid diagram is only a LAYOUT GUIDE:
@@ -233,17 +256,22 @@ Gender / presentation: {gender}
 Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
-Skin color, facial structure, ears: {face}
+Facial structure, ears, distinguishing features: {face}
+Natural skin color / HEX for face AND ENTIRE body: {skin_color}
 Body type, anatomy and proportions: {body}
-Neutral fitted UNDERLAYER color (NOT a costume): {base_layer}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
 PERMANENT OUTFIT-FREE AVATAR CONTRACT:
 This is the same ONE character as the actual attached front_master.png.
-A neutral, non-explicit, form-fitting base/underlayer is permitted for
-privacy and body shape, but NO detachable clothing, outfit, hoodie,
-jacket, shirt, dress, skirt, costume collar, detachable gloves or shoes.
+PROFESSIONAL MODULAR VTUBER RIGGING ASSET, not a finished dressed portrait.
+Natural {skin_color} skin must cover every visible base body surface,
+matching face, ears, neck, torso, shoulders, arms and hands seamlessly.
+Use simplified, smooth, non-explicit adult anatomy with no intimate details.
+NO gray/flesh-colored bodysuit, underlayer, leotard, tights, underwear,
+collar, zipper, fabric texture, stitched panels, cuffs, shoes or garments.
+NO removable hair, outfit, hoodie, jacket, shirt, skirt or costume parts.
+Skin material is the anatomy itself, NOT a skin-colored garment.
 Hair, face, base anatomy, arms and hands must be independent of clothing.
 In FRONT view, character-left is viewer-right; NEVER mirror the person.
 The attached colored grid diagram is only a LAYOUT GUIDE:
@@ -289,17 +317,22 @@ Gender / presentation: {gender}
 Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
-Skin color, facial structure, ears: {face}
+Facial structure, ears, distinguishing features: {face}
+Natural skin color / HEX for face AND ENTIRE body: {skin_color}
 Body type, anatomy and proportions: {body}
-Neutral fitted UNDERLAYER color (NOT a costume): {base_layer}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
 PERMANENT OUTFIT-FREE AVATAR CONTRACT:
 This is the same ONE character as the actual attached front_master.png.
-A neutral, non-explicit, form-fitting base/underlayer is permitted for
-privacy and body shape, but NO detachable clothing, outfit, hoodie,
-jacket, shirt, dress, skirt, costume collar, detachable gloves or shoes.
+PROFESSIONAL MODULAR VTUBER RIGGING ASSET, not a finished dressed portrait.
+Natural {skin_color} skin must cover every visible base body surface,
+matching face, ears, neck, torso, shoulders, arms and hands seamlessly.
+Use simplified, smooth, non-explicit adult anatomy with no intimate details.
+NO gray/flesh-colored bodysuit, underlayer, leotard, tights, underwear,
+collar, zipper, fabric texture, stitched panels, cuffs, shoes or garments.
+NO removable hair, outfit, hoodie, jacket, shirt, skirt or costume parts.
+Skin material is the anatomy itself, NOT a skin-colored garment.
 Hair, face, base anatomy, arms and hands must be independent of clothing.
 In FRONT view, character-left is viewer-right; NEVER mirror the person.
 The attached colored grid diagram is only a LAYOUT GUIDE:
@@ -317,7 +350,7 @@ Use the highest *native* resolution your image AI can generate.
 Attach the ACTUAL front_master.png and sheet_body_base_layout.svg.
 CELL ORDER:
 row 1 col 1: body
-Only neutral BODY torso/hips/base undersuit, with clean shoulder/arm boundaries. No external clothing of ANY kind. This is one full portrait, not a costume sheet.
+Only the skin-colored BODY torso/hips anatomical base (natural {skin_color}); clean shoulder/arm contours, smooth non-explicit chest/pelvis surfaces. Absolutely no fitted suit, fabric, garment panels, collar or seams. One isolated body part, not a costume sheet.
 
 All cells represent isolated segments in the SAME original character
 coordinate frame. Every non-part pixel is true transparent alpha=0.
@@ -342,17 +375,22 @@ Gender / presentation: {gender}
 Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
-Skin color, facial structure, ears: {face}
+Facial structure, ears, distinguishing features: {face}
+Natural skin color / HEX for face AND ENTIRE body: {skin_color}
 Body type, anatomy and proportions: {body}
-Neutral fitted UNDERLAYER color (NOT a costume): {base_layer}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
 PERMANENT OUTFIT-FREE AVATAR CONTRACT:
 This is the same ONE character as the actual attached front_master.png.
-A neutral, non-explicit, form-fitting base/underlayer is permitted for
-privacy and body shape, but NO detachable clothing, outfit, hoodie,
-jacket, shirt, dress, skirt, costume collar, detachable gloves or shoes.
+PROFESSIONAL MODULAR VTUBER RIGGING ASSET, not a finished dressed portrait.
+Natural {skin_color} skin must cover every visible base body surface,
+matching face, ears, neck, torso, shoulders, arms and hands seamlessly.
+Use simplified, smooth, non-explicit adult anatomy with no intimate details.
+NO gray/flesh-colored bodysuit, underlayer, leotard, tights, underwear,
+collar, zipper, fabric texture, stitched panels, cuffs, shoes or garments.
+NO removable hair, outfit, hoodie, jacket, shirt, skirt or costume parts.
+Skin material is the anatomy itself, NOT a skin-colored garment.
 Hair, face, base anatomy, arms and hands must be independent of clothing.
 In FRONT view, character-left is viewer-right; NEVER mirror the person.
 The attached colored grid diagram is only a LAYOUT GUIDE:
@@ -373,7 +411,7 @@ row 1 col 1: arm_left
 row 1 col 2: arm_right
 row 2 col 1: hand_left
 row 2 col 2: hand_right
-Base anatomical arms and hands only; no detachable sleeves, cuffs, bracelets, clothing gloves or hand-covering costume elements.
+Naturally skin-colored anatomical arms and hands ({skin_color}) only; consistent with face/neck/body. No sleeves, cuffs, bracelets, gloves, fabric bands, seams or garments.
 
 All cells represent isolated segments in the SAME original character
 coordinate frame. Every non-part pixel is true transparent alpha=0.
@@ -646,7 +684,7 @@ Row2 col2: hair_right (character's RIGHT, viewer LEFT from front).
 Attach actual neutral front_master.png and sheet_hair_layout.svg.
 Every cell contains ONLY its assigned HAIR PART as transparent
 RGBA artwork; alpha=0 everywhere else. Do not draw a face,
-nude/covered body, clothing, a person portrait, guide cells,
+anatomical body base, clothing, a person portrait, guide cells,
 visible grid borders, captions or watermark.
 Preserve all x/y placement relative to the attached front reference.
 Generate at native supported image AI resolution; do NOT enforce
@@ -671,9 +709,9 @@ Gender / presentation: {gender}
 Hair color / HEX: {hair_color}
 Hairstyle, ornaments: {hairstyle}
 Eye shape, iris, pupils: {eyes}
-Skin color, facial structure, ears: {face}
+Facial structure, ears, distinguishing features: {face}
+Natural skin color / HEX for face AND ENTIRE body: {skin_color}
 Body type, anatomy and proportions: {body}
-Neutral fitted UNDERLAYER color (NOT a costume): {base_layer}
 Palette / exact HEX swatches: {palette}
 Permanent identity details: {identity_details}
 
