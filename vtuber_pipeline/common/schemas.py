@@ -19,10 +19,13 @@ class SourceSet:
     user_layers_zip: str | None = None
     commercial_usage: str = "corporation"
     output_dir: str = "output"
+    artwork_profile: str = "legacy"  # vts_auto accepts imported See-through layer schema
 
     def validate(self) -> None:
         if self.mode not in ("inochi2d", "live2d", "3d"):
             raise ValueError("unsupported mode")
+        if self.artwork_profile not in ("legacy", "vts_auto"):
+            raise ValueError("unsupported artwork profile")
         if self.commercial_usage not in ("personalNonProfit", "personalProfit", "corporation"):
             raise ValueError("unsupported commercial usage")
         if not Path(self.front_image).is_file():
