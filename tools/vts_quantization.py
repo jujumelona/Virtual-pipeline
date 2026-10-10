@@ -121,3 +121,113 @@ def align_offload_prompt_encoder_device(pipeline, family: str) -> None:
     setattr(cls, method_name, replacement)
     print(f"[VTS offload] {family} token device follows CUDA execution hook",
           flush=True)
+
+
+def align_offload_image_devices(pipeline, family: str) -> None:
+    """Align pinned vendor VAE/UNet inference with real CUDA execution.
+
+    Accelerate's CPU component offload makes module.device report CPU between
+    calls, even though its forward hooks move parameters onto CUDA. Upstream
+    manually constructs VAE inputs, scheduler tensors and latents on those
+    stale reported devices. This patch is confined to the transient worker.
+    Vendor source is checked before each replacement and never overwritten.
+    """
+    import inspect
+    import textwrap
+    import torch
+
+    def patch_function(function, replacements, name):
+        original = inspect.unwrap(function)
+        source = textwrap.dedent(inspect.getsource(original))
+        for before, after in replacements:
+            if source.count(before) == 0:
+                raise RuntimeError(f"{name}: offload source contract changed: {before}")
+            source = source.replace(before, after)
+        namespace = {}
+        exec(
+            compile(source, original.__code__.co_filename, "exec"),
+            original.__globals__,
+            namespace,
+        )
+        return namespace[original.__name__]
+
+    target_device = pipeline._execution_device
+    if str(target_device).split(":")[0] != "cuda":
+        raise RuntimeError(
+            f"{family}: expected CUDA offload execution, got {target_device!s}"
+        )
+    cls = type(pipeline)
+    if family == "layerdiff":
+        source_call = getattr(cls, "__call__")
+        if not getattr(source_call, "_vts_image_device_patched", False):
+            patched = patch_function(
+                source_call,
+                [
+                    ("self.unet.device", "self._execution_device"),
+                    ("self.vae.device", "self._execution_device"),
+                    ("self.trans_vae.device", "self._execution_device"),
+                ],
+                "layerdiff.__call__",
+            )
+            patched._vts_image_device_patched = True
+            setattr(cls, "__call__", patched)
+
+        call_globals = inspect.unwrap(source_call).__globals__
+        old_vae_encode = call_globals["vae_encode"]
+        if not getattr(old_vae_encode, "_vts_image_device_patched", False):
+            patched = patch_function(
+                old_vae_encode,
+                [("device=vae.device", "device=torch.device('cuda', torch.cuda.current_device())")],
+                "layerdiff.vae_encode",
+            )
+            patched._vts_image_device_patched = True
+            call_globals["vae_encode"] = patched
+    elif family == "marigold":
+        # Marigold defines its own device property based on unet.device, which
+        # is CPU between offloaded forwards; never recurse via _execution_device.
+        original_device_property = getattr(cls, "device")
+        if not getattr(cls, "_vts_device_property_patched", False):
+            if not isinstance(original_device_property, property):
+                raise RuntimeError("marigold.device property contract changed")
+            original_getter = inspect.getsource(original_device_property.fget)
+            if "return self.unet.device" not in original_getter:
+                raise RuntimeError("marigold.device getter contract changed")
+            cls.device = property(
+                lambda self: torch.device("cuda", torch.cuda.current_device())
+            )
+            cls._vts_device_property_patched = True
+
+        for method_name, replacements in (
+            ("__call__", [
+                ("self.vae.device", "self._execution_device"),
+                ("vae.device", "self._execution_device"),
+            ]),
+            ("encode_rgb", [
+                ("self.vae.device", "self._execution_device"),
+            ]),
+            ("decode_depth", [
+                ("self.vae.device", "self._execution_device"),
+            ]),
+        ):
+            method = getattr(cls, method_name)
+            if getattr(method, "_vts_image_device_patched", False):
+                continue
+            # A single method often contains several uses of the same property.
+            # Avoid replacing a suffix of an already rewritten expression.
+            patched = patch_function(method, replacements, f"marigold.{method_name}")
+            patched._vts_image_device_patched = True
+            setattr(cls, method_name, patched)
+
+        call_globals = inspect.unwrap(getattr(cls, "__call__")).__globals__
+        old_encode_list = call_globals["encode_argb_list"]
+        if not getattr(old_encode_list, "_vts_image_device_patched", False):
+            patched = patch_function(
+                old_encode_list,
+                [("device=vae.device", "device=torch.device('cuda', torch.cuda.current_device())")],
+                "marigold.encode_argb_list",
+            )
+            patched._vts_image_device_patched = True
+            call_globals["encode_argb_list"] = patched
+    else:
+        raise ValueError(f"Unsupported offload image family: {family}")
+    print(f"[VTS offload] {family} VAE/UNet inputs use CUDA execution device", flush=True)
