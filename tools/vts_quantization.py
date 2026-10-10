@@ -257,7 +257,7 @@ def align_offloaded_transparent_decoder(pipeline) -> None:
         raise RuntimeError("Pinned TransparentVAE decoder placement contract changed")
     source = source.replace(
         anchor,
-        "        self.model.to(device=pixel.device, dtype=pixel.dtype)\\n" + anchor,
+        "        self.model.to(device=pixel.device, dtype=pixel.dtype)\n" + anchor,
     )
     namespace = {}
     exec(
