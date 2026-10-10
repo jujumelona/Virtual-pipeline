@@ -786,11 +786,72 @@ def _split_clear_bilateral_layer(layer):
     ]
 
 
+def _refine_all_layers_official_once(layers: list, canvas: tuple[int, int],
+                                     *, output: Path, third_party: Path,
+                                     edition: str):
+    """Exactly one second See-through inference for every first-pass layer.
+
+    The NF4 worker processes *one batch* with one LayerDiff load and one
+    Marigold load. Output masks only: source pixels remain byte-exact.
+    """
+    from tools.vts_production import (
+        run_see_through, psd_to_registered_rgba, restore_source_canvas,
+    )
+    from tools.vts_official_second_pass import partition_from_masks
+
+    work = output / "official_second_pass"
+    inputs = work / "inputs"
+    inputs.mkdir(parents=True, exist_ok=True)
+    names = []
+    for index, item in enumerate(layers):
+        name = f"source_{index:04d}.png"
+        item["image"].save(inputs / name)
+        names.append(name)
+    print(f"[VTS OFFICIAL PASS2] input_layers={len(names)}", flush=True)
+    psds = run_see_through(inputs, work / "batch", third_party=third_party,
+                           timeout=21600, qwen=False)
+    if set(psds) != set(names):
+        raise RuntimeError("See-through batch returned missing or foreign source PSDs")
+    refined, trace = [], []
+    for index, (item, name) in enumerate(zip(layers, names)):
+        diagnostic = {"source_layer": item["name"], "input_image": name}
+        try:
+            _, registered, _ = psd_to_registered_rgba(
+                psds[name], work / "registered" / f"part_{index:04d}",
+                artmesh_max=None)
+            restored, transform = restore_source_canvas(
+                registered, canvas, work / "restored" / f"part_{index:04d}.zip")
+            candidates, size = _read_registered(restored)
+            if size != canvas:
+                raise ValueError("Official pass2 canvas mismatch")
+            children, decision = partition_from_masks(
+                item, [part["image"] for part in candidates])
+            diagnostic.update(decision)
+            diagnostic["source_psd"] = str(psds[name])
+            diagnostic["registration"] = transform
+            if (edition == "free" and
+                len(refined) + len(children) + (len(layers) - index - 1) > FREE_LIMIT):
+                children = [item]
+                diagnostic.update(accepted=False, reason="free_artmesh_limit")
+        except Exception as exc:
+            children = [item]
+            diagnostic.update(accepted=False, reason="pass2_registration_failed",
+                              error=str(exc))
+        refined.extend(children)
+        diagnostic["output_count"] = len(children)
+        trace.append(diagnostic)
+        print(f"[VTS OFFICIAL PASS2] {index + 1}/{len(names)} "
+              f"source={item['name']} accepted={diagnostic['accepted']} "
+              f"parts={len(children)} total={len(refined)}", flush=True)
+    return refined, trace, work / "batch" / "see_through_full.log"
+
+
 def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
                           scope: str, asset_kind: str | None = None,
                           qwen: bool = False, qwen_infer=None, third_party=None,
                           python_path=None, max_qwen_passes: int = 4,
-                          per_pass_layers: int = 4) -> dict:
+                          per_pass_layers: int = 4,
+                           official_second_pass: bool = False) -> dict:
     """Build one FREE character or one independently authored PRO asset PSD."""
     validate_artwork_request(edition=edition, scope=scope, asset_kind=asset_kind,
                              per_pass_layers=per_pass_layers, max_qwen_passes=max_qwen_passes)
@@ -832,6 +893,15 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     generated = []
     attempted = []
     runtime_logs = []
+    official_trace = []
+    if official_second_pass:
+        if third_party is None:
+            raise ValueError("Official second-pass needs an installed See-through source")
+        layers, official_trace, second_log = _refine_all_layers_official_once(
+            layers, canvas, output=output,
+            third_party=Path(third_party) / "see-through", edition=edition)
+        if second_log.is_file():
+            runtime_logs.append(("logs/official_second_pass.log", second_log.read_bytes()))
     if qwen:
         if qwen_infer is None:
             from tools.vts_qwen_refine import infer as qwen_infer
@@ -915,6 +985,11 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         qwen_attempts=attempted, split_names=generated, group_count=group_count,
         bilateral_splits=bilateral_splits, qwen_requested=qwen)
     from tools.vts_official_settings import editor_settings_md
+    extras.append(("metadata/official_second_pass.json",
+                   json.dumps({"enabled": official_second_pass, "attempts": official_trace,
+                               "input_count": len(official_trace),
+                               "accepted_count": sum(bool(x.get("accepted")) for x in official_trace)},
+                              ensure_ascii=False, indent=2).encode("utf-8")))
     extras.append(("OFFICIAL_EDITOR_SETTINGS.md", editor_settings_md()))
     extras.extend(runtime_logs)
     with ZipFile(package, "w", ZIP_DEFLATED, compresslevel=6) as z:
@@ -936,6 +1011,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         "asset_kind": asset_kind, "canvas": list(canvas),
         "qwen_attempts": attempted, "qwen_splits_accepted": generated,
         "bilateral_splits": bilateral_splits,
+        "official_second_pass_attempts": len(official_trace),
+        "official_second_pass_accepted": sum(bool(x.get("accepted")) for x in official_trace),
         "quality_status": "requires_manual_cubism_review",
         "moc3_generated": False, "editor_required": True,
     }
