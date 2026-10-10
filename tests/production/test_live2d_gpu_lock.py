@@ -60,6 +60,8 @@ def test_live2d_inference_stops_prewarm_and_holds_gpu_lock(monkeypatch, tmp_path
             snapshot_download=lambda *args, **kwargs: str(snapshot)))
         monkeypatch.setattr(vts_qwen_refine, "_patch_pinned_official",
                             lambda *args, **kwargs: "# fixture")
+        monkeypatch.setattr(vts_qwen_refine, "validate_qwen_runtime_source",
+                            lambda script: {"syntax": "PASS", "gpu_inference_verified": False})
         invoke = lambda: vts_qwen_refine.infer(
             master, output, third_party=third_party, timeout=30)
     with pytest.raises(InferenceStopped):
