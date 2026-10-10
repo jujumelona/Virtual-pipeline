@@ -55,6 +55,7 @@ def unused_nf4_marigold_branch():
 p=argparse.ArgumentParser(); p.add_argument('--srcp'); p.add_argument('--save_dir')
 a, _=p.parse_known_args()
 assert '--cpu_offload' in sys.argv, 'T4 must use model CPU offload'
+assert '--no_group_offload' in sys.argv, 'T4 NF4 depth cannot use group offload'
 assert Path(a.srcp).is_file()
 folder=Path(a.save_dir); folder.mkdir(parents=True, exist_ok=True)
 (folder/(Path(a.srcp).stem+'.psd')).write_bytes(b'8BPS CPU wrapper fixture')
@@ -70,6 +71,9 @@ print('CPU wrapper fixture completed')
     # T4 always requests real component offload, not only an FP16 dtype edit.
     patched = (repo / "inference/scripts/inference_psd_quantized_vts_fp16.py").read_text()
     assert 'if args.cpu_offload:' in patched
+    assert "marigold_pipe.enable_group_offload('cuda', num_blocks_per_group=1)" in patched
+    # The official upstream group hook is retained but explicitly disabled
+    # by the CLI for T4; verify worker contract independently of fake output.
     assert "Marigold NF4: GPU/group offload" in patched
     # Never call unsupported custom Marigold CPU offload in its NF4 branch.
     assert "marigold_pipe.enable_model_cpu_offload()" not in patched.split(
