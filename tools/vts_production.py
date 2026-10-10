@@ -285,7 +285,7 @@ def _observed_split_tags(metadata: Path, *, depth: bool) -> list[str]:
         has_side = bool({"left", "right", "l", "r"}.intersection(re.split(r"[_.-]", name)))
         if any(word in name for word in allowed) and (depth or not has_side):
             result.append(tag)
-    return result[:32]
+    return result
 
 
 def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
@@ -326,15 +326,16 @@ def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
         result = current.with_name(current.stem + suffix + ".psd")
         if status != 0 or not result.is_file():
             print("[See-through] native heuristic rejected:", mode, str(log), flush=True)
-            break
+            continue
         old = PSDImage.open(current)
         new = PSDImage.open(result)
         if old.size != new.size:
-            print("[See-through] heuristic changed canvas; rejected", flush=True)
-            break
+            print("[See-through] heuristic changed canvas; rejected:", mode, flush=True)
+            continue
         first, second = old.composite(), new.composite()
         if first is None or second is None:
-            break
+            print("[See-through] heuristic composite unavailable:", mode, flush=True)
+            continue
         # Pixel-level difference in visible composite, not an invented rig metric.
         diff = ImageChops.difference(first.convert("RGBA"), second.convert("RGBA"))
         mean_error = max(ImageStat.Stat(diff).mean)
@@ -343,7 +344,10 @@ def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
         if mean_error > 3 or new_n < old_n:
             print("[See-through] heuristic composite/part count regression rejected:",
                   mode, mean_error, old_n, new_n, flush=True)
-            break
+            continue
+        if new_n == old_n:
+            print("[See-through] no additional layers:", mode, old_n, flush=True)
+            continue
         current = result
         print("[See-through] native extra split accepted:",
               mode, old_n, "->", new_n, flush=True)
