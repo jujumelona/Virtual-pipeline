@@ -246,12 +246,12 @@ def align_offloaded_transparent_decoder(pipeline) -> None:
 
     original = inspect.unwrap(method)
     source = textwrap.dedent(inspect.getsource(original))
-    anchor = "        y = self.model(pixel, latent)"
+    anchor = "    y = self.model(pixel, latent)"
     if source.count(anchor) != 1:
         raise RuntimeError("Pinned TransparentVAE decoder placement contract changed")
     source = source.replace(
         anchor,
-        "        self.model.to(device=pixel.device, dtype=pixel.dtype)\n" + anchor,
+        "    self.model.to(device=pixel.device, dtype=pixel.dtype)\n" + anchor,
     )
     namespace = {}
     exec(
