@@ -61,3 +61,18 @@ def test_downstream_stage_releases_skipped_face_prewarm_before_gpu_lock(
     result = run(tmp_path, code)
     assert Path(result["image_png"]).is_file()
     assert released == ["face-gpu-unloaded"]
+
+def test_stage_worker_hides_weight_progress_not_model_errors(tmp_path, capsys):
+    code = """import pathlib,sys
+print('Loading checkpoint shards: 50%|██████   | 2/4', flush=True)
+print('Model load failed: verified checksum mismatch', flush=True)
+raise SystemExit(7)
+"""
+    with pytest.raises(RuntimeError, match="checksum mismatch"):
+        run(tmp_path, code)
+    output = capsys.readouterr().out
+    stored = (tmp_path / "result.log").read_text()
+    assert "Loading checkpoint shards" not in output
+    assert "Loading checkpoint shards" not in stored
+    assert "checksum mismatch" in output
+    assert "checksum mismatch" in stored
