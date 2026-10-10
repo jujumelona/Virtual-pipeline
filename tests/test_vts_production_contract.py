@@ -345,9 +345,11 @@ def test_generated_pro_body_handoff_uses_source_coordinate_frame(tmp_path, monke
     layer.paste((100, 150, 200, 255), (80, 20, 110, 60))
     PixelLayer.frompil(layer, parent=psd, name="face")
     path = tmp_path / "generated.psd"; psd.save(path)
-    monkeypatch.setattr(production, "run_see_through", lambda *a, **kw: path)
+    # A pre-generated PSD intentionally skips fresh GPU decomposition and
+    # its second-pass batch; keep this unit test strictly CPU-only.
     result = production.make_cubism_handoff(master, tmp_path / "out", edition="pro", scope="upper",
-                                           asset_kind="body", reference_image=body)
+                                           asset_kind="body", reference_image=body,
+                                           generated_psd=path)
     assert PSDImage.open(result["art_psd"]).size == (256, 384)
     with ZipFile(result["package"]) as z:
         report = json.loads(z.read("metadata/pro_reference_alignment.json"))
