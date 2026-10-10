@@ -28,7 +28,14 @@ def new_import_psd(size):
     from psd_tools.constants import Resource
     from psd_tools.psd.image_resources import ImageResource
 
-    psd = PSDImage.new("RGB", size, depth=8)
+    # RGBA here means Photoshop RGB color mode with four stored channels:
+    # R/G/B plus native layer transparency. PSD files remain RGB/8-bit/sRGB.
+    # Creating a three-channel 'RGB' document forces psd-tools 1.14.2 to
+    # convert each RGBA layer to RGB and emit an extra user layer mask,
+    # leading to fragile private channel mutation during export.
+    psd = PSDImage.new("RGBA", size, depth=8)
+    if psd.color_mode.name != "RGB" or psd.pil_mode != "RGBA":
+        raise RuntimeError("psd-tools native RGBA/RGB transparency contract changed")
     profile = srgb_profile_bytes()
     psd.image_resources[Resource.ICC_PROFILE] = ImageResource(
         key=Resource.ICC_PROFILE, data=profile)
@@ -41,18 +48,14 @@ def create_import_layer(image, parent, *, name, top=0, left=0):
 
     rgba = image.convert("RGBA")
     layer = PixelLayer.frompil(rgba, parent=parent, name=name, top=top, left=left)
-    # psd-tools 1.14.2 converts RGBA to the RGB document mode and stores
-    # alpha in a USER_LAYER_MASK. Cubism's stable import instructions require
-    # that mask be applied. Put alpha in the actual TRANSPARENCY_MASK channel
-    # and remove the separate mask; preserve RGB and straight-alpha bytes.
+    # psd-tools 1.14.2 creates an extra USER_LAYER_MASK even when
+    # the parent is RGBA-capable. Remove that duplicate; alpha is already
+    # written as TRANSPARENCY_MASK by PixelLayer.frompil.
     if layer.mask is not None:
         layer.remove_mask()
-    for index, info in enumerate(layer._record.channel_info):
-        if info.id == ChannelID.TRANSPARENCY_MASK:
-            channel = layer._channels[index]
-            channel.set_data(rgba.getchannel("A").tobytes(), rgba.width, rgba.height,
-                             depth=8, version=layer._psd._record.header.version)
-            info.length = channel._length
-            layer._psd._mark_updated()
-            return layer
-    raise RuntimeError("Pinned psd-tools writer has no transparency channel")
+    channel_ids = {info.id for info in layer._record.channel_info}
+    if ChannelID.TRANSPARENCY_MASK not in channel_ids:
+        raise RuntimeError("Pinned psd-tools writer has no native transparency channel")
+    if layer.mask is not None:
+        raise RuntimeError("PSD still has a separate unapplied user mask")
+    return layer
