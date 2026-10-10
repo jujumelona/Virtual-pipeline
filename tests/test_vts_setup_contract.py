@@ -60,6 +60,7 @@ def test_prefetch_only_models_consumed_by_actual_vts_entrypoints(tmp_path, monke
     assert downloaded == [
         '24yearsold/seethroughv0.0.2_layerdiff3d_nf4',
         '24yearsold/seethroughv0.0.1_marigold_nf4',
+        '24yearsold/l2d_sam_iter2',
         'OzzyGT/qwen-image-layered-bnb-4bit-transformer',
         'StabilityLabs/Stable-Layers',
         'Qwen/Qwen-Image-Layered',
