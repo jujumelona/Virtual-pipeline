@@ -268,7 +268,9 @@ def build_vts_brief(
                 "upscale_reason": "Official decomposition already resizes inputs; no mandatory SR stage.",
                 "external_generator": "Select its native size in its own UI/API; prompts cannot enforce pixels.",
             },
-            "stages": [dict(item) for item in MODEL_STACK],
+            "stages": [dict(item) for item in MODEL_STACK
+                       if item["stage"] != "recursive_layers"
+                       or (edition == "pro" and asset_kind in ("outfit", "accessory"))],
             "qwen_usage": qwen_usage,
             "qwen_quantized_t4_verified": False,
             "see_through_nf4_t4_verified": False,
