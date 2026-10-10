@@ -117,6 +117,7 @@ def test_production_runner_uses_namespace_tsr_source_in_real_runpy(
     import vtuber_pipeline.avatar.marching_cubes_backend as marching
     monkeypatch.setattr(marching, "install_triposr_marching_cubes", lambda: None)
     monkeypatch.setattr(runner, "_install_hf_revision_guard", lambda: None)
+    monkeypatch.setattr(runner, "install_triposr_legacy_vit_compatibility", lambda: None)
     monkeypatch.setattr(
         sys, "argv", ["triposr_runner.py", str(root / "run.py"), "--no-remove-bg"]
     )
