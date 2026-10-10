@@ -7,11 +7,14 @@ parallel, and never begin inference before all mandatory assets verify.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import deque
 from pathlib import Path
 import subprocess
 import sys
 import threading
 from typing import Callable, Sequence
+
+from tools.model_log_output import is_weight_progress, quiet_model_environment
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_WORKERS = 3
@@ -51,17 +54,21 @@ def run_model_task(label: str, code: str, *, timeout: int = 2400) -> None:
     process = subprocess.Popen(
         [sys.executable, "-u", "-c", code],
         cwd=str(ROOT),
+        env=quiet_model_environment(),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
     )
-    lines: list[str] = []
+    # Never accumulate entire multi-GB checkpoint transfer transcripts in RAM.
+    lines: deque[str] = deque(maxlen=60)
 
     def read_output() -> None:
         assert process.stdout is not None
         for line in process.stdout:
             line = line.rstrip("\n")
+            if is_weight_progress(line):
+                continue
             lines.append(line)
             print(f"[{label}] {line}", flush=True)
 
