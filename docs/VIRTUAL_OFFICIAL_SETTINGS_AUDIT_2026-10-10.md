@@ -59,11 +59,11 @@
 | tile_pad / pre_pad | 10 / 0 | overlap10, 별도 prepad0 |
 | 정밀도 | 공식 GPU CLI 기본 FP16 | GPU FP16; CPU 검증 FP32 |
 | 얼굴 보정 | GFPGAN 선택 기능 | 사용하지 않음; 정체성 자동 변경 방지 |
-| 알파 | 공식 neural/bicubic 선택 | 원래 알파 LANCZOS 크기 변경; geometry 보존 정책, neural alpha와 동일하지 않음 |
+| 알파 | 공식 neural/bicubic 선택 | 비신경망 옵션을 사용: upstream 옵션 이름은 bicubic이나 실제 구현은 native×4 INTER_LINEAR; neural alpha와 동일하지 않음 |
 | 투명 경계 RGB | 공식 처리와 별도 | halo 방지를 위한 색 확장, 자체 처리 |
-| 타일 축소 필터 | 공식 outscale LANCZOS4 | PIL LANCZOS, 타일 단위 처리 | 
+| 타일 축소 필터 | 공식 outscale LANCZOS4 | native×4 전체 RGB를 조립하고 알파를 합친 뒤 OpenCV INTER_LANCZOS4 한 번; 타일별 축소 제거 | 
 
-공식 기본값과 다른 타일 크기·알파·축소 필터는 명시적인 프로젝트 절충이다. 원본 복원이나 최고 화질을 보장하지 않으며 전체 이미지와 경계 비교가 필요하다. 이번 실제 공식 체크포인트의 CPU 추론 및 17×23→34×46 출력·반투명 알파 유지 확인은 완료했다. 공식 BasicSR RRDBNet과 같은 가중치로 forward 최대 절대오차 0.0을 확인했다. 이는 GPU·타일 경계 화질 검증과 다르다.
+공식 기본값과 다른 타일 크기와 비신경망 알파 선택은 명시적인 프로젝트 절충이다. tile=0의 공식 통짜 경로도 허용한다. 잘못된 native×4 크기나 비유한 모델 출력은 오류다. 전체 outscale 필터와 비신경망 알파 처리를 공식 구현과 일치시켰지만 원본 복원이나 최고 화질을 보장하지는 않는다. 이전 실제 공식 체크포인트의 CPU 추론 및 17×23→34×46 출력·반투명 알파 유지 확인은 완료했다. 공식 BasicSR RRDBNet과 같은 가중치로 forward 최대 절대오차 0.0을 확인했다. 이는 이번 GPU·타일 경계 화질 검증과 다르다. 이번 후처리 실제 RGBA 비교 및 시트/Live2D 관련 테스트는 별도로 수행한다.
 
 See-through/Qwen 분해 직전에 원화를 강제로 키우지 않는다. 다음 단계가 이미 고정 크기로 처리하기 때문이다. 실제 PSD 선화 확대가 필요하면 등록된 모든 파츠와 신체 기준·좌표를 동일 배율로 처리하고 원본/확대본을 비교해야 한다. 현재 Live2D 단일 원화 경로에 그런 후처리 PSD 확대 기능을 추가했다고 주장하지 않는다. FREE 2048 아틀라스 제약도 함께 판단해야 한다.
 
@@ -81,7 +81,7 @@ See-through/Qwen 분해 직전에 원화를 강제로 키우지 않는다. 다�
 | TripoSR 다중 관측 | 공식 단일 이미지 모델 | 각 관측별 독립 복원/정합은 프로젝트 기능. 공식 공동 다중 시점 모델이라고 부르지 않음 |
 | Inochi SDK | stable0.8.7 실제 INP 직렬화/재로딩 | native mesh/UV/deform/physics binding 유지. SDK0.8.7 기본 pixelsPerMeter1000,gravity9.8,preservePixels=False. 문서 latest0.7과 고정 소스를 구분 |
 | Inochi 파라미터 | SDK가 authored range 사용 | head X/Z±30,Y±20; body±15; eye open0/1/1. 프로젝트 선택이며 Cubism 표준 범위와 혼용하면 안 됨 |
-| Inochi spring | 모델별 설정 필요 | hair3Hz,기타5Hz, angleDamping0.72,length80px,lengthDamping은 SDK 기본0.5. 기본 SDK는1Hz/angleDamping0.5/length100px. 모든 원화에 공식 최적값 아님; vertex 변형은 pivot을 사용하지만 native driver는 root에 붙고 serialized pivot을 사용하지 않음. 움직임/좌표축 실측 필요 |
+| Inochi spring | 모델별 설정 필요 | hair3Hz,기타5Hz, angleDamping0.72,length80px,lengthDamping은 SDK 기본0.5. 기본 SDK는1Hz/angleDamping0.5/length100px. 모든 원화에 공식 최적값 아님; pivot은 native driver transform으로 중심 좌표 변환해 전달하고 reset한다. 머리 추적에 따른 anchor 이동 및 렌더링 실측은 미검증 |
 | Blender | 실제 VRM importer/exporter, LTS 지원 환경 | 4.2.23 LTS와 VRM addon4.7.2 고정, hash검증·operator 검사. 임의 최신 버전 교체를 화질 개선이라 하지 않음 |
 | VRM export | 호환성 위해 기본4 influences, advanced 기능 주의 | addon preferences 무시, advanced/all-influences/sparse/lights/glTF animation 비활성, armature 명시, 실제 RNA 옵션 타입 확인/보고. 투명 atlas는 GLB BLEND로 보존하도록 수정했다. shader·표정·spring은 실제 앱에서 확인 필요 |
 | SkinTokens 선택 옵션 | 공식 skeleton/transfer demo 사용 | 고정소스+use_skeleton/use_transfer, skin-only graft. T4의 total memory 검사14GiB는 free VRAM 보장이 아님. 기본 필수 단계가 아님 |

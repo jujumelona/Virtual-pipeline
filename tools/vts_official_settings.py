@@ -32,6 +32,22 @@ FREE는 필요한 항목만 선택하세요. 파라미터 총 30개에 블렌드
 표준 범위는 시작점입니다. 필요한 표현은 공식 지침에 따라 범위를 확장하고 실제 키폼을 검수하세요.
 캐릭터 왼쪽·오른쪽 기준과 화면 좌표를 혼동하지 마세요.
 
+공식 +방향: AngleX/AngleZ·시선X·BodyAngleX/BodyAngleZ는 화면 오른쪽,
+AngleY·시선Y·BodyAngleY·BaseY·BustY는 위쪽입니다. 눈썹X의 음수는
+양쪽 눈썹을 모으므로 좌우 부위에 같은 화면 이동값을 넣지 마세요.
+눈·입을 더 크게 열거나 강하게 닫을 때 범위를 0.1 단위로 확장할 수 있습니다.
+아래 그룹 ID는 필요한 것만 생성하며 추가 파라미터를 뜻하지 않습니다.
+
+| 부위 | 공식 파라미터 그룹 ID |
+|---|---|
+| 얼굴 / 머리 | ParamGroupFace / ParamGroupHead |
+| 눈 / 안구 / 눈썹 | ParamGroupEyes / ParamGroupEyeballs / ParamGroupBrows |
+| 입 / 신체 | ParamGroupMouth / ParamGroupBody |
+| 손 / 왼손 / 오른손 | ParamGroupHands / ParamGroupHandL / ParamGroupHandR |
+| 팔 / 왼팔 / 오른팔 | ParamGroupArms / ParamGroupArmL / ParamGroupArmR |
+| 다리 / 왼다리 / 오른다리 | ParamGroupLegs / ParamGroupLegL / ParamGroupLegR |
+| 흔들림 / 표정 / 머리카락 / 전체 | ParamGroupSway / ParamGroupExpression / ParamGroupHair / ParamGroupOverall |
+
 ## 물리·텍스처·파일
 
 물리 계산 FPS는 사용 환경에 맞추세요. 대상이 불명확하면 공식 권장은 60 FPS입니다.
@@ -54,6 +70,14 @@ VTube Studio에서 추적 입력과 모델 출력 파라미터를 실제로 연�
 가져오기용 PSD는 파츠마다 선화·채색·클리핑을 합치고 레이어 마스크를 적용하세요.
 중복 레이어 이름을 피하고 실제 Editor 가져오기 결과를 확인하세요.
 
+PSD 가져오기의 ArtMesh 생성 여백 기본값은 1px입니다. Environment settings의
+Modeling에서 바꿀 수 있으며 아틀라스 배치 여백과 별개입니다.
+큰 원화의 화면 미리보기는 1/2 표시가 공식 권장입니다. 원화 화소를 줄이는 설정이 아닙니다.
+대상 버전이5.2 이하이면 PSD 가져오기에 해당 버전의 blend mode를 선택하세요.
+기본 합성은 Normal 색상/Over 알파입니다. 5.3의 고급 합성은 대상 SDK 지원을 확인하세요.
+이 파이프라인의 등록 PNG 변환은 특수 PSD 합성 속성을 보존하지 못하면 오류를 반환합니다.
+원본 PSD를 직접 가져오는 Editor의 지원 기능과 구분하세요.
+
 아틀라스는 대상 SDK 호환성을 위해 가로·세로가 같은 크기를 권장합니다.
 공식 Editor 텍스처 생성 방식은 High Quality를 권장합니다.
 자동 배치 여백의 허용 범위는 0~50px이며 이것이 단일 권장 여백값은 아닙니다.
@@ -71,6 +95,8 @@ VTube Studio는 표준 파라미터 ID·범위를 권장하며 앱의 Auto-Setup
 - https://docs.live2d.com/en/cubism-editor-manual/standard-parameter-list/
 - https://docs.live2d.com/en/cubism-editor-manual/physics-operation/
 - https://docs.live2d.com/en/cubism-editor-manual/precautions-for-psd-data/
+- https://docs.live2d.com/en/cubism-editor-manual/psd-import/
+- https://docs.live2d.com/en/cubism-editor-manual/blend-mode/
 - https://www.live2d.com/en/cubism/comparison/
 - https://docs.live2d.com/en/cubism-editor-manual/texture-atlas-edit/
 - https://docs.live2d.com/en/cubism-editor-manual/divide-the-material/

@@ -173,6 +173,33 @@ def load_model(cache: Path | None = None):
     return model
 
 
+def _finish_rgba(rgb4, alpha, *, output_scale):
+    """Official non-neural alpha option + one full-canvas outscale.
+
+    Upstream calls this alpha option 'bicubic', but utils.py implements
+    INTER_LINEAR at native x4, then INTER_LANCZOS4 on the merged RGBA.
+    https://github.com/xinntao/Real-ESRGAN/blob/master/realesrgan/utils.py
+    """
+    import cv2
+    import numpy as np
+    from PIL import Image
+    h, w = alpha.shape
+    if output_scale not in (1, 2, 4):
+        raise ValueError("Neural output scales must be 1x, 2x or 4x")
+    if rgb4.shape != (h * 4, w * 4, 3):
+        raise ValueError("SR output does not match the official native x4 canvas")
+    if not np.isfinite(rgb4).all():
+        raise ValueError("SR output contains non-finite pixels")
+    rgb8 = rgb4 if rgb4.dtype == np.uint8 else np.rint(np.clip(rgb4, 0, 1) * 255).astype(np.uint8)
+    alpha4 = cv2.resize(alpha.astype(np.float32) / 255, (w * 4, h * 4),
+                        interpolation=cv2.INTER_LINEAR)
+    result = np.dstack((rgb8, np.rint(alpha4 * 255).astype(np.uint8)))
+    if output_scale != 4:
+        result = cv2.resize(result, (w * output_scale, h * output_scale),
+                            interpolation=cv2.INTER_LANCZOS4)
+    return Image.fromarray(result, "RGBA")
+
+
 def upscale_rgba(image, model, *, output_scale: int = 2, tile: int = 128):
     """Run neural x4 per tight part bbox; optionally downsample result.
 
@@ -184,8 +211,8 @@ def upscale_rgba(image, model, *, output_scale: int = 2, tile: int = 128):
     from PIL import Image
     if output_scale not in (1, 2, 4):
         raise ValueError("Neural output scales must be 1x, 2x or 4x")
-    if tile < 32 or tile > 256 or tile % 16:
-        raise ValueError("tile must be 32..256, multiple of 16")
+    if not isinstance(tile, int) or isinstance(tile, bool) or tile < 0:
+        raise ValueError("tile must be a nonnegative integer; 0 disables tiling")
     if image.mode != "RGBA":
         image = image.convert("RGBA")
     import cv2
@@ -199,7 +226,8 @@ def upscale_rgba(image, model, *, output_scale: int = 2, tile: int = 128):
     if np.any(empty):
         rgb = cv2.inpaint(rgb, empty, 3, cv2.INPAINT_TELEA)
     h, w = alpha.shape
-    result = Image.new("RGB", (w * output_scale, h * output_scale))
+    result = Image.new("RGB", (w * 4, h * 4))
+    tile = tile or max(h, w)  # official tile=0 means whole-image inference
     device = next(model.parameters()).device
     dtype = next(model.parameters()).dtype
     pad = 10  # official Real-ESRGAN tile_pad default
@@ -213,6 +241,8 @@ def upscale_rgba(image, model, *, output_scale: int = 2, tile: int = 128):
             )
             with torch.inference_mode():
                 pred = model(inp).clamp_(0,1)
+            if tuple(pred.shape) != (1, 3, (y1-y0)*4, (x1-x0)*4) or not torch.isfinite(pred).all():
+                raise ValueError("SR model returned invalid native x4 pixels")
             rgb4 = np.uint8(np.rint(
                 pred[0].float().permute(1,2,0).cpu().numpy() * 255.0
             ))
@@ -223,15 +253,9 @@ def upscale_rgba(image, model, *, output_scale: int = 2, tile: int = 128):
             size_y = min(tile,h-y)
             inset = inset.crop((left, top,
                                 left+size_x*4, top+size_y*4))
-            if output_scale != 4:
-                inset = inset.resize((size_x*output_scale,
-                                      size_y*output_scale),
-                                     Image.Resampling.LANCZOS)
-            result.paste(inset,(x*output_scale,y*output_scale))
+            result.paste(inset,(x*4,y*4))
             del inp, pred
-    alpha_out = image.getchannel("A").resize(result.size, Image.Resampling.LANCZOS)
-    result.putalpha(alpha_out)
-    return result
+    return _finish_rgba(np.asarray(result), alpha, output_scale=output_scale)
 
 
 if __name__ == "__main__":

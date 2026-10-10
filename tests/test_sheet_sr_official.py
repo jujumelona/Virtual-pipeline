@@ -2,6 +2,29 @@
 import pytest
 
 
+@pytest.mark.parametrize('scale', [1, 2, 4])
+def test_outscale_resamples_complete_native_canvas_with_official_filters(scale):
+    import cv2
+    import numpy as np
+    from tools.sheet_super_resolution import _finish_rgba
+    rng = np.random.default_rng(42)
+    rgb4 = rng.random((28, 52, 3), dtype=np.float32)
+    alpha = rng.integers(0, 256, (7, 13), dtype=np.uint8)
+    alpha4 = cv2.resize(alpha.astype(np.float32) / 255, (52, 28), interpolation=cv2.INTER_LINEAR)
+    expected = np.rint(np.dstack((rgb4, alpha4)) * 255).astype(np.uint8)
+    if scale != 4:
+        expected = cv2.resize(expected, (13 * scale, 7 * scale), interpolation=cv2.INTER_LANCZOS4)
+    actual = _finish_rgba(rgb4, alpha, output_scale=scale)
+    assert np.array_equal(np.asarray(actual), expected)
+
+
+def test_wrong_native_sr_canvas_is_rejected():
+    import numpy as np
+    from tools.sheet_super_resolution import _finish_rgba
+    with pytest.raises(ValueError, match='native x4'):
+        _finish_rgba(np.zeros((28, 51, 3), np.float32), np.zeros((7, 13), np.uint8), output_scale=2)
+
+
 def test_still_image_preparation_uses_official_anime_6b_release():
     from tools import sheet_super_resolution as sr
     assert sr.MODEL_NAME == 'RealESRGAN_x4plus_anime_6B.pth'
