@@ -360,7 +360,8 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
     if not torch.cuda.is_available():
         raise RuntimeError("See-through NF4 decomposition requires a CUDA GPU")
     capability = torch.cuda.get_device_capability(0)
-    if capability[0] < 8:
+    t4_low_vram = capability[0] < 8
+    if t4_low_vram:
         source_program = program.read_text(encoding="utf-8")
         if source_program.count("torch.bfloat16") < 8:
             raise RuntimeError("See-through upstream BF16 patch contract changed")
@@ -378,6 +379,11 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
                 f"        set_4bit_compute_dtype({owner}.{name}, torch.float16)\n"
                 for name in names)
             patched = patched.replace(anchor, adaptation + anchor)
+        # The official NF4 Marigold branch unconditionally places its VAE and
+        # UNet on CUDA, even when --cpu_offload was requested. Honor the
+        # official offload mode on T4 instead of immediately filling VRAM again.
+        from tools.vts_quantization import patch_nf4_marigold_cpu_offload
+        patched = patch_nf4_marigold_cpu_offload(patched)
         patched = getsource(set_4bit_compute_dtype) + "\n" + patched
         program = program.with_name("inference_psd_quantized_vts_fp16.py")
         program.write_text(patched, encoding="utf-8")
@@ -404,6 +410,12 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
         "--save_to_psd", "--resolution", "1280",
         "--num_inference_steps", "30", "--resolution_depth", "768",
     ]
+    if t4_low_vram:
+        # Upstream has a real Accelerate component-offload implementation.
+        # Its default is False (the help string misleadingly says 'on').
+        # Without it, the CLIP NF4 cache forward allocates cuBLAS while the
+        # UNet and other pipeline components simultaneously occupy T4 VRAM.
+        command.append("--cpu_offload")
     print("[VTS] See-through NF4:", " ".join(command), flush=True)
     from tools.vts_subprocess import run_logged
     from tools.colab_gpu_warmup import available_face_worker, stop_face_worker
@@ -416,6 +428,18 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
         code = run_logged(command, cwd=third_party, env=env, log_path=log,
                           timeout_seconds=timeout)
     if code:
+        # Surface the failure type while preserving the detailed worker log.
+        # cublasCreate failures are often memory pressure but can also be
+        # driver/runtime failures; do not misreport them as proven OOM.
+        details = log.read_text(encoding="utf-8", errors="replace")[-12000:]
+        if "CUBLAS_STATUS_ALLOC_FAILED" in details or "CUDA out of memory" in details:
+            raise RuntimeError(
+                "See-through CUDA allocation failed during NF4 inference. "
+                "T4 CPU component offload was " +
+                ("enabled" if t4_low_vram else "not selected") +
+                "; check competing GPU allocations and the worker's CUDA memory "
+                f"diagnostics. full log: {log}"
+            )
         raise RuntimeError(f"See-through exited {code}; full log: {log}")
     after = sorted(
         (f for f in base.rglob("*.psd")
