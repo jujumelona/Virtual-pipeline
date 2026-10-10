@@ -54,7 +54,7 @@ def test_inactive_2d_options_stay_separate():
 def test_qwen_auto_modes():
     v = {"LIVE2D_QWEN": "auto", "LIVE2D_EDITION": "free"}
     refresh_qwen(v)
-    assert v["LIVE2D_USE_QWEN"] is False
+    assert v["LIVE2D_USE_QWEN"] is True
     v["LIVE2D_EDITION"] = "pro"
     refresh_qwen(v)
     assert v["LIVE2D_USE_QWEN"] is True
@@ -163,3 +163,16 @@ def test_live2d_qwen_budget_changes_mode_signature():
     values["LIVE2D_QWEN_LAYERS"] = 11
     with pytest.raises(ValueError, match="2..10"):
         selection_signature(values)
+
+
+def test_qwen_free_auto_signature_requires_actual_model_execution():
+    v = {"TASK": "캐릭터 생성", "MODE": "live2d",
+         "USAGE": "personalNonProfit", "LIVE2D_EDITION": "free",
+         "LIVE2D_FRAMING": "upper", "LIVE2D_QWEN": "auto",
+         "LIVE2D_QWEN_LAYERS": 4, "LIVE2D_QWEN_PASSES": 8}
+    refresh_qwen(v)
+    assert v["LIVE2D_USE_QWEN"] is True
+    selection_signature(v)
+    v["LIVE2D_USE_QWEN"] = False
+    with pytest.raises(ValueError, match="Qwen 옵션"):
+        selection_signature(v)
