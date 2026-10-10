@@ -182,15 +182,19 @@ def run_stage(*, worker: str, request_json: str, result_json: str,
                 pass
         result_path.unlink(missing_ok=True)
         provenance.unlink(missing_ok=True)
+        from tools.model_log_output import is_weight_progress, quiet_model_environment
         log_path = result_path.with_suffix('.log')
         tail = deque(maxlen=30)
         memory_before = cgroup_memory_diagnostics()
         with log_path.open('w') as log:
             process = subprocess.Popen([executable, '-u', worker, request_json, str(result_path)], cwd=cwd,
+                                       env=quiet_model_environment(),
                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                        text=True, errors='replace', start_new_session=True)
             def stream():
                 for line in process.stdout:
+                    if is_weight_progress(line):
+                        continue
                     log.write(line); log.flush(); tail.append(line)
                     print(f'[{Path(worker).stem}] {line}', end='', flush=True)
             reader = threading.Thread(target=stream, daemon=True)
