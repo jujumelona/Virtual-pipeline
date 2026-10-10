@@ -85,6 +85,17 @@ def supervise_handoff(command, output: Path, *, timeout_seconds=21600):
         _save(failure_path, failure)
         _save(status_path, failure)
         print("[VTS] VTS_PROCESS_FAIL: " + json.dumps(failure), flush=True)
+        # Preserve the original failure before probing. Each probe gets a
+        # fresh interpreter, so one native fault cannot suppress the others.
+        # No See-through/GPU models are loaded or rerun during diagnosis.
+        if last_psd_step is not None and returncode is not None and returncode < 0:
+            try:
+                from tools.vts_psd_diagnose import diagnose_psd_runtime
+                failure['psd_diagnosis'] = diagnose_psd_runtime(output / 'logs' / 'psd_diagnosis')
+            except Exception as diagnostic_error:
+                failure['psd_diagnosis_error'] = str(diagnostic_error)
+            _save(failure_path, failure)
+            _save(status_path, failure)
         raise
     result["process_log"] = str(log_path)
     _save(status_path, {**evidence, "event": "VTS_PROCESS_PASS", "returncode": returncode,

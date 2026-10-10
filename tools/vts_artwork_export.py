@@ -200,6 +200,7 @@ def _write_psd(parts, target: Path, *, free: bool):
     for part in reversed(parts):  # input is top-to-bottom, PSD appends bottom-up
         family = part["name"].split(".", 1)[0].upper()
         if family != active_family and (not free or groups < 30):
+            step("create_group", name=family)
             group = psd.create_group(name=family)
             active_family = family
             groups += 1

@@ -55,6 +55,13 @@ Colab ⑨의 Live2D 제작 전체는 별도 Python 프로세스에서 실행합�
 SIGSEGV/SIGABRT 같은 네이티브 충돌은 노트북의 Python 예외 처리로 잡을 수 없으므로
 감독 프로세스가 종료 코드·신호를 `vts_process_failure.json`에 기록합니다.
 전체 출력과 faulthandler 스택은 `logs/handoff_process.log`에 보존합니다.
+PSD 작업 중 자식 프로세스가 신호로 종료되면 NumPy·Pillow·psd-tools import,
+RLE/RAW 레이어 왕복, 현재 writer/기존 save 경로를 새 프로세스 7개에서 자동 검사합니다.
+각 검사에는 30초 제한이 있으며 모델 추론은 실행하지 않습니다. 검사 하나가 충돌해도
+나머지는 계속 진행합니다. 결과는 `logs/psd_diagnosis/psd_diagnosis.json`과 개별 로그에
+저장하며 `vts_process_failure.json`에도 연결합니다. 모든 검사가 통과하면 원인이
+밝혀진 것으로 처리하지 않고 `probes_passed_cause_unresolved`를 기록합니다.
+CI도 Python 3.12와 3.13에서 실제 PSD 왕복·치명 신호 격리·자동 진단을 검사합니다.
 PSD 옆의 `*.psd.steps.jsonl`은 코덱 호출 전에 fsync하여 생성·저장·열기·레이어 읽기 중
 마지막 진입 지점을 남깁니다. RSS·MemAvailable·cgroup memory.events도 기록합니다.
 SIGKILL만으로 OOM이라고 단정하지 말고 `oom_kill` 증가와 함께 확인하세요.
