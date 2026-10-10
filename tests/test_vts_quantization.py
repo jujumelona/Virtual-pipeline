@@ -178,7 +178,13 @@ class _ImageMarigold:
 def test_layerdiff_offload_image_paths_use_execution_cuda(monkeypatch):
     from tools.vts_quantization import align_offload_image_devices
 
-    monkeypatch.setattr("torch.cuda.current_device", lambda: 0)
+    # Fast contract CI intentionally has no PyTorch installed.
+    fake_torch = types.SimpleNamespace(
+        cuda=types.SimpleNamespace(current_device=lambda: 0),
+        device=lambda kind, index: f"{kind}:{index}",
+    )
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+    monkeypatch.setitem(globals(), "torch", fake_torch)
     pipe = _ImageLayerDiff()
     assert pipe() == ("cpu", "cpu", "cpu", "cpu")
     align_offload_image_devices(pipe, "layerdiff")
@@ -189,7 +195,13 @@ def test_layerdiff_offload_image_paths_use_execution_cuda(monkeypatch):
 def test_marigold_offload_image_paths_use_execution_cuda(monkeypatch):
     from tools.vts_quantization import align_offload_image_devices
 
-    monkeypatch.setattr("torch.cuda.current_device", lambda: 0)
+    # Fast contract CI intentionally has no PyTorch installed.
+    fake_torch = types.SimpleNamespace(
+        cuda=types.SimpleNamespace(current_device=lambda: 0),
+        device=lambda kind, index: f"{kind}:{index}",
+    )
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+    monkeypatch.setitem(globals(), "torch", fake_torch)
     pipe = _ImageMarigold()
     assert pipe() == ("cpu", "cpu", "cpu")
     align_offload_image_devices(pipe, "marigold")
