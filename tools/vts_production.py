@@ -491,7 +491,7 @@ def run_see_through(master: Path, work: Path, *, third_party: Path,
     command = [
         worker_python, "-u", str(program),
         "--srcp", str(unique_source), "--save_dir", str(base),
-        "--save_to_psd", "--resolution", "1280",
+        "--save_to_psd", "--tblr_split", "--resolution", "1280",
         "--num_inference_steps", "30", "--resolution_depth", "768",
     ]
     if t4_low_vram:
