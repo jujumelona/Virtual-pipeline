@@ -587,7 +587,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         generated_psd: Path | None = None,
                         third_party: Path | None = None,
                         qwen: bool = False, qwen_layers: int = 4,
-                        qwen_passes: int = 8, _worker: bool = False) -> dict:
+                        qwen_passes: int = 32, _worker: bool = False) -> dict:
     """Produce a *layered image* ZIP, not an unimportable pseudo-rig.
 
     Each PRO call processes exactly one body/hair/outfit/accessory asset.
