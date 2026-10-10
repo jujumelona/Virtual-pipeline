@@ -561,3 +561,57 @@ def test_visible_source_rgb_fidelity_is_measured_not_declared_verified():
     assert altered["exact_visible_rgb_pixel_fraction"] < 1
     other_size = Image.new("RGBA", (10, 8))
     assert _visible_rgb_fidelity(source, other_size)["same_canvas"] is False
+
+
+def test_official_lr_runs_even_if_independent_depth_stage_fails(tmp_path, monkeypatch):
+    """Depth failure must not skip eligible official left/right processing."""
+    from psd_tools import PSDImage
+    from tools.vts_production import _safe_refine_psd
+    from tools import vts_subprocess
+    import json
+    from PIL import Image
+
+    source = tmp_path / "original.psd"
+    source.write_bytes(b"mock psd for patched reader")
+    (tmp_path / "original_depth.psd").write_bytes(b"depth")
+    (tmp_path / "original.psd.json").write_text(
+        json.dumps({"parts": {"handwear": {"tag": "handwear"}}}),
+        encoding="utf-8")
+    modes = []
+
+    def fake_run(command, **kwargs):
+        mode = command[3]
+        modes.append(mode)
+        if mode == "seg_wdepth":
+            return 1
+        assert mode == "seg_wlr"
+        (tmp_path / "original_lrsplit.psd").write_bytes(b"new psd")
+        return 0
+
+    class FakePSD:
+        size = (64, 64)
+
+        def __init__(self, path):
+            self.path = str(path)
+
+        def composite(self):
+            return Image.new("RGBA", (64, 64), (75, 45, 25, 255))
+
+        def descendants(self):
+            return [object()] * (3 if "lrsplit" in self.path else 2)
+
+    monkeypatch.setattr(vts_subprocess, "run_logged", fake_run)
+    monkeypatch.setattr(PSDImage, "open", lambda p: FakePSD(p))
+    result = _safe_refine_psd(source, third_party=tmp_path, worker_python="python")
+    assert modes == ["seg_wdepth", "seg_wlr"]
+    assert result == tmp_path / "original_lrsplit.psd"
+
+
+def test_official_metadata_tag_list_does_not_truncate_at_32(tmp_path):
+    import json
+    from tools.vts_production import _observed_split_tags
+    info = tmp_path / "all.psd.json"
+    tags = {f"handwear_{i:03d}": {} for i in range(41)}
+    info.write_text(json.dumps({"parts": tags}), encoding="utf-8")
+    assert len(_observed_split_tags(info, depth=True)) == len(tags)
+    assert len(_observed_split_tags(info, depth=False)) == len(tags)
