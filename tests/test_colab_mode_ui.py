@@ -52,18 +52,26 @@ def test_inactive_2d_options_stay_separate():
 
 
 def test_qwen_auto_modes():
-    v = {"LIVE2D_QWEN": "auto", "LIVE2D_EDITION": "free"}
+    v = {"LIVE2D_QWEN": "auto", "LIVE2D_EDITION": "free",
+         "LIVE2D_PRO_ASSET": "outfit"}
     refresh_qwen(v)
-    assert v["LIVE2D_USE_QWEN"] is True
+    assert v["LIVE2D_USE_QWEN"] is False
     v["LIVE2D_EDITION"] = "pro"
     refresh_qwen(v)
     assert v["LIVE2D_USE_QWEN"] is True
+    v["LIVE2D_PRO_ASSET"] = "body"
+    refresh_qwen(v)
+    assert v["LIVE2D_USE_QWEN"] is False
+    v["LIVE2D_PRO_ASSET"] = "accessory"
     v["LIVE2D_QWEN"] = "off"
     refresh_qwen(v)
     assert v["LIVE2D_USE_QWEN"] is False
     v["LIVE2D_QWEN"] = "on"
     refresh_qwen(v)
     assert v["LIVE2D_USE_QWEN"] is True
+    v["LIVE2D_PRO_ASSET"] = "hair"
+    with pytest.raises(ValueError, match="PRO"):
+        refresh_qwen(v)
     assert set(QWEN_LABELS) == {"auto", "on", "off"}
 
 
@@ -155,7 +163,7 @@ def test_live2d_qwen_budget_changes_mode_signature():
         "LIVE2D_EDITION": "pro", "LIVE2D_FRAMING": "upper",
         "LIVE2D_QWEN": "auto", "LIVE2D_USE_QWEN": True,
         "LIVE2D_QWEN_LAYERS": 8, "LIVE2D_QWEN_PASSES": 12,
-        "LIVE2D_PRO_ASSET": "hair",
+        "LIVE2D_PRO_ASSET": "outfit",
     }
     first = selection_signature(values)
     values["LIVE2D_QWEN_LAYERS"] = 7
@@ -165,14 +173,22 @@ def test_live2d_qwen_budget_changes_mode_signature():
         selection_signature(values)
 
 
-def test_qwen_free_auto_signature_requires_actual_model_execution():
+def test_qwen_free_auto_signature_is_explicitly_disabled():
     v = {"TASK": "캐릭터 생성", "MODE": "live2d",
          "USAGE": "personalNonProfit", "LIVE2D_EDITION": "free",
          "LIVE2D_FRAMING": "upper", "LIVE2D_QWEN": "auto",
          "LIVE2D_QWEN_LAYERS": 4, "LIVE2D_QWEN_PASSES": 8}
     refresh_qwen(v)
-    assert v["LIVE2D_USE_QWEN"] is True
+    assert v["LIVE2D_USE_QWEN"] is False
     selection_signature(v)
-    v["LIVE2D_USE_QWEN"] = False
+    v["LIVE2D_USE_QWEN"] = True
     with pytest.raises(ValueError, match="Qwen 옵션"):
         selection_signature(v)
+
+
+def test_qwen_manual_on_disallowed_in_free_and_body():
+    for edition, asset in [("free", "body"), ("pro", "body"), ("pro", "hair")]:
+        v = {"LIVE2D_QWEN": "on", "LIVE2D_EDITION": edition,
+             "LIVE2D_PRO_ASSET": asset}
+        with pytest.raises(ValueError, match="PRO"):
+            refresh_qwen(v)
