@@ -83,3 +83,28 @@ def test_model_receives_prepared_official_canvas_without_changing_original(
     assert result["candidate_canvas"] == list(expected)
     assert result["source_canvas"] == list(original_size)
     assert Path("input.png").read_bytes() == original
+
+
+def test_pinned_qwen_worker_quantizes_both_encoder_and_transformer():
+    """No accidental 16.6GB bf16 VL encoder on T4 during pipeline load."""
+    from tools.vts_qwen_refine import _patch_pinned_official
+    code = (
+        "import torch\\n"
+        "    from diffusers import DiffusionPipeline\\n\\n"
+        "    pipe = DiffusionPipeline.from_pretrained(\\n"
+        "        args.base_model, torch_dtype=torch.bfloat16,\\n"
+        "        trust_remote_code=True, cache_dir=args.cache_dir,\\n"
+        "    )\\n"
+        "    transformer = pipe.transformer.to(device).eval()\\n"
+        "    vae = pipe.vae.to(device).eval()\\n"
+        "    text_encoder = text_encoder.to(device).eval()\\n"
+        "    transformer = PeftModel.from_pretrained(transformer, args.lora)\\n"
+    )
+    patched = _patch_pinned_official(
+        code, quant_dir="/tmp/quant", lora_dir="/tmp/adapter")
+    assert "Qwen2_5_VLForConditionalGeneration.from_pretrained" in patched
+    assert "load_in_4bit=True" in patched
+    assert "text_encoder=encoder_q4" in patched
+    assert "transformer=transformer_q4" in patched
+    assert 'text_encoder = text_encoder.to("cpu").eval()' in patched
+    assert "bnb_4bit_compute_dtype=runtime_dtype" in patched
