@@ -78,6 +78,40 @@ print('Snapshot prepared:', model, flush=True)
     return data["snapshot"]
 
 
+
+def ensure_see_through_python(venv: Path) -> str:
+    """Prepare a Colab worker venv without invoking unavailable ensurepip.
+
+    Colab installs pip into its base Python, but its /usr/bin/python3
+    ensurepip bootstrap is not guaranteed to work. A system-site-packages
+    venv can use that existing pip while keeping worker upgrades local.
+    Always check the interpreter as well as pip: a failed standard venv
+    may leave bin/python behind and must never count as ready.
+    """
+    python = venv / "bin" / "python"
+    config = venv / "pyvenv.cfg"
+    inherited_sites = (
+        config.is_file()
+        and "include-system-site-packages = true" in
+        config.read_text(encoding="utf-8").lower()
+    )
+    if not python.is_file() or not inherited_sites:
+        checked([sys.executable, "-m", "venv", "--without-pip",
+                 "--system-site-packages", str(venv)], timeout=120)
+
+    # pip must be importable from the worker interpreter and sys.prefix
+    # must point to this exact venv, not silently fall back to base Python.
+    check = (
+        "import pathlib, pip, sys; "
+        f"expected=pathlib.Path({str(venv)!r}).resolve(); "
+        "actual=pathlib.Path(sys.prefix).resolve(); "
+        "assert actual == expected, f'Not a worker venv: {actual} != {expected}'; "
+        "print('[VTS setup] worker-venv-pip-ready', pip.__version__)"
+    )
+    checked([str(python), "-c", check], timeout=60)
+    return str(python)
+
+
 def prepare(*, qwen: bool = False, install: bool = True):
     ROOT.mkdir(parents=True, exist_ok=True)
     # An interrupted new preparation must not expose an old ready marker.
@@ -88,9 +122,7 @@ def prepare(*, qwen: bool = False, install: bool = True):
     python = sys.executable
     if install:
         venv = ROOT / "see-through-venv"
-        if not (venv / "bin/python").exists():
-            checked([sys.executable, "-m", "venv", "--system-site-packages", str(venv)], timeout=120)
-        python = str(venv / "bin/python")
+        python = ensure_see_through_python(venv)
         checked([python, "-m", "pip", "install", "--disable-pip-version-check",
                  "-r", str(see/"requirements.txt")], cwd=see, timeout=5400)
         checked([python, "-m", "pip", "install", "--disable-pip-version-check",
