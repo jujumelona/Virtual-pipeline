@@ -7,7 +7,7 @@ from PIL import Image
 from tools import vts_production as production
 
 
-@pytest.mark.parametrize("layers,passes", [(1, 8), (11, 8), (6, -1), (6, 13)])
+@pytest.mark.parametrize("layers,passes", [(1, 8), (11, 8), (6, -1), (6, 49)])
 def test_bad_recursion_budget_rejected_before_decomposition(tmp_path, monkeypatch, layers, passes):
     master = tmp_path / "master.png"
     Image.new("RGBA", (256, 384)).save(master)
