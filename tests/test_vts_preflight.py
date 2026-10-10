@@ -82,7 +82,7 @@ print('CPU wrapper fixture completed')
     assert "torch.Generator(device=pipeline._execution_device)" in patched
     assert patched.count("align_offload_image_devices(pipeline, 'layerdiff')") == 2
     assert patched.count("align_offload_image_devices(marigold_pipe, 'marigold')") == 0
-    assert patched.count("align_offloaded_transparent_decoder(pipeline)") == 2
+    assert patched.count("            align_offloaded_transparent_decoder(pipeline)") == 2
     assert patched.count("pipeline.trans_vae.decoder.cpu()") == 2
 
 
