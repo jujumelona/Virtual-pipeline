@@ -367,7 +367,10 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
             raise RuntimeError("See-through upstream BF16 patch contract changed")
         patched = source_program.replace("torch.bfloat16", "torch.float16")
         from inspect import getsource
-        from tools.vts_quantization import set_4bit_compute_dtype
+        from tools.vts_quantization import (
+            set_4bit_compute_dtype,
+            align_offload_prompt_encoder_device,
+        )
         # Serialized NF4 configs keep a separate BF16 compute dtype. Adapt
         # actual quantized layers before the first prompt-cache forward.
         for owner, names in (("pipeline", ("unet", "text_encoder", "text_encoder_2")),
@@ -378,6 +381,15 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
             adaptation = "".join(
                 f"        set_4bit_compute_dtype({owner}.{name}, torch.float16)\n"
                 for name in names)
+            # Accelerate offload moves CLIP weights onto CUDA at forward
+            # time. The pinned encoder uses .text_encoder.device (often CPU
+            # between calls), which misplaces token indices. Fix only this
+            # method in the short-lived worker, with a pinned-source guard.
+            family = "layerdiff" if owner == "pipeline" else "marigold"
+            adaptation += (
+                "        if args.cpu_offload:\n"
+                f"            align_offload_prompt_encoder_device({owner}, {family!r})\n"
+            )
             # One compact GPU-memory snapshot before the first prompt cache
             # matmul; useful for distinguishing VRAM pressure from dtype issues.
             adaptation += (
@@ -391,7 +403,11 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
         # official offload mode on T4 instead of immediately filling VRAM again.
         from tools.vts_quantization import patch_nf4_marigold_cpu_offload
         patched = patch_nf4_marigold_cpu_offload(patched)
-        patched = getsource(set_4bit_compute_dtype) + "\n" + patched
+        patched = (
+            getsource(set_4bit_compute_dtype) + "\n"
+            + getsource(align_offload_prompt_encoder_device) + "\n"
+            + patched
+        )
         program = program.with_name("inference_psd_quantized_vts_fp16.py")
         program.write_text(patched, encoding="utf-8")
         print("[VTS] T4/older GPU: NF4 weights retained, compute dtype FP16. "
