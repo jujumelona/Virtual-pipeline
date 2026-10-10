@@ -195,6 +195,10 @@ def main() -> None:
             sys.path.insert(0, str(repo))
             install_triposr_marching_cubes()
             _install_hf_revision_guard()
+            from vtuber_pipeline.avatar.triposr_runner import (
+                install_triposr_legacy_vit_compatibility,
+            )
+            install_triposr_legacy_vit_compatibility()
             from tsr.system import TSR
 
             # Release the other large networks before allocating TSR's params.
