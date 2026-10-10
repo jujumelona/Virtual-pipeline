@@ -356,6 +356,7 @@ def run_see_through(master: Path, work: Path, *, third_party: Path,
         validate_qwen_runtime_source(source)
         print("[VTS] QWEN_RUNTIME_PREFLIGHT_PASS (syntax, disposed references)", flush=True)
     master = master.expanduser().resolve(strict=True)
+    batch_mode = master.is_dir()
     work = work.expanduser().resolve()
     third_party = third_party.expanduser().resolve()
     program = third_party / "inference/scripts/inference_psd_quantized.py"
@@ -449,11 +450,34 @@ def run_see_through(master: Path, work: Path, *, third_party: Path,
         program.write_text(patched, encoding="utf-8")
         print("[VTS] T4/older GPU: NF4 weights retained, compute dtype FP16. "
               "FP16 correctness remains subject to image QA.",flush=True)
+    if batch_mode:
+        # The published NF4 runner is single-image only.  Patch its pinned
+        # source once to process *all* inputs under one LayerDiff load and
+        # one Marigold load, releasing the former before loading the latter.
+        from tools.vts_see_through_batch import patch_quantized_batch
+        import uuid
+        batched_source = patch_quantized_batch(program.read_text(encoding="utf-8"))
+        program = program.with_name("inference_psd_quantized_vts_batch.py")
+        program.write_text(batched_source, encoding="utf-8")
     work.mkdir(parents=True, exist_ok=True)
     # Upstream writes to a fixed workspace relative to its cwd. A unique source
     # filename and input-only checksum avoid accepting a stale PSD from past jobs.
-    unique_source = work / ("vts_" + work.name + master.suffix.lower())
-    shutil.copyfile(master, unique_source)
+    if batch_mode:
+        import uuid
+        unique_source = work / ("vts_batch_" + uuid.uuid4().hex)
+        unique_source.mkdir(parents=True)
+        originals = sorted(p for p in master.iterdir()
+                           if p.is_file() and p.suffix.lower() == ".png")
+        if not originals:
+            raise ValueError("See-through second-pass input has no PNG layers")
+        batch_names = {}
+        for i, source in enumerate(originals):
+            worker_name = f"vts_part_{i:04d}"
+            shutil.copyfile(source, unique_source / (worker_name + ".png"))
+            batch_names[source.name] = worker_name
+    else:
+        unique_source = work / ("vts_" + work.name + master.suffix.lower())
+        shutil.copyfile(master, unique_source)
     base = work / "see_through_output"
     base.mkdir(parents=True, exist_ok=True)
     before = {str(f): (f.stat().st_size, f.stat().st_mtime_ns)
@@ -517,6 +541,26 @@ def run_see_through(master: Path, work: Path, *, third_party: Path,
     )
     if not after:
         raise RuntimeError(f"See-through exited without a new PSD; full log: {log}")
+    if batch_mode:
+        verified = {}
+        for source_name, worker_name in batch_names.items():
+            # Only accept a *fresh* PSD attributed exactly to this input.
+            matched = [p for p in after if p.stem == worker_name]
+            if len(matched) != 1:
+                raise RuntimeError("Missing/ambiguous second-pass See-through PSD "
+                                   f"for {source_name}: {matched}")
+            target = work / "verified" / (worker_name + ".psd")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(matched[0], target)
+            generated_meta = Path(str(matched[0]) + ".json")
+            generated_depth = matched[0].with_name(matched[0].stem + "_depth.psd")
+            if generated_meta.is_file() and generated_depth.is_file():
+                shutil.copy2(generated_meta, Path(str(target) + ".json"))
+                shutil.copy2(generated_depth,
+                             target.with_name(target.stem + "_depth.psd"))
+            verified[source_name] = _safe_refine_psd(
+                target, third_party=third_party, worker_python=worker_python)
+        return verified
     matched = [p for p in after if unique_source.stem in p.stem]
     if not matched:
         raise RuntimeError("See-through output PSD cannot be attributed to input; "
