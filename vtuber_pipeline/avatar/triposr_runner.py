@@ -61,6 +61,70 @@ def _install_hf_revision_guard() -> None:
 
 
 
+
+def _remap_legacy_triposr_vit_weights(weights: dict, expected: dict) -> dict:
+    """Adapt old ViT parameter names to Transformers 5, preserving strict loading.
+
+    No tensors are dropped or reshaped; all parameter keys and shapes must
+    correspond one-to-one or loading fails before inference.
+    """
+    prefix = "image_tokenizer.model.encoder.layer."
+    modern = "image_tokenizer.model.layers."
+    replacements = (
+        ("attention.attention.query.", "attention.q_proj."),
+        ("attention.attention.key.", "attention.k_proj."),
+        ("attention.attention.value.", "attention.v_proj."),
+        ("attention.output.dense.", "attention.o_proj."),
+        ("intermediate.dense.", "mlp.fc1."),
+        ("output.dense.", "mlp.fc2."),
+    )
+    if not any(key.startswith(prefix) for key in weights):
+        return weights
+    converted = {}
+    for key, tensor in weights.items():
+        target = key
+        if key.startswith(prefix):
+            path = key[len(prefix):]
+            target = modern + path
+            for old, new in replacements:
+                target = target.replace(old, new)
+        if target in converted:
+            raise RuntimeError(f"TripoSR checkpoint key collision: {target}")
+        converted[target] = tensor
+    missing = set(expected) - set(converted)
+    unexpected = set(converted) - set(expected)
+    if missing or unexpected:
+        raise RuntimeError(
+            "TripoSR ViT architecture mismatch after name conversion: "
+            f"missing={sorted(missing)[:8]} unexpected={sorted(unexpected)[:8]}"
+        )
+    for key, tensor in converted.items():
+        if tuple(tensor.shape) != tuple(expected[key].shape):
+            raise RuntimeError(
+                f"TripoSR checkpoint incompatible tensor {key}: "
+                f"{tuple(tensor.shape)} != {tuple(expected[key].shape)}"
+            )
+    print(f"[TripoSR] strict legacy ViT remap validated: {len(converted)} tensors",
+          flush=True)
+    return converted
+
+
+def install_triposr_legacy_vit_compatibility() -> None:
+    """Patch only the pinned TSR loader; retain strict checkpoint verification."""
+    from tsr.system import TSR
+    if getattr(TSR, "_vts_legacy_vit_bridge_installed", False):
+        return
+    original = TSR.load_state_dict
+
+    def strict_load(self, state_dict, strict=True, *args, **kwargs):
+        mapped = _remap_legacy_triposr_vit_weights(
+            state_dict, self.state_dict())
+        return original(self, mapped, strict=True, *args, **kwargs)
+
+    TSR.load_state_dict = strict_load
+    TSR._vts_legacy_vit_bridge_installed = True
+
+
 def _file_md5(path: pathlib.Path) -> str:
     digest = hashlib.md5()
     with path.open("rb") as handle:
@@ -167,6 +231,7 @@ def main() -> None:
 
     install_triposr_marching_cubes()
     _install_hf_revision_guard()
+    install_triposr_legacy_vit_compatibility()
 
     if "--no-remove-bg" not in upstream_args:
         _install_rembg_model_guard()
