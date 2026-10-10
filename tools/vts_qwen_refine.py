@@ -120,14 +120,14 @@ def _patch_pinned_official(code: str, *, quant_dir: str, lora_dir: str) -> str:
     # The pinned upstream VAE decodes all requested layers in one tensor,
     # which is unnecessary and can exhaust Colab CPU RAM.
     batch_decode = (
-        "    decoded = vae.decode(layer_latents.reshape(b * num_layers, c, 1, h, w).to(dtype=vae.dtype),\\n"
+        "    decoded = vae.decode(layer_latents.reshape(b * num_layers, c, 1, h, w).to(dtype=vae.dtype),\n"
         "                         return_dict=False)[0]"
     )
     single_decode = (
-        "    packed = layer_latents.reshape(b * num_layers, c, 1, h, w)\\n"
-        "    decoded = torch.cat([\\n"
-        "        vae.decode(packed[i:i+1].to(dtype=vae.dtype), return_dict=False)[0].cpu()\\n"
-        "        for i in range(packed.shape[0])\\n"
+        "    packed = layer_latents.reshape(b * num_layers, c, 1, h, w)\n"
+        "    decoded = torch.cat([\n"
+        "        vae.decode(packed[i:i+1].to(dtype=vae.dtype), return_dict=False)[0].cpu()\n"
+        "        for i in range(packed.shape[0])\n"
         "    ], dim=0)"
     )
     if code.count(batch_decode) != 1:
