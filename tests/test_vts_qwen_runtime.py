@@ -89,16 +89,16 @@ def test_pinned_qwen_worker_quantizes_both_encoder_and_transformer():
     """No accidental 16.6GB bf16 VL encoder on T4 during pipeline load."""
     from tools.vts_qwen_refine import _patch_pinned_official
     code = (
-        "import torch\\n"
-        "    from diffusers import DiffusionPipeline\\n\\n"
-        "    pipe = DiffusionPipeline.from_pretrained(\\n"
-        "        args.base_model, torch_dtype=torch.bfloat16,\\n"
-        "        trust_remote_code=True, cache_dir=args.cache_dir,\\n"
-        "    )\\n"
-        "    transformer = pipe.transformer.to(device).eval()\\n"
-        "    vae = pipe.vae.to(device).eval()\\n"
-        "    text_encoder = text_encoder.to(device).eval()\\n"
-        "    transformer = PeftModel.from_pretrained(transformer, args.lora)\\n"
+        "import torch\n"
+        "    from diffusers import DiffusionPipeline\n\n"
+        "    pipe = DiffusionPipeline.from_pretrained(\n"
+        "        args.base_model, torch_dtype=torch.bfloat16,\n"
+        "        trust_remote_code=True, cache_dir=args.cache_dir,\n"
+        "    )\n"
+        "    transformer = pipe.transformer.to(device).eval()\n"
+        "    vae = pipe.vae.to(device).eval()\n"
+        "    text_encoder = text_encoder.to(device).eval()\n"
+        "    transformer = PeftModel.from_pretrained(transformer, args.lora)\n"
     )
     patched = _patch_pinned_official(
         code, quant_dir="/tmp/quant", lora_dir="/tmp/adapter")
@@ -115,7 +115,7 @@ def test_sigkill_keeps_memory_and_log_diagnostics(runtime, monkeypatch):
     from tools import vts_subprocess
     monkeypatch.setattr(qwen, "_patch_pinned_official", lambda *a, **kw: worker_source())
     def killed(*args, **kwargs):
-        Path(kwargs["log_path"]).write_text("Loading base model: fixture\\n", encoding="utf-8")
+        Path(kwargs["log_path"]).write_text("Loading base model: fixture\n", encoding="utf-8")
         return -9
     monkeypatch.setattr(vts_subprocess, "run_logged", killed)
     with pytest.raises(RuntimeError, match="exited -9; diagnostics="):
