@@ -68,20 +68,25 @@ def _candidate_score(part):
     return priority * 10**9 + pixel_count
 
 
-def _partition_part(part, suggestions):
+def _partition_part(part, suggestions, diagnostics=None):
     """Use Qwen alpha as labels, preserve all observed original RGBA pixels.
 
     This does not pretend to reconstruct missing occluded imagery; See-through
     remains responsible for its own hidden-layer restoration.
     """
+    def reject(reason, **details):
+        if diagnostics is not None:
+            diagnostics.update({"result": "rejected", "reason": reason, **details})
+        return None
+
     source = part["image"]
     bbox = source.getchannel("A").getbbox()
     if bbox is None or len(suggestions) < 2:
-        return None
+        return reject("empty_source_or_fewer_than_two_candidates")
     crop = source.crop(bbox)
     ow, oh = crop.size
     if ow < 4 or oh < 4:
-        return None
+        return reject("source_crop_too_small")
     proposal_masks = []
     inference_scale = 640 / max(ow, oh)
     rounded_size = tuple(max(int(round(dim * inference_scale / 16)) * 16, 16)
@@ -98,17 +103,20 @@ def _partition_part(part, suggestions):
             # Thin strands can therefore differ in aspect by much more than
             # 8%, while still being registered to this exact source crop.
             if ratio_error > .08 and im.size != rounded_size:
-                return None
+                return reject("candidate_canvas_aspect_mismatch",
+                              source_canvas=[ow, oh], candidate_canvas=list(im.size))
             region = im.getchannel("A").resize((ow, oh), Image.Resampling.BILINEAR)
             proposal_masks.append(np.asarray(region, dtype=np.uint8))
     candidate = np.stack(proposal_masks, axis=0)
     original = np.asarray(crop, dtype=np.uint8)
     valid = original[:, :, 3] > 8
     if int(valid.sum()) < 64:
-        return None
+        return reject("source_alpha_too_small")
     has_proposal = candidate.max(axis=0) > 24
-    if (valid & has_proposal).sum() < .75 * valid.sum():
-        return None
+    alpha_coverage = float((valid & has_proposal).sum() / valid.sum())
+    if alpha_coverage < .75:
+        return reject("insufficient_qwen_alpha_coverage",
+                      coverage=round(alpha_coverage, 5), minimum=.75)
     # Stable-Layers' published order is background first, then foreground
     # objects. The background alpha can be opaque across the whole crop,
     # so a plain argmax would absorb foreground into the background.
@@ -123,7 +131,8 @@ def _partition_part(part, suggestions):
     relevant = [i for i, amount in enumerate(distribution)
                 if amount >= max(24, int(.04 * valid.sum()))]
     if len(relevant) < 2:
-        return None
+        return reject("fewer_than_two_meaningful_regions",
+                      region_pixel_counts=distribution)
     # Re-assign all pixels (including translucent edge pixels) to accepted
     # masks. Source RGBA values are copied, not upscaled Qwen colors.
     # When small fragments are filtered out, recover their visible pixels
@@ -146,7 +155,7 @@ def _partition_part(part, suggestions):
         children.append({"name": part["name"] + ".q" + str(rank + 1),
                          "image": canvas, "depth": part["depth"] + 1})
     if len(children) < 2:
-        return None
+        return reject("child_layers_empty")
     # Disjoint masks must reproduce every original source pixel exactly.
     verified = np.zeros_like(original)
     for child in children:
@@ -159,7 +168,12 @@ def _partition_part(part, suggestions):
     visible = original[:, :, 3] > 0
     if (not np.array_equal(verified[:, :, 3], original[:, :, 3])
             or not np.array_equal(verified[visible, :3], original[visible, :3])):
-        return None
+        return reject("visible_pixel_or_alpha_recomposition_failed")
+    if diagnostics is not None:
+        diagnostics.update({"result": "accepted", "reason": "pixel_exact_visible_partition",
+                            "child_count": len(children),
+                            "alpha_coverage": round(alpha_coverage, 5),
+                            "region_pixel_counts": distribution})
     # Upstream proposals are back-to-front; all downstream PSD/manifest
     # consumers expect top-to-bottom. Keep names tied to proposal ownership.
     return list(reversed(children))
@@ -845,18 +859,22 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
                 log_path = Path(result["log"])
                 if log_path.is_file():
                     runtime_logs.append(("logs/" + stem + ".log", log_path.read_bytes()))
-            proposed = _partition_part(item, result["layers"])
+            candidate_diagnostic = {}
+            proposed = _partition_part(item, result["layers"],
+                                       diagnostics=candidate_diagnostic)
             accepted = bool(proposed and
                             (edition != "free" or len(layers) + len(proposed) - 1 <= FREE_LIMIT))
             attempted.append({"source_layer": item["name"], "accepted": accepted,
                               "requested_count": requested,
-                              "candidate_count": len(result["layers"])})
+                              "candidate_count": len(result["layers"]),
+                              "diagnostics": candidate_diagnostic})
             if accepted:
                 layers[index:index+1] = proposed
                 generated.append(item["name"])
             print(f"[VTS QWEN RESULT] pass={serial+1}/{max_qwen_passes} "
                   f"source={item['name']} candidates={len(result['layers'])} "
-                  f"accepted={accepted} resulting_layers={len(layers)}", flush=True)
+                  f"accepted={accepted} resulting_layers={len(layers)} "
+                  f"diagnostics={candidate_diagnostic}", flush=True)
     if qwen and max_qwen_passes and not attempted:
         raise RuntimeError(
             "Qwen refinement requested but no eligible part was sent to the "
