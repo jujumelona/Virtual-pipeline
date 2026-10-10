@@ -134,9 +134,13 @@ def prepare(*, qwen: bool = False, install: bool = True):
     weights = [
         "24yearsold/seethroughv0.0.2_layerdiff3d_nf4",
         "24yearsold/seethroughv0.0.1_marigold_nf4",
+        # Independent official 19-part parser; required for maximally
+        # expanded FREE/body artwork before the single second pass.
+        "24yearsold/l2d_sam_iter2",
     ]
-    # Neither parser/SAM2 is called by the pinned quantized PSD entrypoint.
-    # Prefetching them adds downloads without refining any output masks.
+    # The published 19-part parser runs as a separate single-load worker
+    # after the NF4 PSD stage. SAM2/mmdet are independent optional annotator
+    # tiers; they are not implicitly part of the official NF4 inference.
     if qwen:
         checkout("https://github.com/Stability-AI/Stable-Layers.git",
                  ROOT / "Stable-Layers", STABLE_LAYERS_SHA)
