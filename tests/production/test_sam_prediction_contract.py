@@ -37,8 +37,18 @@ def test_sam_refuses_invalid_single_mask_predictions(monkeypatch, tmp_path, inva
     monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(
         cuda=SimpleNamespace(is_available=lambda: False), inference_mode=nullcontext))
     monkeypatch.setitem(sys.modules, "sam2.sam2_image_predictor", SimpleNamespace(SAM2ImagePredictor=Predictor))
-    monkeypatch.setitem(sys.modules, "sam2.build_sam", SimpleNamespace(build_sam2=lambda *args, **kwargs: None))
-    monkeypatch.setattr(model_assets, "resolve_snapshot", lambda _: str(tmp_path))
+    loaded = []
+    resolved = []
+    def build(config, checkpoint, **kwargs):
+        loaded.append((config, checkpoint))
+    def snapshot(key):
+        resolved.append(key)
+        return str(tmp_path)
+    monkeypatch.setitem(sys.modules, "sam2.build_sam", SimpleNamespace(build_sam2=build))
+    monkeypatch.setattr(model_assets, "resolve_snapshot", snapshot)
     with pytest.raises(RuntimeError, match="SAM2.*prediction"):
         sam_worker.infer({"image_path": str(source), "person_alpha_png": str(alpha),
                           "boxes_json": str(boxes), "output_dir": str(tmp_path / "output")})
+    assert resolved == ["sam2_1_hiera_large"]
+    assert loaded == [("configs/sam2.1/sam2.1_hiera_l.yaml",
+                       str(tmp_path / "sam2.1_hiera_large.pt"))]

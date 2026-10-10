@@ -17,7 +17,7 @@ from collections import deque
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = Path("/content/vtuber_builder/worker_envs/two_d")
-PIN_KEYS = {"anime": "anime_segmentation", "sam": "sam2_1_hiera_tiny",
+PIN_KEYS = {"anime": "anime_segmentation", "sam": "sam2_1_hiera_large",
             "diffusers": "flux2_klein_4b"}
 WORKERS = ("ANIME_ALPHA", "FLORENCE", "SAM", "FLUX")
 # Binary wheels, resolved in the isolated venv against the base torch ABI.
@@ -39,12 +39,12 @@ SAM2_CONSTRUCTION_SMOKE = (
     "from sam2.modeling.backbones.hieradet import Hiera; "
     "from sam2.build_sam import build_sam2; "
     "from sam2.sam2_image_predictor import SAM2ImagePredictor; "
-    "model=build_sam2('configs/sam2.1/sam2.1_hiera_t.yaml', "
+    "model=build_sam2('configs/sam2.1/sam2.1_hiera_l.yaml', "
     "ckpt_path=None, device='cpu', apply_postprocessing=False); "
     "assert model is not None; "
     "predictor=SAM2ImagePredictor(model); "
     "assert predictor is not None; "
-    "print('[2d-env] sam2.1-hiera-t-hydra-construction-ok', flush=True)"
+    "print('[2d-env] sam2.1-hiera-l-hydra-construction-ok', flush=True)"
 )
 
 # The pinned Diffusers source requires Hub >=1.32. Keep these newer

@@ -16,7 +16,7 @@ def patched_root(tmp_path, monkeypatch):
             "source_url": "https://github.com/SkyTNT/anime-segmentation",
             "source_commit": "a"*40,
         },
-        "sam2_1_hiera_tiny": {
+        "sam2_1_hiera_large": {
             "source_url": "https://github.com/facebookresearch/sam2",
             "source_commit": "b"*40,
         },
@@ -34,7 +34,7 @@ def patched_root(tmp_path, monkeypatch):
 def test_rejects_unpinned_or_non_github_sources():
     with pytest.raises(ValueError, match="immutable"):
         installer._pinned_source("sam", {"tools":{
-            "sam2_1_hiera_tiny": {
+            "sam2_1_hiera_large": {
                 "source_url":"https://untrusted.example.invalid/download",
                 "source_commit":"main",
             }
@@ -202,7 +202,7 @@ def test_pinned_sam2_upstream_runtime_requirements_not_skipped():
     smoke = installer.SAM2_CONSTRUCTION_SMOKE
     assert "from iopath.common.file_io import g_pathmgr" in smoke
     assert "from sam2.modeling.backbones.hieradet import Hiera" in smoke
-    assert "build_sam2('configs/sam2.1/sam2.1_hiera_t.yaml'" in smoke
+    assert "build_sam2('configs/sam2.1/sam2.1_hiera_l.yaml'" in smoke
     assert "ckpt_path=None" in smoke
     assert "device='cpu'" in smoke
     assert "SAM2ImagePredictor(model)" in smoke

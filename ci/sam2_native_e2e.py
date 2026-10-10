@@ -1,4 +1,4 @@
-"""True SAM2.1 Hiera-tiny construction, checkpoint loading, mask inference.
+"""True SAM2.1 Hiera-large construction, checkpoint loading, mask inference.
 
 Runs without a Colab GPU using the same pinned upstream SAM2 source.
 The previous CI only imported build_sam2 and missed required iopath imports.
@@ -20,9 +20,9 @@ def run():
     from sam2.sam2_image_predictor import SAM2ImagePredictor
     from sam2.build_sam import build_sam2
 
-    checkpoint = Path(resolve_snapshot("sam2_1_hiera_tiny")) / "sam2.1_hiera_tiny.pt"
+    checkpoint = Path(resolve_snapshot("sam2_1_hiera_large")) / "sam2.1_hiera_large.pt"
     assert checkpoint.is_file() and checkpoint.stat().st_size > 1024, checkpoint
-    model = build_sam2("configs/sam2.1/sam2.1_hiera_t.yaml",
+    model = build_sam2("configs/sam2.1/sam2.1_hiera_l.yaml",
                        ckpt_path=str(checkpoint), device="cpu",
                        apply_postprocessing=False)
     predictor = SAM2ImagePredictor(model)
@@ -39,7 +39,7 @@ def run():
     assert scores.shape == (1,), scores.shape
     assert np.isfinite(scores).all() and np.isfinite(masks).all()
     print(json.dumps({
-        "SAM2_NATIVE_HIERA_TINY_E2E": "PASS",
+        "SAM2_NATIVE_HIERA_LARGE_E2E": "PASS",
         "checkpoint_bytes": checkpoint.stat().st_size,
         "mask_shape": list(masks.shape),
         "scores": scores.tolist(),

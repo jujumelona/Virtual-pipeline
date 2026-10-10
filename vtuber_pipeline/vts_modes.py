@@ -44,13 +44,13 @@ MODEL_STACK = (
     },
     {
         "stage": "precision_masks",
-        "name": "SAM2.1 Hiera Tiny",
-        "checkpoint": "sam2.1_hiera_tiny.pt",
-        "model": "facebook/sam2.1-hiera-tiny",
+        "name": "SAM2.1 Hiera Large",
+        "checkpoint": "sam2.1_hiera_large.pt",
+        "model": "facebook/sam2.1-hiera-large",
         "execution_status": "optional_plan_not_connected_to_vts_handoff",
         "license": "Apache-2.0",
         "runtime": "pinned common-2D worker model; separate from anime parser; "
-                   "Large upgrade requires a verified immutable pin and GPU/image QA",
+                   "Large FP32 inference VRAM and image quality remain unmeasured on T4",
     },
     {
         "stage": "recursive_layers",

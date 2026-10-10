@@ -11,11 +11,11 @@ def infer(req):
     from sam2.sam2_image_predictor import SAM2ImagePredictor
     from sam2.build_sam import build_sam2
     from vtuber_pipeline.common.model_assets import resolve_snapshot
-    checkpoint = Path(resolve_snapshot("sam2_1_hiera_tiny"))/"sam2.1_hiera_tiny.pt"
+    checkpoint = Path(resolve_snapshot("sam2_1_hiera_large"))/"sam2.1_hiera_large.pt"
     image = np.asarray(Image.open(req["image_path"]).convert("RGB"))
     alpha=np.asarray(Image.open(req["person_alpha_png"]).convert("L"))
     data=json.loads(Path(req["boxes_json"]).read_text(encoding="utf-8"))
-    predictor=SAM2ImagePredictor(build_sam2("configs/sam2.1/sam2.1_hiera_t.yaml",
+    predictor=SAM2ImagePredictor(build_sam2("configs/sam2.1/sam2.1_hiera_l.yaml",
         str(checkpoint), device="cuda" if torch.cuda.is_available() else "cpu"))
     predictor.set_image(image)
     folder=Path(req["output_dir"])/"part_masks"

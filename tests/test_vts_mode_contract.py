@@ -93,8 +93,8 @@ def test_sam_descriptor_matches_executable_pinned_model():
     sam = [x for x in MODEL_STACK if x["stage"] == "precision_masks"]
     assert len(sam) == 1
     from vtuber_pipeline.common.model_assets import model_pin
-    assert sam[0]["checkpoint"] == "sam2.1_hiera_tiny.pt"
-    assert sam[0]["model"] == model_pin("sam2_1_hiera_tiny")["model_id"]
+    assert sam[0]["checkpoint"] == "sam2.1_hiera_large.pt"
+    assert sam[0]["model"] == model_pin("sam2_1_hiera_large")["model_id"]
     assert sam[0]["execution_status"] == "optional_plan_not_connected_to_vts_handoff"
     assert FREE_BUDGET["art_mesh_max"] == 100
 

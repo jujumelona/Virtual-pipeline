@@ -72,7 +72,7 @@ See-through/Qwen 분해 직전에 원화를 강제로 키우지 않는다. 다�
 | 프로그램 / 항목 | 공식 근거·규격 | 실제 설정 및 판정 |
 |---|---|---|
 | Florence-2 | task token+processor+post_process_generation, 예제1024 tokens/beams3/no sampling | native 공식 카드에 맞춰1024/3/False; 강제 EOS로 잘림을 숨기지 않고 실제 종료 토큰이 없으면 오류. pinned 카드와 현재 카드의 버전 차이 주의; 작은 부위 GPU 정확성은 미검증 |
-| SAM2.1 | image predictor의 set_image, box prompt, mask output | Inochi 경로는 tiny config/checkpoint, single mask(False). 공식지원 API지만 큰 모델의 최고 정확도와 동일하다고 못 함. 마스크/사각 경계 제한은 프로젝트 정책 |
+| SAM2.1 | image predictor의 set_image, box prompt, mask output; Large는 공식 benchmark에서 Tiny보다 높은 정확도 | common2D를 Large checkpoint/config로 함께 전환, single mask(False). T4 BF16 대신 FP32; VRAM/실제 애니 품질은 미실측. 마스크/사각 경계 제한은 프로젝트 정책 |
 | Anime segmentation ISNet | 고정 공식 inference.py, 긴변1024/짧은변int, 중앙 패딩, float32 RGB/255→OpenCV linear | 같은 순서·보간·반올림으로 수정. 출력1×1×1024×1024/유한값 검사, 패딩 제거→float resize→uint8; 원화 알파와 min은 프로젝트 정책 |
 | Anime face YOLOv3 / HRNetV2 | 고정98a9fb source/config; YOLO nms_pre1000/conf.005/score.05/IoU.45/max100; HRNet256×256 | 원본 config/API 사용. flip_test=True/box_scale1.1/HRNet bboxpadding1.25; 별도 pipeline confidence.5와68%상단 재시도는 자체 검수 정책 |
 | FLUX.2 klein4B distilled | 4 steps, CFG1.0 | 유지. 숨은 영역 편집에 사용, dtype은 native BF16 지원 여부로 선택. denoise PID 종료 후 VAE decode PID로 RAM/VRAM 피크 분리 |
@@ -95,12 +95,15 @@ See-through/Qwen 분해 직전에 원화를 강제로 키우지 않는다. 다�
 
 ### 설정표와 실행의 연결 및 남은 차이
 
-- SAM 설명표의 Large를 실제 immutable Tiny pin과 맞췄다. 이 항목은 VTS PSD
-  handoff에 실행 연결된 단계가 아니라 선택 계획이라는 표기도 유지한다. Tiny는 최고
-  benchmark 품질 모델이 아니다. Large 전환은 모델 pin·설치 probe·worker를 함께 바꿔야 한다.
+- SAM 설명표/작업자의 Tiny·Large 불일치를 바로잡은 뒤 최대 품질 요구에 맞춰
+  공식 Large immutable revision665f8e2ad61cf5f53d65644ff27c8ee525124610으로 전환했다.
+  실제 모델 API에서 SHA/파일명을 확인했다. registry·download allowlist·설치 probe·worker
+  요청/추론·native CI를 함께 바꿨다. VTS PSD handoff의 해당 설명은 실행 연결된
+  단계가 아니라 선택 계획이라는 표기도 유지한다. checkpoint bytes를 이 환경에서
+  내려받거나 T4 추론하지 않았으므로 weight SHA256/화질/VRAM 검증을 주장하지 않는다.
 - SAM의 single-mask 출력은 원화 H×W와 정확히 같고 점수1개/유한값이어야 한다.
   잘못된 크기의 broadcasting이나 NaN을 정상 마스크로 취급하지 않는다.
-- 이미지 생성기 미지정, 양자화(NF4), SAM Tiny, 자체 spring preset, 합성 마스크 정책은
+- 이미지 생성기 미지정, 양자화(NF4), 자체 spring preset, 합성 마스크 정책은
   공식 최고 품질 설정으로 확정하지 않는다. 공식 예제와 일치하는 값도 모든 원화의
   최적값 증명은 아니다. GPU/Editor 실측과 수치·파일 검사 결과를 구분한다.
 - 모드의 입력 스타일·부위 수·2:3 구도는 프로젝트 제작 계약이다. Cubism/INP/VRM의
@@ -152,6 +155,7 @@ TripoSR CLI 회귀 실패는 수정 후 전체 재검사에서 통과했다. GPU
 - [Cubism 표준 파라미터](https://docs.live2d.com/en/cubism-editor-manual/standard-parameter-list/), [물리 FPS](https://docs.live2d.com/en/cubism-editor-manual/physics-operation/)
 - [Florence](https://huggingface.co/microsoft/Florence-2-base), [SAM2 predictor](https://github.com/facebookresearch/sam2/blob/main/sam2/sam2_image_predictor.py), [FLUX distilled](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B)
 - [native Florence 카드](https://huggingface.co/florence-community/Florence-2-base), [고정 애니 alpha 추론](https://github.com/SkyTNT/anime-segmentation/blob/55d874013a2811cdf59c365059174c7823acf5b4/inference.py), [고정 애니 얼굴 detector](https://github.com/hysts/anime-face-detector/tree/98a9fb480fa04bdd96acbe4d98da191a898267f3)
+- [공식 SAM Large 고정 카드](https://huggingface.co/facebook/sam2.1-hiera-large/blob/665f8e2ad61cf5f53d65644ff27c8ee525124610/README.md), [공식 SAM2 모델 비교](https://github.com/facebookresearch/sam2#model-description)
 - [Depth processor](https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf/blob/main/preprocessor_config.json)
 - [TripoSR CLI](https://github.com/VAST-AI-Research/TripoSR/blob/main/run.py) — 현재 upstream 문서 수치와 프로젝트 고정 실행 기본값을 구분한다.
 - [고정 Inochi SDK defaults](https://raw.githubusercontent.com/Inochi2D/inochi2d/v0.8.7/source/inochi2d/core/puppet.d), [고정 physics source](https://raw.githubusercontent.com/Inochi2D/inochi2d/v0.8.7/source/inochi2d/core/nodes/drivers/simplephysics.d)

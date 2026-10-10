@@ -198,24 +198,24 @@
       "source_url": "https://huggingface.co/florence-community/Florence-2-base/tree/0ae188f8620727704bcffa9292a0fdb92f127480",
       "license_url": "https://huggingface.co/florence-community/Florence-2-base/blob/0ae188f8620727704bcffa9292a0fdb92f127480/README.md"
     },
-    "sam2_1_hiera_tiny": {
-      "model_id": "facebook/sam2.1-hiera-tiny",
+    "sam2_1_hiera_large": {
+      "model_id": "facebook/sam2.1-hiera-large",
       "code_license": "Apache-2.0",
       "weights_license": "Apache-2.0",
-      "model_revision": "de431c4043854a71d8101e17995dfe596bf101a5",
+      "model_revision": "665f8e2ad61cf5f53d65644ff27c8ee525124610",
       "model_weight_sha256": null,
       "commercial_safe": true,
       "license": "Apache-2.0",
       "download_allow_patterns": [
-        "sam2.1_hiera_tiny.pt",
-        "sam2.1_hiera_t.yaml",
+        "sam2.1_hiera_large.pt",
+        "sam2.1_hiera_l.yaml",
         "README.md"
       ],
-      "cache_path": "~/.cache/huggingface/hub/models--facebook--sam2.1-hiera-tiny",
-      "model_url": "https://huggingface.co/facebook/sam2.1-hiera-tiny/tree/de431c4043854a71d8101e17995dfe596bf101a5",
+      "cache_path": "~/.cache/huggingface/hub/models--facebook--sam2.1-hiera-large",
+      "model_url": "https://huggingface.co/facebook/sam2.1-hiera-large/tree/665f8e2ad61cf5f53d65644ff27c8ee525124610",
       "source_commit": "2b90b9f5ceec907a1c18123530e92e794ad901a4",
       "source_url": "https://github.com/facebookresearch/sam2",
-      "license_url": "https://huggingface.co/facebook/sam2.1-hiera-tiny/blob/de431c4043854a71d8101e17995dfe596bf101a5/README.md"
+      "license_url": "https://huggingface.co/facebook/sam2.1-hiera-large/blob/665f8e2ad61cf5f53d65644ff27c8ee525124610/README.md"
     },
     "flux2_klein_4b": {
       "model_id": "black-forest-labs/FLUX.2-klein-4B",
@@ -307,7 +307,7 @@
     "integrity": "source_revision and artifact_sha256 are separate fields. artifact_sha256 is populated only from actual downloaded bytes and is never substituted with a git SHA or package version.",
     "triposr_usage": "Commercial profile requires the pinned TripoSR source commit.",
     "anime_face_detector_usage": "Package version 0.1.0 is pinned exactly; YOLOv3 and HRNetV2 Hugging Face revisions and safetensors SHA256 values are independently pinned and verified before detector construction.",
-    "vrm_export": "VRM 1.0 is emitted by the pure-Python pygltflib path; Blender/VRM Add-on is not a runtime dependency.",
+    "vrm_export": "pygltflib assembles the intermediate VRM 1.0. Production AvatarPipeline then requires native Blender 4.2.23 and VRM Add-on 4.7.2 import/export validation, writes the editable .blend, and validates the final VRM. Direct export_vrm calls provide intermediate serialization only.",
     "runtime_contract": "Colab runtime v8 uses prebuilt scikit-image for pinned TripoSR marching cubes rather than compiling torchmcubes. All direct compatibility dependencies and model checks are still verified; artifact SHA256 is only recorded for actual downloaded bytes.",
     "transitive_scope": "commercial_safe flags cover the direct locked components; installed transitive distributions must still be audited from the resolved environment.",
     "triposr_model_integrity": "The Hugging Face model revision is pinned separately from the TripoSR source revision; model.ckpt bytes are verified against model_weight_sha256 before inference.",

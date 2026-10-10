@@ -49,7 +49,7 @@ def test_first_gpu_warmup_overlaps_other_model_downloads(monkeypatch):
     assert "anime_face_yolov3" not in seen
     assert "anime_face_hrnetv2" not in seen
     assert "flux2_klein_4b" in seen
-    assert "sam2_1_hiera_tiny" in seen
+    assert "sam2_1_hiera_large" in seen
 
 
 def test_preloaded_real_face_model_answers_first_request_then_unloads(

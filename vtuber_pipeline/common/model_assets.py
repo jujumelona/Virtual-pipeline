@@ -7,7 +7,7 @@ from pathlib import Path
 MODELS = {
     "skytnt_anime_seg_isnet_is": ("skytnt/anime-seg", "Apache-2.0"),
     "florence2_base": ("florence-community/Florence-2-base", "MIT"),
-    "sam2_1_hiera_tiny": ("facebook/sam2.1-hiera-tiny", "Apache-2.0"),
+    "sam2_1_hiera_large": ("facebook/sam2.1-hiera-large", "Apache-2.0"),
     "anime_face_yolov3": ("hysts/anime-face-detector-yolov3", "MIT"),
     "anime_face_hrnetv2": ("hysts/anime-face-detector-hrnetv2", "MIT"),
     "flux2_klein_4b": ("black-forest-labs/FLUX.2-klein-4B", "Apache-2.0"),
@@ -19,7 +19,7 @@ MODE_ASSETS = {
     # Direct supplied-layer production needs only the real face detector for
     # aligned landmark/keyform extraction; never downloads 4B FLUX / SAM.
     "common_2d_layers": ("anime_face_yolov3", "anime_face_hrnetv2"),
-    "common_2d": ("skytnt_anime_seg_isnet_is", "florence2_base", "sam2_1_hiera_tiny",
+    "common_2d": ("skytnt_anime_seg_isnet_is", "florence2_base", "sam2_1_hiera_large",
                   "anime_face_yolov3", "anime_face_hrnetv2", "flux2_klein_4b"),
     # Do not prefetch restricted InstantMesh checkpoints. The production
     # geometry provider is the MIT-licensed TripoSR for each observed view.
