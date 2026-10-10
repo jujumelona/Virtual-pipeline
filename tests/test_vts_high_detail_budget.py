@@ -18,7 +18,7 @@ def test_free_detail_budget_accepts_thirty_two_and_caps_forty_eight():
 
 
 def test_colab_auto_mode_still_enables_refinement():
-    options = {"LIVE2D_QWEN": "auto", "LIVE2D_USE_QWEN": False}
+    options = {"LIVE2D_EDITION": "free", "LIVE2D_QWEN": "auto", "LIVE2D_USE_QWEN": False}
     refresh_qwen(options)
     assert options["LIVE2D_USE_QWEN"] is True
 
