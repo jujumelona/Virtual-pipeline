@@ -97,6 +97,12 @@ def test_pinned_qwen_worker_stages_encoder_before_transformer():
         "    )\n"
         "    transformer = pipe.transformer.to(device).eval()\n"
         "    vae = pipe.vae.to(device).eval()\n"
+        "    scheduler = pipe.scheduler\n"
+        "    tokenizer = getattr(pipe, \"tokenizer\", None)\n"
+        "    text_encoder = getattr(pipe, \"text_encoder\", None)\n"
+        "    del pipe\n"
+        "    transformer.requires_grad_(False)\n"
+        "    vae.requires_grad_(False)\n"
         "    transformer = PeftModel.from_pretrained(transformer, args.lora)\n"
         "    # --- prompt encoding -------------------------------------------------\n"
         "    text_encoder = text_encoder.to(device).eval()\n"
@@ -109,6 +115,9 @@ def test_pinned_qwen_worker_stages_encoder_before_transformer():
     )
     patched = _patch_pinned_official(
         code, quant_dir="/tmp/quant", lora_dir="/tmp/adapter")
+    assert patched.count("scheduler = pipe.scheduler") == 1
+    assert "getattr(pipe, \"text_encoder\"" not in patched
+    assert "getattr(pipe, \"tokenizer\"" not in patched
     assert "load_in_4bit=True" in patched
     assert patched.index("prompt_embeds, prompt_mask") < patched.index(
         "del text_encoder") < patched.index(
