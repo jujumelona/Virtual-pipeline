@@ -144,11 +144,31 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
     # prewarm must exit before this GPU stage acquires the same lock.
     if available_face_worker():
         stop_face_worker()
+    from tools.vts_handoff_process import memory_snapshot
+    before_memory = memory_snapshot()
     with _process_gpu_lock(timeout_sec=timeout):
         exitcode=run_logged(cmd,cwd=third_party/"Stable-Layers",env=runtime_env,
                             log_path=log,timeout_seconds=timeout)
     if exitcode:
-        raise RuntimeError(f"Qwen NF4/Stable-Layers exited {exitcode}; log={log}")
+        after_memory = memory_snapshot()
+        diagnostic = {
+            "event": "VTS_QWEN_WORKER_FAILED",
+            "returncode": exitcode,
+            "signal": "SIGKILL" if exitcode == -9 else None,
+            "memory_before": before_memory,
+            "memory_after": after_memory,
+            "log_path": str(log),
+            "log_tail": log.read_text(encoding="utf-8", errors="replace")[-6000:]
+                if log.is_file() else "",
+            "note": "SIGKILL may be memory pressure; inspect memory.events "
+                    "oom_kill and CUDA allocation logs before classifying cause.",
+        }
+        details_path = output_dir / "qwen_failure.json"
+        details_path.write_text(json.dumps(diagnostic, indent=2), encoding="utf-8")
+        print("[VTS QWEN FAILURE] " + json.dumps(diagnostic), flush=True)
+        raise RuntimeError(
+            f"Qwen NF4/Stable-Layers exited {exitcode}; "
+            f"diagnostics={details_path}; log={log}")
     folder=candidate_root/input_image.stem
     produced=[folder/f"layer_{i}.png" for i in range(layer_count)]
     if not all(f.is_file() for f in produced):
