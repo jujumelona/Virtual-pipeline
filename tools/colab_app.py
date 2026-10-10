@@ -303,7 +303,7 @@ def _install_runtime(head: str) -> None:
             "install",
             "-U",
             "pip",
-            "setuptools",
+            "setuptools<82",
             "wheel",
         ],
         timeout=600,
@@ -350,16 +350,23 @@ def _install_runtime(head: str) -> None:
         timeout=1200,
     )
 
-    # TripoSR + local pipeline runtime. These versions retain TripoSR's used
-    # APIs while supporting the current 3.12/3.13 Colab runtime.
+    # Keep the Colab shared environment compatible with preinstalled Gradio,
+    # Diffusers and RAPIDS. Transformers 4.x requires huggingface-hub <1 while
+    # Gradio 6/Diffusers 0.40 require >=1, so resolving the old pin breaks the
+    # live UI. Transformers 5.18 retains the public ViTModel API used by TripoSR;
+    # the actual 3D model must still pass its GPU inference check.
+    # Limit NumPy/Numba to the preinstalled Colab RAPIDS compatibility window.
     print("[환경 4/7] TripoSR 의존성 설치 (GPU 추론 아님)", flush=True)
     runtime_packages = [
         "omegaconf==2.3.0",
         "einops==0.7.0",
-        "transformers==4.57.6",
+        "transformers==5.18.0",
         "trimesh==4.12.2",
         "rembg==2.0.85",
-        "huggingface-hub>=0.34.0,<1.0",
+        "numpy>=2.1,<2.3",
+        "numba>=0.60,<0.65",
+        "jedi>=0.16",
+        "huggingface-hub>=1.31.0,<2.0",
         "imageio[ffmpeg]>=2.34.0",
         "PyYAML>=6.0",
         "scipy>=1.13",
