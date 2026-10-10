@@ -111,6 +111,8 @@ def test_pinned_qwen_worker_stages_encoder_before_transformer():
         "    # scheduler may or may not accept sigmas/mu\n"
         "    img_t = img_t.unsqueeze(0).to(device)\n"
         "    condition_latents = encode_condition_image(vae, img_t)\n"
+        "    decoded = vae.decode(layer_latents.reshape(b * num_layers, c, 1, h, w).to(dtype=vae.dtype),\n"
+        "                         return_dict=False)[0]\n"
         "    decoded = decode_layers(vae, latents, th, tw, args.num_layers)\n"
     )
     patched = _patch_pinned_official(
