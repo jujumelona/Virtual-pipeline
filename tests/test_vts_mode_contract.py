@@ -54,7 +54,8 @@ def test_pro_independent_asset_request(identity, scope, asset):
     assert spec["asset_kind"] == asset
     assert spec["rigging"]["budget"] is None
     assert spec["rigging"]["editor_export_required"] is True
-    assert spec["models"]["qwen_usage"] == "primary_high_detail_refinement"
+    assert spec["models"]["qwen_usage"] == (
+        "optional_detached_asset_only" if asset in ("outfit", "accessory") else "disabled")
     assert spec["images"][0]["filename"].startswith(f"pro_{scope}_")
 
 
@@ -77,7 +78,7 @@ def test_stable_layers_is_default_without_revenue_prompt(identity, edition):
     assert sl["base"] == "Qwen/Qwen-Image-Layered"
     assert sl["adapter_subfolder"] == "model"
     assert sl["default_for_qwen_stage"] is True
-    assert sl["enabled_for_planning"] is True
+    assert sl["enabled_for_planning"] is False
     assert sl["requires_revenue_input"] is False
     assert sl["adapter_downloaded"] is False
     assert sl["adapter_loaded"] is False
@@ -114,6 +115,7 @@ def test_bundle_contains_license_notice_and_no_weight_file(identity, tmp_path):
         assert "Community" in notice
         parsed = json.loads(z.read("manifest.json"))
         assert parsed["models"]["stable_layers"]["default_for_qwen_stage"] is True
+        assert parsed["models"]["qwen_usage"] == "disabled"
 
 
 def test_invalid_scope_and_missing_outfit_rejected(identity):
@@ -161,3 +163,14 @@ def test_all_ten_briefs_distinguish_native_generation_and_model_processing(ident
     assert contract['stable_layers']['dimension_multiple'] == 16
     assert contract['upscale_before_decomposition'] is False
     assert brief['images'][0]['native_generation_settings_verified'] is False
+
+@pytest.mark.parametrize("edition,asset,expected", [
+    ("free", None, False), ("pro", "body", False),
+    ("pro", "hair", False), ("pro", "outfit", True),
+    ("pro", "accessory", True),
+])
+def test_qwen_plans_match_real_mode_gate(identity, edition, asset, expected):
+    spec = build_vts_brief(edition, "upper", identity, asset_kind=asset)
+    assert spec["models"]["stable_layers"]["enabled_for_planning"] is expected
+    assert (spec["models"]["qwen_usage"] == "optional_detached_asset_only") is expected
+
