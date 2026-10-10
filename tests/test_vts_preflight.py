@@ -34,6 +34,13 @@ def unused_pinned_cache_contract():
         pipeline.cache_tag_embeds()
         marigold_pipe.cache_tag_embeds()
         marigold_pipe.cache_tag_embeds()
+def unused_layerdiff_pass_boundaries():
+    pipeline(
+        group_index=0
+    )
+    pipeline(
+        group_index=1
+    )
 def unused_offload_rng_contract():
     return torch.Generator(device=pipeline.unet.device)
 def unused_nf4_marigold_branch():
@@ -71,6 +78,8 @@ print('CPU wrapper fixture completed')
     assert "torch.Generator(device=pipeline._execution_device)" in patched
     assert patched.count("align_offload_image_devices(pipeline, 'layerdiff')") == 2
     assert patched.count("align_offload_image_devices(marigold_pipe, 'marigold')") == 2
+    assert patched.count("align_offloaded_transparent_decoder(pipeline)") == 2
+    assert patched.count("pipeline.trans_vae.decoder.cpu()") == 2
 
 
 def test_non_srgb_profile_is_rejected_before_model_inference(tmp_path, monkeypatch):
