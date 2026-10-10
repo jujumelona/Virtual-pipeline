@@ -15,6 +15,11 @@ import subprocess
 import threading
 import time
 
+try:
+    from .model_log_output import is_weight_progress, quiet_model_environment
+except ImportError:  # Direct invocation from tools/ during Colab setup.
+    from model_log_output import is_weight_progress, quiet_model_environment
+
 
 def run_logged(command, *, cwd=None, env=None, log_path=None,
                timeout_seconds: float = 3600.0) -> int:
@@ -37,7 +42,7 @@ def run_logged(command, *, cwd=None, env=None, log_path=None,
     deadline = time.monotonic() + timeout_seconds
     with writer as output:
         proc = subprocess.Popen(
-            cmd, cwd=cwd, env=env,
+            cmd, cwd=cwd, env=quiet_model_environment(env),
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, encoding="utf-8", errors="replace",
             bufsize=1, start_new_session=(os.name == "posix"),
@@ -67,6 +72,10 @@ def run_logged(command, *, cwd=None, env=None, log_path=None,
                     continue
                 if line is None:
                     break
+                # Weight progress bars can redraw hundreds of times per load.
+                # Preserve all diagnostics and ordinary lines unchanged.
+                if is_weight_progress(line):
+                    continue
                 if output is not None:
                     output.write(line)
                     output.flush()
