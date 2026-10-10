@@ -47,6 +47,7 @@ jobs:
             tests/test_vts_quantization.py \
             tests/test_vts_preflight.py \
             tests/test_vts_setup_contract.py \
+            tests/test_colab_runtime_dependencies.py \
             tests/test_colab_mode_ui.py \
             tests/test_psd_layer_roundtrip.py \
             tests/test_prefetch_mode_contract.py \
