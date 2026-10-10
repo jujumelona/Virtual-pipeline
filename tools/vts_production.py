@@ -593,6 +593,11 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
     Each PRO call processes exactly one body/hair/outfit/accessory asset.
     It never requires all detachable assets from the same user.
     """
+    # Never send complete FREE characters or PRO body/hair to Qwen.  The
+    # expensive model is exclusively an opt-in for detachable outfit/accessory.
+    if qwen and not (edition == "pro" and asset_kind in ("outfit", "accessory")):
+        print("[VTS QWEN] disabled: only PRO outfit/accessory may use Qwen", flush=True)
+        qwen = False
     # Direct calls from older notebook cells must isolate BEFORE loading
     # image/PSD/native libraries; protection cannot depend on one UI import.
     if 'ipykernel' in sys.modules and not _worker:
@@ -807,7 +812,7 @@ def main() -> None:
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--psd", type=Path, help="Pre-generated See-through PSD, skip GPU decomposition")
     ap.add_argument("--third-party", type=Path)
-    ap.add_argument("--qwen", dest="qwen", action="store_true", default=True, help="Run Qwen+Stable-Layers detail refinement (default)")
+    ap.add_argument("--qwen", dest="qwen", action="store_true", default=False, help="Enable Qwen only for PRO outfit/accessory")
     ap.add_argument("--no-qwen", dest="qwen", action="store_false", help="Explicitly skip Qwen refinement; output may be insufficient for detailed rigging")
     ap.add_argument("--qwen-layers", type=int, default=4)
     ap.add_argument("--qwen-passes", type=int, default=32)
