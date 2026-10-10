@@ -667,6 +667,13 @@ def create_springbone_extension(
     collider_groups = collider_groups or []
     bone_mapping = bone_mapping or {}
 
+    def scalar(value, field, *, maximum=None, minimum=0):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value):
+            raise ValueError(f"SpringBone {field} must be a finite number")
+        if (minimum is not None and value < minimum) or (maximum is not None and value > maximum):
+            raise ValueError(f"SpringBone {field} is outside its official range")
+        return float(value)
+
     name_to_index = {
         node.name: i
         for i, node in enumerate(gltf.nodes or [])
@@ -699,15 +706,13 @@ def create_springbone_extension(
 
             normalized_joints.append({
                 "node": node_idx,
-                "hitRadius": max(0.0, float(joint.get("hitRadius", 0.02))),
-                "stiffness": max(0.0, float(joint.get("stiffness", 0.5))),
-                "gravityPower": max(
-                    0.0, float(joint.get("gravityPower", 0.1))
-                ),
-                "gravityDir": [float(v) for v in gravity_dir],
-                "dragForce": min(
-                    1.0, max(0.0, float(joint.get("dragForce", 0.2)))
-                ),
+                # Absent fields use the official joint schema defaults.
+                # Authored presets remain explicit; invalid values are errors.
+                "hitRadius": scalar(joint.get("hitRadius", 0.0), "hitRadius"),
+                "stiffness": scalar(joint.get("stiffness", 1.0), "stiffness"),
+                "gravityPower": scalar(joint.get("gravityPower", 0.0), "gravityPower"),
+                "gravityDir": [scalar(v, "gravityDir", minimum=None) for v in gravity_dir],
+                "dragForce": scalar(joint.get("dragForce", 0.5), "dragForce", maximum=1.0),
             })
 
         if not normalized_joints:

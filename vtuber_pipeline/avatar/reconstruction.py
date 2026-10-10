@@ -375,6 +375,30 @@ def _describe_triposr_process_failure(result: subprocess.CompletedProcess) -> st
     )
 
 
+def canonicalize_triposr_mesh(source_path, output_path):
+    """Rotate native TripoSR geometry into the pipeline's Y-up/+Z-front frame.
+
+    Pinned 107cefd tsr/utils.py defines X-back, Y-right, Z-up. The avatar
+    frame is X-left, Y-up, Z-forward, hence (X,Y,Z) = (-y,z,-x).
+    This proper rotation preserves scale, winding and vertex appearance;
+    inferred TripoSR coordinates do not become calibrated metres.
+    """
+    import numpy as np
+    import trimesh
+
+    source_path, output_path = pathlib.Path(source_path), pathlib.Path(output_path)
+    if source_path.resolve() == output_path.resolve():
+        raise ValueError("Keep the original native TripoSR mesh separate")
+    mesh = trimesh.load(source_path, process=False)
+    rotation = np.array([
+        [0., -1., 0., 0.], [0., 0., 1., 0.],
+        [-1., 0., 0., 0.], [0., 0., 0., 1.],
+    ])
+    mesh.apply_transform(rotation)
+    mesh.export(output_path)
+    return str(output_path)
+
+
 def reconstruct_avatar(
     image_path: str,
     output_dir: str,
@@ -526,4 +550,5 @@ def reconstruct_avatar(
             f"TripoSR output mesh failed re-import validation: {exc}"
         ) from exc
 
-    return str(mesh_file)
+    canonical_path = mesh_file.with_name(f"mesh_canonical.{model_save_format}")
+    return canonicalize_triposr_mesh(mesh_file, canonical_path)

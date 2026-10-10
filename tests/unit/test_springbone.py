@@ -1,6 +1,54 @@
 """Unit tests for current VRMC_springBone configuration contracts."""
 
 import json
+import pytest
+
+
+@pytest.mark.parametrize('field,value', [
+    ('hitRadius', -0.1), ('stiffness', -1), ('gravityPower', float('nan')),
+    ('dragForce', 1.1), ('dragForce', float('inf')),
+    ('gravityDir', [0, float('nan'), 0]),
+])
+def test_builder_rejects_invalid_spring_values_instead_of_silent_clamping(field, value):
+    from types import SimpleNamespace
+    from vtuber_pipeline.avatar.vrm_builder import create_springbone_extension
+    gltf = SimpleNamespace(nodes=[SimpleNamespace(name='hairRoot')])
+    with pytest.raises(ValueError, match=field):
+        create_springbone_extension(gltf, springs=[{'joints': [{'node': 0, field: value}]}])
+
+
+def test_builder_uses_official_schema_defaults_when_settings_are_absent():
+    from types import SimpleNamespace
+    from vtuber_pipeline.avatar.vrm_builder import create_springbone_extension
+    gltf = SimpleNamespace(nodes=[SimpleNamespace(name='hairRoot')])
+    spring = create_springbone_extension(gltf, springs=[{'joints': [{'node': 0}]}])
+    joint = spring['springs'][0]['joints'][0]
+    assert joint == dict(node=0, hitRadius=0, stiffness=1, gravityPower=0,
+                         gravityDir=[0, -1, 0], dragForce=.5)
+
+
+def test_builder_preserves_valid_explicit_values_without_normalizing_gravity():
+    from types import SimpleNamespace
+    from vtuber_pipeline.avatar.vrm_builder import create_springbone_extension
+    gltf = SimpleNamespace(nodes=[SimpleNamespace(name='hairRoot')])
+    values = dict(node=0, hitRadius=.02, stiffness=2, gravityPower=.1,
+                  gravityDir=[0, -2, 0], dragForce=.2)
+    result = create_springbone_extension(gltf, springs=[{'joints': [values]}])
+    assert result['springs'][0]['joints'][0] == values
+
+
+@pytest.mark.parametrize('field,value', [('stiffness', float('nan')),
+                                        ('hitRadius', float('inf')),
+                                        ('gravityDir', [0, float('nan'), 0])])
+def test_reimport_validator_rejects_nonfinite_spring_values(field, value):
+    from pygltflib import GLTF2, Node
+    from vtuber_pipeline.avatar.validator import VRMValidator
+    validator = object.__new__(VRMValidator)
+    validator.product_contract = False
+    validator._gltf = GLTF2(nodes=[Node(name='hairRoot')], extensions={
+        'VRMC_springBone': {'specVersion': '1.0', 'springs': [
+            {'joints': [{'node': 0, field: value}]}]}})
+    assert validator.validate_springbone()['valid'] is False
 
 from vtuber_pipeline.avatar.springbone import (
     SPRING_BONE_PRESETS,

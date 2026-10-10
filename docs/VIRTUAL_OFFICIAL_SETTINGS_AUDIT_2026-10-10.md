@@ -81,6 +81,7 @@ See-through/Qwen 분해 직전에 원화를 강제로 키우지 않는다. 다�
 | TripoSR foreground | 기본0.85; no-remove-bg는 준비된 gray RGB 요구 | 이미 분리된 RGBA는 upstream resize_foreground(0.85)+neutral gray0.5 합성 후 전송하도록 수정. opaque 이미지는 이미 준비된 입력 계약 유지 |
 | TripoSR texture | bake-texture 선택, texture2048은 bake 때만 적용 | 호출은 기본 vertex-color geometry; 후속 자체 투영 텍스처와 구분. 2048 옵션을 붙이는 것만으로 후속 텍스처가 개선되지 않음 |
 | TripoSR 다중 관측 | 공식 단일 이미지 모델 | 각 관측별 독립 복원/정합은 프로젝트 기능. 공식 공동 다중 시점 모델이라고 부르지 않음 |
+| TripoSR 좌표 | 고정 소스 X-back/Y-right/Z-up, mesh 그대로 export | 원본은 보관하고 별도 canonical mesh에(-y,z,-x) 회전; Y-up/+Z-front 정합·실제 텍스처 투영 회귀 검사 |
 | Inochi SDK | stable0.8.7 실제 INP 직렬화/재로딩 | native mesh/UV/deform/physics binding 유지. SDK0.8.7 기본 pixelsPerMeter1000,gravity9.8,preservePixels=False. 문서 latest0.7과 고정 소스를 구분 |
 | Inochi 파라미터 | SDK가 authored range 사용 | head X/Z±30,Y±20; body±15; eye open0/1/1. 프로젝트 선택이며 Cubism 표준 범위와 혼용하면 안 됨 |
 | Inochi spring | 모델별 설정 필요 | hair3Hz,기타5Hz, angleDamping0.72,length80px,lengthDamping은 SDK 기본0.5. 기본 SDK는1Hz/angleDamping0.5/length100px. 모든 원화에 공식 최적값 아님; pivot은 native driver transform으로 중심 좌표 변환해 전달하고 reset한다. 머리 추적에 따른 anchor 이동 및 렌더링 실측은 미검증 |
@@ -88,6 +89,7 @@ See-through/Qwen 분해 직전에 원화를 강제로 키우지 않는다. 다�
 | VRM export | 호환성 위해 기본4 influences, advanced 기능 주의 | addon preferences 무시, advanced/all-influences/sparse/lights/glTF animation 비활성, armature 명시, 실제 RNA 옵션 타입 확인/보고. 투명 atlas는 GLB BLEND로 보존하도록 수정했다. shader·표정·spring은 실제 앱에서 확인 필요 |
 | SkinTokens 선택 옵션 | 공식 skeleton/transfer demo 사용 | 고정소스+use_skeleton/use_transfer, skin-only graft. T4의 total memory 검사14GiB는 free VRAM 보장이 아님. 기본 필수 단계가 아님 |
 | 3D spring/fit | 형식과 단위 규격, 모델별 예술적 조정 | hair stiffness0.50,gravity0.10,drag0.20 등 자체 preset. 공식 universal 최적값 없음 |
+| VRMC_springBone 누락값 | joint schema: hitRadius0/stiffness1/gravityPower0/dragForce.5/gravityDir[0,-1,0] | 공식 누락값 사용; 명시적 preset 유지. hitRadius/stiffness/gravityPower>=0, dragForce0..1; NaN/Inf/잘못된 범위는 생성·재입력 모두 오류, clamp 제거 |
 
 이 표는 해당 실행 경로의 확인된 설정과 차이를 기록한다. 표에 없는 모든 프로그램 설정, 아직 실행하지 않은 GPU/Editor 품질 검사를 자동으로 통과했다고 해석하지 않는다.
 
@@ -103,6 +105,11 @@ See-through/Qwen 분해 직전에 원화를 강제로 키우지 않는다. 다�
   최적값 증명은 아니다. GPU/Editor 실측과 수치·파일 검사 결과를 구분한다.
 - 모드의 입력 스타일·부위 수·2:3 구도는 프로젝트 제작 계약이다. Cubism/INP/VRM의
   공식 규격이 특정 애니 그림체나 고정 원화 픽셀 수를 요구한다고 표시하지 않는다.
+- VRM gravityDir는 공식 joint schema가 숫자3개를 요구하지만 단위벡터 조건은 없다.
+  임의 정규화로 사용자가 설정한 힘을 변경하지 않는다. collider/chain/native 물리의
+  화면 움직임은 별도 실제 runtime 검수가 필요하다.
+- 실제 OBJ/GLB 회전·색·winding 보존, front/back 텍스처 선택, 후속 정합·Blender
+  옵션·VRM 물리 관련73개 테스트 통과. GPU 복원 및 네이티브 Blender 실행 검사는 아니다.
 
 ## Cubism Editor / VTube Studio
 
@@ -150,4 +157,5 @@ TripoSR CLI 회귀 실패는 수정 후 전체 재검사에서 통과했다. GPU
 - [고정 Inochi SDK defaults](https://raw.githubusercontent.com/Inochi2D/inochi2d/v0.8.7/source/inochi2d/core/puppet.d), [고정 physics source](https://raw.githubusercontent.com/Inochi2D/inochi2d/v0.8.7/source/inochi2d/core/nodes/drivers/simplephysics.d)
 - [glTF 좌표·재질·알파 규격](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html)
 - [고정 VRM Add-on operator](https://raw.githubusercontent.com/saturday06/VRM-Addon-for-Blender/v4.7.2/src/io_scene_vrm/exporter/export_scene.py)
+- [TripoSR 고정 좌표](https://github.com/VAST-AI-Research/TripoSR/blob/107cefdc244c39106fa830359024f6a2f1c78871/tsr/utils.py), [VRM spring joint schema](https://github.com/vrm-c/vrm-specification/blob/master/specification/VRMC_springBone-1.0/schema/VRMC_springBone.joint.schema.json)
 - [Inochi puppet 문서](https://docs.inochi2d.com/en/latest/creator/nodes/puppet.html), [VRM export](https://vrm-addon-for-blender.info/en-us/ui/export_scene.vrm/)

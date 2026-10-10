@@ -815,7 +815,8 @@ class VRMValidator:
                     not isinstance(gravity_dir, list)
                     or len(gravity_dir) != 3
                     or not all(
-                        isinstance(value, (int, float))
+                        isinstance(value, (int, float)) and not isinstance(value, bool)
+                        and np.isfinite(value)
                         for value in gravity_dir
                     )
                 ):
@@ -825,6 +826,7 @@ class VRMValidator:
                 drag = joint.get("dragForce")
                 if drag is not None and (
                     not isinstance(drag, (int, float))
+                    or isinstance(drag, bool) or not np.isfinite(drag)
                     or not (0.0 <= float(drag) <= 1.0)
                 ):
                     bad.append(node)
@@ -836,6 +838,7 @@ class VRMValidator:
                     value = joint.get(nonnegative)
                     if value is not None and (
                         not isinstance(value, (int, float))
+                        or isinstance(value, bool) or not np.isfinite(value)
                         or float(value) < 0.0
                     ):
                         bad.append(node)

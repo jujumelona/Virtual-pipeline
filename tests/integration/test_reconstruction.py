@@ -340,6 +340,8 @@ def test_relative_paths_are_absolute_for_triposr_subprocess(
         "load",
         lambda *_args, **_kwargs: types.SimpleNamespace(
             vertices=list(range(16)), faces=list(range(8)),
+            apply_transform=lambda _matrix: None,
+            export=lambda path: pathlib.Path(path).write_bytes(b"canonical-mesh"),
         ),
     )
 
@@ -362,4 +364,4 @@ def test_relative_paths_are_absolute_for_triposr_subprocess(
         profile="development",
         remove_background=remove_background,
     )
-    assert pathlib.Path(mesh) == tmp_path / "output" / "0" / "mesh.obj"
+    assert pathlib.Path(mesh) == tmp_path / "output" / "0" / "mesh_canonical.obj"

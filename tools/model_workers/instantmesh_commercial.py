@@ -26,7 +26,8 @@ def _render_coarse_views(coarse_obj: str, front_rgba: str):
     raw = np.asarray(mesh.vertices, dtype=np.float64)
     if not np.isfinite(raw).all():
         raise ValueError("TripoSR prior has nonfinite coordinates")
-    # TripoSR is Y-up; InstantMesh camera utilities are Z-up.
+    # reconstruct_avatar converts native Z-up TripoSR into canonical Y-up;
+    # InstantMesh camera utilities use Z-up.
     oriented = np.stack((raw[:, 0], -raw[:, 2], raw[:, 1]), axis=1)
     extent = np.ptp(oriented, axis=0)
     scale = max(float(extent.max()), 1e-8)

@@ -132,6 +132,8 @@ def test_triposr_wrapper_maps_options_to_cli_timeout_and_output(
     fake_mesh = types.SimpleNamespace(
         vertices=list(range(16)),
         faces=list(range(8)),
+        apply_transform=lambda _matrix: None,
+        export=lambda path: pathlib.Path(path).write_bytes(b"canonical-mesh"),
     )
     monkeypatch.setitem(
         sys.modules,
@@ -200,7 +202,7 @@ def test_triposr_wrapper_maps_options_to_cli_timeout_and_output(
     assert captured["timeout"] == 77
     assert captured["cwd"] == str(triposr_dir)
     assert "MODEL_CHECKSUM_DISABLED" not in captured["env"]
-    assert result == str(output_dir / "0" / "mesh.glb")
+    assert result == str(output_dir / "0" / "mesh_canonical.glb")
 
 
 def test_triposr_background_true_omits_no_remove_bg(
@@ -245,6 +247,8 @@ def test_triposr_background_true_omits_no_remove_bg(
             load=lambda path, process=False: types.SimpleNamespace(
                 vertices=list(range(16)),
                 faces=list(range(8)),
+                apply_transform=lambda _matrix: None,
+                export=lambda path: pathlib.Path(path).write_bytes(b"canonical-mesh"),
             ),
         ),
     )
@@ -272,7 +276,7 @@ def test_triposr_background_true_omits_no_remove_bg(
     assert captured["cmd"][
         captured["cmd"].index("--pretrained-model-name-or-path") + 1
     ] == str(model_dir)
-    assert result.endswith("/0/mesh.obj")
+    assert result.endswith("/0/mesh_canonical.obj")
 
 
 def test_accessory_reconstruction_forwards_model_options_and_maps_outputs(
