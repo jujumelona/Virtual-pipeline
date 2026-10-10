@@ -84,6 +84,19 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
     if not script.is_file():
         raise RuntimeError("Stable-Layers pinned source absent: run model setup cell ③")
     output_dir.mkdir(parents=True,exist_ok=True)
+    # Prepare the model canvas before loading models. This is the pinned
+    # official compute_aspect_resize + RGB/LANCZOS preprocessing, not a
+    # corrective stretch of generated layers. Retain original artwork.
+    with Image.open(input_image) as source_image:
+        source_image.load()
+        ow, oh = source_image.size
+        scale = 640 / max(ow, oh)
+        expected_size = tuple(max(int(round(dim * scale / 16)) * 16, 16)
+                              for dim in (ow, oh))
+        prepared = source_image.convert("RGB").resize(expected_size, Image.Resampling.LANCZOS)
+    prepared_input = output_dir / "qwen_input" / (input_image.stem + ".png")
+    prepared_input.parent.mkdir(parents=True, exist_ok=True)
+    prepared.save(prepared_input)
     quant_path=Path(snapshot_download(QUANT,local_files_only=True))
     lora_path=Path(snapshot_download(ADAPTER,local_files_only=True))/"model"
     base_path=Path(snapshot_download(BASE,local_files_only=True))
@@ -98,7 +111,7 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
     candidate_root = output_dir / "qwen_layers" / ("run_" + uuid.uuid4().hex)
     cmd=[
         python or sys.executable, "-u", str(patched),
-        "--input",str(input_image.resolve()),"--output",str(candidate_root),
+        "--input",str(prepared_input),"--output",str(candidate_root),
         "--base-model",str(base_path),"--lora",str(lora_path),
         "--steps","50","--guidance-scale","1.0","--num-layers",str(layer_count),
         "--size","640","--transparent","--device","cuda",
@@ -123,11 +136,6 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
     produced=[folder/f"layer_{i}.png" for i in range(layer_count)]
     if not all(f.is_file() for f in produced):
         raise RuntimeError(f"Qwen reported success but didn't provide {layer_count} RGBA layers")
-    with Image.open(input_image) as source_image:
-        ow, oh = source_image.size
-    scale = 640 / max(ow, oh)
-    expected_size = tuple(max(int(round(dim * scale / 16)) * 16, 16)
-                          for dim in (ow, oh))
     for f in produced:
         with Image.open(f) as im:
             im.load()
@@ -140,6 +148,7 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
             "layer_count":layer_count,
             "candidate_canvas":list(expected_size),
             "source_canvas":[ow, oh],
+            "prepared_input":str(prepared_input),
             "settings":{"steps":50,"guidance_scale":1.0,"sampler":"heun",
                         "max_side":640,"dimension_multiple":16,"transparent":True,
                         "official_default_layers":4,"requested_layers":layer_count},

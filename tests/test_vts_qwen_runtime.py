@@ -23,7 +23,7 @@ def runtime(tmp_path, monkeypatch):
     return repo
 
 
-def worker_source(write_layers=True, size=(432, 640)):
+def worker_source(write_layers=True, size=(432, 640), require_prepared=False):
     return '''import argparse
 from pathlib import Path
 from PIL import Image
@@ -33,7 +33,8 @@ a, _=p.parse_known_args()
 folder=Path(a.output)/Path(a.input).stem
 folder.mkdir(parents=True, exist_ok=True)
 print('CPU wrapper fixture completed')
-''' + (f'''for i in range(a.num_layers):
+''' + (f"assert Image.open(a.input).size == {size!r}, 'inference input not prepared'\n"
+       if require_prepared else "") + (f'''for i in range(a.num_layers):
     Image.new('RGBA', {size!r}, (50,60,70,255)).save(folder/f'layer_{{i}}.png')
 ''' if write_layers else "")
 
@@ -65,3 +66,20 @@ def test_successful_worker_must_emit_official_resized_dimensions(runtime, monkey
     with pytest.raises(ValueError, match="dimensions"):
         qwen.infer(Path("input.png"), Path("output"), third_party=runtime.parent,
                    timeout=20)
+
+
+@pytest.mark.parametrize("original_size,expected", [
+    ((64, 96), (432, 640)), ((96, 64), (640, 432)), ((4, 100), (32, 640)),
+])
+def test_model_receives_prepared_official_canvas_without_changing_original(
+    runtime, monkeypatch, original_size, expected,
+):
+    Image.new("RGBA", original_size, (50, 60, 70, 128)).save("input.png")
+    original = Path("input.png").read_bytes()
+    monkeypatch.setattr(qwen, "_patch_pinned_official",
+                        lambda *a, **kw: worker_source(size=expected, require_prepared=True))
+    result = qwen.infer(Path("input.png"), Path("output"), third_party=runtime.parent,
+                        timeout=20)
+    assert result["candidate_canvas"] == list(expected)
+    assert result["source_canvas"] == list(original_size)
+    assert Path("input.png").read_bytes() == original
