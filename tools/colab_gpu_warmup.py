@@ -20,7 +20,10 @@ import subprocess
 import sys
 import time
 
-from tools.model_log_output import quiet_model_environment
+try:
+    from tools.model_log_output import quiet_model_environment
+except ModuleNotFoundError:  # Executed as tools/colab_gpu_warmup.py.
+    from model_log_output import quiet_model_environment
 
 ROOT = Path(__file__).resolve().parents[1]
 WARM_ROOT = Path(os.environ.get("VTUBER_GPU_PREWARM_ROOT",
