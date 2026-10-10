@@ -149,3 +149,31 @@ def test_sigkill_keeps_memory_and_log_diagnostics(runtime, monkeypatch):
     assert evidence["signal"] == "SIGKILL"
     assert "memory_before" in evidence and "memory_after" in evidence
     assert "Loading base model" in evidence["log_tail"]
+
+
+def test_generated_qwen_preflight_rejects_stale_refs(tmp_path, monkeypatch):
+    source = tmp_path / "decompose.py"
+    source.write_text("# pinned source fixture", encoding="utf-8")
+    valid = (
+        "def main():\\n"
+        "    text_encoder = object()\\n"
+        "    del text_encoder\\n"
+        "    pipe = object()\\n"
+        "    scheduler = pipe\\n"
+        "    del pipe\\n"
+        "    return scheduler\\n"
+    )
+    monkeypatch.setattr(qwen, "_patch_pinned_official", lambda *args, **kw: valid)
+    status = qwen.validate_qwen_runtime_source(source)
+    assert status["syntax"] == "PASS"
+    assert status["deleted_reference_check"] == "PASS"
+    assert status["gpu_inference_verified"] is False
+    monkeypatch.setattr(qwen, "_patch_pinned_official",
+                        lambda *args, **kw: valid.replace(
+                            "    return scheduler", "    return pipe.scheduler"))
+    with pytest.raises(RuntimeError, match="reads deleted pipe"):
+        qwen.validate_qwen_runtime_source(source)
+    monkeypatch.setattr(qwen, "_patch_pinned_official",
+                        lambda *args, **kw: "def main(:\\n    pass\\n")
+    with pytest.raises(SyntaxError):
+        qwen.validate_qwen_runtime_source(source)
