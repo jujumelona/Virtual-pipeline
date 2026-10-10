@@ -710,3 +710,32 @@ def test_qwen_request_never_silently_passes_without_any_model_attempt(tmp_path):
         build_artwork_package(source, tmp_path / "out",
                               edition="free", scope="upper", qwen=True,
                               max_qwen_passes=2, qwen_infer=must_run)
+
+
+def test_qwen_partition_accepts_invisible_rgb_from_actual_psd_roundtrip(tmp_path):
+    """Alpha-zero RGB is not a visible-pixel error and must not reject splitting."""
+    import numpy as np
+    from tools.vts_artwork_export import _partition_part
+    arr = np.zeros((40, 80, 4), dtype=np.uint8)
+    arr[:, :, :3] = (180, 70, 120)  # Real PSD decoders often retain RGB at alpha 0.
+    arr[5:35, 8:72, :] = (30, 120, 210, 255)
+    original = Image.fromarray(arr, "RGBA")
+    paths = []
+    for n in range(2):
+        im = Image.new("RGBA", (64, 30))
+        x0, x1 = (0, 32) if n == 0 else (32, 64)
+        im.paste((200, 20, 60, 255), (x0, 0, x1, 30))
+        path = tmp_path / f"candidate_{n}.png"
+        im.save(path)
+        paths.append(path)
+    result = _partition_part(
+        {"name": "hair.front", "depth": 0, "image": original}, paths)
+    assert result is not None and len(result) == 2
+    rebuilt = Image.new("RGBA", original.size)
+    for child in reversed(result):
+        rebuilt.alpha_composite(child["image"])
+    before = np.asarray(original)
+    after = np.asarray(rebuilt)
+    assert np.array_equal(after[:, :, 3], before[:, :, 3])
+    assert np.array_equal(after[before[:, :, 3] > 0, :3],
+                          before[before[:, :, 3] > 0, :3])
