@@ -18,14 +18,18 @@ def validate_srgb_profile(data):
                          "refusing to silently reinterpret a different ICC color space")
 
 
-def new_import_psd(size):
+def srgb_profile_bytes():
     from PIL import ImageCms
+    return ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+
+
+def new_import_psd(size):
     from psd_tools import PSDImage
     from psd_tools.constants import Resource
     from psd_tools.psd.image_resources import ImageResource
 
     psd = PSDImage.new("RGB", size, depth=8)
-    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    profile = srgb_profile_bytes()
     psd.image_resources[Resource.ICC_PROFILE] = ImageResource(
         key=Resource.ICC_PROFILE, data=profile)
     return psd

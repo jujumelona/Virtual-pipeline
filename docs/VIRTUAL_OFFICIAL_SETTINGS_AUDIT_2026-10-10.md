@@ -40,7 +40,7 @@
 | 2:3 입력의 LoRA 크기 | 해당 함수 결과 | 432×640 | 반올림으로 정확한 2:3은 아님 |
 | LoRA 샘플러 | Heun | Heun | Euler로 대체하지 않음 |
 | LoRA steps / CFG | 50 / 1.0 | 50 / 1.0 | 원본 Qwen CFG4를 적용하지 않음 |
-| LoRA 기본 layer 수 | 4, background 포함 | 부위별 2~10, 기본 최대6 | 프로젝트 세분화 정책 |
+| LoRA 기본 layer 수 | 4, background 포함 | 모든 부위 기본4; 사용자 지정2~10, FREE 남은 한도 고려 | 공식 기본값 반영; 사용자 변경은 별도 |
 | 재귀 | 원본 모델 지원 | 최대3단계, 기본 최대8회 | 공식 최적 시도 수 아님 |
 | LoRA prompt | 고정 소스 기본 문구 | 그대로 사용 | 외부 원화 프롬프트와 별개 |
 | Qwen 메모리 | 원본 고정밀 모델 | transformer NF4, CPU text encoder | CPU 인코딩은 T4 VRAM 절약 절충; RAM/시간 미실측 |

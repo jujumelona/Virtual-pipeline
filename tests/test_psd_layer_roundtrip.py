@@ -33,3 +33,32 @@ def test_native_multilayer_documents_preserve_layer_names(tmp_path):
         assert b"face" in zipped.read("stack.xml")
         assert zipped.read("data/layer_000.png")[:8] == bytes([137,80,78,71,13,10,26,10])
     assert Path(out["layers_json"]).is_file()
+
+
+def test_separated_outputs_keep_srgb_and_baked_partial_alpha(tmp_path):
+    from io import BytesIO
+    from PIL import ImageCms
+    from psd_tools.constants import ColorMode, Resource
+
+    image = Image.new("RGBA", (24, 32), (0, 0, 0, 0))
+    image.putpixel((7, 11), (90, 120, 180, 128))
+    rgba = tmp_path / "part.png"
+    mask = tmp_path / "mask.png"
+    image.save(rgba)
+    image.getchannel("A").save(mask)
+    part = Part("hair.front", str(rgba), str(mask), None, [7, 11, 8, 12],
+                100, [], "user")
+    result = write_psd_and_ora(PartsDocument(24, 32, [part], None, ""), str(tmp_path / "out"))
+    psd = PSDImage.open(result["psd"])
+    assert psd.color_mode == ColorMode.RGB and psd.depth == 8
+    profile = psd.image_resources.get_data(Resource.ICC_PROFILE)
+    assert profile is not None
+    assert "srgb" in ImageCms.getProfileDescription(ImageCms.ImageCmsProfile(BytesIO(profile))).lower()
+    layer = psd[0]
+    assert layer.mask is None
+    assert (layer.left, layer.top) == (0, 0)
+    assert layer.topil().convert("RGBA").getpixel((7, 11)) == (90, 120, 180, 128)
+    with zipfile.ZipFile(result["ora"]) as archive:
+        actual = Image.open(BytesIO(archive.read("data/layer_000.png")))
+        assert actual.size == image.size and actual.tobytes() == image.tobytes()
+        assert actual.info.get("icc_profile") == profile

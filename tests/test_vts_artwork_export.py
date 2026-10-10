@@ -169,6 +169,9 @@ def test_companion_files_are_real_and_coordinates_match(tmp_path):
             rgba_bytes = archive.read(item["rgba_png"])
             mask_bytes = archive.read(item["alpha_mask_png"])
             img = Image.open(BytesIO(rgba_bytes)).convert("RGBA")
+            from tools.vts_psd_layer import validate_srgb_profile
+            assert img.info.get("icc_profile")
+            validate_srgb_profile(img.info["icc_profile"])
             mask = Image.open(BytesIO(mask_bytes))
             assert mask.mode == "L" and img.mode == "RGBA"
             assert mask.tobytes() == img.getchannel("A").tobytes()
@@ -215,6 +218,22 @@ def test_free_request_respects_remaining_layer_budget(tmp_path):
                                    qwen=True, qwen_infer=infer, per_pass_layers=8, max_qwen_passes=1)
     assert result["layer_count"] == 100
     assert result["qwen_attempts"][0]["accepted"] is True
+
+
+def test_official_four_layer_default_applies_to_eyebrow_parts(tmp_path):
+    archive = tmp_path / "eyebrows.zip"
+    from io import BytesIO
+    with ZipFile(archive, "w") as z:
+        for name in ("eyebrow.left", "face"):
+            data = BytesIO()
+            Image.new("RGBA", (32, 48), (90, 120, 180, 255)).save(data, "PNG")
+            z.writestr(name + ".png", data.getvalue())
+    def infer(source, output, **kw):
+        # Real orchestration records the requested setting; no model inference claim.
+        return {"layers": [str(source)] * kw["layer_count"]}
+    result = build_artwork_package(archive, tmp_path / "out", edition="free", scope="upper",
+                                   qwen=True, qwen_infer=infer, max_qwen_passes=2)
+    assert all(a["requested_count"] == 4 for a in result["qwen_attempts"])
 
 
 def test_free_texture_budget_measures_cropped_layers_and_warns_without_resizing(tmp_path):

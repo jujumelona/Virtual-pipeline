@@ -96,6 +96,19 @@ Florence/SAM2/FLUX/Depth/TripoSR/SR/Blender/VRM 및 3D 모드의 수치·차이�
 외부 원화 생성 모델이 지정되지 않아 그 생성기의 공식 픽셀·프롬프트·steps·CFG를
 확정하지 않는다. 공식 지원 형식과 방송 품질 실측을 같은 것으로 판정하지 않는다.
 
+## 분할 결과에 반영한 설정
+
+- Colab 초기값·모드 UI·CLI·제작 함수의 Qwen 레이어 기본값을 공식4개로 통일했다.
+  눈썹3개/헤어8개 등 자동 부위별 휴리스틱을 제거했다. 사용자가2~10개를 명시하거나
+  FREE 잔여 ArtMesh 예산으로 제한하는 경우는 공식 기본값과 다른 설정이다.
+- Live2D 파츠 PNG와 비교 프리뷰에 sRGB ICC를 넣는다. 원본 캔버스 좌표·RGBA 화소와
+  알파 마스크를 보존하며 모델 내부640px 출력을 최종 원화 해상도로 잘못 표시하지 않는다.
+- 일반2D PSD/ORA에도 sRGB ICC를 넣고 RGB8비트 PSD의 알파를 실제 투명 채널에 적용한다.
+  중복 파츠 이름은 거부한다. 입력의 다른 ICC 프로파일을 sRGB로 임의 재해석하지 않는다.
+  프로파일 없는 입력은 기존 sRGB 입력 계약에 따른다.
+- 실제 PNG·PSD 저장/재열기 검증과 관련 모드·제작 테스트163개가 통과했다.
+  이는 GPU 분할 품질이나 Editor/Viewer 화면 실측 통과를 의미하지 않는다.
+
 ## 공식 출처
 
 - Cubism [PSD 조건](https://docs.live2d.com/en/cubism-editor-manual/precautions-for-psd-data/), [소재 분리](https://docs.live2d.com/en/cubism-editor-manual/divide-the-material/), [PSD 가져오기](https://docs.live2d.com/en/cubism-editor-manual/psd-import/)

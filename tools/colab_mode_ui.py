@@ -113,7 +113,7 @@ def selection_signature(values: dict) -> tuple:
             if edition == "pro" and asset_kind not in PRO_ASSET_LABELS:
                 raise ValueError("PRO 독립 제작 종류를 확인하세요.")
             passes = values.get("LIVE2D_QWEN_PASSES", 8)
-            layers = values.get("LIVE2D_QWEN_LAYERS", 6)
+            layers = values.get("LIVE2D_QWEN_LAYERS", 4)
             if not isinstance(passes, int) or not 0 <= passes <= 12:
                 raise ValueError("Qwen 반복 횟수 0..12 범위를 확인하세요.")
             if not isinstance(layers, int) or not 2 <= layers <= 10:
@@ -183,7 +183,7 @@ def begin_mode_selection(values: dict) -> None:
         "LIVE2D_PRO_ASSET": "body",
         "LIVE2D_FRAMING": "upper",
         "LIVE2D_QWEN": "auto",
-        "LIVE2D_QWEN_LAYERS": 6,
+        "LIVE2D_QWEN_LAYERS": 4,
         "LIVE2D_QWEN_PASSES": 8,
         "LIVE2D_USE_QWEN": False,
         "TWO_D_INPUT": "sheets",

@@ -36,6 +36,8 @@ def _read_registered(path: Path):
                 image.load()
                 if image.mode != "RGBA":
                     raise ValueError("Layer must have actual RGBA transparency")
+                from tools.vts_psd_layer import validate_srgb_profile
+                validate_srgb_profile(image.info.get("icc_profile"))
                 if size is not None and image.size != size:
                     raise ValueError("Layers do not share an aligned canvas")
                 size = image.size
@@ -240,13 +242,15 @@ def _reference_bundle(layers, *, edition: str, scope: str, asset_kind: str | Non
                       qwen_attempts: list, split_names: list, group_count: int):
     """Produce useful *observed* companions, not fictitious Cubism keyforms."""
     import hashlib
+    from tools.vts_psd_layer import srgb_profile_bytes
 
     width, height = layers[0]["image"].size
+    profile = srgb_profile_bytes()
     preview = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     for layer in reversed(layers):
         preview.alpha_composite(layer["image"])
     out = BytesIO()
-    preview.save(out, format="PNG")
+    preview.save(out, format="PNG", icc_profile=profile)
     entries = [("preview/composite.png", out.getvalue())]
     records = []
     for index, layer in enumerate(layers):
@@ -257,7 +261,7 @@ def _reference_bundle(layers, *, edition: str, scope: str, asset_kind: str | Non
         if bbox is None:
             raise ValueError("An empty layer reached artwork packaging")
         img_data = BytesIO()
-        image.save(img_data, format="PNG")
+        image.save(img_data, format="PNG", icc_profile=profile)
         image_bytes = img_data.getvalue()
         mask_data = BytesIO()
         alpha.save(mask_data, format="PNG")
@@ -613,12 +617,9 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
             crop.save(source)
             run_dir = output / "qwen_work" / stem
             family = item["name"].split(".", 1)[0]
-            # Heuristic per-part budgets, not official guaranteed part counts.
-            suggested = {"hair": 8, "eye": 5, "eyebrow": 3,
-                         "mouth": 5, "face": 4, "body": 4,
-                         "cloth": 6, "sleeve": 4, "ornament": 4,
-                         "accessory": 4}.get(family, 4)
-            requested = max(2, min(per_pass_layers, suggested))
+            # Official default is four for every crop, including background.
+            # A user override is explicit; no invented per-anatomy optimum.
+            requested = per_pass_layers
             if edition == "free":
                 requested = min(requested, FREE_LIMIT - len(layers) + 1)
             kw = {"layer_count": requested}
