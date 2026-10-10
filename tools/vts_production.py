@@ -370,6 +370,7 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
         from tools.vts_quantization import (
             set_4bit_compute_dtype,
             align_offload_prompt_encoder_device,
+            align_offload_image_devices,
         )
         # Serialized NF4 configs keep a separate BF16 compute dtype. Adapt
         # actual quantized layers before the first prompt-cache forward.
@@ -389,6 +390,7 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
             adaptation += (
                 "        if args.cpu_offload:\n"
                 f"            align_offload_prompt_encoder_device({owner}, {family!r})\n"
+                f"            align_offload_image_devices({owner}, {family!r})\n"
             )
             # One compact GPU-memory snapshot before the first prompt cache
             # matmul; useful for distinguishing VRAM pressure from dtype issues.
@@ -403,9 +405,17 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
         # official offload mode on T4 instead of immediately filling VRAM again.
         from tools.vts_quantization import patch_nf4_marigold_cpu_offload
         patched = patch_nf4_marigold_cpu_offload(patched)
+        # The pinned runner builds a CPU RNG from offloaded UNet metadata;
+        # the denoiser samples on CUDA, so its generator must also use CUDA.
+        original_rng = "torch.Generator(device=pipeline.unet.device)"
+        if patched.count(original_rng) != 1:
+            raise RuntimeError("Pinned LayerDiff RNG device contract changed")
+        patched = patched.replace(original_rng,
+                                  "torch.Generator(device=pipeline._execution_device)")
         patched = (
             getsource(set_4bit_compute_dtype) + "\n"
             + getsource(align_offload_prompt_encoder_device) + "\n"
+            + getsource(align_offload_image_devices) + "\n"
             + patched
         )
         program = program.with_name("inference_psd_quantized_vts_fp16.py")
