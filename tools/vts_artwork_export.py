@@ -196,13 +196,38 @@ def _write_psd(parts, target: Path, *, free: bool):
         raise RuntimeError("Cubism import PSD retains an unapplied layer mask")
     # psd-tools enumerates bottom-up; validate the actual saved pixel leaves,
     # not just the in-memory writer objects or an embedded preview.
-    for actual, expected in zip(reversed(leaves), parts):
+    for index, (actual, expected) in enumerate(zip(reversed(leaves), parts)):
         pixels = actual.topil()
-        if (actual.name != expected["name"] or (actual.left, actual.top) != (0, 0)
-                or actual.opacity != 255 or actual.blend_mode.name != "NORMAL"
-                or pixels is None or pixels.size != expected["image"].size
-                or pixels.convert("RGBA").tobytes() != expected["image"].tobytes()):
-            raise RuntimeError("PSD serialization changed layer order, coordinates or RGBA pixels")
+        problems = []
+        if actual.name != expected["name"]:
+            problems.append(f"name={actual.name!r} expected={expected['name']!r}")
+        if (actual.left, actual.top) != (0, 0):
+            problems.append(f"origin={(actual.left, actual.top)} expected=(0, 0)")
+        if actual.opacity != 255:
+            problems.append(f"opacity={actual.opacity} expected=255")
+        if actual.blend_mode.name != "NORMAL":
+            problems.append(f"blend={actual.blend_mode.name} expected=NORMAL")
+        if pixels is None:
+            problems.append("missing layer raster")
+        elif pixels.size != expected["image"].size:
+            problems.append(f"raster size={pixels.size} expected={expected['image'].size}")
+        elif pixels.convert("RGBA").tobytes() != expected["image"].tobytes():
+            # Report first differing channel instead of masking real corruption.
+            actual_rgba = np.asarray(pixels.convert("RGBA"), dtype=np.uint8)
+            source_rgba = np.asarray(expected["image"].convert("RGBA"), dtype=np.uint8)
+            different = actual_rgba != source_rgba
+            y, x, channel = np.argwhere(different)[0]
+            problems.append(
+                f"RGBA mismatch at ({int(x)},{int(y)}) channel={('R','G','B','A')[channel]} "
+                f"saved={int(actual_rgba[y,x,channel])} source={int(source_rgba[y,x,channel])} "
+                f"source_alpha={int(source_rgba[y,x,3])} "
+                f"pixel_differences={int(np.count_nonzero(np.any(different, axis=2)))}"
+            )
+        if problems:
+            raise RuntimeError(
+                f"PSD serialization mismatch at layer {index}/{len(parts)} "
+                f"{expected['name']!r}: " + "; ".join(problems)
+            )
     return groups
 
 
