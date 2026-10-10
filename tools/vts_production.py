@@ -465,7 +465,15 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
         # Its default is False (the help string misleadingly says 'on').
         # Without it, the CLIP NF4 cache forward allocates cuBLAS while the
         # UNet and other pipeline components simultaneously occupy T4 VRAM.
-        command.append("--cpu_offload")
+        # LayerDiff uses model CPU offload. Marigold's separate NF4 branch
+        # loads its models onto CUDA but defaults group_offload=True; its
+        # block post_forward moves quantized weights back to CPU and triggered
+        # cudaErrorIllegalAddress on Colab T4 after both LayerDiff passes.
+        # The upstream CLI supports --no_group_offload. This only disables
+        # that incompatible hook; NF4 quantization and LayerDiff CPU offload
+        # remain active. Memory is checked again before the depth cache.
+        command.extend(["--cpu_offload", "--no_group_offload"])
+        print("[VTS] T4 Marigold NF4: disable group offload; keep weights on GPU", flush=True)
     print("[VTS] See-through NF4:", " ".join(command), flush=True)
     from tools.vts_subprocess import run_logged
     from tools.colab_gpu_warmup import available_face_worker, stop_face_worker
