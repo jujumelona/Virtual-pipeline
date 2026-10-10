@@ -16,6 +16,8 @@ import time
 import uuid
 from typing import Callable
 
+from tools.model_log_output import is_weight_progress, quiet_model_environment
+
 ROOT = Path(__file__).resolve().parents[1]
 WORK = Path("/content/vtuber_builder")
 EVENT_PREFIX = "VTUBER_GENERATION_EVENT "
@@ -105,7 +107,7 @@ def run_isolated(
         sys.executable, "-u", str(ROOT / "tools" / "colab_generation_worker.py"),
         str(request), str(result_path),
     ]
-    env = os.environ.copy()
+    env = quiet_model_environment()
     env.pop("VTUBER_SETUP_ONLY", None)
     env["PYTHONUNBUFFERED"] = "1"
     # An actual file descriptor, not a pipe back to the possibly dying UI.
@@ -122,7 +124,9 @@ def run_isolated(
     tail = deque(maxlen=140)
 
     def relay_line(line: str) -> None:
-        """Deliver every worker stdout/stderr line, including the first error."""
+        """Relay diagnostics and real progress without repeated weight bars."""
+        if is_weight_progress(line):
+            return
         tail.append(line)
         if on_event is None:
             return
@@ -238,6 +242,6 @@ def _await_worker_completion(
     raise RuntimeError(
         f"{diagnosis}; mode={mode}; exit={status}; job={folder}; "
         f"log={log_path}\n"
-        "Every subprocess output line was streamed to the notebook above; "
-        "the complete unfiltered transcript is in generation.log."
+        "Worker diagnostics are retained in generation.log; "
+        "repeated checkpoint progress bars are hidden."
     )
