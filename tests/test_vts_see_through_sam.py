@@ -138,3 +138,29 @@ def test_sam_gpu_worker_command_and_output_contract_without_cuda(monkeypatch, tm
     assert masks[1].getchannel("A").getbbox() == (12, 0, 24, 16)
     assert masks[2].getchannel("A").getbbox() is None
     assert log.is_file()
+
+
+@pytest.mark.parametrize("dtype,value", [
+    (np.uint8, 2),
+    (np.uint8, 255),
+    (np.float32, 0.5),
+    (np.float32, float("nan")),
+    (np.int8, -1),
+])
+def test_sam_rejects_nonbinary_or_invalid_dtype_masks(dtype, value):
+    """A corrupt NPZ must never be converted into incorrect alpha coverage."""
+    from tools.vts_see_through_sam import check_masks
+    masks = np.zeros((19, 4, 5), dtype=dtype)
+    masks[0, 0, 0] = value
+    with pytest.raises(RuntimeError, match="binary"):
+        check_masks(masks, (5, 4))
+
+
+def test_sam_accepts_exact_bool_and_uint8_binary_masks():
+    from tools.vts_see_through_sam import check_masks
+    for dtype in (np.bool_, np.uint8):
+        masks = np.zeros((19, 4, 5), dtype=dtype)
+        masks[0, 0, 0] = 1
+        result = check_masks(masks, (5, 4))
+        assert result.dtype == np.uint8
+        assert result[0, 0, 0] == 1

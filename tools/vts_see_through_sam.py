@@ -34,6 +34,13 @@ def check_masks(masks, size: tuple[int, int]):
     w, h = size
     if result.ndim != 3 or result.shape != (SAM_PART_COUNT, h, w):
         raise RuntimeError(f"Official SAM returned invalid mask tensor: {result.shape}")
+    # The pinned worker emits bool logits masks; NPZ persists uint8 0/1.
+    # Never coerce arbitrary floats or non-binary values: multiplying a
+    # malformed uint8 mask by 255 would wrap and silently corrupt coverage.
+    if result.dtype not in (np.dtype("bool"), np.dtype("uint8")):
+        raise RuntimeError("Official SAM masks must have binary bool/uint8 storage")
+    if result.size == 0 or int(result.max()) > 1:
+        raise RuntimeError("Official SAM masks must contain only binary 0/1 values")
     return result.astype(np.uint8, copy=False)
 
 
