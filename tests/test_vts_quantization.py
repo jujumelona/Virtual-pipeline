@@ -116,3 +116,85 @@ def test_device_fix_fails_closed_for_unknown_upstream_encoder():
 
     with pytest.raises(RuntimeError, match="contract changed"):
         align_offload_prompt_encoder_device(ChangedEncoder(), "marigold")
+
+
+# Minimal stand-ins for the official custom pipeline internals. They model
+# Accelerate offload metadata where module.device is CPU during GPU execution.
+def vae_encode(vae, encoder, sample):
+    return sample.to(device=vae.device)
+
+
+class _ImageLayerDiff:
+    _execution_device = "cuda:0"
+
+    def __init__(self):
+        self.unet = types.SimpleNamespace(device="cpu")
+        self.vae = types.SimpleNamespace(device="cpu")
+        self.trans_vae = types.SimpleNamespace(device="cpu")
+
+    def __call__(self):
+        device = self.unet.device
+        vae_device = self.vae.device
+        trans_device = self.trans_vae.device
+        feed_device = vae_encode(
+            self.vae, None,
+            types.SimpleNamespace(to=lambda **kwargs: str(kwargs["device"])),
+        )
+        return device, vae_device, trans_device, feed_device
+
+
+def encode_argb_list(vae, sample):
+    return sample.to(device=vae.device)
+
+
+class _ImageMarigold:
+    _execution_device = "cuda:0"
+
+    def __init__(self):
+        self.vae = types.SimpleNamespace(device="cpu")
+        self.unet = types.SimpleNamespace(device="cpu")
+
+    @property
+    def device(self):
+        return self.unet.device
+
+    def __call__(self):
+        vae = self.vae
+        a = self.vae.device
+        b = vae.device
+        c = encode_argb_list(
+            vae,
+            types.SimpleNamespace(to=lambda **kwargs: str(kwargs["device"])),
+        )
+        return a, b, c
+
+    def encode_rgb(self):
+        return self.vae.device
+
+    def decode_depth(self):
+        return self.vae.device
+
+
+def test_layerdiff_offload_image_paths_use_execution_cuda(monkeypatch):
+    from tools.vts_quantization import align_offload_image_devices
+
+    monkeypatch.setattr("torch.cuda.current_device", lambda: 0)
+    pipe = _ImageLayerDiff()
+    assert pipe() == ("cpu", "cpu", "cpu", "cpu")
+    align_offload_image_devices(pipe, "layerdiff")
+    assert all(str(device) == "cuda:0" for device in pipe())
+    align_offload_image_devices(pipe, "layerdiff")  # idempotent
+
+
+def test_marigold_offload_image_paths_use_execution_cuda(monkeypatch):
+    from tools.vts_quantization import align_offload_image_devices
+
+    monkeypatch.setattr("torch.cuda.current_device", lambda: 0)
+    pipe = _ImageMarigold()
+    assert pipe() == ("cpu", "cpu", "cpu")
+    align_offload_image_devices(pipe, "marigold")
+    assert all(str(device) == "cuda:0" for device in pipe())
+    assert str(pipe.device) == "cuda:0"
+    assert str(pipe.encode_rgb()) == "cuda:0"
+    assert str(pipe.decode_depth()) == "cuda:0"
+    align_offload_image_devices(pipe, "marigold")  # idempotent
