@@ -488,3 +488,41 @@ def test_generated_psd_and_external_psd_are_mutually_exclusive(tmp_path):
             external_psd=master, generated_psd=master,
         )
     assert not (tmp_path / "not_created").exists()
+
+
+def test_native_psd_rgba_channel_roundtrip_photo_like_large_layers(tmp_path):
+    """RGB-mode PSD has native transparency and losslessly stores complex RGBA."""
+    from psd_tools import PSDImage
+    from psd_tools.constants import ChannelID
+    from tools.vts_artwork_export import _write_psd
+    import numpy as np
+
+    width, height = 768, 1024
+    yy = np.arange(height, dtype=np.uint16)[:, None]
+    xx = np.arange(width, dtype=np.uint16)[None, :]
+    parts = []
+    for part_index, family in enumerate(("hair", "face", "cloth")):
+        rgba = np.empty((height, width, 4), dtype=np.uint8)
+        rgba[..., 0] = ((xx * 7 + yy * 3 + part_index) % 256).astype("uint8")
+        rgba[..., 1] = ((xx * 11 + yy * 5 + part_index) % 256).astype("uint8")
+        rgba[..., 2] = ((xx * 2 + yy * 13 + part_index) % 256).astype("uint8")
+        rgba[..., 3] = ((xx + yy * 3 + part_index * 29) % 256).astype("uint8")
+        rgba[:height // 3, :width // 3, 3] = 0
+        parts.append({
+            "name": f"{family}.{part_index:03d}",
+            "image": Image.fromarray(rgba, "RGBA"),
+            "depth": 0,
+        })
+    path = tmp_path / "source_like_2d_artwork.psd"
+    _write_psd(parts, path, free=False)
+    doc = PSDImage.open(path)
+    assert doc.color_mode.name == "RGB"
+    assert doc.depth == 8
+    assert doc.channels == 4  # native RGB plus alpha; NOT a user layer mask
+    leaves = [x for x in doc.descendants() if not x.is_group()]
+    assert len(leaves) == 3
+    for layer in leaves:
+        assert layer.mask is None
+        assert ChannelID.TRANSPARENCY_MASK in {
+            channel.id for channel in layer._record.channel_info
+        }
