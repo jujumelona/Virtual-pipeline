@@ -155,13 +155,13 @@ def test_generated_qwen_preflight_rejects_stale_refs(tmp_path, monkeypatch):
     source = tmp_path / "decompose.py"
     source.write_text("# pinned source fixture", encoding="utf-8")
     valid = (
-        "def main():\\n"
-        "    text_encoder = object()\\n"
-        "    del text_encoder\\n"
-        "    pipe = object()\\n"
-        "    scheduler = pipe\\n"
-        "    del pipe\\n"
-        "    return scheduler\\n"
+        "def main():\n"
+        "    text_encoder = object()\n"
+        "    del text_encoder\n"
+        "    pipe = object()\n"
+        "    scheduler = pipe\n"
+        "    del pipe\n"
+        "    return scheduler\n"
     )
     monkeypatch.setattr(qwen, "_patch_pinned_official", lambda *args, **kw: valid)
     status = qwen.validate_qwen_runtime_source(source)
@@ -174,6 +174,6 @@ def test_generated_qwen_preflight_rejects_stale_refs(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="reads deleted pipe"):
         qwen.validate_qwen_runtime_source(source)
     monkeypatch.setattr(qwen, "_patch_pinned_official",
-                        lambda *args, **kw: "def main(:\\n    pass\\n")
+                        lambda *args, **kw: "def main(:\n    pass\n")
     with pytest.raises(SyntaxError):
         qwen.validate_qwen_runtime_source(source)
