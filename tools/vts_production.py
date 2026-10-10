@@ -421,12 +421,12 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
         # parent Accelerate hook. Keep it on CUDA throughout each body/head
         # decoding batch, but release it before the next denoise pass.
         for group_index in (0, 1):
-            anchor = f"        group_index={group_index}\\n    )"
+            anchor = f"        group_index={group_index}\n    )"
             if patched.count(anchor) != 1:
                 raise RuntimeError("Pinned LayerDiff group decode boundary changed")
             patched = patched.replace(
                 anchor,
-                anchor + "\\n    if args.cpu_offload:\\n        pipeline.trans_vae.decoder.cpu()",
+                anchor + "\n    if args.cpu_offload:\n        pipeline.trans_vae.decoder.cpu()",
             )
         patched = (
             getsource(set_4bit_compute_dtype) + "\n"
