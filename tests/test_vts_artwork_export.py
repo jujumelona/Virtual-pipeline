@@ -398,15 +398,16 @@ def test_official_editor_reference_keeps_parameter_and_physics_conventions():
     assert '실제 파라미터·키폼·물리를 생성하지 않습니다' in guide
 
 
-def test_realistic_multigroup_psd_roundtrip_preserves_z_order_and_translucent_rgba(tmp_path):
+@pytest.mark.parametrize("free", [True, False])
+def test_realistic_multigroup_psd_roundtrip_preserves_z_order_and_translucent_rgba(tmp_path, free):
     """Source-derived stress case: many part families, thin translucent edges."""
     from tools.vts_artwork_export import _write_psd
     from psd_tools import PSDImage
     import numpy as np
 
     parts = []
-    families = ("hair", "face", "hair", "eye", "body", "cloth",
-                "mouth", "hair", "accessory", "body")
+    families = (("hair", "face", "eye", "body", "cloth", "mouth",
+                 "accessory", "arm", "hand", "ear", "nose") * 5)
     for index, family in enumerate(families):
         rgba = np.zeros((128, 96, 4), dtype=np.uint8)
         top = (index * 9) % 60
@@ -422,7 +423,7 @@ def test_realistic_multigroup_psd_roundtrip_preserves_z_order_and_translucent_rg
             "depth": 0,
         })
     target = tmp_path / "many_groups.psd"
-    _write_psd(parts, target, free=False)
+    _write_psd(parts, target, free=free)
     saved = PSDImage.open(target)
     leaf_names = [x.name for x in saved.descendants() if not x.is_group()]
     assert leaf_names == [x["name"] for x in reversed(parts)]
