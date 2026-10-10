@@ -11,6 +11,8 @@ from tools import vts_qwen_refine as qwen
 @pytest.fixture
 def runtime(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(qwen, "validate_qwen_runtime_source",
+                        lambda script: {"syntax": "PASS", "gpu_inference_verified": False})
     repo = tmp_path / "third/Stable-Layers"
     repo.mkdir(parents=True)
     (repo / "decompose.py").write_text("pinned source checked separately")
@@ -152,6 +154,7 @@ def test_sigkill_keeps_memory_and_log_diagnostics(runtime, monkeypatch):
 
 
 def test_generated_qwen_preflight_rejects_stale_refs(tmp_path, monkeypatch):
+
     source = tmp_path / "decompose.py"
     source.write_text("# pinned source fixture", encoding="utf-8")
     valid = (
