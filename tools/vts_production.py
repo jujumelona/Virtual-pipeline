@@ -529,6 +529,51 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
                             worker_python=worker_python)
 
 
+
+def _visible_rgb_fidelity(source_image, result_image, *, rows: int = 128) -> dict:
+    """Measure unchanged visible RGB in bounded-memory strips.
+
+    Only pixels with >=250 final alpha participate. Background removal and
+    reconstructed hidden pixels cannot be certified from an RGB master.
+    This is a measured error, NOT proof of semantic or animation quality.
+    """
+    import numpy as np
+    if source_image.size != result_image.size:
+        return {"same_canvas": False, "verified": False, "reason": "different canvas"}
+    width, height = source_image.size
+    histogram = np.zeros(256, dtype=np.int64)
+    visible_pixels = 0
+    exactly_same = 0
+    for top in range(0, height, rows):
+        box = (0, top, width, min(top + rows, height))
+        original = np.asarray(source_image.crop(box).convert("RGB"), dtype=np.int16)
+        rgba = np.asarray(result_image.crop(box).convert("RGBA"), dtype=np.int16)
+        selected = rgba[:, :, 3] >= 250
+        if not np.any(selected):
+            continue
+        delta = np.abs(original[selected] - rgba[:, :, :3][selected])
+        histogram += np.bincount(delta.ravel(), minlength=256)
+        visible_pixels += int(np.count_nonzero(selected))
+        exactly_same += int(np.count_nonzero(np.all(delta == 0, axis=1)))
+    total_channels = int(histogram.sum())
+    if not total_channels:
+        return {"same_canvas": True, "verified": False,
+                "reason": "no fully visible source pixels"}
+    cdf = np.cumsum(histogram)
+    p95 = int(np.searchsorted(cdf, np.ceil(total_channels * .95)))
+    return {
+        "same_canvas": True,
+        "verified": False,
+        "fully_visible_pixel_count": visible_pixels,
+        "visible_rgb_mean_absolute_error_0_255":
+            round(float(np.dot(np.arange(256), histogram) / total_channels), 4),
+        "visible_rgb_p95_channel_error_0_255": p95,
+        "exact_visible_rgb_pixel_fraction":
+            round(exactly_same / visible_pixels, 6),
+        "note": "High-alpha pixels only; no proof of hidden reconstruction or rig quality.",
+    }
+
+
 def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         asset_kind: str | None = None,
                         reference_image: Path | None = None,
@@ -670,6 +715,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                     "coordinate_transform": registration,
                     "source_fidelity_verified": False,
                     "visible_rgb_original_resolution_guaranteed": False,
+                    "measured_visible_rgb_fidelity": _visible_rgb_fidelity(original, final),
                     "note": "Review the two visual images. Inference may resize or "
                             "inpaint pixels; source file is preserved separately.",
                 }
