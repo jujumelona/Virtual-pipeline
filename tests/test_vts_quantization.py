@@ -210,3 +210,62 @@ def test_marigold_offload_image_paths_use_execution_cuda(monkeypatch):
     assert str(pipe.encode_rgb()) == "cuda:0"
     assert str(pipe.decode_depth()) == "cuda:0"
     align_offload_image_devices(pipe, "marigold")  # idempotent
+
+
+class _FakeTransparentModel:
+    def __init__(self):
+        self.device = "cpu"
+        self.dtype = "float16"
+        self.moves = []
+
+    def to(self, *, device, dtype):
+        self.device = str(device)
+        self.dtype = str(dtype)
+        self.moves.append((self.device, self.dtype))
+        return self
+
+    def __call__(self, pixel, latent):
+        if str(pixel.device) != self.device:
+            raise RuntimeError("Input type torch.cuda.HalfTensor and weight torch.HalfTensor")
+        return self.device
+
+
+class _FakeTransparentDecoder:
+    def __init__(self):
+        self.model = _FakeTransparentModel()
+
+    def estimate_single_pass(self, pixel, latent):
+        y = self.model(pixel, latent)
+        return y
+
+
+def test_transparent_decoder_is_moved_to_cuda_at_first_real_decode():
+    import pytest
+    from tools.vts_quantization import align_offloaded_transparent_decoder
+
+    decoder = _FakeTransparentDecoder()
+    pipeline = types.SimpleNamespace(trans_vae=types.SimpleNamespace(decoder=decoder))
+    pixel = types.SimpleNamespace(device="cuda:0", dtype="float16")
+    with pytest.raises(RuntimeError, match="Input type"):
+        decoder.estimate_single_pass(pixel, pixel)
+    align_offloaded_transparent_decoder(pipeline)
+    assert decoder.estimate_single_pass(pixel, pixel) == "cuda:0"
+    assert decoder.model.moves == [("cuda:0", "float16")]
+    decoder.estimate_single_pass(pixel, pixel)
+    assert decoder.model.moves[-1] == ("cuda:0", "float16")
+    align_offloaded_transparent_decoder(pipeline)
+
+
+def test_transparent_decoder_patch_rejects_unknown_vendor_forward():
+    import pytest
+    from tools.vts_quantization import align_offloaded_transparent_decoder
+
+    class UnknownTransparentDecoder:
+        def estimate_single_pass(self, pixel, latent):
+            return None
+
+    p = types.SimpleNamespace(trans_vae=types.SimpleNamespace(
+        decoder=UnknownTransparentDecoder()
+    ))
+    with pytest.raises(RuntimeError, match="contract changed"):
+        align_offloaded_transparent_decoder(p)
