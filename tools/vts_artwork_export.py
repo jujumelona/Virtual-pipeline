@@ -786,6 +786,43 @@ def _split_clear_bilateral_layer(layer):
     ]
 
 
+def _apply_official_semantic_sam_once(layers: list, canvas: tuple[int, int],
+                                      *, output: Path, third_party: Path,
+                                      edition: str):
+    """Apply every official 19-class mask to all first-pass PSD layers once.
+
+    No family/name/area preselection: every input part gets the same 19 masks.
+    Pixel data are partitioned, not regenerated. Unchanged parts are preserved.
+    """
+    from tools.vts_see_through_sam import run_sam_from_package
+    from tools.vts_official_second_pass import partition_from_masks
+
+    masks, log = run_sam_from_package(layers, canvas, output=output,
+                                      third_party=third_party)
+    if len(masks) != 19:
+        raise RuntimeError("Official SemanticSam worker returned invalid class count")
+    refined, trace = [], []
+    for index, layer in enumerate(layers):
+        diagnostic = {"source_layer": layer["name"], "stage": "semantic_sam_19"}
+        try:
+            children, decision = partition_from_masks(layer, masks)
+            diagnostic.update(decision)
+            if (edition == "free" and
+                    len(refined) + len(children) + len(layers) - index - 1 > FREE_LIMIT):
+                children = [layer]
+                diagnostic.update(accepted=False, reason="free_artmesh_limit")
+        except Exception as exc:
+            children = [layer]
+            diagnostic.update(accepted=False, reason="semantic_sam_partition_failed",
+                              error=str(exc))
+        refined.extend(children)
+        diagnostic["output_count"] = len(children)
+        trace.append(diagnostic)
+        print(f"[VTS SAM] part={index + 1}/{len(layers)} "
+              f"accepted={diagnostic['accepted']} children={len(children)}", flush=True)
+    return refined, trace, log
+
+
 def _refine_all_layers_official_once(layers: list, canvas: tuple[int, int],
                                      *, output: Path, third_party: Path,
                                      edition: str):
@@ -900,12 +937,24 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     attempted = []
     runtime_logs = []
     official_trace = []
+    semantic_sam_trace = []
     if official_second_pass:
         if third_party is None:
             raise ValueError("Official second-pass needs an installed See-through source")
+        # First pass includes all published See-through PSD postprocessors and
+        # its independent trained 19-part SemanticSam model. Model processes
+        # the full composite once; masks are intersected with *every* layer.
+        official_root = Path(third_party) / "see-through"
+        layers, semantic_sam_trace, sam_log = _apply_official_semantic_sam_once(
+            layers, canvas, output=output / "official_sam19",
+            third_party=official_root, edition=edition)
+        if sam_log.is_file():
+            runtime_logs.append(("logs/official_sam19.log", sam_log.read_bytes()))
+        # Exactly one extra See-through NF4 pass for all resulting parts.
+        # LayerDiff and Marigold each load once for the entire pass-2 batch.
         layers, official_trace, second_log = _refine_all_layers_official_once(
-            layers, canvas, output=output,
-            third_party=Path(third_party) / "see-through", edition=edition)
+            layers, canvas, output=output, third_party=official_root,
+            edition=edition)
         if second_log.is_file():
             runtime_logs.append(("logs/official_second_pass.log", second_log.read_bytes()))
     if qwen:
@@ -991,6 +1040,13 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         qwen_attempts=attempted, split_names=generated, group_count=group_count,
         bilateral_splits=bilateral_splits, qwen_requested=qwen)
     from tools.vts_official_settings import editor_settings_md
+    extras.append(("metadata/official_sam19.json",
+                   json.dumps({"enabled": official_second_pass,
+                               "class_count": 19 if official_second_pass else 0,
+                               "attempts": semantic_sam_trace,
+                               "input_count": len(semantic_sam_trace),
+                               "accepted_count": sum(bool(x.get("accepted")) for x in semantic_sam_trace)},
+                              ensure_ascii=False, indent=2).encode("utf-8")))
     extras.append(("metadata/official_second_pass.json",
                    json.dumps({"enabled": official_second_pass, "attempts": official_trace,
                                "input_count": len(official_trace),
@@ -1017,6 +1073,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         "asset_kind": asset_kind, "canvas": list(canvas),
         "qwen_attempts": attempted, "qwen_splits_accepted": generated,
         "bilateral_splits": bilateral_splits,
+        "official_sam19_attempts": len(semantic_sam_trace),
+        "official_sam19_accepted": sum(bool(x.get("accepted")) for x in semantic_sam_trace),
         "official_second_pass_attempts": len(official_trace),
         "official_second_pass_accepted": sum(bool(x.get("accepted")) for x in official_trace),
         "quality_status": "requires_manual_cubism_review",
