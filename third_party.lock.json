@@ -103,7 +103,7 @@
     },
     "transformers": {
       "package": "transformers",
-      "package_version": "4.57.6",
+      "package_version": "5.18.0",
       "artifact_sha256": null,
       "license": "Apache-2.0",
       "description": "ViT implementation used by TripoSR",
@@ -119,7 +119,7 @@
     },
     "rembg": {
       "package": "rembg",
-      "package_version": "2.0.85",
+      "package_version": "2.0.69",
       "artifact_sha256": null,
       "license": "MIT",
       "description": "Background removal used by TripoSR",
@@ -308,12 +308,12 @@
     "triposr_usage": "Commercial profile requires the pinned TripoSR source commit.",
     "anime_face_detector_usage": "Package version 0.1.0 is pinned exactly; YOLOv3 and HRNetV2 Hugging Face revisions and safetensors SHA256 values are independently pinned and verified before detector construction.",
     "vrm_export": "pygltflib assembles the intermediate VRM 1.0. Production AvatarPipeline then requires native Blender 4.2.23 and VRM Add-on 4.7.2 import/export validation, writes the editable .blend, and validates the final VRM. Direct export_vrm calls provide intermediate serialization only.",
-    "runtime_contract": "Colab runtime v8 uses prebuilt scikit-image for pinned TripoSR marching cubes rather than compiling torchmcubes. All direct compatibility dependencies and model checks are still verified; artifact SHA256 is only recorded for actual downloaded bytes.",
+    "runtime_contract": "Colab runtime v10 uses prebuilt scikit-image for pinned TripoSR marching cubes rather than compiling torchmcubes. All direct compatibility dependencies and model checks are still verified; artifact SHA256 is only recorded for actual downloaded bytes.",
     "transitive_scope": "commercial_safe flags cover the direct locked components; installed transitive distributions must still be audited from the resolved environment.",
     "triposr_model_integrity": "The Hugging Face model revision is pinned separately from the TripoSR source revision; model.ckpt bytes are verified against model_weight_sha256 before inference.",
     "gradio_usage": "Colab notebook pins Gradio exactly; the published wheel SHA256 is recorded separately from observed artifact_sha256.",
     "dino_runtime_pin": "Upstream TripoSR requests facebook/dino-vitb16 config.json without revision; the local deterministic runner forces this immutable revision.",
-    "rembg_model_integrity": "rembg 2.0.85 verifies u2net.onnx with the locked MD5; the pipeline removes MODEL_CHECKSUM_DISABLED from the TripoSR subprocess environment.",
+    "rembg_model_integrity": "rembg 2.0.69 verifies u2net.onnx with the locked MD5; the pipeline removes MODEL_CHECKSUM_DISABLED from the TripoSR subprocess environment.",
     "makehuman_integrity": "The pinned base.obj is accepted only when its Git blob SHA1 matches the blob at the locked MakeHuman commit; generated template.glb caches are SHA256-bound to that source/version.",
     "marching_cubes_usage": "TripoSR's pinned isosurface.py imports only marching_cubes from torchmcubes. The isolated TripoSR runner supplies a scoped API adapter backed by exact-pinned scikit-image 0.26.0 and returns torch tensors on the original device. No torchmcubes source build is performed.",
     "model_provenance": "Immutable upstream revisions are pinned. Actual downloaded bytes are SHA256-recorded by resolve_snapshot; absent weight hashes remain null."
