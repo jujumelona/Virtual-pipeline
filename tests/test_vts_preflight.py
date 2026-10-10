@@ -27,6 +27,7 @@ def test_see_through_relative_paths_survive_worker_cwd(tmp_path, monkeypatch):
     script = scripts / "inference_psd_quantized.py"
     script.write_text("# " + "torch.bfloat16 " * 8 + '''
 import argparse
+import sys
 from pathlib import Path
 def unused_pinned_cache_contract():
         pipeline.cache_tag_embeds()
