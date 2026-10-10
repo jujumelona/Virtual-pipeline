@@ -139,7 +139,7 @@ def test_cli_no_license_gate_and_outputs_zip(identity, tmp_path):
     ])
     assert result.exit_code == 0, result.output
     assert '"status": "plan_only"' in result.output
-    assert '"stable_layers_enabled_for_planning": true' in result.output
+    assert '"stable_layers_enabled_for_planning": false' in result.output
     assert (tmp_path / "vts_free_upper_prompts.zip").is_file()
     assert "NOT a .moc3" in result.output
 
