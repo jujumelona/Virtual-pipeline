@@ -135,6 +135,53 @@ def test_all_source_and_model_pins_agree():
         assert re.fullmatch(r"[0-9a-f]{64}", value)
 
 
+def test_colab_rembg_numpy_resolver_contract():
+    """Colab NumPy/Numba must remain compatible with the actual rembg pin."""
+    from packaging.specifiers import SpecifierSet
+    from packaging.version import Version
+
+    tree = ast.parse(_read("tools/colab_app.py"))
+    installer = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_install_runtime"
+    )
+    packages = next(
+        ast.literal_eval(node.value)
+        for node in ast.walk(installer)
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "runtime_packages"
+            for target in node.targets
+        )
+    )
+    names = {canonicalize_name(Requirement(raw).name): Requirement(raw)
+             for raw in packages}
+    lock = json.loads(_read("third_party.lock.json"))["tools"]
+
+    for package in ("rembg", "transformers"):
+        assert names[package].specifier == SpecifierSet(
+            "==" + lock[package]["package_version"]
+        )
+
+    # v2.0.69 retains the existing U2Net checksum/session API but, unlike
+    # rembg >=2.0.70, does not impose NumPy >=2.3 in wheel metadata.
+    assert str(names["rembg"].specifier) == "==2.0.69"
+    numpy_window = names["numpy"].specifier
+    assert Version("2.1.3") in numpy_window
+    assert Version("2.2.6") in numpy_window
+    assert Version("2.3.0") not in numpy_window
+    assert "numba" in names
+    assert ">=0.60" in str(names["numba"].specifier)
+    assert "transformers=5.18.0" in _read("tools/colab_app.py")
+    assert "rembg=2.0.69" in _read("tools/colab_app.py")
+
+    workflow = _read(".github/workflows/ci.yml")
+    assert "rembg==2.0.69" in workflow
+    assert "transformers==5.18.0" in workflow
+    assert '"numpy>=2.1,<2.3"' in workflow
+    assert '"huggingface-hub>=1.31.0,<2.0"' in workflow
+
+
 def test_pinned_package_versions_agree_with_runtime_surfaces():
     from vtuber_pipeline.avatar.face_detector import ANIME_FACE_MODEL_PINS
 
