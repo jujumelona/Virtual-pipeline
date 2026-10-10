@@ -203,9 +203,9 @@ def test_see_through_heuristic_uses_only_observed_metadata(tmp_path):
         "cloth": {},
     }}))
     assert _observed_split_tags(path, depth=True) == [
-        "hair_side", "arm_left", "eye_left", "cloth"
+        "hair_side", "arm_left", "eye_left", "unknown", "cloth"
     ]
-    assert _observed_split_tags(path, depth=False) == ["hair_side", "cloth"]
+    assert _observed_split_tags(path, depth=False) == ["hair_side", "unknown", "cloth"]
 
 
 @pytest.mark.parametrize("asset", ["body", "hair", "outfit", "accessory"])
@@ -287,8 +287,8 @@ def test_eye_and_face_parts_eligible_for_real_left_right_split(tmp_path):
     assert "irides" in observed
     assert "eyewhite" in observed
     assert "ears" in observed
-    assert "nose" not in observed
-    assert "mouth" not in observed
+    assert "nose" in observed
+    assert "mouth" in observed
 
 @pytest.mark.parametrize("name,expected", [
     ("left eyebrow", "eyebrow.left"),
