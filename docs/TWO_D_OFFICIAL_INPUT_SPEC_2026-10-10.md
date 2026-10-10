@@ -74,10 +74,12 @@ Draw Order 그룹2. PRO의 비교표상 개수 제한 해제는 GPU 무제한을
 검사하는 회귀 검증을 추가했다. 이 환경에는 D 컴파일러가 없어 새 네이티브 실행은
 수행하지 않았다. 실제 Viewer 화면 검증 완료로 표시하지 않는다.
 
-알파의 추가 확인 항목: Creator PSD importer는 `inTexPremultiply`를 호출한다.
-SDK의 파일 Texture 생성자는 읽은 RGBA를 그대로 올린다. 현재 출력기의 반투명
-텍스처 경로는 공식 셰이더·직렬화까지 더 대조해야 하며 동등한 합성 품질이
-검증됐다고 표시하지 않는다. native physics driver 부착 위치/피벗도 미확인 항목이다.
+알파는 고정 SDK의 Texture 로더·Part blend·fragment shader·INP serializer를
+대조했다. renderer는 premultiplied RGB를 요구하지만 파일 로더는 자동 변환하지
+않아 출력 경계에 공식 `inTexPremultiply`를 한 번 적용하도록 수정했다.
+중간 PNG/PSD는 straight alpha를 유지한다. 실제 INP 내부 TGA의0/64/128/255 알파
+픽셀을 검사하는 native CI를 추가했다. 로컬에서 네이티브 CI는 실행하지 않았다.
+native physics driver 부착 위치/피벗은 여전히 검수 대상이다.
 
 ## 앞단 AI의 공식 설정과 스타일
 
@@ -108,6 +110,8 @@ Florence/SAM2/FLUX/Depth/TripoSR/SR/Blender/VRM 및 3D 모드의 수치·차이�
   프로파일 없는 입력은 기존 sRGB 입력 계약에 따른다.
 - 실제 PNG·PSD 저장/재열기 검증과 관련 모드·제작 테스트163개가 통과했다.
   이는 GPU 분할 품질이나 Editor/Viewer 화면 실측 통과를 의미하지 않는다.
+- Inochi 관련 setup/transport/completion 및 PSD 검사21개가 통과했다.
+  실제 GPU와 SDK renderer의 반투명 화면 실측을 대체하지 않는다.
 
 ## 공식 출처
 

@@ -4,6 +4,7 @@ module app;
 import inochi2d;
 import inochi2d.core.param.binding : DeformationParameterBinding;
 import inochi2d.core.nodes.drivers.simplephysics : SimplePhysics;
+import inochi2d.core.texture : ShallowTexture, Texture, inTexPremultiply;
 import bindbc.opengl : loadOpenGL;
 import std.json;
 import std.file : readText, write, exists;
@@ -95,7 +96,12 @@ int main(string[] args) {
         enforce(data.isReady(), "triangular mesh not ready");
         auto path = item["rgba_png"].str;
         enforce(exists(path), "missing observable part PNG: " ~ path);
-        auto texture = new Texture(path, 4);
+        // PNG artwork uses straight alpha. SDK 0.8.7 Part shaders/blending
+        // consume premultiplied RGB, and the INP serializer preserves those
+        // bytes. Convert once before upload; the SDK INP loader does not.
+        auto shallow = ShallowTexture(path, 4);
+        inTexPremultiply(shallow.data, shallow.channels);
+        auto texture = new Texture(shallow);
         auto part = new Part(data, [texture], puppet.root);
         part.name = name;
         part.zSort = number(item["z_order"]);
@@ -191,6 +197,7 @@ int main(string[] args) {
         "physics_bindings_count": JSONValue(cast(long)physicsCount),
         "sdk_reimport_binding_count": JSONValue(cast(long)verifiedBindings),
         "inp_format": JSONValue("INP1"),
+        "texture_alpha_mode": JSONValue("premultiplied"),
     ];
     write(args[3], JSONValue(report).toString());
     writeln("inochi-native-sdk-export-pass");
