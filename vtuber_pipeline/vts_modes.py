@@ -163,8 +163,8 @@ def build_vts_brief(
 ) -> dict:
     """Generate inspectable artwork requests and machine-readable runtime PLAN.
 
-    Stable-Layers is the default Qwen LoRA for both editions without collecting
-    income information. No weights are downloaded or LoRAs attached here.
+    Stable-Layers is the Qwen LoRA only for optional PRO outfit/accessory work.
+    FREE and PRO body/hair never invoke Qwen. This is a plan; no weights load.
     """
     if edition not in EDITIONS:
         raise ValueError("VTube Studio edition must be free or pro")
@@ -233,7 +233,9 @@ def build_vts_brief(
         )
         images.append(_prompt(data, asset_frame, filename, task, free=False,
                               detached=asset_kind != "body"))
-    qwen_usage = "on_demand_if_quality_insufficient" if edition == "free" else "primary_high_detail_refinement"
+    qwen_usage = ("optional_detached_asset_only"
+                  if edition == "pro" and asset_kind in ("outfit", "accessory")
+                  else "disabled")
     brief = {
         "schema": "vtuber/vts-artwork-brief-v1",
         "edition": edition,
@@ -272,7 +274,7 @@ def build_vts_brief(
             "see_through_nf4_t4_verified": False,
             "stable_layers": {
                 **STABLE_LAYERS,
-                "enabled_for_planning": True,
+                "enabled_for_planning": edition == "pro" and asset_kind in ("outfit", "accessory"),
                 "default_for_qwen_stage": True,
                 "adapter_downloaded": False,
                 "adapter_loaded": False,
