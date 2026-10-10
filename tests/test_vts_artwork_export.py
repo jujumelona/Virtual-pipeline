@@ -396,3 +396,47 @@ def test_official_editor_reference_keeps_parameter_and_physics_conventions():
     assert 'ParamBodyAngleX / ParamBodyAngleY / ParamBodyAngleZ | -10 | 0 | 10' in guide
     assert '60 FPS' in guide
     assert '실제 파라미터·키폼·물리를 생성하지 않습니다' in guide
+
+
+def test_realistic_multigroup_psd_roundtrip_preserves_z_order_and_translucent_rgba(tmp_path):
+    """Source-derived stress case: many part families, thin translucent edges."""
+    from tools.vts_artwork_export import _write_psd
+    from psd_tools import PSDImage
+    import numpy as np
+
+    parts = []
+    families = ("hair", "face", "hair", "eye", "body", "cloth",
+                "mouth", "hair", "accessory", "body")
+    for index, family in enumerate(families):
+        rgba = np.zeros((128, 96, 4), dtype=np.uint8)
+        top = (index * 9) % 60
+        left = (index * 7) % 35
+        rgba[top:top+45, left:left+40] = (
+            (index * 19 + 40) % 256, 92, 181, 255
+        )
+        rgba[top:top+45, left] = (19, 88, 120, 1)
+        rgba[top:top+45, left+39] = (210, 40, 60, 128)
+        parts.append({
+            "name": f"{family}.{index:03d}",
+            "image": Image.fromarray(rgba, "RGBA"),
+            "depth": 0,
+        })
+    target = tmp_path / "many_groups.psd"
+    _write_psd(parts, target, free=False)
+    saved = PSDImage.open(target)
+    leaf_names = [x.name for x in saved.descendants() if not x.is_group()]
+    assert leaf_names == [x["name"] for x in reversed(parts)]
+
+
+def test_psd_roundtrip_preserves_hidden_rgb_under_zero_alpha(tmp_path):
+    """Investigate whether psd-tools changes unseen RGB bytes in fully transparent pixels."""
+    from tools.vts_artwork_export import _write_psd
+    import numpy as np
+
+    rgba = np.zeros((96, 80, 4), dtype=np.uint8)
+    rgba[:, :, :3] = (73, 91, 121)
+    rgba[10:70, 10:65, 3] = 255
+    rgba[14:67, 14:60, 3] = 128
+    _write_psd([
+        {"name": "hair.hidden_rgb", "image": Image.fromarray(rgba, "RGBA"), "depth": 0},
+    ], tmp_path / "hidden_rgb.psd", free=False)
