@@ -756,3 +756,31 @@ def test_qwen_rejection_diagnostics_identify_mask_coverage_failure(tmp_path):
     assert diagnostics["result"] == "rejected"
     assert diagnostics["reason"] == "insufficient_qwen_alpha_coverage"
     assert diagnostics["coverage"] == 0
+
+
+def test_sparse_alpha_bridge_still_splits_bilateral_anatomical_part():
+    """A thin stray bridge must not keep two eyes trapped in one ArtMesh."""
+    import numpy as np
+    from PIL import Image
+    from tools.vts_artwork_export import _split_clear_bilateral_layer
+    arr = np.zeros((80, 200, 4), dtype=np.uint8)
+    arr[10:70, 10:75] = (90, 80, 70, 255)
+    arr[10:70, 125:190] = (90, 80, 70, 255)
+    arr[35, 74:126] = (90, 80, 70, 32)
+    original = Image.fromarray(arr, "RGBA")
+    children = _split_clear_bilateral_layer({"name": "eye.sclera", "image": original, "depth": 0})
+    assert children is not None and len(children) == 2
+    assert all(ch["image"].getchannel("A").getbbox() for ch in children)
+    recovered = np.zeros_like(arr)
+    for child in children:
+        mask = np.asarray(child["image"])[:, :, 3] > 0
+        recovered[mask] = np.asarray(child["image"])[mask]
+    np.testing.assert_array_equal(recovered, arr)
+
+
+def test_connected_solid_anatomy_is_not_falsely_split():
+    from PIL import Image
+    from tools.vts_artwork_export import _split_clear_bilateral_layer
+    original = Image.new("RGBA", (200, 80), (90, 80, 70, 255))
+    assert _split_clear_bilateral_layer(
+        {"name": "eye.sclera", "image": original, "depth": 0}) is None
