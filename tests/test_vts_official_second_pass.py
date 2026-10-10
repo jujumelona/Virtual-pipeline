@@ -106,3 +106,14 @@ def test_official_pass_attempts_each_initial_layer_once(monkeypatch, tmp_path):
     assert calls == [["source_0000.png", "source_0001.png"]]
     assert len(trace) == 2 and all(item["accepted"] for item in trace)
     assert len(result) == 4
+
+
+@pytest.mark.parametrize("edition,asset", [
+    ("free", None), ("pro", "body"), ("pro", "hair"),
+])
+def test_direct_artwork_api_rejects_real_qwen_in_disallowed_modes(tmp_path, edition, asset):
+    from tools.vts_artwork_export import build_artwork_package
+    with pytest.raises(ValueError, match="only for PRO outfit/accessory"):
+        build_artwork_package(tmp_path / "not_read.zip", tmp_path / "out",
+                              edition=edition, scope="upper", asset_kind=asset,
+                              qwen=True, max_qwen_passes=1)
