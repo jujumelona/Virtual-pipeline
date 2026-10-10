@@ -360,7 +360,9 @@ def _texture_budget(layers, edition: str):
 
 
 def _reference_bundle(layers, *, edition: str, scope: str, asset_kind: str | None,
-                      qwen_attempts: list, split_names: list, group_count: int):
+                      qwen_attempts: list, split_names: list, group_count: int,
+                      bilateral_splits: list | None = None,
+                      qwen_requested: bool = False):
     """Produce useful *observed* companions, not fictitious Cubism keyforms."""
     import hashlib
     from tools.vts_psd_layer import srgb_profile_bytes
@@ -449,7 +451,12 @@ def _reference_bundle(layers, *, edition: str, scope: str, asset_kind: str | Non
         "schema": "vtuber/layer-segmentation-trace-v1",
         "accepted_source_names": split_names,
         "attempts": qwen_attempts,
-        "note": "Rejected candidates are not included in the final PSD.",
+        "qwen_requested": qwen_requested,
+        "qwen_attempt_count": len(qwen_attempts),
+        "qwen_accepted_count": len(split_names),
+        "bilateral_image_side_splits": bilateral_splits or [],
+        "note": "Rejected candidates are not included in the final PSD. "
+                "Image-side divisions are not verified anatomical or riggable parts.",
     }
     for name, value in (
         ("metadata/layer_manifest.json", manifest),
@@ -468,6 +475,10 @@ def _reference_bundle(layers, *, edition: str, scope: str, asset_kind: str | Non
         "native_cubism_artmesh_deformer_keyforms_checked": False,
         "native_cubism_texture_atlas_checked": False,
         "moc3_exported": False,
+        "high_quality_anatomical_parts_verified": False,
+        "qwen_model_attempts": len(qwen_attempts),
+        "qwen_model_splits_accepted": len(split_names),
+        "automatic_image_side_splits": len(bilateral_splits or []),
     }
     entries.append(("metadata/integrity_report.json",
                     json.dumps(integrity, ensure_ascii=False, indent=2).encode("utf-8")))
@@ -679,6 +690,63 @@ def validate_artwork_request(*, edition: str, scope: str, asset_kind: str | None
         raise ValueError("Invalid Qwen recursion budget")
 
 
+
+def _split_clear_bilateral_layer(layer):
+    """Split only obviously disjoint image-left/right silhouettes.
+
+    This is a lossless pixel-ownership split, not invented hidden artwork or
+    an anatomical rig. Ambiguous connected regions remain unchanged and must
+    be reviewed in Cubism. Uses only NumPy/Pillow already required by exporter.
+    """
+    name = layer["name"].lower()
+    if not name.startswith(("eye.", "eyebrow.", "ear.", "ornament.ears.",
+                            "cloth.gloves.", "hair.front.")):
+        return None
+    source = layer["image"]
+    bbox = source.getchannel("A").getbbox()
+    if bbox is None or bbox[2] - bbox[0] < 20:
+        return None
+    alpha = np.asarray(source.getchannel("A"), dtype=np.uint8)
+    active = alpha > 16
+    x0, y0, x1, y1 = bbox
+    columns = active[y0:y1, x0:x1].sum(axis=0)
+    total = int(columns.sum())
+    if total < 128:
+        return None
+    gaps, start = [], None
+    for i, blank in enumerate(columns == 0):
+        if blank and start is None:
+            start = i
+        if not blank and start is not None:
+            gaps.append((start, i))
+            start = None
+    if start is not None:
+        gaps.append((start, len(columns)))
+    valid = []
+    min_gap = max(3, int(round((x1 - x0) * .02)))
+    for start, stop in gaps:
+        if stop - start < min_gap:
+            continue
+        left_count = int(columns[:start].sum())
+        right_count = total - left_count
+        if min(left_count, right_count) < max(64, int(total * .18)):
+            continue
+        valid.append((stop - start, min(left_count, right_count), start, stop))
+    if not valid:
+        return None
+    _, _, start, stop = max(valid)
+    middle = x0 + (start + stop) // 2
+    left, right = source.copy(), source.copy()
+    left.paste((0, 0, 0, 0), (middle, 0, source.width, source.height))
+    right.paste((0, 0, 0, 0), (0, 0, middle, source.height))
+    if not left.getchannel("A").getbbox() or not right.getchannel("A").getbbox():
+        return None
+    return [
+        dict(layer, name=layer["name"] + ".image_left", image=left),
+        dict(layer, name=layer["name"] + ".image_right", image=right),
+    ]
+
+
 def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
                           scope: str, asset_kind: str | None = None,
                           qwen: bool = False, qwen_infer=None, third_party=None,
@@ -706,6 +774,19 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     if edition == "free" and len(layers) > FREE_LIMIT:
         raise ValueError("FREE ArtMesh budget exceeded by source PSD; no silent merging")
     output.mkdir(parents=True, exist_ok=True)
+    # Repair obviously separable bilateral parts BEFORE model refinement.
+    # Preserve adjacency/z-order and every nontransparent source pixel.
+    bilateral_splits = []
+    refined = []
+    for layer in layers:
+        children = _split_clear_bilateral_layer(layer)
+        if children and (edition != "free" or
+                         len(layers) + len(bilateral_splits) < FREE_LIMIT):
+            refined.extend(children)
+            bilateral_splits.append(layer["name"])
+        else:
+            refined.append(layer)
+    layers = refined
     generated = []
     attempted = []
     runtime_logs = []
@@ -762,6 +843,10 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
             if accepted:
                 layers[index:index+1] = proposed
                 generated.append(item["name"])
+    if qwen and max_qwen_passes and not attempted:
+        raise RuntimeError(
+            "Qwen refinement requested but no eligible part was sent to the "
+            "model; inspect semantic layer naming and candidate score.")
     if edition == "free" and len(layers) < 2:
         raise ValueError("FREE output is a single flattened character image, not separated artwork")
     if edition == "free" and len(layers) > FREE_LIMIT:
@@ -775,7 +860,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     readme = _editor_readme(edition, asset_kind, len(layers), len(generated))
     extras = _reference_bundle(
         layers, edition=edition, scope=scope, asset_kind=asset_kind,
-        qwen_attempts=attempted, split_names=generated, group_count=group_count)
+        qwen_attempts=attempted, split_names=generated, group_count=group_count,
+        bilateral_splits=bilateral_splits, qwen_requested=qwen)
     from tools.vts_official_settings import editor_settings_md
     extras.append(("OFFICIAL_EDITOR_SETTINGS.md", editor_settings_md()))
     extras.extend(runtime_logs)
@@ -797,5 +883,7 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         "edition": edition, "scope": scope,
         "asset_kind": asset_kind, "canvas": list(canvas),
         "qwen_attempts": attempted, "qwen_splits_accepted": generated,
+        "bilateral_splits": bilateral_splits,
+        "quality_status": "requires_manual_cubism_review",
         "moc3_generated": False, "editor_required": True,
     }
