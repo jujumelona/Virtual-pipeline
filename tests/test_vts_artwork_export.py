@@ -830,3 +830,20 @@ def test_official_free_handoff_contract_runs_sam_then_one_nf4_batch_then_writes_
         nf4_report = json.loads(bundle.read("metadata/official_second_pass.json"))
         assert sam_report["input_count"] == nf4_report["input_count"] == 2
         assert sam_report["accepted_count"] == nf4_report["accepted_count"] == 0
+
+@pytest.mark.parametrize("semantic_name", [
+    "eye.left.iris",
+    "eye.right.sclera",
+    "eyebrow.l",
+    "hair.front.left.strand",
+    "ornament.ears.image_left",
+    "cloth.gloves.image_right",
+])
+def test_bilateral_split_preserves_existing_semantic_side(semantic_name):
+    """Two islands in a left-only part are not left and right anatomy."""
+    from tools.vts_artwork_export import _split_clear_bilateral_layer
+    image = Image.new("RGBA", (200, 100))
+    image.paste((220, 80, 50, 255), (15, 10, 60, 85))
+    image.paste((40, 120, 220, 180), (125, 10, 184, 85))
+    assert _split_clear_bilateral_layer(
+        {"name": semantic_name, "depth": 0, "image": image}) is None

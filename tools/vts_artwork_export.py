@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from io import BytesIO
 import json
+import re
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -720,6 +721,12 @@ def _split_clear_bilateral_layer(layer):
     name = layer["name"].lower()
     if not name.startswith(("eye.", "eyebrow.", "ear.", "ornament.ears.",
                             "cloth.gloves.", "hair.front.")):
+        return None
+    # Preserve explicit upstream anatomical side labels. A left eye can
+    # contain two disjoint highlights; that is not a second right eye.
+    # Re-running on an already image-side-split part is likewise invalid.
+    side_tokens = set(re.split(r"[._\s-]+", name))
+    if side_tokens.intersection({"left", "right", "l", "r"}):
         return None
     source = layer["image"]
     bbox = source.getchannel("A").getbbox()
