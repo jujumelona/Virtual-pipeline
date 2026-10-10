@@ -47,7 +47,8 @@ def run_logged(command, *, cwd=None, env=None, log_path=None,
             text=True, encoding="utf-8", errors="replace",
             bufsize=1, start_new_session=(os.name == "posix"),
         )
-        lines: Queue[str | None] = Queue()
+        # Prevent bursty model output from filling the supervisor's RAM.
+        lines: Queue[str | None] = Queue(maxsize=256)
 
         def drain():
             try:
