@@ -554,8 +554,15 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
     state_path = output / "vts_status.json"
     status = {"edition": edition, "scope": scope, "asset_kind": asset_kind,
               "state": "running", "moc3_generated": False, "editor_required": True}
+    status["stage"] = "psd_runtime_preflight"
     _write(state_path, status)
     try:
+        from tools.vts_psd_layer import verify_import_psd_runtime
+        psd_runtime = verify_import_psd_runtime(diagnostics_dir=output / "logs" / "psd_runtime")
+        status["psd_runtime_preflight"] = psd_runtime
+        _write(output / "logs" / "psd_runtime" / "runtime.json", psd_runtime)
+        print("[VTS] PSD_RUNTIME_PREFLIGHT: " + json.dumps(psd_runtime), flush=True)
+        status["stage"] = "decomposition"
         asset_preparation = None
         model_root = third_party or Path("/content/vtuber_builder/third_party/see-through")
         if generated_psd is not None:
@@ -576,6 +583,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
         else:
             psd = run_see_through(master, output / "decomposition", third_party=model_root)
         # PSD mask/alpha extraction preserves original See-through pixels.
+        status["stage"] = "psd_registration"
+        _write(state_path, status)
         _, registered, count = psd_to_registered_rgba(
             psd, output / "layers", artmesh_max=100 if edition == "free" else None,
         )
@@ -591,6 +600,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                 raise ValueError("External PSD must match the input reference canvas; "
                                  "cannot infer its crop/padding transform")
         from tools.vts_artwork_export import build_artwork_package
+        status["stage"] = "artwork_export"
+        _write(state_path, status)
         produced = build_artwork_package(
             registered, output / "artwork", edition=edition, scope=scope,
             asset_kind=asset_kind, qwen=qwen,
@@ -601,7 +612,11 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
         )
         # Keep actual submitted imagery alongside the split PSD for manual
         # registration checks and independent PRO asset re-import.
+        status["stage"] = "package_assembly"
+        _write(state_path, status)
         with ZipFile(produced["package"], "a", ZIP_DEFLATED) as archive:
+            archive.write(output / "logs" / "psd_runtime" / "runtime.json",
+                          "logs/psd_runtime/runtime.json")
             archive.write(master, "input_reference/source_" + master.name)
             archive.write(psd, "source_psd/asset_source.psd" if asset_preparation
                           else "source_psd/see_through_layers.psd")
@@ -691,7 +706,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                 name for name in archive.namelist()
                 if name != Path(produced["art_psd"]).name]
         report = {
-            **status, **produced, "state": "artwork_ready_editor_rig_required",
+            **status, **produced, "state": "artwork_ready_editor_rig_required", "stage": "complete",
             "psd_source": str(psd), "source_master": str(master),
             "source_layer_count": count,
             "reused_precomputed_see_through": generated_psd is not None,
@@ -705,7 +720,17 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
         _write(state_path, report)
         return report
     except Exception as exc:
-        _write(state_path, {**status, "state": "failed", "error": str(exc)})
+        import traceback
+        from tools.vts_psd_layer import psd_runtime_identity
+        failure_path = output / "vts_failure.json"
+        failure = {**status, "event": "VTS_HANDOFF_FAIL", "state": "failed",
+                   "error": str(exc), "error_type": type(exc).__name__,
+                   "traceback": traceback.format_exc(), "runtime": psd_runtime_identity(),
+                   "source_master": str(master), "psd_source": str(locals().get("psd", "")),
+                   "output": str(output), "failure_log": str(failure_path)}
+        _write(failure_path, failure)
+        _write(state_path, failure)
+        print("[VTS] VTS_HANDOFF_FAIL: " + json.dumps(failure, ensure_ascii=False), flush=True)
         raise
 
 

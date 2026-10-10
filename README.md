@@ -40,6 +40,31 @@ FREE에서는 유용한 분리 파츠를 100개 한도에 최대한 활용하되
 
 ### See-through·Qwen과 시각적 품질
 
+PSD 제작은 추론 전에 실제 저장→다시 읽기 검사를 수행합니다. `PSD_RUNTIME_PREFLIGHT`는
+알파 0~255 전체와 반투명 RGB·숨겨진 RGB를 바이트 단위로 확인하고, 현재 프로세스가
+불러온 psd-tools 버전·위치·작성 함수 코드 해시를 출력합니다. 최종 PSD의 모든 레이어도
+동일하게 검사합니다. 허용 오차나 알파 임계값으로 RGB 손상을 숨기지 않습니다.
+콘솔에는 `PSD_ROUNDTRIP_START/PASS/FAIL`과 `VTS_HANDOFF_FAIL`이 즉시 출력됩니다.
+실패 시 출력 폴더의 `vts_failure.json`에 실패 단계·전체 traceback·Git 커밋·Python 실행
+경로·Pillow/NumPy/psd-tools 버전을 저장합니다. 실패한 PSD 옆의
+`*.psd.diagnostics/failure.json`에는 레이어 이름·번호·채널 ID·첫 불일치 좌표·원본/읽기
+RGBA·색 변환 없는 개별 채널 값을 저장하고, 같은 폴더에 원본/읽기 비교 PNG crop을
+남깁니다. 따라서 저장된 채널 자체의 손상인지 읽기 색 변환 문제인지 구분할 수 있습니다.
+사전 검사 진단은 `logs/psd_runtime/`에 보존하며, 성공한 ZIP에도 실행 버전 JSON을 넣습니다.
+Colab에서 `git pull`이나 pip 설치만 하면 이미 import된 Python 모듈은 갱신되지 않습니다.
+업데이트한 뒤 새 Python 프로세스로 실행하거나 해당 모듈을 다시 로드하세요.
+
+See-through 추론은 끝났으나 최종 PSD 포장에서 실패했다면 생성된 분리 PSD를
+`make_cubism_handoff(..., generated_psd=Path("완료된_분리_PSD_경로"))`에 전달합니다.
+입력 원화와 FREE/PRO·구도·자산·Qwen 옵션은 기존 실행과 동일하게 전달하세요.
+`generated_psd`와 `external_psd`는 동시에 지정할 수 없습니다.
+이 경로는 See-through GPU 추론을 다시 실행하지 않습니다.
+저장된 PSD의 품질 문제까지 복구했다는 뜻은 아니므로 이미지 검수는 필요합니다.
+
+참고: [psd-tools 공식 레이어 작성 API](https://psd-tools.readthedocs.io/en/stable/reference/psd_tools.api.layers.html),
+[공식 코덱 소스](https://github.com/psd-tools/psd-tools/blob/v1.14.2/src/psd_tools/api/layers.py),
+[Cubism PSD 제작 주의사항](https://docs.live2d.com/en/cubism-editor-manual/precautions-for-psd-data/).
+
 [2D 프로그램별 공식 원화·좌표·출력 규격](docs/TWO_D_OFFICIAL_INPUT_SPEC_2026-10-10.md): Cubism FREE/PRO, VTube Studio, Inochi2D의 픽셀·알파·좌표·스타일 기준과 자체 설정을 구분합니다.
 
 **2:3은 원화 구도이며 모델의 공식 필수 입력 비율이 아닙니다.** 생성기에서 실제 native 크기/비율 옵션을 선택하고, PRO 분리 자산은 신체 기준과 같은 캔버스를 사용하세요. See-through는 내부 정사각 패딩·1280px, Stable-Layers는 긴 변 640px·16배수 반올림으로 처리합니다. 외부 생성 모델이 지정되지 않아 해당 모델의 steps/CFG를 공식값으로 강제하지 않습니다.

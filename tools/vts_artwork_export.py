@@ -168,6 +168,9 @@ def _write_psd(parts, target: Path, *, free: bool):
     """
     from psd_tools import PSDImage
     from tools.vts_psd_layer import create_import_layer, new_import_psd
+    print("[VTS] PSD_ROUNDTRIP_START: " + json.dumps({
+        "target": str(target), "layers": len(parts),
+        "canvas": list(parts[0]["image"].size), "free": free}), flush=True)
     psd = new_import_psd(parts[0]["image"].size)
     group = None
     active_family = None
@@ -199,6 +202,7 @@ def _write_psd(parts, target: Path, *, free: bool):
     for index, (actual, expected) in enumerate(zip(reversed(leaves), parts)):
         pixels = actual.topil()
         problems = []
+        first_difference = None
         if actual.name != expected["name"]:
             problems.append(f"name={actual.name!r} expected={expected['name']!r}")
         if (actual.left, actual.top) != (0, 0):
@@ -221,6 +225,12 @@ def _write_psd(parts, target: Path, *, free: bool):
             y = int(np.flatnonzero(np.any(different, axis=(1, 2)))[0])
             x = int(np.flatnonzero(np.any(different[y], axis=1))[0])
             channel = int(np.flatnonzero(different[y, x])[0])
+            first_difference = {
+                "xy": [x, y], "channel": ('R', 'G', 'B', 'A')[channel],
+                "source_rgba": source_rgba[y, x].tolist(),
+                "saved_rgba": actual_rgba[y, x].tolist(),
+                "pixel_differences": int(np.count_nonzero(np.any(different, axis=2))),
+            }
             problems.append(
                 f"RGBA mismatch at ({int(x)},{int(y)}) channel={('R','G','B','A')[channel]} "
                 f"saved={int(actual_rgba[y,x,channel])} source={int(source_rgba[y,x,channel])} "
@@ -228,10 +238,47 @@ def _write_psd(parts, target: Path, *, free: bool):
                 f"pixel_differences={int(np.count_nonzero(np.any(different, axis=2)))}"
             )
         if problems:
+            from tools.vts_psd_layer import psd_runtime_identity
+            diagnostic_dir = target.with_name(target.name + ".diagnostics")
+            diagnostic = {
+                "event": "PSD_ROUNDTRIP_FAIL", "target": str(target),
+                "layer_index": index, "layer_count": len(parts),
+                "layer_name": expected['name'], "problems": problems,
+                "runtime": psd_runtime_identity(),
+                "first_difference": first_difference,
+                "document": {"mode": document.color_mode.name, "depth": document.depth,
+                             "channels": document.channels},
+                "channel_ids": [int(info.id) for info in actual._record.channel_info],
+                "diagnostic_dir": str(diagnostic_dir),
+            }
+            try:
+                diagnostic_dir.mkdir(parents=True, exist_ok=True)
+                if first_difference:
+                    # Individual channel reads skip ICC conversion. Distinguish
+                    # corrupted stored bytes from decoded/display color changes.
+                    raw = []
+                    for channel_id in (0, 1, 2, -1):
+                        band = actual.topil(channel=channel_id, apply_icc=False)
+                        raw.append(int(band.getpixel((x, y))) if band is not None else None)
+                    first_difference['raw_rgba'] = raw
+                    box = (max(0, x - 16), max(0, y - 16),
+                           min(pixels.width, x + 17), min(pixels.height, y + 17))
+                    expected['image'].crop(box).save(diagnostic_dir / "source_crop.png")
+                    pixels.crop(box).save(diagnostic_dir / "saved_crop.png")
+                    diagnostic['crop_bbox'] = list(box)
+                (diagnostic_dir / "failure.json").write_text(
+                    json.dumps(diagnostic, ensure_ascii=False, indent=2), encoding="utf-8")
+            except Exception as diagnostic_error:
+                diagnostic['diagnostic_write_error'] = str(diagnostic_error)
+            # Always emit the context even if disk is full or crop export fails.
+            print("[VTS] PSD_ROUNDTRIP_FAIL: " + json.dumps(diagnostic, ensure_ascii=False), flush=True)
             raise RuntimeError(
                 f"PSD serialization mismatch at layer {index}/{len(parts)} "
-                f"{expected['name']!r}: " + "; ".join(problems)
+                f"{expected['name']!r}: " + "; ".join(problems) +
+                f"; diagnostics={diagnostic_dir}"
             )
+    print("[VTS] PSD_ROUNDTRIP_PASS: " + json.dumps({
+        "target": str(target), "layers": len(parts), "rgba_byte_exact": True}), flush=True)
     return groups
 
 

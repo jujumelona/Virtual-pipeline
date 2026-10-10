@@ -5,6 +5,7 @@ on:
     paths:
       - "tools/vts_artwork_export.py"
       - "tools/vts_psd_layer.py"
+      - "tools/vts_production.py"
       - "tests/test_vts_artwork_export.py"
       - ".github/workflows/vts-psd-roundtrip.yml"
   workflow_dispatch:
@@ -23,4 +24,4 @@ jobs:
       - name: Run PSD save/read regression tests
         run: |
           python -m pytest -q tests/test_vts_artwork_export.py -k \
-            "cubism_psd_bakes_alpha_without_remaining_layer_masks or cubism_psd_declares_the_official_srgb_profile or realistic_multigroup_psd_roundtrip or psd_roundtrip_preserves_hidden_rgb or completed_see_through_psd_repackages or generated_psd_and_external_psd or native_psd_rgba_channel_roundtrip"
+            "cubism_psd_bakes_alpha_without_remaining_layer_masks or cubism_psd_declares_the_official_srgb_profile or realistic_multigroup_psd_roundtrip or psd_roundtrip_preserves_hidden_rgb or completed_see_through_psd_repackages or generated_psd_and_external_psd or native_psd_rgba_channel_roundtrip or psd_runtime_preflight or psd_mismatch_writes"

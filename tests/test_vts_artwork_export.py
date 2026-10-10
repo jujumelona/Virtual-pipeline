@@ -526,3 +526,69 @@ def test_native_psd_rgba_channel_roundtrip_photo_like_large_layers(tmp_path):
         assert ChannelID.TRANSPARENCY_MASK in {
             channel.id for channel in layer._record.channel_info
         }
+
+
+def test_psd_runtime_preflight_checks_all_alpha_values_and_reports_loaded_codec():
+    from tools.vts_psd_layer import verify_import_psd_runtime
+    report = verify_import_psd_runtime()
+    assert report['state'] == 'PASS'
+    assert report['tested_alpha_values'] == 256
+    assert report['rgba_byte_exact'] is True
+    assert report['psd_tools_version']
+    assert report['psd_tools_path']
+    assert report['writer_sha256']
+
+
+def test_psd_runtime_preflight_blocks_expensive_inference_on_codec_corruption(tmp_path, monkeypatch):
+    from tools import vts_psd_layer, vts_production
+    original = vts_psd_layer.create_import_layer
+
+    def corrupt_translucent_pixel(image, parent, **kwargs):
+        # Reproduce the reported R=127,A=2 -> R=0,A=2 failure through a real PSD.
+        broken = image.copy()
+        broken.putpixel((2, 0), (0, 90, 180, 2))
+        return original(broken, parent, **kwargs)
+
+    monkeypatch.setattr(vts_psd_layer, 'create_import_layer', corrupt_translucent_pixel)
+    monkeypatch.setattr(vts_production, 'run_see_through',
+                        lambda *a, **k: pytest.fail('Inference ran before codec validation'))
+    master = tmp_path / 'master.png'
+    Image.new('RGBA', (256, 384), (40, 80, 120, 255)).save(master)
+    with pytest.raises(RuntimeError, match='PSD_RUNTIME_PREFLIGHT.*RGBA'):
+        vts_production.make_cubism_handoff(master, tmp_path / 'out',
+                                          edition='free', scope='upper')
+    import json
+    failure = json.loads((tmp_path / 'out/vts_failure.json').read_text())
+    assert failure['stage'] == 'psd_runtime_preflight'
+    assert failure['error_type'] == 'RuntimeError'
+    assert 'PSD serialization mismatch' in failure['traceback']
+    assert failure['runtime']['writer_sha256']
+    assert (tmp_path / 'out/logs/psd_runtime/probe.psd.diagnostics/failure.json').is_file()
+
+
+def test_psd_mismatch_writes_raw_channel_diagnosis_and_crops(tmp_path, monkeypatch, capsys):
+    import json
+    from psd_tools.api.layers import PixelLayer
+    from tools.vts_artwork_export import _write_psd
+    original = PixelLayer.topil
+
+    def changed_readback(self, channel=None, apply_icc=True):
+        image = original(self, channel=channel, apply_icc=apply_icc)
+        if channel is None and apply_icc and image is not None:
+            image.putpixel((433, 0), (0, 90, 180, 2))
+        return image
+
+    monkeypatch.setattr(PixelLayer, 'topil', changed_readback)
+    source = Image.new('RGBA', (512, 64), (127, 90, 180, 2))
+    target = tmp_path / 'avatar.psd'
+    with pytest.raises(RuntimeError, match='PSD serialization mismatch'):
+        _write_psd([{'name': 'hair.front.0.000', 'image': source}], target, free=False)
+    diagnostic = json.loads((tmp_path / 'avatar.psd.diagnostics' / 'failure.json').read_text())
+    assert diagnostic['first_difference']['xy'] == [433, 0]
+    assert diagnostic['first_difference']['source_rgba'] == [127, 90, 180, 2]
+    assert diagnostic['first_difference']['saved_rgba'] == [0, 90, 180, 2]
+    assert diagnostic['first_difference']['raw_rgba'] == [127, 90, 180, 2]
+    assert diagnostic['runtime']['psd_tools_version']
+    assert (tmp_path / 'avatar.psd.diagnostics' / 'source_crop.png').is_file()
+    assert (tmp_path / 'avatar.psd.diagnostics' / 'saved_crop.png').is_file()
+    assert 'PSD_ROUNDTRIP_FAIL' in capsys.readouterr().out
