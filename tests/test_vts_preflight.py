@@ -62,6 +62,10 @@ print('CPU wrapper fixture completed')
     patched = (repo / "inference/scripts/inference_psd_quantized_vts_fp16.py").read_text()
     assert 'if args.cpu_offload:' in patched
     assert 'marigold_pipe.enable_model_cpu_offload()' in patched
+    assert patched.count("align_offload_prompt_encoder_device(pipeline, 'layerdiff')") == 2
+    assert patched.count("align_offload_prompt_encoder_device(marigold_pipe, 'marigold')") == 2
+    assert "device = self._execution_device" in patched
+    assert "text_inputs.input_ids.to(self._execution_device)" in patched
 
 
 def test_non_srgb_profile_is_rejected_before_model_inference(tmp_path, monkeypatch):
