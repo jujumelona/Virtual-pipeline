@@ -853,6 +853,12 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
                           per_pass_layers: int = 4,
                            official_second_pass: bool = False) -> dict:
     """Build one FREE character or one independently authored PRO asset PSD."""
+    # The production entry point already disables Qwen on FREE and body/hair.
+    # Guard direct API consumers as well: injecting an explicit test fake is
+    # the only way old mask-reconstruction unit tests exercise this code.
+    if qwen and qwen_infer is None and not (
+            edition == "pro" and asset_kind in ("outfit", "accessory")):
+        raise ValueError("Qwen backend is permitted only for PRO outfit/accessory")
     validate_artwork_request(edition=edition, scope=scope, asset_kind=asset_kind,
                              per_pass_layers=per_pass_layers, max_qwen_passes=max_qwen_passes)
     layers, canvas = _read_registered(registered_zip)
