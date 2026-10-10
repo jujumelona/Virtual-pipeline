@@ -112,7 +112,7 @@ def ensure_see_through_python(venv: Path) -> str:
     return str(python)
 
 
-def prepare(*, qwen: bool = False, install: bool = True):
+def prepare(*, qwen: bool = False, install: bool = True, sam_body: bool = True):
     ROOT.mkdir(parents=True, exist_ok=True)
     # An interrupted new preparation must not expose an old ready marker.
     output = ROOT / "vts_setup_manifest.json"
@@ -134,10 +134,10 @@ def prepare(*, qwen: bool = False, install: bool = True):
     weights = [
         "24yearsold/seethroughv0.0.2_layerdiff3d_nf4",
         "24yearsold/seethroughv0.0.1_marigold_nf4",
-        # Independent official 19-part parser; required for maximally
-        # expanded FREE/body artwork before the single second pass.
-        "24yearsold/l2d_sam_iter2",
     ]
+    # Independent parser is only needed for a complete body image.
+    if sam_body:
+        weights.append("24yearsold/l2d_sam_iter2")
     # The published 19-part parser runs as a separate single-load worker
     # after the NF4 PSD stage. SAM2/mmdet are independent optional annotator
     # tiers; they are not implicitly part of the official NF4 inference.
@@ -175,6 +175,7 @@ def prepare(*, qwen: bool = False, install: bool = True):
         "stable_layers_revision": STABLE_LAYERS_SHA if qwen else None,
         "see_through_python": python,
         "qwen_weights_prefetched": qwen,
+        "sam_body_weights_prefetched": sam_body,
         "snapshots":manifests,
         "gpu_inference_verified": False,
     },ensure_ascii=False,indent=2),encoding="utf-8")
@@ -185,9 +186,11 @@ def prepare(*, qwen: bool = False, install: bool = True):
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--with-qwen",action="store_true")
+    ap.add_argument("--skip-sam-body",action="store_true")
     ap.add_argument("--skip-install",action="store_true")
     a=ap.parse_args()
-    print(prepare(qwen=a.with_qwen,install=not a.skip_install))
+    print(prepare(qwen=a.with_qwen,sam_body=not a.skip_sam_body,
+                  install=not a.skip_install))
 
 
 if __name__=="__main__":
