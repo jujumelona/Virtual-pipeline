@@ -29,10 +29,10 @@ PRO 독립 제작은 네 종류를 한꺼번에 업로드하거나 만들어야 
 2. ③ FREE/PRO 선택, PRO일 때 독립 제작 종류(body / hair / outfit / accessory) 한 종류 선택, 상반신/전신 및 Qwen 옵션 선택
 3. ⑦ See-through NF4 준비, 필요 시 양자화 Qwen-Image-Layered + Stable-Layers 준비
 4. ⑧ FREE는 완성 이미지 1장, PRO는 선택 자산 1장과 (분리 자산일 때만) 신체 기준 1장 업로드
-5. ⑨ FREE/PRO 신체는 See-through NF4 기본 분해 → 공식 좌우 분할/깊이·좌우 후처리 → 모든 첫 분해 레이어의 정확히 1회 배치 재분해(Qwen OFF) → 원본 RGBA 검증 → PSD/PNG ZIP 제작. PRO 독립 헤어도 Qwen OFF이며, PRO 독립 의상·액세서리만 Qwen을 선택적으로 사용합니다.
+5. ⑨ FREE/PRO 신체는 See-through NF4 기본 분해 → 공식 좌우/깊이 후처리 → See-through 공식 SAM Body Parsing(19종 마스크) 1회 → 생성된 모든 레이어의 정확히 1회 NF4 배치 재분해(Qwen OFF) → 원본 RGBA 검증 → PSD/PNG ZIP 제작. PRO 독립 헤어도 Qwen OFF이며, PRO 독립 의상·액세서리만 Qwen을 선택적으로 사용합니다.
 6. ⑩ 최종 ZIP 다운로드. 실제 리깅·물리는 Editor에서 제작
 
-**세부 분할 검증:** `metadata/official_second_pass.json`에는 See-through 재분해의 각 레이어 시도·채택·거절 사유를 기록하고, `metadata/segmentation_trace.json`에는 (PRO 의상·액세서리에서 활성화한 경우에만) Qwen 실제 시도·채택 횟수와 좌우 이미지 분리 기록을 남깁니다. `metadata/input_vs_psd_geometry.json`에는 원화 대비 불투명 전경 RGB 오차 통계를 넣습니다. 이 검사는 가려진 영역, 입 내부, 실제 눈 깜빡임, 아트메시 변형 품질을 증명하지 않습니다. 결과는 Cubism에서 추가 검수·수정이 필요합니다.
+**세부 분할 검증:** `metadata/official_sam19.json`에는 SAM 19마스크로 각 파츠를 분리한 채택·거절 기록을, `metadata/official_second_pass.json`에는 See-through 재분해의 각 레이어 시도·채택·거절 사유를 기록하고, `metadata/segmentation_trace.json`에는 (PRO 의상·액세서리에서 활성화한 경우에만) Qwen 실제 시도·채택 횟수와 좌우 이미지 분리 기록을 남깁니다. `metadata/input_vs_psd_geometry.json`에는 원화 대비 불투명 전경 RGB 오차 통계를 넣습니다. 이 검사는 가려진 영역, 입 내부, 실제 눈 깜빡임, 아트메시 변형 품질을 증명하지 않습니다. 결과는 Cubism에서 추가 검수·수정이 필요합니다.
 
 ### FREE 7개 제한
 
@@ -41,7 +41,7 @@ ArtMesh 100개, 파츠 폴더 30개, 디포머 50개, 파라미터 총 30개(블
 FREE에서는 유용한 분리 파츠를 100개 한도에 최대한 활용하되, 100개를 채우려고 의미 없는 조각을 강제 생성하지 않습니다. PRO에 FREE 제한을 걸지 않습니다. **현재 PSD 단계에서는 후보 레이어 수·그룹 수와 알파 경계 사각형 텍스처 면적을 확인합니다. TEXTURE_BUDGET.md와 metadata/texture_budget.json은 배율의 필요조건만 보여주며, 실제 Editor 객체 제한 및 텍스처 패킹은 사용자가 Editor에서 검증**해야 합니다.
 
 
-**공식 See-through 기능 범위(현재 구현):** LayerDiff 3D + Marigold NF4 기본 분해, `--tblr_split` 좌우 처리, 입력 PSD·깊이 보조 파일이 존재할 때 `seg_wdepth` 및 `seg_wlr` 후처리를 시도합니다. 그런 다음 최초 레이어 전부를 한 번씩 See-through에 재입력하는 배치를 실행합니다. 두 번째 단계는 LayerDiff를 한 번 로딩하고 전체 입력 처리 후 내린 다음, Marigold를 한 번 로딩해 전체 입력 처리합니다. **SAM Body Parsing 19분류, 언어기반 SAM2, 애니 인스턴스 분할 및 LaMa는 현재 이 Live2D ZIP 제작 경로에 자동 연결되지 않았습니다.** SAM과 인스턴스 마스크는 다른 모델 출력이므로 PSD 추가 분할에 자동 적용했다고 주장하지 않습니다. GPU 실추론·이미지 품질은 미검증입니다.
+**공식 See-through 기능 범위(현재 구현):** LayerDiff 3D·Marigold NF4 기본 분해, `--tblr_split` 좌우 처리, 필요한 원본 PSD/깊이 보조 파일이 존재할 때 `seg_wdepth` 및 `seg_wlr` 추가 후처리를 시도합니다. 이어 공식 See-through SemanticSam HQ 19분류 체크포인트 `24yearsold/l2d_sam_iter2`를 한 번만 로딩해 전체 캐릭터 합성 이미지에서 마스크를 얻고, 1차 레이어 각각에 적용합니다. 그 결과 레이어 모두를 각각 한 번 See-through NF4에 재입력하는 배치를 실행합니다. 2차 배치는 LayerDiff 한 번 로딩→전체 처리→해제, Marigold 한 번 로딩→전체 처리→해제하며 재귀적인 3차 분해는 하지 않습니다. SAM은 원본 색상을 새로 생성하지 않으며, 분할 채택 시 실제 원본 RGBA를 마스크로 분배합니다. **별도 SAM2 언어 지시·애니 인스턴스 검출·Detectron2·LaMa는 See-through 독립 선택 도구이며 기본 PSD 파트 분해 추론에 내장되어 있지 않아 자동 PSD 생성 경로에 포함하지 않습니다.** 실제 T4 GPU 추론·세부 파츠 품질 검증은 별개입니다.
 
 ### See-through·Qwen과 시각적 품질
 
