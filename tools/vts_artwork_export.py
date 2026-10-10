@@ -1040,6 +1040,9 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         qwen_attempts=attempted, split_names=generated, group_count=group_count,
         bilateral_splits=bilateral_splits, qwen_requested=qwen)
     from tools.vts_official_settings import editor_settings_md
+    official_sam_labels = output / "official_sam19" / "sam19.json"
+    if official_sam_labels.is_file():
+        extras.append(("metadata/official_sam19_labels.json", official_sam_labels.read_bytes()))
     extras.append(("metadata/official_sam19.json",
                    json.dumps({"enabled": official_second_pass,
                                "class_count": 19 if official_second_pass else 0,
