@@ -90,3 +90,51 @@ def test_semantic_sam_respects_free_artmesh_budget(monkeypatch, tmp_path):
     assert len(trace) == 100
     assert all(not t["accepted"] and t["reason"] == "free_artmesh_limit"
                for t in trace)
+
+
+def test_sam_gpu_worker_command_and_output_contract_without_cuda(monkeypatch, tmp_path):
+    """Exercise the real setup manifest -> worker command -> NPZ parser edge."""
+    from pathlib import Path
+    from tools import vts_see_through_sam as sam
+    from tools import vts_subprocess
+    third = tmp_path / "third_party"
+    vendor = third / "see-through"
+    vendor.mkdir(parents=True)
+    snapshot = third / "hf_snapshot"
+    snapshot.mkdir()
+    checkpoint = snapshot / sam.SAM_FILE
+    with checkpoint.open("wb") as stream:
+        stream.seek(1_000_001)
+        stream.write(b"X")
+    (third / "vts_setup_manifest.json").write_text(
+        json.dumps({"snapshots": [
+            {"model": sam.SAM_REPO, "snapshot": str(snapshot)}]}),
+        encoding="utf-8")
+    observed = []
+
+    def fake_logged(command, *, cwd, env, log_path, timeout_seconds):
+        observed.append((list(command), cwd, timeout_seconds, env))
+        assert cwd == vendor
+        assert timeout_seconds == 3600
+        assert env["HF_HUB_OFFLINE"] == env["TRANSFORMERS_OFFLINE"] == "1"
+        assert command[command.index("--manifest") + 1] == str(
+            third / "vts_setup_manifest.json")
+        dst = Path(command[command.index("--output") + 1])
+        masks = np.zeros((19, 16, 24), dtype=np.uint8)
+        masks[0, :, :12] = 1
+        masks[1, :, 12:] = 1
+        np.savez_compressed(dst, masks=masks)
+        Path(log_path).write_text("MOCKED official SAM-19 command; not GPU inference")
+        return 0
+
+    monkeypatch.setattr(vts_subprocess, "run_logged", fake_logged)
+    source = {"name": "unknown-part", "image": Image.new(
+        "RGBA", (24, 16), (123, 45, 67, 255)), "depth": 0}
+    masks, log = sam.run_sam_from_package(
+        [source], (24, 16), output=tmp_path / "out", third_party=vendor)
+    assert len(observed) == 1
+    assert len(masks) == 19
+    assert masks[0].getchannel("A").getbbox() == (0, 0, 12, 16)
+    assert masks[1].getchannel("A").getbbox() == (12, 0, 24, 16)
+    assert masks[2].getchannel("A").getbbox() is None
+    assert log.is_file()
