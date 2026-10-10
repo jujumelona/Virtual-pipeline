@@ -540,3 +540,22 @@ def test_srgb_psd_registration_keeps_stored_rgba_without_icc_transform(tmp_path,
         assert images
         image = Image.open(BytesIO(archive.read(images[0]))).convert('RGBA')
         assert image.tobytes() == source.tobytes()
+
+
+def test_visible_source_rgb_fidelity_is_measured_not_declared_verified():
+    from tools.vts_production import _visible_rgb_fidelity
+    source = Image.new("RGB", (16, 8), (100, 130, 180))
+    same = Image.new("RGBA", source.size, (100, 130, 180, 255))
+    m = _visible_rgb_fidelity(source, same, rows=3)
+    assert m["same_canvas"] and not m["verified"]
+    assert m["fully_visible_pixel_count"] == 128
+    assert m["visible_rgb_mean_absolute_error_0_255"] == 0
+    assert m["exact_visible_rgb_pixel_fraction"] == 1
+    same.putpixel((0, 0), (10, 20, 30, 255))
+    same.putpixel((1, 0), (10, 20, 30, 0))
+    altered = _visible_rgb_fidelity(source, same, rows=3)
+    assert altered["fully_visible_pixel_count"] == 127
+    assert altered["visible_rgb_mean_absolute_error_0_255"] > 0
+    assert altered["exact_visible_rgb_pixel_fraction"] < 1
+    other_size = Image.new("RGBA", (10, 8))
+    assert _visible_rgb_fidelity(source, other_size)["same_canvas"] is False
