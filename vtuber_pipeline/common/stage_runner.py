@@ -182,7 +182,7 @@ def run_stage(*, worker: str, request_json: str, result_json: str,
                 pass
         result_path.unlink(missing_ok=True)
         provenance.unlink(missing_ok=True)
-        from tools.model_log_output import is_weight_progress, quiet_model_environment
+        from vtuber_pipeline.common.model_log_output import is_weight_progress, quiet_model_environment
         log_path = result_path.with_suffix('.log')
         tail = deque(maxlen=30)
         memory_before = cgroup_memory_diagnostics()
