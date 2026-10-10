@@ -108,8 +108,14 @@ def run_sam_from_package(layers: list[dict], canvas: tuple[int, int],
     command = [worker_python, "-u", str(Path(__file__).resolve()),
                "--third-party", str(third_party), "--manifest", str(manifest),
                "--source", str(src), "--output", str(result)]
-    code = run_logged(command, cwd=third_party, log_path=log,
-                      timeout_seconds=3600)
+    from vtuber_pipeline.common.stage_runner import _process_gpu_lock
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+    env["HF_HUB_OFFLINE"] = "1"
+    env["TRANSFORMERS_OFFLINE"] = "1"
+    with _process_gpu_lock(timeout_sec=3600):
+        code = run_logged(command, cwd=third_party, env=env, log_path=log,
+                          timeout_seconds=3600)
     if code or not result.is_file():
         raise RuntimeError(f"Official SAM body parsing failed exit={code}; log={log}")
     with np.load(result, allow_pickle=False) as data:
