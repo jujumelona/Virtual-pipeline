@@ -739,3 +739,20 @@ def test_qwen_partition_accepts_invisible_rgb_from_actual_psd_roundtrip(tmp_path
     assert np.array_equal(after[:, :, 3], before[:, :, 3])
     assert np.array_equal(after[before[:, :, 3] > 0, :3],
                           before[before[:, :, 3] > 0, :3])
+
+
+def test_qwen_rejection_diagnostics_identify_mask_coverage_failure(tmp_path):
+    from tools.vts_artwork_export import _partition_part
+    original = Image.new("RGBA", (128, 80), (140, 80, 160, 255))
+    blank = Image.new("RGBA", (128, 80))
+    paths = []
+    for idx in range(2):
+        path = tmp_path / f"empty_{idx}.png"
+        blank.save(path)
+        paths.append(path)
+    diagnostics = {}
+    assert _partition_part({"name": "hair.front", "depth": 0, "image": original},
+                           paths, diagnostics=diagnostics) is None
+    assert diagnostics["result"] == "rejected"
+    assert diagnostics["reason"] == "insufficient_qwen_alpha_coverage"
+    assert diagnostics["coverage"] == 0
