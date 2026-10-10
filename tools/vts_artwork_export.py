@@ -751,10 +751,30 @@ def _split_clear_bilateral_layer(layer):
         if min(left_count, right_count) < max(64, int(total * .18)):
             continue
         valid.append((stop - start, min(left_count, right_count), start, stop))
-    if not valid:
-        return None
-    _, _, start, stop = max(valid)
-    middle = x0 + (start + stop) // 2
+    if valid:
+        _, _, start, stop = max(valid)
+        middle = x0 + (start + stop) // 2
+    else:
+        # A few low-alpha bridge pixels can obscure a genuine inter-part gap.
+        # Accept only a deep central projection valley with substantial
+        # silhouette mass on *both* sides. Every RGBA pixel is still assigned
+        # to exactly one child; nothing is erased or regenerated.
+        width = x1 - x0
+        lo, hi = max(1, width * 30 // 100), min(width - 1, width * 70 // 100)
+        if lo >= hi:
+            return None
+        populated = columns[columns > 0]
+        if not len(populated):
+            return None
+        valley = lo + int(np.argmin(columns[lo:hi]))
+        valley_mass = int(columns[valley])
+        typical_mass = float(np.median(populated))
+        left_mass = int(columns[:valley].sum())
+        right_mass = int(columns[valley:].sum())
+        if (valley_mass > max(1, typical_mass * .08)
+                or min(left_mass, right_mass) < max(64, int(total * .18))):
+            return None
+        middle = x0 + valley
     left, right = source.copy(), source.copy()
     left.paste((0, 0, 0, 0), (middle, 0, source.width, source.height))
     right.paste((0, 0, 0, 0), (0, 0, middle, source.height))
