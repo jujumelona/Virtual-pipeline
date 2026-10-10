@@ -30,44 +30,74 @@ def _patch_pinned_official(code: str, *, quant_dir: str, lora_dir: str) -> str:
     transformer = pipe.transformer.to(device).eval()
     vae = pipe.vae.to(device).eval()"""
     after="""    from diffusers import DiffusionPipeline, QwenImageTransformer2DModel
-    from transformers import BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration
+    from transformers import AutoTokenizer, BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration
+    import gc
 
-    # The base checkpoint's VL encoder alone is ~16.6 GB at full precision.
-    # Loading it implicitly can SIGKILL a standard Colab T4 (small system RAM).
-    # Supply an independently loaded NF4 encoder so Diffusers never loads
-    # the unquantized encoder as a transient intermediate model.
-    encoder_q4 = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+    # Encode prompts first, then free the 4-bit VL encoder before loading
+    # the NF4 image transformer. 16 GiB cannot hold both simultaneously.
+    tokenizer = AutoTokenizer.from_pretrained(
+        os.path.join(args.base_model, "tokenizer"),
+        local_files_only=True, trust_remote_code=True,
+    )
+    text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         os.path.join(args.base_model, "text_encoder"),
         torch_dtype=runtime_dtype,
         quantization_config=BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
+            load_in_4bit=True, bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=runtime_dtype,
         ),
-        device_map="auto",
-        low_cpu_mem_usage=True,
+        device_map={"": "cuda:0"}, low_cpu_mem_usage=True,
     ).eval()
-    print("[VTS QWEN] quantized VL text encoder loaded", flush=True)
+    print("[VTS QWEN] prompt encoding stage", flush=True)
+    # __VTS_PROMPT_PRECOMPUTE__
+    del text_encoder
+    gc.collect()
+    torch.cuda.empty_cache()
+    print("[VTS QWEN] VL encoder released before transformer loading", flush=True)
     transformer_q4 = QwenImageTransformer2DModel.from_pretrained(
-        """ + repr(quant_dir) + """, torch_dtype=runtime_dtype, device_map="auto",
+        """ + repr(quant_dir) + """, torch_dtype=runtime_dtype,
+        device_map={"": "cuda:0"},
     )
     pipe = DiffusionPipeline.from_pretrained(
         args.base_model, torch_dtype=runtime_dtype,
-        transformer=transformer_q4, text_encoder=encoder_q4,
+        transformer=transformer_q4, text_encoder=None, tokenizer=None,
         trust_remote_code=True, cache_dir=args.cache_dir,
     )
     transformer = pipe.transformer.eval()
     set_4bit_compute_dtype(transformer, runtime_dtype)
-    vae = pipe.vae.to(device).eval()"""
+    vae = pipe.vae.eval()  # CPU: avoid competing with the NF4 transformer"""
     if code.count(before)!=1:
         raise RuntimeError("Stable-Layers upstream model loader changed: refuse unverified patch")
     code=code.replace(before,after)
     from inspect import getsource
     from tools.vts_quantization import set_4bit_compute_dtype, select_compute_dtype
-    if code.count('text_encoder = text_encoder.to(device).eval()')!=1:
-        raise RuntimeError("Stable-Layers text encoder binding changed")
-    code=code.replace('text_encoder = text_encoder.to(device).eval()',
-                      'text_encoder = text_encoder.to("cpu").eval()')
+    # Move upstream prompt encoding in front of transformer construction.
+    first = "    # --- prompt encoding -------------------------------------------------"
+    last = "    # scheduler may or may not accept sigmas/mu"
+    if code.count(first) != 1 or code.count(last) != 1:
+        raise RuntimeError("Stable-Layers prompt block changed: cannot stage offload")
+    prefix, rest = code.split(first, 1)
+    prompt, suffix = rest.split(last, 1)
+    prompt = first + prompt
+    if prompt.count("    text_encoder = text_encoder.to(device).eval()") != 1:
+        raise RuntimeError("Stable-Layers encoder transfer changed")
+    prompt = prompt.replace("    text_encoder = text_encoder.to(device).eval()\\n", "")
+    if code.count("    # __VTS_PROMPT_PRECOMPUTE__") != 1:
+        raise RuntimeError("Missing prompt precompute boundary")
+    code = (prefix + last + suffix).replace(
+        "    # __VTS_PROMPT_PRECOMPUTE__", prompt)
+    # Quantized transformer stays on GPU while VAE runs on CPU.
+    for original, staged in (
+        ("    img_t = img_t.unsqueeze(0).to(device)\\n",
+         "    img_t = img_t.unsqueeze(0).to('cpu')\\n"),
+        ("    condition_latents = encode_condition_image(vae, img_t)\\n",
+         "    condition_latents = encode_condition_image(vae, img_t).to(device)\\n"),
+        ("    decoded = decode_layers(vae, latents, th, tw, args.num_layers)\\n",
+         "    decoded = decode_layers(vae, latents.to('cpu'), th, tw, args.num_layers)\\n"),
+    ):
+        if code.count(original) != 1:
+            raise RuntimeError("Stable-Layers VAE CPU execution contract changed")
+        code = code.replace(original, staged)
     # T4 has native fp16 and no native BF16. Preserve the Heun denoiser and
     # trained LoRA, but make all generated latent/embedding dtypes float16.
     code=code.replace('torch.bfloat16','runtime_dtype')
