@@ -108,3 +108,20 @@ def test_pinned_qwen_worker_quantizes_both_encoder_and_transformer():
     assert "transformer=transformer_q4" in patched
     assert 'text_encoder = text_encoder.to("cpu").eval()' in patched
     assert "bnb_4bit_compute_dtype=runtime_dtype" in patched
+
+
+def test_sigkill_keeps_memory_and_log_diagnostics(runtime, monkeypatch):
+    import json
+    from tools import vts_subprocess
+    monkeypatch.setattr(qwen, "_patch_pinned_official", lambda *a, **kw: worker_source())
+    def killed(*args, **kwargs):
+        Path(kwargs["log_path"]).write_text("Loading base model: fixture\\n", encoding="utf-8")
+        return -9
+    monkeypatch.setattr(vts_subprocess, "run_logged", killed)
+    with pytest.raises(RuntimeError, match="exited -9; diagnostics="):
+        qwen.infer(Path("input.png"), Path("output"), third_party=runtime.parent, timeout=20)
+    evidence = json.loads(Path("output/qwen_failure.json").read_text(encoding="utf-8"))
+    assert evidence["returncode"] == -9
+    assert evidence["signal"] == "SIGKILL"
+    assert "memory_before" in evidence and "memory_after" in evidence
+    assert "Loading base model" in evidence["log_tail"]
