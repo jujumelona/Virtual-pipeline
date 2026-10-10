@@ -441,3 +441,50 @@ def test_psd_roundtrip_preserves_hidden_rgb_under_zero_alpha(tmp_path):
     _write_psd([
         {"name": "hair.hidden_rgb", "image": Image.fromarray(rgba, "RGBA"), "depth": 0},
     ], tmp_path / "hidden_rgb.psd", free=False)
+
+
+def test_completed_see_through_psd_repackages_without_gpu_inference(tmp_path, monkeypatch):
+    """A downstream PSD writer failure must not require 2x30 diffusion steps."""
+    from psd_tools import PSDImage
+    from tools.vts_psd_layer import new_import_psd, create_import_layer
+    from tools import vts_production
+
+    master = tmp_path / "source.png"
+    Image.new("RGBA", (256, 384), (40, 80, 120, 255)).save(master)
+    generated = tmp_path / "already_completed_see_through.psd"
+    psd = new_import_psd((384, 384))
+    for index, name in enumerate(("hair front", "torso body")):
+        rgba = Image.new("RGBA", (384, 384))
+        rgba.paste((45 + index * 60, 150, 160, 200),
+                   (70 + index * 30, 80, 280, 300))
+        create_import_layer(rgba, parent=psd, name=name, top=0, left=0)
+    psd.save(generated)
+    assert len([x for x in PSDImage.open(generated).descendants()
+                if not x.is_group()]) == 2
+
+    monkeypatch.setattr(
+        vts_production, "run_see_through",
+        lambda *a, **kw: pytest.fail("GPU inference called during PSD reuse"),
+    )
+    report = vts_production.make_cubism_handoff(
+        master, tmp_path / "recovery",
+        edition="free", scope="upper", generated_psd=generated,
+        third_party=tmp_path,
+    )
+    assert report["state"] == "artwork_ready_editor_rig_required"
+    assert report["reused_precomputed_see_through"] is True
+    assert report["source_master_verified_against_reused_psd"] is False
+    assert Path(report["art_psd"]).is_file()
+    assert Path(report["package"]).is_file()
+
+
+def test_generated_psd_and_external_psd_are_mutually_exclusive(tmp_path):
+    from tools.vts_production import make_cubism_handoff
+    master = tmp_path / "source.png"
+    Image.new("RGBA", (256, 384), (40, 80, 120, 255)).save(master)
+    with pytest.raises(ValueError, match="either external_psd or generated_psd"):
+        make_cubism_handoff(
+            master, tmp_path / "not_created", edition="free", scope="upper",
+            external_psd=master, generated_psd=master,
+        )
+    assert not (tmp_path / "not_created").exists()
