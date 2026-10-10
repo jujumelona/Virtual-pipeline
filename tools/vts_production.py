@@ -273,17 +273,18 @@ def _observed_split_tags(metadata: Path, *, depth: bool) -> list[str]:
     parts = data.get("parts")
     if not isinstance(parts, dict):
         return []
-    allowed = ("hair", "arm", "hand", "sleeve", "leg", "foot",
-               "shoe", "cloth", "outfit", "ribbon", "accessor",
-               "eye", "irid", "eyebrow", "eyelash", "eyewhite",
-               "ear", "wings", "tail", "objects")
+    # Neither an unknown name nor a semantic-family guess establishes that
+    # an official mask splitter cannot refine a region. Try every observed
+    # PSD part exactly once; the resulting PSD must pass composite validation.
+    # LR is a structural exception: do not split parts already explicitly
+    # divided into left/right sides.
     result = []
     for tag in parts:
-        if not isinstance(tag, str) or "," in tag:
+        if not isinstance(tag, str) or not tag or "," in tag:
             continue
-        name = tag.lower()
-        has_side = bool({"left", "right", "l", "r"}.intersection(re.split(r"[_.-]", name)))
-        if any(word in name for word in allowed) and (depth or not has_side):
+        has_side = bool({"left", "right", "l", "r"}.intersection(
+            re.split(r"[_. -]", tag.lower())))
+        if depth or not has_side:
             result.append(tag)
     return result
 
