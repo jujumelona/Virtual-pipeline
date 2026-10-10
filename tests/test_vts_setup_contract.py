@@ -78,7 +78,7 @@ def test_see_through_venv_never_invokes_ensurepip(tmp_path, monkeypatch):
             (venv / "bin").mkdir(parents=True)
             (venv / "bin" / "python").touch()
             (venv / "pyvenv.cfg").write_text(
-                "include-system-site-packages = true\\n", encoding="utf-8"
+                "include-system-site-packages = true\n", encoding="utf-8"
             )
         return 0
 
