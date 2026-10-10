@@ -153,7 +153,12 @@ def _partition_part(part, suggestions):
         frag = np.asarray(child["image"].crop(bbox), dtype=np.uint8)
         occupied = frag[:, :, 3] > 0
         verified[occupied] = frag[occupied]
-    if not np.array_equal(verified, original):
+    # Transparent pixels can have nonzero hidden RGB in genuine PSD layers.
+    # Their RGB is invisible and is deliberately discarded in disjoint
+    # child masks. Verify alpha everywhere and RGB wherever alpha > 0.
+    visible = original[:, :, 3] > 0
+    if (not np.array_equal(verified[:, :, 3], original[:, :, 3])
+            or not np.array_equal(verified[visible, :3], original[visible, :3])):
         return None
     # Upstream proposals are back-to-front; all downstream PSD/manifest
     # consumers expect top-to-bottom. Keep names tied to proposal ownership.
