@@ -20,6 +20,8 @@ import subprocess
 import sys
 import time
 
+from tools.model_log_output import quiet_model_environment
+
 ROOT = Path(__file__).resolve().parents[1]
 WARM_ROOT = Path(os.environ.get("VTUBER_GPU_PREWARM_ROOT",
                                 "/content/vtuber_builder/gpu_prewarm"))
@@ -66,13 +68,14 @@ def start_face_worker(*, timeout: float = 180) -> bool:
     READY.unlink(missing_ok=True)
     SOCKET.unlink(missing_ok=True)
     log_path = WARM_ROOT / "face_preload.log"
-    with log_path.open("a", encoding="utf-8") as log:
+    # This is a single resident preload attempt, not an ever-growing history.
+    with log_path.open("w", encoding="utf-8") as log:
         child = subprocess.Popen(
             [sys.executable, "-u", str(Path(__file__).resolve()), "--serve"],
             cwd=str(ROOT),
             stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
             start_new_session=True,
-            env={**os.environ, "VTUBER_GPU_PREWARM_SERVER": "1"},
+            env=quiet_model_environment({**os.environ, "VTUBER_GPU_PREWARM_SERVER": "1"}),
         )
     end = time.monotonic() + timeout
     while time.monotonic() < end:
