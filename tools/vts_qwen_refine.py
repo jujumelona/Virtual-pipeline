@@ -73,6 +73,20 @@ def _patch_pinned_official(code: str, *, quant_dir: str, lora_dir: str) -> str:
     if code.count(before)!=1:
         raise RuntimeError("Stable-Layers upstream model loader changed: refuse unverified patch")
     code=code.replace(before,after)
+    # Upstream still references pipe after our staged loader has deleted it.
+    # Remove exactly this obsolete tail (now re-created inside the loader),
+    # otherwise the first Qwen pass raises UnboundLocalError.
+    old_tail = (
+        '    scheduler = pipe.scheduler\n'
+        '    tokenizer = getattr(pipe, "tokenizer", None)\n'
+        '    text_encoder = getattr(pipe, "text_encoder", None)\n'
+        '    del pipe\n'
+        '    transformer.requires_grad_(False)\n'
+        '    vae.requires_grad_(False)'
+    )
+    if code.count(old_tail) != 1:
+        raise RuntimeError("Stable-Layers pipeline tail changed: abort staged patch")
+    code = code.replace(old_tail, "")
     from inspect import getsource
     from tools.vts_quantization import set_4bit_compute_dtype, select_compute_dtype
     # Move upstream prompt encoding in front of transformer construction.
