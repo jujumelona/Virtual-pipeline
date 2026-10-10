@@ -21,7 +21,7 @@ FRAMING_LABELS = {
     "full": "전신 — 머리부터 양발·신발까지 전부 포함",
 }
 QWEN_LABELS = {
-    "auto": "자동 — FREE는 기본 분해, PRO는 Qwen 4비트 + Stable-Layers",
+    "auto": "자동 — FREE/PRO 모두 See-through 후 Qwen 4비트 + Stable-Layers 추가 세부 분할",
     "on": "사용 — Qwen 4비트 + Stable-Layers 추가 실행 (T4 미검증)",
     "off": "미사용 — See-through NF4 중심 분해",
 }
@@ -118,7 +118,7 @@ def selection_signature(values: dict) -> tuple:
                 raise ValueError("Qwen 반복 횟수 0..12 범위를 확인하세요.")
             if not isinstance(layers, int) or not 2 <= layers <= 10:
                 raise ValueError("Qwen 회당 분리 레이어 2..10 범위를 확인하세요.")
-            expected = qwen == "on" or (qwen == "auto" and edition == "pro")
+            expected = qwen in ("on", "auto")
             if values.get("LIVE2D_USE_QWEN") != expected:
                 raise ValueError("Qwen 옵션이 변경되었습니다.")
             return (task, mode, usage, edition, framing, qwen,
@@ -156,7 +156,7 @@ def refresh_qwen(values: dict) -> None:
     edition = values["LIVE2D_EDITION"]
     if q not in QWEN_LABELS or edition not in EDITION_LABELS:
         raise ValueError("Live2D FREE/PRO 또는 Qwen 옵션이 올바르지 않습니다.")
-    values["LIVE2D_USE_QWEN"] = q == "on" or (q == "auto" and edition == "pro")
+    values["LIVE2D_USE_QWEN"] = q in ("on", "auto")
 
 
 # Native Colab form routing. Only the selected category's settings cell updates
@@ -185,7 +185,7 @@ def begin_mode_selection(values: dict) -> None:
         "LIVE2D_QWEN": "auto",
         "LIVE2D_QWEN_LAYERS": 4,
         "LIVE2D_QWEN_PASSES": 8,
-        "LIVE2D_USE_QWEN": False,
+        "LIVE2D_USE_QWEN": True,
         "TWO_D_INPUT": "sheets",
         "MULTI_REFERENCE_3D": True,
         "ACCESSORY_SUBTYPE": "소품",
