@@ -117,3 +117,26 @@ def test_direct_artwork_api_rejects_real_qwen_in_disallowed_modes(tmp_path, edit
         build_artwork_package(tmp_path / "not_read.zip", tmp_path / "out",
                               edition=edition, scope="upper", asset_kind=asset,
                               qwen=True, max_qwen_passes=1)
+
+
+def test_official_second_pass_grayscale_masks_preserve_exact_source_rgba():
+    part = fixture_part()
+    left = Image.new("L", (64, 32), 0)
+    right = Image.new("L", (64, 32), 0)
+    left.paste(255, (0, 0, 32, 32))
+    right.paste(255, (32, 0, 64, 32))
+    children, status = partition_from_masks(part, [left, right])
+    assert status["accepted"] and len(children) == 2
+    original = np.asarray(part["image"])
+    restored = np.zeros_like(original)
+    for child in children:
+        pixels = np.asarray(child["image"])
+        visible = pixels[:, :, 3] > 0
+        restored[visible] = pixels[visible]
+    assert np.array_equal(restored, original)
+
+
+def test_official_second_pass_rejects_rgb_masks_without_coverage_channel():
+    part = fixture_part()
+    with pytest.raises(ValueError, match="alpha or grayscale"):
+        partition_from_masks(part, [Image.new("RGB", (64, 32))] * 2)

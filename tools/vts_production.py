@@ -339,8 +339,13 @@ def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
         if status != 0 or not result.is_file():
             print("[See-through] native heuristic rejected:", mode, str(log), flush=True)
             continue
-        old = PSDImage.open(attempt)
-        new = PSDImage.open(result)
+        try:
+            old = PSDImage.open(attempt)
+            new = PSDImage.open(result)
+        except (OSError, ValueError, TypeError, IndexError, RuntimeError) as exc:
+            print("[See-through] invalid optional PSD:", mode,
+                  type(exc).__name__, str(exc), flush=True)
+            continue
         if old.size != new.size:
             print("[See-through] heuristic changed canvas; rejected:", mode, flush=True)
             continue
@@ -350,12 +355,14 @@ def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
             continue
         # Pixel-level difference in visible composite, not an invented rig metric.
         diff = ImageChops.difference(first.convert("RGBA"), second.convert("RGBA"))
-        mean_error = max(ImageStat.Stat(diff).mean)
+        stats = ImageStat.Stat(diff)
+        mean_error = max(stats.mean)
+        max_error = max(high for _, high in stats.extrema)
         old_n = sum(1 for x in old.descendants() if not x.is_group())
         new_n = sum(1 for x in new.descendants() if not x.is_group())
-        if mean_error > 3 or new_n < old_n:
+        if mean_error > 3 or max_error > 3 or new_n < old_n:
             print("[See-through] heuristic composite/part count regression rejected:",
-                  mode, mean_error, old_n, new_n, flush=True)
+                  mode, mean_error, max_error, old_n, new_n, flush=True)
             continue
         if new_n == old_n:
             print("[See-through] no additional layers:", mode, old_n, flush=True)

@@ -20,9 +20,15 @@ def partition_from_masks(layer: dict, masks: list[Image.Image],
     for mask in masks:
         if mask.size != source.size:
             raise ValueError("Official second-pass masks must use the source canvas")
-    alpha = np.stack(
-        [np.asarray(x.getchannel("A"), dtype=np.uint8) for x in masks], axis=0
-    )
+    # Grayscale masks encode coverage in luminance, not in an alpha channel.
+    def coverage(mask: Image.Image) -> np.ndarray:
+        if "A" in mask.getbands():
+            return np.asarray(mask.getchannel("A"), dtype=np.uint8)
+        if mask.mode in ("L", "1"):
+            return np.asarray(mask.convert("L"), dtype=np.uint8)
+        raise ValueError("Second-pass masks require alpha or grayscale coverage")
+
+    alpha = np.stack([coverage(x) for x in masks], axis=0)
     # No upscaled model RGB enters the output. Masks assign pixels; all actual
     # RGBA pixel values come from the first-pass PSD, including soft edges.
     cover = (alpha.max(axis=0) > 16) & visible
