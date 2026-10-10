@@ -306,12 +306,23 @@ def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
         return src
     current = src
     for mode in ("seg_wdepth", "seg_wlr"):
-        meta = Path(str(current) + ".json")
-        depth_src = current.with_name(current.stem + "_depth.psd")
+        # Official seg_wdepth_psd writes a PSD but does NOT write new JSON
+        # or depth sidecars. Still run the independent LR operation against
+        # the original complete source, then retain the better verified PSD.
+        attempt = current
+        meta = Path(str(attempt) + ".json")
+        depth_src = attempt.with_name(attempt.stem + "_depth.psd")
+        if (mode == "seg_wlr" and attempt != src and
+                (not meta.is_file() or not depth_src.is_file())):
+            print("[See-through] depth result has no sidecars; "
+                  "attempt independent LR on original", flush=True)
+            attempt = src
+            meta = Path(str(attempt) + ".json")
+            depth_src = attempt.with_name(attempt.stem + "_depth.psd")
         if not meta.is_file() or not depth_src.is_file():
             print("[See-through] depth/metadata companion files absent: "
                   "cannot run native heuristic safely", flush=True)
-            break
+            continue
         tags = _observed_split_tags(meta, depth=(mode == "seg_wdepth"))
         if not tags:
             # No depth candidate is not evidence that the independent
@@ -319,16 +330,16 @@ def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
             print("[See-through] no eligible tags for", mode, flush=True)
             continue
         cmd = [worker_python, "-u", str(script), mode,
-               "--srcp", str(current), "--target_tags", ",".join(tags)]
+               "--srcp", str(attempt), "--target_tags", ",".join(tags)]
         log = current.with_name(current.stem + "_" + mode + ".log")
         status = run_logged(cmd, cwd=third_party, log_path=log,
                             timeout_seconds=timeout)
         suffix = "_wdepth" if mode == "seg_wdepth" else "_lrsplit"
-        result = current.with_name(current.stem + suffix + ".psd")
+        result = attempt.with_name(attempt.stem + suffix + ".psd")
         if status != 0 or not result.is_file():
             print("[See-through] native heuristic rejected:", mode, str(log), flush=True)
             continue
-        old = PSDImage.open(current)
+        old = PSDImage.open(attempt)
         new = PSDImage.open(result)
         if old.size != new.size:
             print("[See-through] heuristic changed canvas; rejected:", mode, flush=True)
@@ -349,6 +360,15 @@ def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
         if new_n == old_n:
             print("[See-through] no additional layers:", mode, old_n, flush=True)
             continue
+        if attempt != current:
+            # The LR fallback is independent, not a sequential combination.
+            # Do not discard a stronger validated depth split in its favor.
+            current_n = sum(1 for part in PSDImage.open(current).descendants()
+                            if not part.is_group())
+            if new_n <= current_n:
+                print("[See-through] independent LR retained depth result:",
+                      current_n, ">=", new_n, flush=True)
+                continue
         current = result
         print("[See-through] native extra split accepted:",
               mode, old_n, "->", new_n, flush=True)

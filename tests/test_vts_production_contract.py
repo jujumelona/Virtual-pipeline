@@ -621,3 +621,58 @@ def test_official_metadata_tag_list_does_not_truncate_at_32(tmp_path):
     info.write_text(json.dumps({"parts": tags}), encoding="utf-8")
     assert len(_observed_split_tags(info, depth=True)) == len(tags)
     assert len(_observed_split_tags(info, depth=False)) == len(tags)
+
+
+@pytest.mark.parametrize("depth_parts,lr_parts,expected_suffix", [
+    (5, 3, "_wdepth.psd"),
+    (3, 5, "_lrsplit.psd"),
+])
+def test_depth_success_without_sidecars_still_attempts_lr_and_preserves_best(
+        tmp_path, monkeypatch, depth_parts, lr_parts, expected_suffix):
+    """Vendor seg_wdepth_psd writes only a new PSD, not JSON/depth sidecars."""
+    import json
+    from PIL import Image
+    from psd_tools import PSDImage
+    from tools import vts_subprocess
+    from tools.vts_production import _safe_refine_psd
+
+    script = tmp_path / "inference/scripts/heuristic_partseg.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("# mocked pinned CLI", encoding="utf-8")
+    source = tmp_path / "original.psd"
+    source.write_bytes(b"original PSD")
+    (tmp_path / "original_depth.psd").write_bytes(b"depth helper")
+    (tmp_path / "original.psd.json").write_text(
+        json.dumps({"parts": {"unknown-piece": {}}}), encoding="utf-8")
+    invoked = []
+
+    def fake_run(command, **kwargs):
+        mode = command[3]
+        actual_input = command[command.index("--srcp") + 1]
+        invoked.append((mode, actual_input))
+        assert actual_input == str(source), "LR fallback must use original sidecars"
+        name = "original_wdepth.psd" if mode == "seg_wdepth" else "original_lrsplit.psd"
+        (tmp_path / name).write_bytes(b"mock processed PSD")
+        return 0
+
+    class Leaf:
+        def is_group(self):
+            return False
+
+    class PSD:
+        size = (64, 64)
+        def __init__(self, path):
+            self.path = str(path)
+        def composite(self):
+            return Image.new("RGBA", self.size, (40, 80, 120, 255))
+        def descendants(self):
+            n = (depth_parts if "_wdepth" in self.path else
+                 lr_parts if "_lrsplit" in self.path else 2)
+            return [Leaf() for _ in range(n)]
+
+    monkeypatch.setattr(vts_subprocess, "run_logged", fake_run)
+    monkeypatch.setattr(PSDImage, "open", lambda path: PSD(path))
+    actual = _safe_refine_psd(source, third_party=tmp_path,
+                              worker_python="python")
+    assert actual.name == "original" + expected_suffix
+    assert [mode for mode, _ in invoked] == ["seg_wdepth", "seg_wlr"]
