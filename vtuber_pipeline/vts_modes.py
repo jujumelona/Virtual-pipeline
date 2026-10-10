@@ -43,6 +43,13 @@ MODEL_STACK = (
         "runtime": "requires CUDA capability/precision and output tests; not T4-verified",
     },
     {
+        "stage": "official_anime_body_parsing",
+        "name": "See-through SemanticSam 19-class",
+        "checkpoint": "24yearsold/l2d_sam_iter2/checkpoint-18000.pt",
+        "execution_status": "connected_for_free_and_pro_body_with_one_gpu_load",
+        "runtime": "T4 FP16; GPU QA pending",
+    },
+    {
         "stage": "precision_masks",
         "name": "SAM2.1 Hiera Large",
         "checkpoint": "sam2.1_hiera_large.pt",
@@ -269,8 +276,10 @@ def build_vts_brief(
                 "external_generator": "Select its native size in its own UI/API; prompts cannot enforce pixels.",
             },
             "stages": [dict(item) for item in MODEL_STACK
-                       if item["stage"] != "recursive_layers"
-                       or (edition == "pro" and asset_kind in ("outfit", "accessory"))],
+                       if (item["stage"] != "recursive_layers"
+                           or (edition == "pro" and asset_kind in ("outfit", "accessory")))
+                       and (item["stage"] != "official_anime_body_parsing"
+                            or edition == "free" or asset_kind == "body")],
             "qwen_usage": qwen_usage,
             "qwen_quantized_t4_verified": False,
             "see_through_nf4_t4_verified": False,
