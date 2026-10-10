@@ -216,7 +216,11 @@ def _write_psd(parts, target: Path, *, free: bool):
             actual_rgba = np.asarray(pixels.convert("RGBA"), dtype=np.uint8)
             source_rgba = np.asarray(expected["image"].convert("RGBA"), dtype=np.uint8)
             different = actual_rgba != source_rgba
-            y, x, channel = np.argwhere(different)[0]
+            # Avoid allocating an N×3 coordinate array for millions of
+            # mismatched pixels on constrained Colab RAM.
+            y = int(np.flatnonzero(np.any(different, axis=(1, 2)))[0])
+            x = int(np.flatnonzero(np.any(different[y], axis=1))[0])
+            channel = int(np.flatnonzero(different[y, x])[0])
             problems.append(
                 f"RGBA mismatch at ({int(x)},{int(y)}) channel={('R','G','B','A')[channel]} "
                 f"saved={int(actual_rgba[y,x,channel])} source={int(source_rgba[y,x,channel])} "
