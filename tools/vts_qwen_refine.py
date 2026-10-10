@@ -65,7 +65,11 @@ def _patch_pinned_official(code: str, *, quant_dir: str, lora_dir: str) -> str:
     )
     transformer = pipe.transformer.eval()
     set_4bit_compute_dtype(transformer, runtime_dtype)
-    vae = pipe.vae.eval()  # CPU: avoid competing with the NF4 transformer"""
+    vae = pipe.vae.eval()  # CPU: avoid competing with the NF4 transformer
+    scheduler = pipe.scheduler
+    del pipe
+    transformer.requires_grad_(False)
+    vae.requires_grad_(False)"""
     if code.count(before)!=1:
         raise RuntimeError("Stable-Layers upstream model loader changed: refuse unverified patch")
     code=code.replace(before,after)
