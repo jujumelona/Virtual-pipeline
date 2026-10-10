@@ -9,6 +9,21 @@ os.environ["USE_FLAX"] = "0"
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from _entry import execute
 
+def generate_complete_detection(model, inputs):
+    """Keep the model-card token budget and reject incomplete box streams."""
+    # The native converted Florence model card uses 1024 tokens and 3 beams.
+    # Do not force EOS at the token limit: that would hide truncated boxes.
+    generated = model.generate(**inputs, max_new_tokens=1024, num_beams=3,
+                               do_sample=False, forced_eos_token_id=None)
+    eos = model.generation_config.eos_token_id
+    eos_ids = {eos} if isinstance(eos, int) else set(eos or [])
+    # Florence is encoder-decoder: the first token is decoder_start_token_id,
+    # which may itself equal EOS. It does not prove generation completed.
+    if not eos_ids or not any(token in eos_ids for token in generated[0].tolist()[1:]):
+        raise RuntimeError("Florence detection generation truncated before EOS; "
+                           "refusing incomplete semantic boxes")
+    return generated
+
 def parse_boxes(parsed, semantic, image_size):
     """Florence open-vocabulary outputs bboxes_labels, unlike OD's labels."""
     import math
@@ -119,7 +134,7 @@ def infer(req):
         text=task+prompt
         inputs=processor(text=text,images=image,return_tensors="pt").to(device)
         with torch.inference_mode():
-            generated=model.generate(**inputs,max_new_tokens=256,num_beams=3,do_sample=False)
+            generated=generate_complete_detection(model, inputs)
         decoded=processor.batch_decode(generated,skip_special_tokens=False)[0]
         parsed=processor.post_process_generation(decoded,task=task,image_size=image.size).get(task,{})
         parts.extend(parse_boxes(parsed, semantic, image.size))

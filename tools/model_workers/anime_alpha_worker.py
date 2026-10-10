@@ -4,6 +4,33 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _entry import execute
 
+def prepare_input(rgb, side=1024):
+    """Match pinned SkyTNT inference: normalized float CV2 linear resize."""
+    import cv2
+    import numpy as np
+    h, w = rgb.shape[:2]
+    h, w = ((side, max(1, int(side * w / h))) if h > w else
+            (max(1, int(side * h / w)), side))
+    offset = ((side-w)//2, (side-h)//2)
+    padded = np.zeros((side, side, 3), dtype=np.float32)
+    padded[offset[1]:offset[1]+h, offset[0]:offset[0]+w] = cv2.resize(
+        (rgb / 255).astype(np.float32), (w, h))
+    return padded, (w, h), offset
+
+
+def restore_alpha(prediction, size, offset, original_size, side=1024):
+    """Validate mask frame, crop padding, then resize before quantization."""
+    import cv2
+    import numpy as np
+    if (prediction.shape != (1, 1, side, side)
+            or not np.isfinite(prediction).all()):
+        raise RuntimeError("Anime segmentation returned invalid alpha prediction")
+    x, y = offset
+    w, h = size
+    alpha = cv2.resize(prediction[0, 0, y:y+h, x:x+w], original_size)
+    return np.uint8(np.clip(alpha, 0, 1) * 255)
+
+
 def infer(req):
     from vtuber_pipeline.common.model_assets import resolve_snapshot
     snapshot = resolve_snapshot('skytnt_anime_seg_isnet_is')
@@ -17,23 +44,14 @@ def infer(req):
     from train import AnimeSegmentation
     img = Image.open(req["image_path"]).convert("RGBA")
     source = np.asarray(img).copy()
-    rgb = Image.fromarray(source[:, :, :3], "RGB")
-    side = 1024
-    scale = min(side / rgb.width, side / rgb.height)
-    size = (max(1, round(rgb.width*scale)), max(1, round(rgb.height*scale)))
-    small = rgb.resize(size, Image.Resampling.BILINEAR)
-    padded = Image.new("RGB", (side,side))
-    offset = ((side-size[0])//2, (side-size[1])//2)
-    padded.paste(small, offset)
+    padded, size, offset = prepare_input(source[:, :, :3])
     device = "cuda" if torch.cuda.is_available() else "cpu"
     net = AnimeSegmentation.from_pretrained(snapshot).to(device).eval()
-    tensor = torch.from_numpy(np.asarray(padded).copy()).permute(2,0,1).unsqueeze(0).float().div(255).to(device)
+    tensor = torch.from_numpy(padded).permute(2,0,1).unsqueeze(0).to(device)
     with torch.inference_mode():
-        alpha = net(tensor).float().detach().cpu().numpy().squeeze()
-    alpha = Image.fromarray(np.uint8(np.clip(alpha,0,1)*255), "L")
-    alpha = alpha.crop((offset[0],offset[1],offset[0]+size[0],offset[1]+size[1]))
-    alpha = alpha.resize(rgb.size, Image.Resampling.BILINEAR)
-    a = np.minimum(np.asarray(alpha), source[:,:,3])
+        prediction = net(tensor).float().detach().cpu().numpy()
+    alpha = restore_alpha(prediction, size, offset, img.size)
+    a = np.minimum(alpha, source[:,:,3])
     out = Path(req["output_dir"])
     out.mkdir(parents=True, exist_ok=True)
     alpha_path, rgba_path = out/"person_alpha.png", out/"person.png"

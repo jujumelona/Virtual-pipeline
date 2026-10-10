@@ -85,14 +85,17 @@ def test_stable_layers_is_default_without_revenue_prompt(identity, edition):
     assert spec["models"]["qwen_quantized_t4_verified"] is False
 
 
-def test_sam_checkpoint_fixed_to_single_large():
+def test_sam_descriptor_matches_executable_pinned_model():
     spec = STABLE_LAYERS
     assert spec["inference"]["sampler"] == "Heun"
     assert spec["inference"]["steps"] == 50
     from vtuber_pipeline.vts_modes import MODEL_STACK
     sam = [x for x in MODEL_STACK if x["stage"] == "precision_masks"]
     assert len(sam) == 1
-    assert sam[0]["checkpoint"] == "sam2.1_hiera_large.pt"
+    from vtuber_pipeline.common.model_assets import model_pin
+    assert sam[0]["checkpoint"] == "sam2.1_hiera_tiny.pt"
+    assert sam[0]["model"] == model_pin("sam2_1_hiera_tiny")["model_id"]
+    assert sam[0]["execution_status"] == "optional_plan_not_connected_to_vts_handoff"
     assert FREE_BUDGET["art_mesh_max"] == 100
 
 

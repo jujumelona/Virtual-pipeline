@@ -24,6 +24,13 @@ def infer(req):
     for i,item in enumerate(data["parts"]):
         with torch.inference_mode():
             masks,scores,_=predictor.predict(box=np.array(item["bbox_xyxy"],dtype=np.float32),multimask_output=False)
+        # Official predictor outputs CxHxW in the original image frame and
+        # one quality score per mask. Never broadcast a malformed prediction
+        # or silently threshold nonfinite logits into missing artwork pixels.
+        masks, scores = np.asarray(masks), np.asarray(scores)
+        if (masks.shape != (1, *image.shape[:2]) or scores.shape != (1,)
+                or not np.isfinite(masks).all() or not np.isfinite(scores).all()):
+            raise RuntimeError("SAM2 returned invalid single-mask prediction")
         mask=np.where((masks[0]>0) & (alpha>10),255,0).astype("uint8")
         x0,y0,x1,y1=item["bbox_xyxy"]
         rect=np.zeros_like(mask)
