@@ -141,6 +141,10 @@ def prepare(*, qwen: bool = False, install: bool = True):
         checkout("https://github.com/Stability-AI/Stable-Layers.git",
                  ROOT / "Stable-Layers", STABLE_LAYERS_SHA)
         if install:
+            from tools.vts_qwen_refine import validate_qwen_runtime_source
+            validate_qwen_runtime_source(ROOT / "Stable-Layers" / "decompose.py")
+            print("[VTS setup] Qwen generated runtime preflight PASS", flush=True)
+        if install:
             checked([python, "-m", "pip", "install", "--disable-pip-version-check",
                      "peft", "accelerate", "bitsandbytes"], timeout=3600)
         weights.extend([
