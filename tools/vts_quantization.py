@@ -25,11 +25,11 @@ def select_compute_dtype(torch):
 
 
 def patch_nf4_marigold_cpu_offload(source: str) -> str:
-    """Make upstream NF4 depth stage obey its existing --cpu_offload switch.
+    """Keep the pinned custom Marigold on its supported NF4 GPU/group offload.
 
-    The pinned source unconditionally moves VAE, UNet and (nonquantized)
-    text encoder to CUDA, ignoring --cpu_offload. Replace only the exact
-    verified fragment; never modify the upstream checkout in place.
+    The vendor MarigoldDepthPipeline has no model_cpu_offload_seq, so calling
+    enable_model_cpu_offload would fail after the lengthy LayerDiff stage.
+    Retain the pinned GPU/group-offload path and report that explicitly.
     """
     original = """        marigold_pipe.vae.to(device='cuda')
         marigold_pipe.unet.to(device='cuda')
@@ -40,18 +40,12 @@ def patch_nf4_marigold_cpu_offload(source: str) -> str:
         if getattr(args, 'group_offload', False):
             marigold_pipe.enable_group_offload('cuda', num_blocks_per_group=1)
 """
-    replacement = """        if args.cpu_offload:
-            marigold_pipe.enable_model_cpu_offload()
-        else:
-            marigold_pipe.vae.to(device='cuda')
-            marigold_pipe.unet.to(device='cuda')
-            # Keep upstream quantization guard for its text encoder.
-            if not getattr(marigold_pipe.text_encoder, 'is_quantized', False) and \\
-               not getattr(marigold_pipe.text_encoder, 'quantization_method', None):
-                marigold_pipe.text_encoder.to(device='cuda')
-            if getattr(args, 'group_offload', False):
-                marigold_pipe.enable_group_offload('cuda', num_blocks_per_group=1)
-"""
+    replacement = original.replace(
+        "        marigold_pipe.vae.to(device='cuda')",
+        "        if args.cpu_offload:\n"
+        "            print('[VTS] Marigold NF4: GPU/group offload (custom pipeline lacks native CPU offload)', flush=True)\n"
+        "        marigold_pipe.vae.to(device='cuda')",
+    )
     if source.count(original) != 1:
         raise RuntimeError("Pinned See-through NF4 Marigold offload contract changed")
     return source.replace(original, replacement)
