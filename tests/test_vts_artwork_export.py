@@ -192,7 +192,7 @@ def test_qwen_invalid_recursion_parameters_rejected(tmp_path):
                               scope="upper", per_pass_layers=11)
     with pytest.raises(ValueError, match="Invalid Qwen"):
         build_artwork_package(archive, tmp_path / "wrong2", edition="pro",
-                              scope="upper", asset_kind="hair", max_qwen_passes=13)
+                              scope="upper", asset_kind="hair", max_qwen_passes=49)
 
 @pytest.mark.parametrize("family", ["eyebrow", "arm", "hand", "leg", "foot", "ear", "neck", "nose", "shoe"])
 def test_observed_anatomy_is_eligible_for_refinement(family):
