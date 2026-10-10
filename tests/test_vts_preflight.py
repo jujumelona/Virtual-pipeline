@@ -44,6 +44,7 @@ def unused_nf4_marigold_branch():
             marigold_pipe.enable_group_offload('cuda', num_blocks_per_group=1)
 p=argparse.ArgumentParser(); p.add_argument('--srcp'); p.add_argument('--save_dir')
 a, _=p.parse_known_args()
+assert '--cpu_offload' in sys.argv, 'T4 must use model CPU offload'
 assert Path(a.srcp).is_file()
 folder=Path(a.save_dir); folder.mkdir(parents=True, exist_ok=True)
 (folder/(Path(a.srcp).stem+'.psd')).write_bytes(b'8BPS CPU wrapper fixture')
