@@ -571,6 +571,9 @@ def test_official_lr_runs_even_if_independent_depth_stage_fails(tmp_path, monkey
     import json
     from PIL import Image
 
+    script = tmp_path / "inference" / "scripts" / "heuristic_partseg.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("# mocked native worker", encoding="utf-8")
     source = tmp_path / "original.psd"
     source.write_bytes(b"mock psd for patched reader")
     (tmp_path / "original_depth.psd").write_bytes(b"depth")
