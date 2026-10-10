@@ -126,6 +126,9 @@ def test_pinned_qwen_worker_stages_encoder_before_transformer():
         "QwenImageTransformer2DModel.from_pretrained")
     assert 'device_map={"": "cuda:0"}' in patched
     assert "text_encoder=None" in patched
+    assert "for i in range(packed.shape[0])" in patched
+    assert "vae.decode(packed[i:i+1]" in patched
+    assert "layer_latents.reshape(b * num_layers, c, 1, h, w).to(dtype=vae.dtype)" not in patched
     assert "encode_condition_image(vae, img_t).to(device)" in patched
     assert "decode_layers(vae, latents.to('cpu')" in patched
     assert "text_encoder = text_encoder.to(device).eval()" not in patched
