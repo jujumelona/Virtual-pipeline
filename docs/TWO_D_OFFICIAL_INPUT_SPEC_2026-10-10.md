@@ -123,6 +123,21 @@ Florence/SAM2/FLUX/Depth/TripoSR/SR/Blender/VRM 및 3D 모드의 수치·차이�
 
 ## 공식 출처
 
+### 분해·재합성 추가 검증
+
+- Stable-Layers의 뒤→앞 후보 순서를 패키지의 위→아래 레이어 계약으로 변환한다.
+  원본 RGBA 소유권과 후보별 이름은 유지한다.
+- PSD 재입력도 psd-tools의 아래→위 순서를 뒤집어 등록한다. 실제 겹치는 반투명
+  앞 레이어와 불투명 뒤 레이어를 저장·재입력·합성한 RGBA가 기대값과 일치한다.
+- PSD 레이어 불투명도를 알파에 한 번 적용한다. 특수 블렌드/클리핑/효과/벡터 마스크,
+  그룹 불투명도·마스크, Fill은 현재 등록 PNG 경로에서 보존할 수 없으므로 오류를 반환한다.
+  이는 Cubism 자체가 해당 기능을 모두 지원하지 않는다는 뜻이 아니다.
+- 최종 PSD를 재열어 실제 레이어 순서·이름·원화 좌표·캔버스·RGBA·Normal·불투명도255를
+  검사한다. 단순 레이어 개수나 미리보기만으로 성공을 판단하지 않는다.
+- 공식 [PSD 생성 조건](https://docs.live2d.com/en/cubism-editor-manual/reimport-psd/)과
+  [블렌드 모드](https://docs.live2d.com/en/cubism-editor-manual/blend-mode/)를 구분한다.
+  RGB8/sRGB/적용된 마스크 조건과 Normal/Over 기본 합성을 사용한다.
+
 - Cubism [PSD 조건](https://docs.live2d.com/en/cubism-editor-manual/precautions-for-psd-data/), [소재 분리](https://docs.live2d.com/en/cubism-editor-manual/divide-the-material/), [PSD 가져오기](https://docs.live2d.com/en/cubism-editor-manual/psd-import/)
 - Cubism [아틀라스](https://docs.live2d.com/en/cubism-editor-manual/texture-atlas-edit/), [FREE/PRO 비교](https://www.live2d.com/en/cubism/comparison/)
 - VTube Studio [모델 로드](https://github.com/DenchiSoft/VTubeStudio/wiki/Loading-your-own-Models), [지원 모델](https://github.com/DenchiSoft/VTubeStudio/wiki/Models)

@@ -320,6 +320,9 @@ def test_foreground_proposal_wins_equal_alpha_overlap(tmp_path):
     assert children is not None and len(children) == 2
     assert {child["image"].getchannel("A").getbbox() for child in children} == {
         (0, 0, 20, 40), (20, 0, 40, 40)}
+    # The package contract is top-to-bottom; Stable-Layers emits back-to-front.
+    assert children[0]["image"].getchannel("A").getbbox() == (20, 0, 40, 40)
+    assert children[1]["image"].getchannel("A").getbbox() == (0, 0, 20, 40)
 
 
 def test_recursion_covers_other_observed_regions_before_repeating_hair(tmp_path):

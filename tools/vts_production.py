@@ -136,6 +136,7 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
     Transparent empty leaves are omitted; all image coordinates are preserved.
     """
     from psd_tools import PSDImage
+    from psd_tools.constants import BlendMode, Tag
     from PIL import Image, ImageChops
 
     dest.mkdir(parents=True, exist_ok=True)
@@ -147,9 +148,24 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
     if size[0] < 256 or size[1] < 256:
         raise ValueError("PSD canvas is too small")
     leaves = []
-    for layer in psd.descendants():
+    # psd-tools descendants follow PSD bottom-to-top storage. Registered
+    # layers/consumers use top-to-bottom, including nested semantic groups.
+    for layer in reversed(list(psd.descendants())):
         if layer.is_group() or not layer.is_visible():
             continue
+        # Registered PNGs carry Normal/Over pixels, not PSD blend metadata.
+        # Cubism supports additional modes, but this conversion must not
+        # silently discard them (or approximate isolated group opacity).
+        node = layer
+        while node is not psd:
+            allowed = (BlendMode.NORMAL, BlendMode.PASS_THROUGH) if node.is_group() else (BlendMode.NORMAL,)
+            if (node.blend_mode not in allowed or node.clipping
+                    or node.has_effects() or node.has_vector_mask()
+                    or node.tagged_blocks.get_data(Tag.BLEND_FILL_OPACITY, 255) != 255
+                    or (node.is_group() and (node.opacity != 255 or node.mask is not None))):
+                raise ValueError("Unsupported PSD compositing attribute on " + str(node.name)
+                                 + "; bake effects/clipping/group masks and use Normal blend before registration")
+            node = node.parent
         # psd-tools stores RGBA layer alpha as USER_LAYER_MASK in RGB
         # documents from external writers. composite() can return
         # opaque RGB on such files, so restore the actual mask channel.
@@ -166,6 +182,11 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
                              (int(layer.mask.left)-int(layer.left),
                               int(layer.mask.top)-int(layer.top)))
             tile.putalpha(ImageChops.multiply(tile.getchannel("A"), full_alpha))
+        # PSD layer opacity is separate from its transparency channel.
+        # Bake it once into straight RGBA; keep original RGB unchanged.
+        if layer.opacity != 255:
+            tile.putalpha(tile.getchannel("A").point(
+                [round(value * layer.opacity / 255) for value in range(256)]))
         if not tile.getchannel("A").getbbox():
             continue
         left, top = int(layer.left), int(layer.top)

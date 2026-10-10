@@ -155,7 +155,9 @@ def _partition_part(part, suggestions):
         verified[occupied] = frag[occupied]
     if not np.array_equal(verified, original):
         return None
-    return children
+    # Upstream proposals are back-to-front; all downstream PSD/manifest
+    # consumers expect top-to-bottom. Keep names tied to proposal ownership.
+    return list(reversed(children))
 
 
 def _write_psd(parts, target: Path, *, free: bool):
@@ -192,6 +194,15 @@ def _write_psd(parts, target: Path, *, free: bool):
         raise RuntimeError("PSD lost drawable layers on serialization")
     if any(x.mask is not None for x in leaves):
         raise RuntimeError("Cubism import PSD retains an unapplied layer mask")
+    # psd-tools enumerates bottom-up; validate the actual saved pixel leaves,
+    # not just the in-memory writer objects or an embedded preview.
+    for actual, expected in zip(reversed(leaves), parts):
+        pixels = actual.topil()
+        if (actual.name != expected["name"] or (actual.left, actual.top) != (0, 0)
+                or actual.opacity != 255 or actual.blend_mode.name != "NORMAL"
+                or pixels is None or pixels.size != expected["image"].size
+                or pixels.convert("RGBA").tobytes() != expected["image"].tobytes()):
+            raise RuntimeError("PSD serialization changed layer order, coordinates or RGBA pixels")
     return groups
 
 

@@ -11,6 +11,56 @@ from vtuber_pipeline.two_d.layer_export import write_psd_and_ora
 from tools.vts_production import _semantic_family, psd_to_registered_rgba
 
 
+def test_import_bakes_layer_opacity_into_registered_alpha(tmp_path):
+    from io import BytesIO
+    from tools.vts_psd_layer import new_import_psd, create_import_layer
+    psd = new_import_psd((256, 256))
+    layer = create_import_layer(Image.new("RGBA", (20, 20), (90, 120, 180, 128)),
+                                psd, name="face", left=7, top=11)
+    layer.opacity = 128
+    path = tmp_path / "opacity.psd"; psd.save(path)
+    _, archive, _ = psd_to_registered_rgba(path, tmp_path / "out", artmesh_max=None)
+    with ZipFile(archive) as z:
+        actual = Image.open(BytesIO(z.read(z.namelist()[0])))
+        assert actual.getpixel((7, 11)) == (90, 120, 180, 64)
+
+
+def test_psd_registration_recomposition_preserves_overlapping_layer_order(tmp_path):
+    from io import BytesIO
+    from tools.vts_artwork_export import _write_psd
+    rear = Image.new("RGBA", (256, 256), (20, 80, 180, 255))
+    front = Image.new("RGBA", rear.size)
+    front.paste((230, 30, 70, 128), (30, 40, 200, 220))
+    path = tmp_path / "ordered.psd"
+    _write_psd([dict(name="hair.front", image=front, depth=0),
+                dict(name="face", image=rear, depth=0)], path, free=False)
+    _, archive, _ = psd_to_registered_rgba(path, tmp_path / "out", artmesh_max=None)
+    recomposed = Image.new("RGBA", rear.size)
+    with ZipFile(archive) as z:
+        assert z.namelist()[0].startswith("hair.front")
+        for name in reversed(z.namelist()):
+            recomposed.alpha_composite(Image.open(BytesIO(z.read(name))))
+    assert recomposed.tobytes() == Image.alpha_composite(rear, front).tobytes()
+
+
+@pytest.mark.parametrize("setting", ["multiply", "group_opacity", "clipping"])
+def test_import_rejects_compositing_attributes_it_cannot_preserve(tmp_path, setting):
+    from psd_tools.constants import BlendMode
+    from tools.vts_psd_layer import new_import_psd, create_import_layer
+    psd = new_import_psd((256, 256))
+    group = psd.create_group(name="FACE")
+    layer = create_import_layer(Image.new("RGBA", (20, 20), "red"), group, name="face")
+    if setting == "multiply":
+        layer.blend_mode = BlendMode.MULTIPLY
+    elif setting == "group_opacity":
+        group.opacity = 128
+    else:
+        layer.clipping = True
+    path = tmp_path / "unsupported.psd"; psd.save(path)
+    with pytest.raises(ValueError, match="compositing"):
+        psd_to_registered_rgba(path, tmp_path / "out", artmesh_max=None)
+
+
 @pytest.mark.parametrize("case", ["disabled", "shifted", "white_outside"])
 def test_import_respects_psd_mask_state_and_canvas_coordinates(tmp_path, case):
     from io import BytesIO
