@@ -642,3 +642,71 @@ def test_byte_exact_roundtrip_does_not_run_icc_color_transform(tmp_path, monkeyp
     assert doc.image_resources.get_data(Resource.ICC_PROFILE)
     leaf = next(x for x in doc.descendants() if not x.is_group())
     assert leaf.topil(apply_icc=False).tobytes() == source.tobytes()
+
+
+def test_bilateral_geometry_split_preserves_visible_pixels_and_side_ownership():
+    import numpy as np
+    from tools.vts_artwork_export import _split_clear_bilateral_layer
+    image = Image.new("RGBA", (200, 100))
+    image.paste((220, 80, 50, 255), (15, 10, 60, 85))
+    image.paste((40, 120, 220, 180), (125, 10, 184, 85))
+    original = np.asarray(image)
+    children = _split_clear_bilateral_layer(
+        {"name": "eye.sclera.000", "depth": 0, "image": image})
+    assert children is not None and len(children) == 2
+    assert children[0]["name"].endswith(".image_left")
+    assert children[1]["name"].endswith(".image_right")
+    combined = Image.alpha_composite(children[0]["image"], children[1]["image"])
+    assert np.array_equal(np.asarray(combined), original)
+    assert not children[0]["image"].getchannel("A").getbbox()[2] > 60
+    assert children[1]["image"].getchannel("A").getbbox()[0] >= 125
+    # One connected mask cannot be correctly split without creative inpainting.
+    joined = Image.new("RGBA", (200, 100), (70, 90, 120, 255))
+    assert _split_clear_bilateral_layer(
+        {"name": "eye.sclera.000", "depth": 0, "image": joined}) is None
+
+
+def test_bilateral_splits_are_exported_to_real_psd_and_trace(tmp_path):
+    import json
+    from io import BytesIO
+    from psd_tools import PSDImage
+    source = tmp_path / "split.zip"
+    with ZipFile(source, "w") as z:
+        eye = Image.new("RGBA", (256, 384))
+        eye.paste((60, 70, 180, 255), (40, 100, 80, 130))
+        eye.paste((60, 70, 180, 255), (160, 100, 200, 130))
+        face = Image.new("RGBA", eye.size)
+        face.paste((190, 150, 140, 255), (70, 130, 160, 270))
+        for name, im in (("eye.sclera.0", eye), ("face.0", face)):
+            data = BytesIO()
+            im.save(data, format="PNG")
+            z.writestr(name + ".png", data.getvalue())
+    result = build_artwork_package(source, tmp_path / "out",
+                                   edition="free", scope="upper")
+    assert result["layer_count"] == 3
+    assert result["bilateral_splits"] == ["eye.sclera.0"]
+    assert len([p for p in PSDImage.open(result["art_psd"]).descendants()
+                if not p.is_group()]) == 3
+    with ZipFile(result["package"]) as z:
+        trace = json.loads(z.read("metadata/segmentation_trace.json"))
+        integrity = json.loads(z.read("metadata/integrity_report.json"))
+        assert trace["bilateral_image_side_splits"] == ["eye.sclera.0"]
+        assert trace["qwen_attempt_count"] == 0
+        assert integrity["automatic_image_side_splits"] == 1
+        assert integrity["high_quality_anatomical_parts_verified"] is False
+
+
+def test_qwen_request_never_silently_passes_without_any_model_attempt(tmp_path):
+    from io import BytesIO
+    source = tmp_path / "unknown.zip"
+    with ZipFile(source, "w") as z:
+        for i in range(2):
+            data = BytesIO()
+            Image.new("RGBA", (256, 384), (30, 40, 50, 255)).save(data, "PNG")
+            z.writestr(f"unknown.{i}.png", data.getvalue())
+    def must_run(*args, **kwargs):
+        raise AssertionError("No semantic candidate should reach the model")
+    with pytest.raises(RuntimeError, match="no eligible part"):
+        build_artwork_package(source, tmp_path / "out",
+                              edition="free", scope="upper", qwen=True,
+                              max_qwen_passes=2, qwen_infer=must_run)
