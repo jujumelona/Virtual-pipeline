@@ -123,13 +123,26 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
     produced=[folder/f"layer_{i}.png" for i in range(layer_count)]
     if not all(f.is_file() for f in produced):
         raise RuntimeError(f"Qwen reported success but didn't provide {layer_count} RGBA layers")
+    with Image.open(input_image) as source_image:
+        ow, oh = source_image.size
+    scale = 640 / max(ow, oh)
+    expected_size = tuple(max(int(round(dim * scale / 16)) * 16, 16)
+                          for dim in (ow, oh))
     for f in produced:
         with Image.open(f) as im:
             im.load()
             if im.mode!="RGBA":raise ValueError(f"Not an RGBA layer: {f}")
+            if im.size != expected_size:
+                raise ValueError(f"Stable-Layers output dimensions {im.size} differ "
+                                 f"from official resize {expected_size}: {f}")
     result={"status":"complete_qwen_candidate_layers","quantized_transformer":QUANT,
             "lora":ADAPTER,"layers":[str(x) for x in produced],
             "layer_count":layer_count,
+            "candidate_canvas":list(expected_size),
+            "source_canvas":[ow, oh],
+            "settings":{"steps":50,"guidance_scale":1.0,"sampler":"heun",
+                        "max_side":640,"dimension_multiple":16,"transparent":True,
+                        "official_default_layers":4,"requested_layers":layer_count},
             "log":str(log),"not_cubism_artmeshes":True,
             "warning":f"These are {layer_count} candidate layers; Live2D semantic rigging accuracy not guaranteed."}
     (output_dir/"qwen_stage.json").write_text(

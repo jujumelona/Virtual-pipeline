@@ -112,6 +112,10 @@ Florence/SAM2/FLUX/Depth/TripoSR/SR/Blender/VRM 및 3D 모드의 수치·차이�
   이는 GPU 분할 품질이나 Editor/Viewer 화면 실측 통과를 의미하지 않는다.
 - Inochi 관련 setup/transport/completion 및 PSD 검사21개가 통과했다.
   실제 GPU와 SDK renderer의 반투명 화면 실측을 대체하지 않는다.
+- Qwen 작업자의 실제 RGBA PNG 크기를 고정 공식 `compute_aspect_resize` 결과와
+  대조한다. 잘못된 크기의 결과는 성공 처리하거나 늘이지 않고 거부한다.
+  qwen_stage.json에 실제 원본/후보 캔버스·Heun/50/CFG1/640/16배수/알파 설정을
+  기록한다. 최종 파츠 PNG·PSD는 별도로 원화 캔버스 좌표와 화소를 유지한다.
 
 ## 공식 출처
 

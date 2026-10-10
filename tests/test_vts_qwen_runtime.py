@@ -23,7 +23,7 @@ def runtime(tmp_path, monkeypatch):
     return repo
 
 
-def worker_source(write_layers=True):
+def worker_source(write_layers=True, size=(432, 640)):
     return '''import argparse
 from pathlib import Path
 from PIL import Image
@@ -33,8 +33,8 @@ a, _=p.parse_known_args()
 folder=Path(a.output)/Path(a.input).stem
 folder.mkdir(parents=True, exist_ok=True)
 print('CPU wrapper fixture completed')
-''' + ('''for i in range(a.num_layers):
-    Image.new('RGBA', (64,96), (50,60,70,255)).save(folder/f'layer_{i}.png')
+''' + (f'''for i in range(a.num_layers):
+    Image.new('RGBA', {size!r}, (50,60,70,255)).save(folder/f'layer_{{i}}.png')
 ''' if write_layers else "")
 
 
@@ -57,3 +57,11 @@ def test_successful_worker_cannot_reuse_stale_candidate_pngs(runtime, monkeypatc
     with pytest.raises(RuntimeError, match="didn't provide"):
         qwen.infer(Path("input.png").resolve(), output, third_party=runtime.parent,
                    layer_count=3, timeout=20)
+
+
+def test_successful_worker_must_emit_official_resized_dimensions(runtime, monkeypatch):
+    monkeypatch.setattr(qwen, "_patch_pinned_official",
+                        lambda *a, **kw: worker_source(size=(64, 96)))
+    with pytest.raises(ValueError, match="dimensions"):
+        qwen.infer(Path("input.png"), Path("output"), third_party=runtime.parent,
+                   timeout=20)
