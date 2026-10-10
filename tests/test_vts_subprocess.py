@@ -30,3 +30,22 @@ def test_nonzero_exit_retained(tmp_path):
     code = run_logged([sys.executable, "-c", "raise SystemExit(12)"],
                       log_path=tmp_path / "failed.log", timeout_seconds=5)
     assert code == 12
+
+def test_weight_progress_is_not_written_or_echoed_but_errors_remain(tmp_path, capsys):
+    path = tmp_path / "weights.log"
+    program = (
+        "print('Loading checkpoint shards: 25%|██ | 1/4', flush=True);"
+        "print('Loading checkpoint shards: 50%|████ | 2/4', flush=True);"
+        "print('face model loaded', flush=True);"
+        "print('RuntimeError: CUDA allocation failed', flush=True);"
+        "raise SystemExit(7)"
+    )
+    exitcode = run_logged([sys.executable, "-u", "-c", program],
+                          log_path=path, timeout_seconds=8)
+    assert exitcode == 7
+    stored = path.read_text()
+    displayed = capsys.readouterr().out
+    for text in (stored, displayed):
+        assert "checkpoint shards" not in text
+        assert "face model loaded" in text
+        assert "RuntimeError: CUDA allocation failed" in text
