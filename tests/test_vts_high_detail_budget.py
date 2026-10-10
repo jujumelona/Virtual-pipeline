@@ -17,10 +17,10 @@ def test_free_detail_budget_accepts_thirty_two_and_caps_forty_eight():
         validate_artwork_request(edition="free", scope="upper", per_pass_layers=4, max_qwen_passes=49)
 
 
-def test_colab_auto_mode_still_enables_refinement():
+def test_colab_auto_mode_disables_free_refinement():
     options = {"LIVE2D_EDITION": "free", "LIVE2D_QWEN": "auto", "LIVE2D_USE_QWEN": False}
     refresh_qwen(options)
-    assert options["LIVE2D_USE_QWEN"] is True
+    assert options["LIVE2D_USE_QWEN"] is False
 
 
 def test_latest_colab_notebook_exposes_high_detail_budget():
@@ -28,4 +28,4 @@ def test_latest_colab_notebook_exposes_high_detail_budget():
     source = "\n".join("".join(cell.get("source", [])) for cell in notebook["cells"])
     assert "LIVE2D_QWEN_PASSES_OPTION = 32" in source
     assert "LIVE2D_QWEN_PASSES = 32" in source
-    assert "LIVE2D_QWEN_OPTION = \"auto\"" in source
+    assert "LIVE2D_QWEN_OPTION = \"off\"" in source
