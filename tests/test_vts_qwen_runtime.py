@@ -85,29 +85,39 @@ def test_model_receives_prepared_official_canvas_without_changing_original(
     assert Path("input.png").read_bytes() == original
 
 
-def test_pinned_qwen_worker_quantizes_both_encoder_and_transformer():
-    """No accidental 16.6GB bf16 VL encoder on T4 during pipeline load."""
+def test_pinned_qwen_worker_stages_encoder_before_transformer():
+    """Enforce staged VRAM residency rather than two 4-bit models together."""
     from tools.vts_qwen_refine import _patch_pinned_official
     code = (
-        "import torch\n"
-        "    from diffusers import DiffusionPipeline\n\n"
-        "    pipe = DiffusionPipeline.from_pretrained(\n"
-        "        args.base_model, torch_dtype=torch.bfloat16,\n"
-        "        trust_remote_code=True, cache_dir=args.cache_dir,\n"
-        "    )\n"
-        "    transformer = pipe.transformer.to(device).eval()\n"
-        "    vae = pipe.vae.to(device).eval()\n"
-        "    text_encoder = text_encoder.to(device).eval()\n"
-        "    transformer = PeftModel.from_pretrained(transformer, args.lora)\n"
+        "import torch\\n"
+        "    from diffusers import DiffusionPipeline\\n\\n"
+        "    pipe = DiffusionPipeline.from_pretrained(\\n"
+        "        args.base_model, torch_dtype=torch.bfloat16,\\n"
+        "        trust_remote_code=True, cache_dir=args.cache_dir,\\n"
+        "    )\\n"
+        "    transformer = pipe.transformer.to(device).eval()\\n"
+        "    vae = pipe.vae.to(device).eval()\\n"
+        "    transformer = PeftModel.from_pretrained(transformer, args.lora)\\n"
+        "    # --- prompt encoding -------------------------------------------------\\n"
+        "    text_encoder = text_encoder.to(device).eval()\\n"
+        "    prompt_embeds, prompt_mask = encode_prompt(args.prompt)\\n"
+        "    neg_embeds, neg_mask = encode_prompt('')\\n"
+        "    # scheduler may or may not accept sigmas/mu\\n"
+        "    img_t = img_t.unsqueeze(0).to(device)\\n"
+        "    condition_latents = encode_condition_image(vae, img_t)\\n"
+        "    decoded = decode_layers(vae, latents, th, tw, args.num_layers)\\n"
     )
     patched = _patch_pinned_official(
         code, quant_dir="/tmp/quant", lora_dir="/tmp/adapter")
-    assert "Qwen2_5_VLForConditionalGeneration.from_pretrained" in patched
     assert "load_in_4bit=True" in patched
-    assert "text_encoder=encoder_q4" in patched
-    assert "transformer=transformer_q4" in patched
-    assert 'text_encoder = text_encoder.to("cpu").eval()' in patched
-    assert "bnb_4bit_compute_dtype=runtime_dtype" in patched
+    assert patched.index("prompt_embeds, prompt_mask") < patched.index(
+        "del text_encoder") < patched.index(
+        "QwenImageTransformer2DModel.from_pretrained")
+    assert 'device_map={"": "cuda:0"}' in patched
+    assert "text_encoder=None" in patched
+    assert "encode_condition_image(vae, img_t).to(device)" in patched
+    assert "decode_layers(vae, latents.to('cpu')" in patched
+    assert "text_encoder = text_encoder.to(device).eval()" not in patched
 
 
 def test_sigkill_keeps_memory_and_log_diagnostics(runtime, monkeypatch):
