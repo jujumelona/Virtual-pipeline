@@ -30,13 +30,30 @@ def _patch_pinned_official(code: str, *, quant_dir: str, lora_dir: str) -> str:
     transformer = pipe.transformer.to(device).eval()
     vae = pipe.vae.to(device).eval()"""
     after="""    from diffusers import DiffusionPipeline, QwenImageTransformer2DModel
+    from transformers import BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration
 
+    # The base checkpoint's VL encoder alone is ~16.6 GB at full precision.
+    # Loading it implicitly can SIGKILL a standard Colab T4 (small system RAM).
+    # Supply an independently loaded NF4 encoder so Diffusers never loads
+    # the unquantized encoder as a transient intermediate model.
+    encoder_q4 = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+        os.path.join(args.base_model, "text_encoder"),
+        torch_dtype=runtime_dtype,
+        quantization_config=BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=runtime_dtype,
+        ),
+        device_map="auto",
+        low_cpu_mem_usage=True,
+    ).eval()
+    print("[VTS QWEN] quantized VL text encoder loaded", flush=True)
     transformer_q4 = QwenImageTransformer2DModel.from_pretrained(
         """ + repr(quant_dir) + """, torch_dtype=runtime_dtype, device_map="auto",
     )
     pipe = DiffusionPipeline.from_pretrained(
         args.base_model, torch_dtype=runtime_dtype,
-        transformer=transformer_q4,
+        transformer=transformer_q4, text_encoder=encoder_q4,
         trust_remote_code=True, cache_dir=args.cache_dir,
     )
     transformer = pipe.transformer.eval()
