@@ -51,8 +51,13 @@ PSD 제작은 추론 전에 실제 저장→다시 읽기 검사를 수행합니
 RGBA·색 변환 없는 개별 채널 값을 저장하고, 같은 폴더에 원본/읽기 비교 PNG crop을
 남깁니다. 따라서 저장된 채널 자체의 손상인지 읽기 색 변환 문제인지 구분할 수 있습니다.
 사전 검사 진단은 `logs/psd_runtime/`에 보존하며, 성공한 ZIP에도 실행 버전 JSON을 넣습니다.
-Colab ⑨의 Live2D 제작 전체는 별도 Python 프로세스에서 실행합니다. 코덱의
-SIGSEGV/SIGABRT 같은 네이티브 충돌은 노트북의 Python 예외 처리로 잡을 수 없으므로
+Colab ⑨의 Live2D 제작 전체는 별도 Python 프로세스에서 실행합니다.
+직접 `make_cubism_handoff`를 호출하는 기존 노트북 코드도 ipykernel 환경에서는
+이미지 읽기·코덱 import 전에 감독 프로세스로 넘깁니다(갱신된 함수가 로드된 경우).
+사전 검사 시작과 런타임 버전은 PSD 생성 전에 콘솔과 `runtime.steps.jsonl`,
+`runtime.json`에 저장합니다. 문서 생성·sRGB 프로필·레이어 압축·마스크 제거·미리보기
+합성·merged 채널 압축·파일 쓰기도 각각 호출 전에 로그를 디스크에 확정합니다.
+코덱의 SIGSEGV/SIGABRT 같은 네이티브 충돌은 노트북의 Python 예외 처리로 잡을 수 없으므로
 감독 프로세스가 종료 코드·신호를 `vts_process_failure.json`에 기록합니다.
 전체 출력과 faulthandler 스택은 `logs/handoff_process.log`에 보존합니다.
 PSD 작업 중 자식 프로세스가 신호로 종료되면 NumPy·Pillow·psd-tools import,

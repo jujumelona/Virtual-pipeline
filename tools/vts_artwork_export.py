@@ -193,7 +193,7 @@ def _write_psd(parts, target: Path, *, free: bool):
         "target": str(target), "layers": len(parts),
         "canvas": list(parts[0]["image"].size), "free": free}), flush=True)
     step("create_document", canvas=list(parts[0]["image"].size))
-    psd = new_import_psd(parts[0]["image"].size)
+    psd = new_import_psd(parts[0]["image"].size, checkpoint=step)
     group = None
     active_family = None
     groups = 0
@@ -210,10 +210,10 @@ def _write_psd(parts, target: Path, *, free: bool):
         # Some versions do not expose Group.create_pixel_layer.
         step("create_layer", name=part['name'])
         create_import_layer(part["image"], parent=group,
-                            name=part["name"], top=0, left=0)
+                            name=part["name"], top=0, left=0, checkpoint=step)
     target.parent.mkdir(parents=True, exist_ok=True)
     step("save", note="bounded Pillow preview + PSD format writer; no float compositor")
-    save_import_psd(psd, target)
+    save_import_psd(psd, target, checkpoint=step)
     step("saved", bytes=target.stat().st_size)
     if target.read_bytes()[:4] != b"8BPS":
         raise RuntimeError("Output is not a native layered PSD")

@@ -532,12 +532,21 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         generated_psd: Path | None = None,
                         third_party: Path | None = None,
                         qwen: bool = False, qwen_layers: int = 4,
-                        qwen_passes: int = 8) -> dict:
+                        qwen_passes: int = 8, _worker: bool = False) -> dict:
     """Produce a *layered image* ZIP, not an unimportable pseudo-rig.
 
     Each PRO call processes exactly one body/hair/outfit/accessory asset.
     It never requires all detachable assets from the same user.
     """
+    # Direct calls from older notebook cells must isolate BEFORE loading
+    # image/PSD/native libraries; protection cannot depend on one UI import.
+    if 'ipykernel' in sys.modules and not _worker:
+        from tools.vts_handoff_process import make_cubism_handoff_isolated
+        return make_cubism_handoff_isolated(
+            master, output, edition=edition, scope=scope, asset_kind=asset_kind,
+            reference_image=reference_image, external_psd=external_psd,
+            generated_psd=generated_psd, third_party=third_party,
+            qwen=qwen, qwen_layers=qwen_layers, qwen_passes=qwen_passes)
     from tools.vts_artwork_export import validate_artwork_request
     validate_artwork_request(edition=edition, scope=scope, asset_kind=asset_kind,
                              per_pass_layers=qwen_layers, max_qwen_passes=qwen_passes)

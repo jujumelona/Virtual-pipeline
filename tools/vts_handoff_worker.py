@@ -21,7 +21,7 @@ def main():
     for key in ("reference_image", "external_psd", "generated_psd", "third_party"):
         if options.get(key) is not None:
             options[key] = Path(options[key])
-    report = make_cubism_handoff(Path(request["master"]), Path(request["output"]), **options)
+    report = make_cubism_handoff(Path(request["master"]), Path(request["output"]), _worker=True, **options)
     _save(Path(request["output"]) / "handoff_result.json", report)
 
 

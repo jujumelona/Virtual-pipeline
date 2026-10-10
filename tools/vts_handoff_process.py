@@ -69,6 +69,7 @@ def supervise_handoff(command, output: Path, *, timeout_seconds=21600):
             raise RuntimeError("VTS child returned an invalid result manifest or missing package")
     except BaseException as exc:
         last_psd_step = None
+        last_runtime_step = None
         if log_path.is_file():
             with log_path.open(encoding="utf-8", errors="replace") as stream:
                 for line in stream:
@@ -77,18 +78,24 @@ def supervise_handoff(command, output: Path, *, timeout_seconds=21600):
                             last_psd_step = json.loads(line.split(": ", 1)[1])
                         except ValueError:
                             pass
+                    elif line.startswith("[VTS] PSD_RUNTIME_START: "):
+                        try:
+                            last_runtime_step = json.loads(line.split(": ", 1)[1])
+                        except ValueError:
+                            pass
         failure = {**evidence, "event": "VTS_PROCESS_FAIL", "error": str(exc),
                    "error_type": type(exc).__name__, "returncode": returncode,
                    "signal": signal.Signals(-returncode).name if returncode is not None and returncode < 0 else None,
                    "memory_after": memory_snapshot(), "finished_at": time.time(),
-                   "failure_log": str(failure_path), "last_psd_step": last_psd_step}
+                   "failure_log": str(failure_path), "last_psd_step": last_psd_step,
+                   "last_runtime_step": last_runtime_step}
         _save(failure_path, failure)
         _save(status_path, failure)
         print("[VTS] VTS_PROCESS_FAIL: " + json.dumps(failure), flush=True)
         # Preserve the original failure before probing. Each probe gets a
         # fresh interpreter, so one native fault cannot suppress the others.
         # No See-through/GPU models are loaded or rerun during diagnosis.
-        if last_psd_step is not None and returncode is not None and returncode < 0:
+        if (last_psd_step is not None or last_runtime_step is not None) and returncode is not None and returncode < 0:
             try:
                 from tools.vts_psd_diagnose import diagnose_psd_runtime
                 failure['psd_diagnosis'] = diagnose_psd_runtime(output / 'logs' / 'psd_diagnosis')

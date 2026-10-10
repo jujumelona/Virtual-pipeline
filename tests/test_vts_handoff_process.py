@@ -56,3 +56,54 @@ def test_isolated_handoff_reuses_real_completed_psd(tmp_path):
     assert report['reused_precomputed_see_through']
     assert Path(report['package']).is_file()
     assert Path(report['process_log']).is_file()
+
+
+def test_notebook_direct_handoff_dispatches_before_image_or_codec_calls(tmp_path, monkeypatch):
+    from types import ModuleType
+    from tools import vts_production, vts_handoff_process
+    monkeypatch.setitem(sys.modules, 'ipykernel', ModuleType('ipykernel'))
+    monkeypatch.setattr(vts_production, '_image', lambda *a: pytest.fail('Notebook decoded image before isolation'))
+    calls = []
+    def isolated(master, output, **options):
+        calls.append((master, output, options))
+        return {'package': 'isolated.zip'}
+    monkeypatch.setattr(vts_handoff_process, 'make_cubism_handoff_isolated', isolated)
+    result = vts_production.make_cubism_handoff(tmp_path / 'missing.png', tmp_path / 'out', edition='free', scope='upper')
+    assert result['package'] == 'isolated.zip'
+    assert calls[0][2]['edition'] == 'free'
+
+
+def test_preflight_identity_crash_leaves_durable_start_before_roundtrip(tmp_path, monkeypatch):
+    from tools.vts_handoff_process import supervise_handoff
+    from tools import vts_psd_diagnose
+    monkeypatch.setattr(vts_psd_diagnose, 'diagnose_psd_runtime',
+                        lambda *a, **k: {'state': 'probes_passed_cause_unresolved'})
+    script = tmp_path / 'preflight_crash.py'
+    diagnostics = tmp_path / 'runtime'
+    script.write_text("from pathlib import Path\nimport os,signal\nfrom tools import vts_psd_layer\ndef crash():\n os.kill(os.getpid(),signal.SIGSEGV)\nvts_psd_layer.psd_runtime_identity=crash\nvts_psd_layer.verify_import_psd_runtime(diagnostics_dir=Path(" + repr(str(diagnostics)) + "))\n")
+    # -c keeps the repository on sys.path even though the script lives in tmp.
+    with pytest.raises(RuntimeError, match='SIGSEGV'):
+        supervise_handoff([sys.executable, '-X', 'faulthandler', '-c', script.read_text()], tmp_path / 'out', timeout_seconds=20)
+    failure = json.loads((tmp_path / 'out/vts_process_failure.json').read_text())
+    assert failure['returncode'] == -signal.SIGSEGV
+    assert failure['last_psd_step'] is None
+    assert failure['last_runtime_step']['operation'] == 'runtime_identity'
+    assert failure['psd_diagnosis']['state'] == 'probes_passed_cause_unresolved'
+    assert 'PSD_RUNTIME_START' in Path(failure['log_path']).read_text()
+    events = [json.loads(x) for x in (diagnostics / 'runtime.steps.jsonl').read_text().splitlines()]
+    assert events[-1]['operation'] == 'runtime_identity'
+
+
+def test_runtime_identity_is_saved_before_native_document_creation(tmp_path, monkeypatch):
+    from tools import vts_psd_layer
+    diagnostics = tmp_path / 'runtime'
+    def fail(*args, **kwargs):
+        report = json.loads((diagnostics / 'runtime.json').read_text())
+        assert report['state'] == 'running'
+        assert report['psd_tools_version']
+        assert 'runtime_identity' in (diagnostics / 'runtime.steps.jsonl').read_text()
+        raise RuntimeError('document creation stopped')
+    monkeypatch.setattr(vts_psd_layer, 'new_import_psd', fail)
+    with pytest.raises(RuntimeError, match='document creation stopped'):
+        vts_psd_layer.verify_import_psd_runtime(diagnostics_dir=diagnostics)
+    assert json.loads((diagnostics / 'runtime.json').read_text())['state'] == 'FAIL'
