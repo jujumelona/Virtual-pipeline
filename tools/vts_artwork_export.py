@@ -787,6 +787,9 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         else:
             refined.append(layer)
     layers = refined
+    print(f"[VTS] Image-side auto splits: {len(bilateral_splits)} "
+          f"source parts -> {len(layers)} current layers; "
+          f"parts={bilateral_splits}", flush=True)
     generated = []
     attempted = []
     runtime_logs = []
@@ -829,6 +832,9 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
                 kw["third_party"] = third_party
             if python_path is not None:
                 kw["python"] = python_path
+            print(f"[VTS QWEN START] pass={serial+1}/{max_qwen_passes} "
+                  f"source={item['name']} requested_layers={requested} "
+                  f"current_total={len(layers)}", flush=True)
             result = qwen_infer(source, run_dir, **kw)
             if result.get("log"):
                 log_path = Path(result["log"])
@@ -843,6 +849,9 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
             if accepted:
                 layers[index:index+1] = proposed
                 generated.append(item["name"])
+            print(f"[VTS QWEN RESULT] pass={serial+1}/{max_qwen_passes} "
+                  f"source={item['name']} candidates={len(result['layers'])} "
+                  f"accepted={accepted} resulting_layers={len(layers)}", flush=True)
     if qwen and max_qwen_passes and not attempted:
         raise RuntimeError(
             "Qwen refinement requested but no eligible part was sent to the "
