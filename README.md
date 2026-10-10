@@ -29,10 +29,10 @@ PRO 독립 제작은 네 종류를 한꺼번에 업로드하거나 만들어야 
 2. ③ FREE/PRO 선택, PRO일 때 독립 제작 종류(body / hair / outfit / accessory) 한 종류 선택, 상반신/전신 및 Qwen 옵션 선택
 3. ⑦ See-through NF4 준비, 필요 시 양자화 Qwen-Image-Layered + Stable-Layers 준비
 4. ⑧ FREE는 완성 이미지 1장, PRO는 선택 자산 1장과 (분리 자산일 때만) 신체 기준 1장 업로드
-5. ⑨ FREE/PRO 신체는 See-through 분해, PRO 헤어·의상·액세서리는 원본 알파 또는 Qwen 전경 마스크 → Qwen 선택적 재귀 분할 → 원본 픽셀 유지 → 독립 PSD/PNG ZIP 제작
+5. ⑨ FREE/PRO 신체는 See-through 분해 후 **기본 auto 설정에서도 Qwen+Stable-Layers 추가 세부 분할 실행**(명시적 off 제외), PRO 독립 헤어·의상·액세서리는 원본 알파 또는 Qwen 전경 마스크 → 재귀 분할 → 명확한 좌우 부위 자동 분리 → 원본 픽셀 유지 → 독립 PSD/PNG ZIP 제작
 6. ⑩ 최종 ZIP 다운로드. 실제 리깅·물리는 Editor에서 제작
 
-### FREE 7개 제한
+**세부 분할 검증:** `metadata/segmentation_trace.json`에는 Qwen 실제 시도·채택 횟수와 안전한 좌우 이미지 분리 기록을 남깁니다. `metadata/input_vs_psd_geometry.json`에는 원화 대비 불투명 전경 RGB 오차 통계를 넣습니다. 이 검사는 가려진 영역, 입 내부, 실제 눈 깜빡임, 아트메시 변형 품질을 증명하지 않습니다. 결과는 Cubism에서 추가 검수·수정이 필요합니다.\n\n### FREE 7개 제한
 
 ArtMesh 100개, 파츠 폴더 30개, 디포머 50개, 파라미터 총 30개(블렌드셰이프 포함), 그중 블렌드셰이프 파라미터 최대 3개, ArtPath 3개, 텍스처 아틀라스 2048px 한 장.
 
