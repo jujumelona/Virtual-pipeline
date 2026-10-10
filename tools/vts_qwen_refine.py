@@ -150,6 +150,40 @@ def _patch_pinned_official(code: str, *, quant_dir: str, lora_dir: str) -> str:
     return code
 
 
+
+def validate_qwen_runtime_source(script: Path) -> dict:
+    """Compile generated Stable-Layers worker and reject stale model references.
+
+    This is a CPU-only source contract, not a GPU quality or inference test.
+    """
+    import ast
+    script = Path(script).expanduser().resolve(strict=True)
+    generated = _patch_pinned_official(
+        script.read_text(encoding="utf-8"),
+        quant_dir="/__vts_preflight_quant__",
+        lora_dir="/__vts_preflight_lora__",
+    )
+    tree = ast.parse(generated, filename=str(script))
+    compile(tree, str(script), "exec")
+    mains = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "main"]
+    if len(mains) != 1:
+        raise RuntimeError("Qwen worker must have exactly one main()")
+    main = mains[0]
+    for name in ("pipe", "text_encoder"):
+        deletes = [n.lineno for n in ast.walk(main)
+                   if isinstance(n, ast.Delete)
+                   and any(isinstance(t, ast.Name) and t.id == name for t in n.targets)]
+        if len(deletes) != 1:
+            raise RuntimeError(f"Qwen worker must delete {name} exactly once")
+        stale = [n.lineno for n in ast.walk(main)
+                 if isinstance(n, ast.Name) and n.id == name
+                 and isinstance(n.ctx, ast.Load) and n.lineno > deletes[0]]
+        if stale:
+            raise RuntimeError(f"Qwen worker reads deleted {name} at lines {stale}")
+    return {"syntax": "PASS", "deleted_reference_check": "PASS",
+            "gpu_inference_verified": False}
+
+
 def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_ROOT,
           timeout: int = 9000, python: str | None = None,
           layer_count: int = 4) -> dict:
@@ -165,6 +199,7 @@ def infer(input_image: Path, output_dir: Path, *, third_party: Path = DEFAULT_RO
     script=third_party/"Stable-Layers"/"decompose.py"
     if not script.is_file():
         raise RuntimeError("Stable-Layers pinned source absent: run model setup cell ③")
+    validate_qwen_runtime_source(script)
     output_dir.mkdir(parents=True,exist_ok=True)
     # Prepare the model canvas before loading models. This is the pinned
     # official compute_aspect_resize + RGB/LANCZOS preprocessing, not a
