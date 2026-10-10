@@ -44,6 +44,10 @@ PSD 제작은 추론 전에 실제 저장→다시 읽기 검사를 수행합니
 알파 0~255 전체와 반투명 RGB·숨겨진 RGB를 바이트 단위로 확인하고, 현재 프로세스가
 불러온 psd-tools 버전·위치·작성 함수 코드 해시를 출력합니다. 최종 PSD의 모든 레이어도
 동일하게 검사합니다. 허용 오차나 알파 임계값으로 RGB 손상을 숨기지 않습니다.
+왕복 검사는 `topil(apply_icc=False)`로 저장 채널 자체를 읽습니다. 기본 `topil()`의
+ICC 변환은 디스플레이 색상 처리이며 저장 바이트 검증에 필요하지 않습니다.
+입력 프로필은 sRGB인지 별도로 검사하고 출력에는 sRGB 프로필을 유지합니다.
+sRGB PSD의 레이어 등록과 합성도 중복 ICC 변환 없이 읽습니다.
 콘솔에는 `PSD_ROUNDTRIP_START/PASS/FAIL`과 `VTS_HANDOFF_FAIL`이 즉시 출력됩니다.
 실패 시 출력 폴더의 `vts_failure.json`에 실패 단계·전체 traceback·Git 커밋·Python 실행
 경로·Pillow/NumPy/psd-tools 버전을 저장합니다. 실패한 PSD 옆의

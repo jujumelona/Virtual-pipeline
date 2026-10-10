@@ -107,3 +107,23 @@ def test_runtime_identity_is_saved_before_native_document_creation(tmp_path, mon
     with pytest.raises(RuntimeError, match='document creation stopped'):
         vts_psd_layer.verify_import_psd_runtime(diagnostics_dir=diagnostics)
     assert json.loads((diagnostics / 'runtime.json').read_text())['state'] == 'FAIL'
+
+
+def test_preflight_completes_when_icc_transform_would_kill_interpreter(tmp_path):
+    from tools.vts_subprocess import run_logged
+    script = (
+        "import os,signal\nfrom pathlib import Path\n"
+        "from psd_tools.api import pil_io\n"
+        "def crash(*args,**kwargs):\n os.kill(os.getpid(),signal.SIGSEGV)\n"
+        "pil_io._apply_icc=crash\n"
+        "from tools.vts_psd_layer import verify_import_psd_runtime\n"
+        "report=verify_import_psd_runtime(diagnostics_dir=Path(" + repr(str(tmp_path / 'runtime')) + "))\n"
+        "assert report['state']=='PASS' and report['rgba_byte_exact']\n"
+    )
+    code = run_logged([sys.executable, '-X', 'faulthandler', '-c', script],
+                      log_path=tmp_path / 'preflight.log', timeout_seconds=20)
+    assert code == 0
+    events = [json.loads(line) for line in (tmp_path / 'runtime/probe.psd.steps.jsonl').read_text().splitlines()]
+    assert events[-1]['operation'] == 'verified'
+    decoded = next(event for event in events if event['operation'] == 'decode_layer')
+    assert decoded['apply_icc'] is False

@@ -141,6 +141,8 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
 
     dest.mkdir(parents=True, exist_ok=True)
     psd = PSDImage.open(psd_path)
+    if psd.color_mode.name != 'RGB' or psd.depth != 8:
+        raise ValueError('PSD registration requires RGB/8-bit artwork in sRGB')
     from psd_tools.constants import Resource
     from tools.vts_psd_layer import validate_srgb_profile
     validate_srgb_profile(psd.image_resources.get_data(Resource.ICC_PROFILE))
@@ -169,7 +171,9 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
         # psd-tools stores RGBA layer alpha as USER_LAYER_MASK in RGB
         # documents from external writers. composite() can return
         # opaque RGB on such files, so restore the actual mask channel.
-        tile = layer.topil()
+        # Profile validity was checked above. Keep the already-sRGB stored
+        # bytes; do not invoke a second ICC transform during registration.
+        tile = layer.topil(apply_icc=False)
         if tile is None:
             continue
         tile = tile.convert("RGBA")
@@ -209,7 +213,7 @@ def psd_to_registered_rgba(psd_path: Path, dest: Path, *, artmesh_max: int | Non
                          "Refusing to silently flatten animation layers.")
     out_zip = dest / "registered_layers.zip"
     source = dest / "psd_composite.png"
-    composite = psd.composite()
+    composite = psd.composite(apply_icc=False)
     if composite is None:
         raise ValueError("PSD composite missing")
     composite.convert("RGBA").save(source)

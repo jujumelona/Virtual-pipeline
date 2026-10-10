@@ -227,8 +227,13 @@ def _write_psd(parts, target: Path, *, free: bool):
     # psd-tools enumerates bottom-up; validate the actual saved pixel leaves,
     # not just the in-memory writer objects or an embedded preview.
     for index, (actual, expected) in enumerate(zip(reversed(leaves), parts)):
-        step("decode_layer", index=index, name=actual.name)
-        pixels = actual.topil()
+        step("decode_layer", index=index, name=actual.name, apply_icc=False,
+             note="stored RGBA verification; no ICC color transform")
+        # Verify stored channels, not color-managed display pixels. The
+        # document is already generated as sRGB; topil() defaults to an
+        # unnecessary native LittleCMS transform before returning pixels.
+        pixels = actual.topil(apply_icc=False)
+        step("decoded_layer", index=index, name=actual.name)
         problems = []
         first_difference = None
         if actual.name != expected["name"]:

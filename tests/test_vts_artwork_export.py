@@ -574,7 +574,7 @@ def test_psd_mismatch_writes_raw_channel_diagnosis_and_crops(tmp_path, monkeypat
 
     def changed_readback(self, channel=None, apply_icc=True):
         image = original(self, channel=channel, apply_icc=apply_icc)
-        if channel is None and apply_icc and image is not None:
+        if channel is None and image is not None:
             image.putpixel((433, 0), (0, 90, 180, 2))
         return image
 
@@ -625,3 +625,20 @@ def test_bounded_psd_merged_preview_preserves_overlapping_opaque_scene(tmp_path)
                 {'name':'body', 'image':background}], target, free=False)
     expected = background.copy(); expected.alpha_composite(front)
     assert PSDImage.open(target).topil(apply_icc=False).tobytes() == expected.tobytes()
+
+
+def test_byte_exact_roundtrip_does_not_run_icc_color_transform(tmp_path, monkeypatch):
+    from psd_tools.api import pil_io
+    from psd_tools import PSDImage
+    from psd_tools.constants import Resource
+    from tools.vts_artwork_export import _write_psd
+    def forbidden(*args, **kwargs):
+        pytest.fail('Serialization verification invoked the native ICC transform')
+    monkeypatch.setattr(pil_io, '_apply_icc', forbidden)
+    source = Image.new('RGBA', (256, 4), (127, 90, 180, 2))
+    target = tmp_path / 'raw_roundtrip.psd'
+    _write_psd([{'name': 'hair.front.0.000', 'image': source}], target, free=False)
+    doc = PSDImage.open(target)
+    assert doc.image_resources.get_data(Resource.ICC_PROFILE)
+    leaf = next(x for x in doc.descendants() if not x.is_group())
+    assert leaf.topil(apply_icc=False).tobytes() == source.tobytes()

@@ -519,3 +519,24 @@ def test_external_psd_cannot_silently_relabel_an_incompatible_icc_profile(tmp_pa
     path = tmp_path / 'profile.psd'; psd.save(path)
     with pytest.raises(ValueError, match='sRGB'):
         psd_to_registered_rgba(path, tmp_path / 'out', artmesh_max=100)
+
+
+def test_srgb_psd_registration_keeps_stored_rgba_without_icc_transform(tmp_path, monkeypatch):
+    from psd_tools.api import pil_io
+    from tools.vts_psd_layer import new_import_psd, create_import_layer, save_import_psd
+    source = Image.new('RGBA', (256, 384), (127, 90, 180, 2))
+    psd = new_import_psd(source.size)
+    create_import_layer(source, psd, name='hair.front')
+    path = tmp_path / 'source.psd'
+    save_import_psd(psd, path)
+    def forbidden(*args, **kwargs):
+        pytest.fail('Validated sRGB registration invoked native ICC conversion')
+    monkeypatch.setattr(pil_io, '_apply_icc', forbidden)
+    _, registered, _ = psd_to_registered_rgba(path, tmp_path / 'registered', artmesh_max=100)
+    assert registered.is_file()
+    with ZipFile(registered) as archive:
+        from io import BytesIO
+        images = [name for name in archive.namelist() if name.endswith('.png')]
+        assert images
+        image = Image.open(BytesIO(archive.read(images[0]))).convert('RGBA')
+        assert image.tobytes() == source.tobytes()
