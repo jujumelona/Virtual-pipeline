@@ -33,6 +33,15 @@ def unused_pinned_cache_contract():
         pipeline.cache_tag_embeds()
         marigold_pipe.cache_tag_embeds()
         marigold_pipe.cache_tag_embeds()
+def unused_nf4_marigold_branch():
+        marigold_pipe.vae.to(device='cuda')
+        marigold_pipe.unet.to(device='cuda')
+        # Text encoder may be quantized (from pre-quantized repo) — only move device, not dtype
+        if not getattr(marigold_pipe.text_encoder, 'is_quantized', False) and \\
+           not getattr(marigold_pipe.text_encoder, 'quantization_method', None):
+            marigold_pipe.text_encoder.to(device='cuda')
+        if getattr(args, 'group_offload', False):
+            marigold_pipe.enable_group_offload('cuda', num_blocks_per_group=1)
 p=argparse.ArgumentParser(); p.add_argument('--srcp'); p.add_argument('--save_dir')
 a, _=p.parse_known_args()
 assert Path(a.srcp).is_file()
@@ -47,6 +56,10 @@ print('CPU wrapper fixture completed')
     assert result.is_absolute() and result.is_file()
     assert result.read_bytes().startswith(b"8BPS")
     assert (Path("out") / "see_through_full.log").read_text().strip() == "CPU wrapper fixture completed"
+    # T4 always requests real component offload, not only an FP16 dtype edit.
+    patched = (repo / "inference/scripts/inference_psd_quantized_vts_fp16.py").read_text()
+    assert 'if args.cpu_offload:' in patched
+    assert 'marigold_pipe.enable_model_cpu_offload()' in patched
 
 
 def test_non_srgb_profile_is_rejected_before_model_inference(tmp_path, monkeypatch):
