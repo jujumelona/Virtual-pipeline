@@ -6,7 +6,7 @@ import pytest
 from PIL import Image
 
 
-@pytest.mark.parametrize("damage", ["single_pixel", "corrupt_psd"])
+@pytest.mark.parametrize("damage", ["single_pixel", "corrupt_psd", "composite_failure", "layer_iteration_failure"])
 def test_optional_native_split_rejects_corruption(tmp_path, monkeypatch, damage):
     from psd_tools import PSDImage
     from tools import vts_subprocess
@@ -41,12 +41,16 @@ def test_optional_native_split_rejects_corruption(tmp_path, monkeypatch, damage)
             self.split = "lrsplit" in str(path)
 
         def composite(self):
+            if self.split and damage == "composite_failure":
+                raise ValueError("invalid PSD composite")
             canvas = Image.new("RGBA", self.size, (20, 40, 80, 255))
             if self.split:
                 canvas.putpixel((7, 9), (205, 40, 80, 255))
             return canvas
 
         def descendants(self):
+            if self.split and damage == "layer_iteration_failure":
+                raise RuntimeError("invalid PSD layer tree")
             return [Leaf() for _ in range(3 if self.split else 2)]
 
     def open_psd(path):

@@ -349,17 +349,29 @@ def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
         if old.size != new.size:
             print("[See-through] heuristic changed canvas; rejected:", mode, flush=True)
             continue
-        first, second = old.composite(), new.composite()
-        if first is None or second is None:
-            print("[See-through] heuristic composite unavailable:", mode, flush=True)
+        try:
+            # A PSD can parse successfully but fail while decoding its
+            # composite, masks, or layer tree. Optional refinement must not
+            # abort an otherwise usable first-pass artwork.
+            first, second = old.composite(), new.composite()
+            if first is None or second is None:
+                print("[See-through] heuristic composite unavailable:", mode, flush=True)
+                continue
+            # Pixel-level difference in visible composite, not an invented rig metric.
+            diff = ImageChops.difference(first.convert("RGBA"), second.convert("RGBA"))
+            stats = ImageStat.Stat(diff)
+            mean_error = max(stats.mean)
+            max_error = max(high for _, high in stats.extrema)
+            old_n = sum(1 for x in old.descendants() if not x.is_group())
+            new_n = sum(1 for x in new.descendants() if not x.is_group())
+            if attempt != current:
+                # LR is independent when depth output lacks sidecars.
+                current_n = sum(1 for part in PSDImage.open(current).descendants()
+                                if not part.is_group())
+        except Exception as exc:
+            print("[See-through] optional PSD validation failed:", mode,
+                  type(exc).__name__, str(exc), flush=True)
             continue
-        # Pixel-level difference in visible composite, not an invented rig metric.
-        diff = ImageChops.difference(first.convert("RGBA"), second.convert("RGBA"))
-        stats = ImageStat.Stat(diff)
-        mean_error = max(stats.mean)
-        max_error = max(high for _, high in stats.extrema)
-        old_n = sum(1 for x in old.descendants() if not x.is_group())
-        new_n = sum(1 for x in new.descendants() if not x.is_group())
         if mean_error > 3 or max_error > 3 or new_n < old_n:
             print("[See-through] heuristic composite/part count regression rejected:",
                   mode, mean_error, max_error, old_n, new_n, flush=True)
@@ -367,15 +379,10 @@ def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
         if new_n == old_n:
             print("[See-through] no additional layers:", mode, old_n, flush=True)
             continue
-        if attempt != current:
-            # The LR fallback is independent, not a sequential combination.
-            # Do not discard a stronger validated depth split in its favor.
-            current_n = sum(1 for part in PSDImage.open(current).descendants()
-                            if not part.is_group())
-            if new_n <= current_n:
-                print("[See-through] independent LR retained depth result:",
-                      current_n, ">=", new_n, flush=True)
-                continue
+        if attempt != current and new_n <= current_n:
+            print("[See-through] independent LR retained depth result:",
+                  current_n, ">=", new_n, flush=True)
+            continue
         current = result
         print("[See-through] native extra split accepted:",
               mode, old_n, "->", new_n, flush=True)
