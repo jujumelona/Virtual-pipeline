@@ -231,3 +231,42 @@ def align_offload_image_devices(pipeline, family: str) -> None:
     else:
         raise ValueError(f"Unsupported offload image family: {family}")
     print(f"[VTS offload] {family} VAE/UNet inputs use CUDA execution device", flush=True)
+
+
+def align_offloaded_transparent_decoder(pipeline) -> None:
+    """Fix the pinned see-through decoder bypassing its parent's CPU offload hook.
+
+    The vendor calls trans_vae.decoder directly; its nested UNet1024 remains
+    on CPU while sd_vae.decode() produces CUDA pixels. Activate only that
+    nested network *after* the SD VAE has decoded a frame, so the decoder
+    is not resident during the expensive 30-step diffusion loop.
+    """
+    import inspect
+    import textwrap
+
+    decoder = pipeline.trans_vae.decoder
+    cls = type(decoder)
+    method = cls.estimate_single_pass
+    if getattr(method, "_vts_offload_patched", False):
+        return
+
+    original = inspect.unwrap(method)
+    source = textwrap.dedent(inspect.getsource(original))
+    anchor = "        y = self.model(pixel, latent)"
+    if source.count(anchor) != 1:
+        raise RuntimeError("Pinned TransparentVAE decoder placement contract changed")
+    source = source.replace(
+        anchor,
+        "        self.model.to(device=pixel.device, dtype=pixel.dtype)\\n" + anchor,
+    )
+    namespace = {}
+    exec(
+        compile(source, original.__code__.co_filename, "exec"),
+        original.__globals__,
+        namespace,
+    )
+    replacement = namespace[original.__name__]
+    replacement._vts_offload_patched = True
+    cls.estimate_single_pass = replacement
+    print("[VTS offload] transparent decoder activates after SD VAE decode",
+          flush=True)
