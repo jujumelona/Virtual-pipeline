@@ -65,3 +65,64 @@ def test_prefetch_only_models_consumed_by_actual_vts_entrypoints(tmp_path, monke
         'Qwen/Qwen-Image-Layered',
     ]
     assert [x['model'] for x in json.loads(manifest.read_text())['snapshots']] == downloaded
+
+
+def test_see_through_venv_never_invokes_ensurepip(tmp_path, monkeypatch):
+    """Colab /usr/bin/python3 may lack a functioning ensurepip."""
+    venv = tmp_path / "see-through-venv"
+    calls = []
+
+    def fake_checked(args, **kwargs):
+        calls.append(list(map(str, args)))
+        if len(args) >= 3 and args[1:3] == ["-m", "venv"]:
+            (venv / "bin").mkdir(parents=True)
+            (venv / "bin" / "python").touch()
+            (venv / "pyvenv.cfg").write_text(
+                "include-system-site-packages = true\\n", encoding="utf-8"
+            )
+        return 0
+
+    monkeypatch.setattr(setup, "checked", fake_checked)
+    assert setup.ensure_see_through_python(venv) == str(venv / "bin" / "python")
+    assert calls[0][1:4] == ["-m", "venv", "--without-pip"]
+    assert "--system-site-packages" in calls[0]
+    assert calls[1][0] == str(venv / "bin" / "python")
+    assert calls[1][1] == "-c"
+    assert "import pathlib, pip, sys" in calls[1][2]
+
+    calls.clear()
+    assert setup.ensure_see_through_python(venv) == str(venv / "bin" / "python")
+    assert len(calls) == 1  # verify existing venv; do not recreate it
+
+
+def test_partial_failed_venv_is_not_trusted(tmp_path, monkeypatch):
+    venv = tmp_path / "partially-created"
+    (venv / "bin").mkdir(parents=True)
+    (venv / "bin" / "python").touch()
+    # ensurepip may have failed after creating bin/python but before pip.
+    calls = []
+
+    def fake_checked(args, **kwargs):
+        calls.append(list(map(str, args)))
+        return 0
+
+    monkeypatch.setattr(setup, "checked", fake_checked)
+    setup.ensure_see_through_python(venv)
+    assert any("--without-pip" in cmd for cmd in calls)
+
+
+def test_worker_pip_preflight_failure_blocks_ready_manifest(tmp_path, monkeypatch):
+    monkeypatch.setattr(setup, "ROOT", tmp_path)
+    monkeypatch.setattr(setup, "checkout", lambda *args: tmp_path / "source")
+    stale = tmp_path / "vts_setup_manifest.json"
+    stale.write_text('{"ready":true}', encoding="utf-8")
+
+    def fail_checked(args, **kwargs):
+        if len(args) > 2 and args[1:3] == ["-m", "venv"]:
+            return 0
+        raise RuntimeError("worker pip unavailable")
+
+    monkeypatch.setattr(setup, "checked", fail_checked)
+    with pytest.raises(RuntimeError, match="worker pip unavailable"):
+        setup.prepare(install=True)
+    assert not stale.exists()
