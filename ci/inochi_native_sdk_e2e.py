@@ -6,6 +6,7 @@ OpenGL context after compiling the production exporter.
 from __future__ import annotations
 import json
 import os
+import struct
 from pathlib import Path
 import tempfile
 
@@ -62,6 +63,26 @@ def main():
         asset = Path(result["inp"])
         assert asset.stat().st_size > 128
         info = inspect_native_inp(str(asset))
+        raw = asset.read_bytes()
+        payload_size = struct.unpack_from(">I", raw, 8)[0]
+        payload = json.loads(raw[12:12 + payload_size])
+
+        def meshes(value):
+            if isinstance(value, dict):
+                if "verts" in value:
+                    yield value
+                for child in value.values():
+                    yield from meshes(child)
+            elif isinstance(value, list):
+                for child in value:
+                    yield from meshes(child)
+
+        actual_meshes = list(meshes(payload["nodes"]))
+        assert len(actual_meshes) == 1
+        # SDK 0.8.7 camera/quad convention: centered coordinates, Y down.
+        # Reading actual output catches a vertically mirrored native model.
+        assert actual_meshes[0]["verts"] == [-36, -36, 36, -36, -36, 36, 36, 36]
+        assert actual_meshes[0]["uvs"] == [.125, .125, .875, .125, .125, .875, .875, .875]
         assert info["format"] == "INP1"
         assert info["textures"] == 1
         assert info["part_count"] == 1

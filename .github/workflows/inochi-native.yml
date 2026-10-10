@@ -8,6 +8,7 @@ on:
       - "vtuber_pipeline/two_d/inochi_bridge.py"
       - "tests/production/test_inochi_native_compatibility.py"
       - "ci/inochi_2d_fullgraph_e2e.py"
+      - "ci/inochi_native_sdk_e2e.py"
       - ".github/workflows/inochi-native.yml"
   workflow_dispatch:
 permissions:

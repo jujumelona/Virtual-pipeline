@@ -79,8 +79,9 @@ int main(string[] args) {
             vec2 uv = xy(uvs[i]);
             enforce(uv.x >= 0 && uv.x <= 1 && uv.y >= 0 && uv.y <= 1,
                     "part UV lies outside atlas");
-            // Inochi uses a centered puppet coordinate system with Y up.
-            data.add(vec2(p.x - canvasW * .5f, canvasH * .5f - p.y), uv);
+            // SDK 0.8.7 Camera.matrix/createQuadMesh use centered Y-down
+            // coordinates. Keep image Y direction; flipping mirrors the model.
+            data.add(vec2(p.x - canvasW * .5f, p.y - canvasH * .5f), uv);
         }
         foreach (triangle; triangles) {
             enforce(triangle.array.length == 3, "invalid triangle");
@@ -143,8 +144,8 @@ int main(string[] args) {
                 deltas.length = sourceDeltas.length;
                 foreach (j, delta; sourceDeltas) {
                     vec2 d = xy(delta);
-                    // Image delta Y increases down, Inochi Y increases up.
-                    deltas[j] = vec2(d.x, -d.y);
+                    // Translation changes the origin, not delta direction.
+                    deltas[j] = d;
                 }
                 binding.update(vec2u(cast(uint)i, 0), deltas);
                 if (endpointName != "default") boundKeyforms++;
