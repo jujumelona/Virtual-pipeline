@@ -70,14 +70,18 @@ print('CPU wrapper fixture completed')
     # T4 always requests real component offload, not only an FP16 dtype edit.
     patched = (repo / "inference/scripts/inference_psd_quantized_vts_fp16.py").read_text()
     assert 'if args.cpu_offload:' in patched
-    assert 'marigold_pipe.enable_model_cpu_offload()' in patched
+    assert "Marigold NF4: GPU/group offload" in patched
+    # Never call unsupported custom Marigold CPU offload in its NF4 branch.
+    assert "marigold_pipe.enable_model_cpu_offload()" not in patched.split(
+        "# NF4: load from pre-quantized repo (auto-selected by REPO_MAP)", 2)[-1].split(
+        "return marigold_pipe", 1)[0]
     assert patched.count("align_offload_prompt_encoder_device(pipeline, 'layerdiff')") == 2
-    assert patched.count("align_offload_prompt_encoder_device(marigold_pipe, 'marigold')") == 2
+    assert patched.count("align_offload_prompt_encoder_device(marigold_pipe, 'marigold')") == 0
     assert "device = self._execution_device" in patched
     assert "text_inputs.input_ids.to(self._execution_device)" in patched
     assert "torch.Generator(device=pipeline._execution_device)" in patched
     assert patched.count("align_offload_image_devices(pipeline, 'layerdiff')") == 2
-    assert patched.count("align_offload_image_devices(marigold_pipe, 'marigold')") == 2
+    assert patched.count("align_offload_image_devices(marigold_pipe, 'marigold')") == 0
     assert patched.count("align_offloaded_transparent_decoder(pipeline)") == 2
     assert patched.count("pipeline.trans_vae.decoder.cpu()") == 2
 
