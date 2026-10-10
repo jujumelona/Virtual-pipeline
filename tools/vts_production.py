@@ -529,6 +529,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         asset_kind: str | None = None,
                         reference_image: Path | None = None,
                         external_psd: Path | None = None,
+                        generated_psd: Path | None = None,
                         third_party: Path | None = None,
                         qwen: bool = False, qwen_layers: int = 4,
                         qwen_passes: int = 8) -> dict:
@@ -540,6 +541,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
     from tools.vts_artwork_export import validate_artwork_request
     validate_artwork_request(edition=edition, scope=scope, asset_kind=asset_kind,
                              per_pass_layers=qwen_layers, max_qwen_passes=qwen_passes)
+    if external_psd is not None and generated_psd is not None:
+        raise ValueError("Select either external_psd or generated_psd, not both")
     canvas = _image(master)
     if edition == "pro" and asset_kind != "body":
         if reference_image is None:
@@ -555,8 +558,14 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
     try:
         asset_preparation = None
         model_root = third_party or Path("/content/vtuber_builder/third_party/see-through")
-        if external_psd:
-            psd = external_psd.resolve(strict=True)
+        if generated_psd is not None:
+            # Explicitly repackage a completed See-through output after a
+            # downstream PSD writer failure, without repeating GPU inference.
+            psd = Path(generated_psd).expanduser().resolve(strict=True)
+            print("[VTS] Reusing See-through PSD; GPU inference skipped:",
+                  psd, flush=True)
+        elif external_psd is not None:
+            psd = Path(external_psd).expanduser().resolve(strict=True)
         elif edition == "pro" and asset_kind != "body":
             from tools.vts_asset_input import prepare_detached_asset
             psd, asset_preparation = prepare_detached_asset(
@@ -684,7 +693,10 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
         report = {
             **status, **produced, "state": "artwork_ready_editor_rig_required",
             "psd_source": str(psd), "source_master": str(master),
-            "source_layer_count": count, "reference_image": (
+            "source_layer_count": count,
+            "reused_precomputed_see_through": generated_psd is not None,
+            "source_master_verified_against_reused_psd": False,
+            "reference_image": (
                 str(reference_image) if reference_image else None),
             "warning": "Genuine layered PSD artwork only; Cubism Editor must "
                        "create ArtMeshes, deformers, keyforms, physics and export MOC3. "
