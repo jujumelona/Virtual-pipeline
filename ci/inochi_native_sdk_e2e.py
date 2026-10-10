@@ -44,10 +44,10 @@ def main():
             "canvas": [96, 96],
             "textures": [str(source_png)],
             "parts": [{"semantic_id": "hair.front", "rgba_png": str(source_png),
-                       "z_order": 1}],
+                       "z_order": 70}],
             "mesh": [{
                 "semantic_id": "hair.front",
-                "rgba_png": str(source_png), "z_order": 1,
+                "rgba_png": str(source_png), "z_order": 70,
                 "vertices_xy": vertices, "uv": [
                     [0.125, 0.125], [.875, .125], [.125, .875], [.875, .875]],
                 "triangles": [[0, 1, 2], [2, 1, 3]],
@@ -64,11 +64,21 @@ def main():
             "physics": [{
                 "semantic_id": "hair.front",
                 "target_parameter": "physics.hair.front.sway",
+                "pivot_xy": [42.0, 12.0],
                 "stiffness": 15.0,
                 "damping": .72,
             }],
             "draw_order": ["hair.front"],
         }
+        # Two overlapping parts exercise foreground/background transport.
+        # SDK 0.8.7 draws descending zsort, so the foreground must be smaller.
+        model["parts"].append({
+            "semantic_id": "hair.back", "rgba_png": str(source_png), "z_order": 10,
+        })
+        model["mesh"].append({
+            **model["mesh"][0], "semantic_id": "hair.back", "z_order": 10,
+        })
+        model["draw_order"] = ["hair.back", "hair.front"]
         spec = root / "puppet_spec.json"
         spec.write_text(json.dumps(model), encoding="utf-8")
         result = export_inp(str(spec), str(root))
@@ -80,7 +90,7 @@ def main():
         payload = json.loads(raw[12:12 + payload_size])
         texture_offset = 12 + payload_size
         assert raw[texture_offset:texture_offset + 8] == b"TEX_SECT"
-        assert struct.unpack_from(">I", raw, texture_offset + 8)[0] == 1
+        assert struct.unpack_from(">I", raw, texture_offset + 8)[0] == 2
         texture_offset += 12
         texture_size = struct.unpack_from(">I", raw, texture_offset)[0]
         texture_offset += 5  # Length plus official texture encoding byte.
@@ -105,14 +115,31 @@ def main():
                     yield from meshes(child)
 
         actual_meshes = list(meshes(payload["nodes"]))
-        assert len(actual_meshes) == 1
+        assert len(actual_meshes) == 2
         # SDK 0.8.7 camera/quad convention: centered coordinates, Y down.
         # Reading actual output catches a vertically mirrored native model.
-        assert actual_meshes[0]["verts"] == [-36, -36, 36, -36, -36, 36, 36, 36]
-        assert actual_meshes[0]["uvs"] == [.125, .125, .875, .125, .125, .875, .875, .875]
+        for actual_mesh in actual_meshes:
+            assert actual_mesh["verts"] == [-36, -36, 36, -36, -36, 36, 36, 36]
+            assert actual_mesh["uvs"] == [.125, .125, .875, .125, .125, .875, .875, .875]
+        actual_parts = {
+            node["name"]: node for node in payload["nodes"]["children"]
+            if node["type"] == "Part"
+        }
+        assert actual_parts["hair.back"]["zsort"] == -10
+        assert actual_parts["hair.front"]["zsort"] == -70
+        # Apply the pinned renderer's descending sort to native stored values.
+        # Reversing the boundary sign puts hair.back last and fails this check.
+        render_order = sorted(actual_parts, key=lambda name: actual_parts[name]["zsort"], reverse=True)
+        assert render_order == model["draw_order"]
+        actual_drivers = [
+            node for node in payload["nodes"]["children"]
+            if node["type"] == "SimplePhysics"
+        ]
+        assert len(actual_drivers) == 1
+        assert actual_drivers[0]["transform"]["translation"] == [-6, -36, 0]
         assert info["format"] == "INP1"
-        assert info["textures"] == 1
-        assert info["part_count"] == 1
+        assert info["textures"] == 2
+        assert info["part_count"] == 2
         assert info["physics_drivers"] >= 1
         validate_build_result(
             BuildResult("inochi2d", "complete", str(asset), str(spec), str(root))
@@ -123,6 +150,8 @@ def main():
             "mesh_bindings": info["binding_count"],
             "physics": info["physics_drivers"],
             "premultiplied_texture_pixels_verified": True,
+            "native_draw_order_verified": True,
+            "native_physics_pivot_verified": True,
         }, indent=2), flush=True)
 
 

@@ -54,6 +54,7 @@ def main() -> None:
         "physics": [{
             "semantic_id": "hair.front",
             "target_parameter": "physics.hair.front.sway",
+            "pivot_xy": [31.0, 8.0],
             "stiffness": 15., "damping": .72,
         }],
         "draw_order": ["hair.front"],

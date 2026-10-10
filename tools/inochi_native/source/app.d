@@ -104,7 +104,9 @@ int main(string[] args) {
         auto texture = new Texture(shallow);
         auto part = new Part(data, [texture], puppet.root);
         part.name = name;
-        part.zSort = number(item["z_order"]);
+        // Pipeline depth grows toward foreground; SDK 0.8.7 Puppet.draw()
+        // draws descending zSort, so its foreground values must be smaller.
+        part.zSort = -number(item["z_order"]);
         parts[name] = part;
         meshVertices += vertices.length;
     }
@@ -168,10 +170,17 @@ int main(string[] args) {
                 "spring parameter has no real mesh deformation");
         auto node = new SimplePhysics(puppet.root);
         node.name = "Spring " ~ partName;
+        // SDK 0.8.7 derives the simulation anchor from this node's transform.
+        // Match the image-space pivot used to author the sway keyforms.
+        vec2 pivot = xy(spring["pivot_xy"]);
+        node.localTransform.translation = vec3(
+            pivot.x - canvasW * .5f, pivot.y - canvasH * .5f, 0);
+        node.transformChanged();
         node.param(parameters[paramName]);
         node.frequency = number(spring["stiffness"]) * .2f;
         node.angleDamping = number(spring["damping"]);
         node.length = 80.0f;
+        node.reset();
         physicsCount++;
     }
     enforce(boundKeyforms > 0 && physicsCount > 0,

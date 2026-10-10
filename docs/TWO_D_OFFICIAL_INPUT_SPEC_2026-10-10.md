@@ -125,6 +125,15 @@ Florence/SAM2/FLUX/Depth/TripoSR/SR/Blender/VRM 및 3D 모드의 수치·차이�
 
 ### 분해·재합성 추가 검증
 
+- Inochi SDK0.8.7은 zSort 내림차순으로 그린다. 파이프라인의 큰 값=앞 규칙을
+  네이티브 경계에서 음수로 변환하여 앞/뒤 반전을 수정했다.
+- SimplePhysics는 노드 transform을 기준점으로 사용한다. 원화 pivot_xy를 캔버스 중심
+  좌표(Y 아래 증가)로 변환해 transform.translation에 넣고 simulation을 reset한다.
+  머리 추적에 따른 기준점 이동까지 검증한 것은 아니다.
+- 네이티브 CI에 실제 INP의 두 파츠 zsort 및 비중앙 물리 기준점 검사를 추가했다.
+  로컬 관련 테스트 총140개 통과. D 컴파일러/네이티브 실행 파일이 없어 이 환경에서
+  실제 INP 생성·렌더링 회귀 검사는 실행하지 못했다.
+
 - Stable-Layers의 뒤→앞 후보 순서를 패키지의 위→아래 레이어 계약으로 변환한다.
   원본 RGBA 소유권과 후보별 이름은 유지한다.
 - PSD 재입력도 psd-tools의 아래→위 순서를 뒤집어 등록한다. 실제 겹치는 반투명
