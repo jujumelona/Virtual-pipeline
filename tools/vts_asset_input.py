@@ -8,7 +8,7 @@ from PIL import Image, ImageChops
 def prepare_detached_asset(master: Path, work: Path, *, asset_kind: str,
                            qwen: bool, layer_count: int, pass_budget: int,
                            third_party: Path, python: str | None = None):
-    from tools.vts_psd_layer import create_import_layer, new_import_psd
+    from tools.vts_psd_layer import create_import_layer, new_import_psd, save_import_psd
 
     with Image.open(master) as source:
         source.load()
@@ -58,7 +58,7 @@ def prepare_detached_asset(master: Path, work: Path, *, asset_kind: str,
     psd = new_import_psd(rgba.size)
     create_import_layer(rgba, psd, name=asset_kind + ".source")
     target = work / "asset_source.psd"
-    psd.save(target)
+    save_import_psd(psd, target)
     (work / "asset_preparation.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     return target, report

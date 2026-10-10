@@ -592,3 +592,36 @@ def test_psd_mismatch_writes_raw_channel_diagnosis_and_crops(tmp_path, monkeypat
     assert (tmp_path / 'avatar.psd.diagnostics' / 'source_crop.png').is_file()
     assert (tmp_path / 'avatar.psd.diagnostics' / 'saved_crop.png').is_file()
     assert 'PSD_ROUNDTRIP_FAIL' in capsys.readouterr().out
+
+
+def test_generated_psd_save_avoids_float_compositor_and_preserves_real_layers(tmp_path, monkeypatch):
+    from psd_tools import PSDImage
+    from tools.vts_artwork_export import _write_psd
+
+    def unexpected_compositor(*args, **kwargs):
+        pytest.fail('Generated Normal-only PSD must not load the floating point compositor')
+
+    monkeypatch.setattr(PSDImage, 'composite', unexpected_compositor)
+    source = Image.new('RGBA', (256, 384), (127, 90, 180, 2))
+    target = tmp_path / 'bounded.psd'
+    _write_psd([{'name': 'hair.front', 'image': source}], target, free=False)
+    saved = PSDImage.open(target)
+    leaf = [x for x in saved.descendants() if not x.is_group()][0]
+    assert leaf.topil().tobytes() == source.tobytes()
+    assert saved._record.image_data.get_data(saved._record.header)
+    steps = [__import__('json').loads(line) for line in
+             (tmp_path / 'bounded.psd.steps.jsonl').read_text().splitlines()]
+    assert steps[-1]['operation'] == 'verified'
+
+
+def test_bounded_psd_merged_preview_preserves_overlapping_opaque_scene(tmp_path):
+    from psd_tools import PSDImage
+    from tools.vts_artwork_export import _write_psd
+    background = Image.new('RGBA', (40, 60), (80, 90, 120, 255))
+    front = Image.new('RGBA', background.size)
+    front.paste((190, 70, 30, 128), (5, 10, 30, 40))
+    target = tmp_path / 'overlap.psd'
+    _write_psd([{'name':'hair.front', 'image':front},
+                {'name':'body', 'image':background}], target, free=False)
+    expected = background.copy(); expected.alpha_composite(front)
+    assert PSDImage.open(target).topil(apply_icc=False).tobytes() == expected.tobytes()

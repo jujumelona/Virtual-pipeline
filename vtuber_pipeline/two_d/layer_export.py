@@ -9,7 +9,7 @@ def write_psd_and_ora(parts, output_dir: str) -> dict:
     from PIL import Image
     from psd_tools import PSDImage
     from psd_tools.constants import Resource
-    from tools.vts_psd_layer import new_import_psd, create_import_layer, validate_srgb_profile
+    from tools.vts_psd_layer import new_import_psd, create_import_layer, validate_srgb_profile, save_import_psd
     out=Path(output_dir)
     out.mkdir(parents=True,exist_ok=True)
     layers=sorted(parts.parts,key=lambda p:p.z_order,reverse=True)
@@ -38,7 +38,7 @@ def write_psd_and_ora(parts, output_dir: str) -> dict:
         create_import_layer(Image.open(p.rgba_png).convert("RGBA"), parent=psd,
                             name=p.semantic_id, top=0, left=0)
     psd_path=out/"avatar.psd"
-    psd.save(str(psd_path))
+    save_import_psd(psd, psd_path)
     # Validate real PSD format, not renamed bitmap.
     if psd_path.read_bytes()[:4]!=b"8BPS":
         raise RuntimeError("layer writer did not emit a native PSD")

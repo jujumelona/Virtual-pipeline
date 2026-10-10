@@ -51,6 +51,17 @@ PSD 제작은 추론 전에 실제 저장→다시 읽기 검사를 수행합니
 RGBA·색 변환 없는 개별 채널 값을 저장하고, 같은 폴더에 원본/읽기 비교 PNG crop을
 남깁니다. 따라서 저장된 채널 자체의 손상인지 읽기 색 변환 문제인지 구분할 수 있습니다.
 사전 검사 진단은 `logs/psd_runtime/`에 보존하며, 성공한 ZIP에도 실행 버전 JSON을 넣습니다.
+Colab ⑨의 Live2D 제작 전체는 별도 Python 프로세스에서 실행합니다. 코덱의
+SIGSEGV/SIGABRT 같은 네이티브 충돌은 노트북의 Python 예외 처리로 잡을 수 없으므로
+감독 프로세스가 종료 코드·신호를 `vts_process_failure.json`에 기록합니다.
+전체 출력과 faulthandler 스택은 `logs/handoff_process.log`에 보존합니다.
+PSD 옆의 `*.psd.steps.jsonl`은 코덱 호출 전에 fsync하여 생성·저장·열기·레이어 읽기 중
+마지막 진입 지점을 남깁니다. RSS·MemAvailable·cgroup memory.events도 기록합니다.
+SIGKILL만으로 OOM이라고 단정하지 말고 `oom_kill` 증가와 함께 확인하세요.
+직접 생성하는 Normal-only PSD는 일반 float 합성기를 로드하는 `PSDImage.save()` 대신
+8bit Pillow 합성과 PSD format writer를 사용합니다. 레이어·투명도·sRGB는 유지하며
+지원하지 않는 마스크·효과·블렌드 모드는 거부합니다. 외부 PSD의 일반 합성/분해는
+별도 제작 프로세스에 남아 있으며, VM 전체의 OOM까지 격리로 방지한다고 보장하지 않습니다.
 Colab에서 `git pull`이나 pip 설치만 하면 이미 import된 Python 모듈은 갱신되지 않습니다.
 업데이트한 뒤 새 Python 프로세스로 실행하거나 해당 모듈을 다시 로드하세요.
 

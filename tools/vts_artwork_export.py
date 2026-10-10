@@ -166,11 +166,33 @@ def _write_psd(parts, target: Path, *, free: bool):
     Group by contiguous semantic runs only. Consolidating all "hair" parts
     globally changes interleaved eyes/bangs/face drawing order.
     """
+    import os
+    import time
+    from tools.vts_handoff_process import memory_snapshot
+    target.parent.mkdir(parents=True, exist_ok=True)
+    journal = target.with_name(target.name + ".steps.jsonl")
+    journal.unlink(missing_ok=True)
+
+    def step(operation, **details):
+        event = {"event": "PSD_NATIVE_STEP", "operation": operation,
+                 "target": str(target), "pid": os.getpid(), "time": time.time(), **details}
+        if operation in {"import_codec", "create_document", "save", "open"}:
+            event['memory'] = memory_snapshot()
+        # A native crash cannot run an exception handler. Commit the last
+        # operation to disk *before* calling into the codec/compositor.
+        with journal.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(event) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        print("[VTS] PSD_NATIVE_STEP: " + json.dumps(event), flush=True)
+
+    step("import_codec")
     from psd_tools import PSDImage
-    from tools.vts_psd_layer import create_import_layer, new_import_psd
+    from tools.vts_psd_layer import create_import_layer, new_import_psd, save_import_psd
     print("[VTS] PSD_ROUNDTRIP_START: " + json.dumps({
         "target": str(target), "layers": len(parts),
         "canvas": list(parts[0]["image"].size), "free": free}), flush=True)
+    step("create_document", canvas=list(parts[0]["image"].size))
     psd = new_import_psd(parts[0]["image"].size)
     group = None
     active_family = None
@@ -185,12 +207,16 @@ def _write_psd(parts, target: Path, *, free: bool):
             raise RuntimeError("No PSD group for part")
         # psd-tools 1.14.x exposes PixelLayer.frompil(parent=group).
         # Some versions do not expose Group.create_pixel_layer.
+        step("create_layer", name=part['name'])
         create_import_layer(part["image"], parent=group,
                             name=part["name"], top=0, left=0)
     target.parent.mkdir(parents=True, exist_ok=True)
-    psd.save(str(target))
+    step("save", note="bounded Pillow preview + PSD format writer; no float compositor")
+    save_import_psd(psd, target)
+    step("saved", bytes=target.stat().st_size)
     if target.read_bytes()[:4] != b"8BPS":
         raise RuntimeError("Output is not a native layered PSD")
+    step("open")
     document = PSDImage.open(str(target))
     leaves = [x for x in document.descendants() if not x.is_group()]
     if len(leaves) != len(parts):
@@ -200,6 +226,7 @@ def _write_psd(parts, target: Path, *, free: bool):
     # psd-tools enumerates bottom-up; validate the actual saved pixel leaves,
     # not just the in-memory writer objects or an embedded preview.
     for index, (actual, expected) in enumerate(zip(reversed(leaves), parts)):
+        step("decode_layer", index=index, name=actual.name)
         pixels = actual.topil()
         problems = []
         first_difference = None
@@ -279,6 +306,7 @@ def _write_psd(parts, target: Path, *, free: bool):
             )
     print("[VTS] PSD_ROUNDTRIP_PASS: " + json.dumps({
         "target": str(target), "layers": len(parts), "rgba_byte_exact": True}), flush=True)
+    step("verified", layers=len(parts))
     return groups
 
 

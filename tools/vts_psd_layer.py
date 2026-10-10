@@ -61,6 +61,47 @@ def create_import_layer(image, parent, *, name, top=0, left=0):
     return layer
 
 
+def save_import_psd(psd, target):
+    """Write controlled Normal-only import layers without float compositing.
+
+    PSDImage.save() automatically invokes the general compositor, even for
+    a four-row codec probe. Our generated layers have no effects/masks and
+    use Normal/Pass Through only, so Pillow can build the merged preview with
+    bounded 8-bit buffers. Serialize through the format writer after setting
+    that preview explicitly; do not mark the tree clean or discard layers.
+    """
+    from PIL import Image
+    from psd_tools.constants import BlendMode
+    if psd.color_mode.name != "RGB" or psd.depth != 8 or psd.channels != 4:
+        raise ValueError("Bounded PSD writer requires RGB/8-bit with transparency")
+    preview = Image.new("RGBA", psd.size)
+    for layer in psd.descendants():  # PSD stores bottom-to-top.
+        allowed = (BlendMode.PASS_THROUGH, BlendMode.NORMAL) if layer.is_group() else (BlendMode.NORMAL,)
+        if (layer.blend_mode not in allowed or layer.opacity != 255 or layer.mask is not None
+                or layer.clipping or layer.has_effects() or layer.has_vector_mask()):
+            raise ValueError("Bounded PSD writer cannot flatten unsupported attributes: " + layer.name)
+        if layer.is_group() or not layer.is_visible():
+            continue
+        tile = layer.topil(apply_icc=False)
+        if tile is None:
+            raise ValueError("Generated PSD layer has no raster: " + layer.name)
+        preview.alpha_composite(tile.convert("RGBA"), (layer.left, layer.top))
+    # PSD merged image RGB is stored over white; its transparency is a
+    # separate channel. Layer RGB/A remain straight and byte-exact.
+    matte = Image.new("RGBA", psd.size, (255, 255, 255, 255))
+    matte.alpha_composite(preview)
+    bands = (*matte.convert("RGB").split(), preview.getchannel("A"))
+    psd._record.image_data.set_data([band.tobytes() for band in bands], psd._record.header)
+    # PSD format: a negative layer count identifies the first merged alpha
+    # as transparency, rather than an unrelated saved alpha selection.
+    info = psd._record.layer_and_mask_information.layer_info
+    if info is None or info.layer_count == 0:
+        raise ValueError("Bounded PSD writer requires actual layer records")
+    info.layer_count = -abs(info.layer_count)
+    with open(target, "wb") as stream:
+        psd._record.write(stream)
+
+
 def psd_runtime_identity():
     """Identify loaded code, not merely packages installed on disk."""
     import hashlib
@@ -84,7 +125,8 @@ def psd_runtime_identity():
         "psd_tools_path": str(Path(psd_tools.__file__).resolve()),
         "writer_sha256": hashlib.sha256(
             marshal.dumps(new_import_psd.__code__) +
-            marshal.dumps(create_import_layer.__code__)).hexdigest(),
+            marshal.dumps(create_import_layer.__code__) +
+            marshal.dumps(save_import_psd.__code__)).hexdigest(),
     }
 
 
