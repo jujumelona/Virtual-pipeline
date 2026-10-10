@@ -42,6 +42,7 @@ jobs:
             tests/test_vts_mode_contract.py \
             tests/test_vts_production_contract.py \
             tests/test_vts_artwork_export.py \
+            tests/test_vts_official_second_pass.py \
             tests/test_vts_subprocess.py \
             tests/test_vts_qwen_runtime.py \
             tests/test_vts_quantization.py \
