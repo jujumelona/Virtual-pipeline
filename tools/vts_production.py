@@ -378,6 +378,13 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
             adaptation = "".join(
                 f"        set_4bit_compute_dtype({owner}.{name}, torch.float16)\n"
                 for name in names)
+            # One compact GPU-memory snapshot before the first prompt cache
+            # matmul; useful for distinguishing VRAM pressure from dtype issues.
+            adaptation += (
+                f"        _vts_free, _vts_total = torch.cuda.mem_get_info()\\n"
+                f"        print('[VTS VRAM] {owner} before tag cache: '"
+                f" + f'{_vts_free / (1024**3):.2f} / {_vts_total / (1024**3):.2f} GiB free', flush=True)\\n"
+            )
             patched = patched.replace(anchor, adaptation + anchor)
         # The official NF4 Marigold branch unconditionally places its VAE and
         # UNet on CUDA, even when --cpu_offload was requested. Honor the
