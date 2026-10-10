@@ -63,11 +63,13 @@ def test_semantic_sam_attempts_every_observed_first_pass_layer(monkeypatch, tmp_
     assert len(trace) == 2 and all(t["accepted"] for t in trace)
     assert len(parts) == 4 and log.is_file()
     for input_part, child_group in zip([source_a, source_b], [parts[:2], parts[2:]]):
-        from PIL import ImageChops
-        base = Image.new("RGBA", (40, 20))
+        # Check stored pixels, not Pillow compositing round-trip arithmetic.
+        rebuilt = np.zeros((20, 40, 4), dtype=np.uint8)
         for child in child_group:
-            base.alpha_composite(child["image"])
-        assert ImageChops.difference(base, input_part["image"]).getbbox() is None
+            rgba = np.asarray(child["image"], dtype=np.uint8)
+            owns = rgba[..., 3] > 0
+            rebuilt[owns] = rgba[owns]
+        assert np.array_equal(rebuilt, np.asarray(input_part["image"]))
 
 
 def test_semantic_sam_respects_free_artmesh_budget(monkeypatch, tmp_path):
