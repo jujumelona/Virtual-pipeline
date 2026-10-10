@@ -347,8 +347,14 @@ def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
     return current
 
 
-def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int = 7200):
+def run_see_through(master: Path, work: Path, *, third_party: Path,
+                    timeout: int = 7200, qwen: bool = False):
     """Use the published NF4 PSD inference entrypoint, not a fake layer splitter."""
+    if qwen:
+        from tools.vts_qwen_refine import validate_qwen_runtime_source
+        source = Path(third_party).expanduser().resolve().parent / "Stable-Layers" / "decompose.py"
+        validate_qwen_runtime_source(source)
+        print("[VTS] QWEN_RUNTIME_PREFLIGHT_PASS (syntax, disposed references)", flush=True)
     master = master.expanduser().resolve(strict=True)
     work = work.expanduser().resolve()
     third_party = third_party.expanduser().resolve()
@@ -639,7 +645,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                 third_party=model_root.parent,
                 python=os.environ.get("VTUBER_SEETHROUGH_PYTHON"))
         else:
-            psd = run_see_through(master, output / "decomposition", third_party=model_root)
+            psd = run_see_through(master, output / "decomposition", third_party=model_root, qwen=qwen)
         # PSD mask/alpha extraction preserves original See-through pixels.
         status["stage"] = "psd_registration"
         _write(state_path, status)
