@@ -81,19 +81,19 @@ def _patch_pinned_official(code: str, *, quant_dir: str, lora_dir: str) -> str:
     prompt = first + prompt
     if prompt.count("    text_encoder = text_encoder.to(device).eval()") != 1:
         raise RuntimeError("Stable-Layers encoder transfer changed")
-    prompt = prompt.replace("    text_encoder = text_encoder.to(device).eval()\\n", "")
+    prompt = prompt.replace("    text_encoder = text_encoder.to(device).eval()\n", "")
     if code.count("    # __VTS_PROMPT_PRECOMPUTE__") != 1:
         raise RuntimeError("Missing prompt precompute boundary")
     code = (prefix + last + suffix).replace(
         "    # __VTS_PROMPT_PRECOMPUTE__", prompt)
     # Quantized transformer stays on GPU while VAE runs on CPU.
     for original, staged in (
-        ("    img_t = img_t.unsqueeze(0).to(device)\\n",
-         "    img_t = img_t.unsqueeze(0).to('cpu')\\n"),
-        ("    condition_latents = encode_condition_image(vae, img_t)\\n",
-         "    condition_latents = encode_condition_image(vae, img_t).to(device)\\n"),
-        ("    decoded = decode_layers(vae, latents, th, tw, args.num_layers)\\n",
-         "    decoded = decode_layers(vae, latents.to('cpu'), th, tw, args.num_layers)\\n"),
+        ("    img_t = img_t.unsqueeze(0).to(device)\n",
+         "    img_t = img_t.unsqueeze(0).to('cpu')\n"),
+        ("    condition_latents = encode_condition_image(vae, img_t)\n",
+         "    condition_latents = encode_condition_image(vae, img_t).to(device)\n"),
+        ("    decoded = decode_layers(vae, latents, th, tw, args.num_layers)\n",
+         "    decoded = decode_layers(vae, latents.to('cpu'), th, tw, args.num_layers)\n"),
     ):
         if code.count(original) != 1:
             raise RuntimeError("Stable-Layers VAE CPU execution contract changed")
