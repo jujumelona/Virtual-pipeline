@@ -108,3 +108,51 @@ def test_valid_srgb_profile_retains_original_dimensions(tmp_path):
     Image.new("RGBA", (256, 384), (15, 80, 120, 128)).save(path,
         icc_profile=ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes())
     assert _image(path) == (256, 384)
+
+def test_native_left_right_split_runs_when_depth_has_no_tags(tmp_path, monkeypatch):
+    """Regression: depth having zero candidates must not suppress LR splitting."""
+    from psd_tools import PSDImage
+    from tools import vts_subprocess
+
+    src = tmp_path / "source.psd"
+    src.write_bytes(b"test fixture, not a genuine PSD")
+    Path(str(src) + ".json").write_text('{"parts":{"hair":{}}}', encoding="utf-8")
+    (tmp_path / "source_depth.psd").write_bytes(b"depth companion fixture")
+    vendor = tmp_path / "vendor"
+    script = vendor / "inference/scripts/heuristic_partseg.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("# official command boundary fixture", encoding="utf-8")
+    calls = []
+
+    def fake_run_logged(cmd, **kwargs):
+        calls.append(cmd)
+        (tmp_path / "source_lrsplit.psd").write_bytes(b"split fixture")
+        return 0
+
+    monkeypatch.setattr(vts_subprocess, "run_logged", fake_run_logged)
+    monkeypatch.setattr(
+        production, "_observed_split_tags",
+        lambda meta, *, depth: [] if depth else ["hair"])
+
+    class StubPSD:
+        size = (8, 8)
+
+        def __init__(self, split):
+            self.split = split
+
+        def composite(self):
+            return Image.new("RGBA", self.size, (18, 40, 100, 255))
+
+        def descendants(self):
+            return [SimpleNamespace(is_group=lambda: False)] * (2 if self.split else 1)
+
+    monkeypatch.setattr(
+        PSDImage, "open",
+        staticmethod(lambda path: StubPSD(Path(path).stem.endswith("_lrsplit"))))
+    result = production._safe_refine_psd(
+        src, third_party=vendor, worker_python=sys.executable, timeout=5)
+    assert result == tmp_path / "source_lrsplit.psd"
+    assert len(calls) == 1
+    assert calls[0][3] == "seg_wlr"
+    assert calls[0][-1] == "hair"
+

@@ -313,7 +313,10 @@ def _safe_refine_psd(src: Path, *, third_party: Path, worker_python: str,
             break
         tags = _observed_split_tags(meta, depth=(mode == "seg_wdepth"))
         if not tags:
-            break
+            # No depth candidate is not evidence that the independent
+            # left/right pass has no eligible, unsided semantic parts.
+            print("[See-through] no eligible tags for", mode, flush=True)
+            continue
         cmd = [worker_python, "-u", str(script), mode,
                "--srcp", str(current), "--target_tags", ",".join(tags)]
         log = current.with_name(current.stem + "_" + mode + ".log")
