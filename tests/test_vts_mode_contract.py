@@ -173,4 +173,5 @@ def test_qwen_plans_match_real_mode_gate(identity, edition, asset, expected):
     spec = build_vts_brief(edition, "upper", identity, asset_kind=asset)
     assert spec["models"]["stable_layers"]["enabled_for_planning"] is expected
     assert (spec["models"]["qwen_usage"] == "optional_detached_asset_only") is expected
+    assert ("recursive_layers" in {x["stage"] for x in spec["models"]["stages"]}) is expected
 
