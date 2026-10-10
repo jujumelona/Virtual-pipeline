@@ -784,3 +784,49 @@ def test_connected_solid_anatomy_is_not_falsely_split():
     original = Image.new("RGBA", (200, 80), (90, 80, 70, 255))
     assert _split_clear_bilateral_layer(
         {"name": "eye.sclera", "image": original, "depth": 0}) is None
+
+
+def test_official_free_handoff_contract_runs_sam_then_one_nf4_batch_then_writes_psd(
+        tmp_path, monkeypatch):
+    """Production seam: validate actual stage order, output and Qwen absence."""
+    import json
+    from tools import vts_artwork_export as export
+
+    archive = make_layers(tmp_path / "in", 2)
+    calls = []
+
+    def sam_once(layers, canvas, *, output, third_party, edition):
+        calls.append(("sam19", len(layers), edition))
+        assert all(item["image"].size == canvas for item in layers)
+        assert third_party.name == "see-through"
+        return layers, [{"accepted": False, "reason": "unchanged"}] * len(layers), (
+            output / "sam19.log")
+
+    def nf4_once(layers, canvas, *, output, third_party, edition):
+        calls.append(("nf4-batch-pass2", len(layers), edition))
+        assert third_party.name == "see-through"
+        return layers, [{"accepted": False, "reason": "unchanged"}] * len(layers), (
+            output / "see_through_full.log")
+
+    monkeypatch.setattr(export, "_apply_official_semantic_sam_once", sam_once)
+    monkeypatch.setattr(export, "_refine_all_layers_official_once", nf4_once)
+
+    def should_never_load_qwen(*args, **kwargs):
+        raise AssertionError("FREE body must not import Qwen runtime")
+
+    monkeypatch.setattr("tools.vts_qwen_refine.infer", should_never_load_qwen)
+    result = export.build_artwork_package(
+        archive, tmp_path / "out", edition="free", scope="upper",
+        third_party=tmp_path, official_second_pass=True, qwen=False)
+    assert calls == [("sam19", 2, "free"), ("nf4-batch-pass2", 2, "free")]
+    assert result["layer_count"] == 2
+    assert result["official_sam19_attempts"] == 2
+    assert result["official_second_pass_attempts"] == 2
+    with ZipFile(result["package"]) as bundle:
+        names = set(bundle.namelist())
+        assert {"avatar.psd", "metadata/official_sam19.json",
+                "metadata/official_second_pass.json"}.issubset(names)
+        sam_report = json.loads(bundle.read("metadata/official_sam19.json"))
+        nf4_report = json.loads(bundle.read("metadata/official_second_pass.json"))
+        assert sam_report["input_count"] == nf4_report["input_count"] == 2
+        assert sam_report["accepted_count"] == nf4_report["accepted_count"] == 0
