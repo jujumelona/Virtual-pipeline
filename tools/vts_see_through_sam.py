@@ -58,7 +58,15 @@ def run_worker(*, third_party: Path, manifest: Path, source: Path, output: Path)
         module_cls=SemanticSam,
         download_from_hf=False,
         model_args=dict(class_num=SAM_PART_COUNT),
-    ).to(device="cuda").eval()
+    )
+    # Pinned checkpoint contains BF16 storage. T4 (SM 7.5) cannot execute
+    # native BF16 convolutions; cast to FP16 before moving model onto CUDA.
+    capability = torch.cuda.get_device_capability(0)
+    if capability[0] < 8:
+        model = model.to(device="cuda", dtype=torch.float16).eval()
+        print("[VTS SAM] T4/SM<8: BF16 weights cast to FP16 compute", flush=True)
+    else:
+        model = model.to(device="cuda").eval()
     image = Image.open(source).convert("RGB")
     with torch.inference_mode():
         logits = model.inference(np.array(image))[0]
