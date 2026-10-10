@@ -387,16 +387,16 @@ def run_see_through(master: Path, work: Path, *, third_party: Path, timeout: int
             # time. The pinned encoder uses .text_encoder.device (often CPU
             # between calls), which misplaces token indices. Fix only this
             # method in the short-lived worker, with a pinned-source guard.
-            family = "layerdiff" if owner == "pipeline" else "marigold"
-            adaptation += (
-                "        if args.cpu_offload:\n"
-                f"            align_offload_prompt_encoder_device({owner}, {family!r})\n"
-                f"            align_offload_image_devices({owner}, {family!r})\n"
-                + (
+            # The pinned Marigold NF4 branch uses GPU/group offload, not
+            # Accelerate model CPU offload (which requires a sequence that the
+            # custom pipeline does not define). Keep its vendor device logic.
+            if owner == "pipeline":
+                adaptation += (
+                    "        if args.cpu_offload:\n"
+                    "            align_offload_prompt_encoder_device(pipeline, 'layerdiff')\n"
+                    "            align_offload_image_devices(pipeline, 'layerdiff')\n"
                     "            align_offloaded_transparent_decoder(pipeline)\n"
-                    if owner == "pipeline" else ""
                 )
-            )
             # One compact GPU-memory snapshot before the first prompt cache
             # matmul; useful for distinguishing VRAM pressure from dtype issues.
             adaptation += (
