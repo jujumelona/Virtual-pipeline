@@ -127,3 +127,17 @@ def test_worker_pip_preflight_failure_blocks_ready_manifest(tmp_path, monkeypatc
     with pytest.raises(RuntimeError, match="worker pip unavailable"):
         setup.prepare(install=True)
     assert not stale.exists()
+
+
+def test_detached_vts_setup_does_not_fetch_unused_sam_body(tmp_path, monkeypatch):
+    monkeypatch.setattr(setup, "ROOT", tmp_path)
+    monkeypatch.setattr(setup, "checkout", lambda url, dest, sha: dest)
+    downloaded = []
+    monkeypatch.setattr(setup, "download_snapshot",
+                        lambda model, **kwargs: downloaded.append(model) or "/cached/" + model)
+    manifest = setup.prepare(qwen=False, install=False, sam_body=False)
+    info = json.loads(manifest.read_text())
+    assert "24yearsold/l2d_sam_iter2" not in downloaded
+    assert "24yearsold/seethroughv0.0.2_layerdiff3d_nf4" in downloaded
+    assert info["sam_body_weights_prefetched"] is False
+    assert info["qwen_weights_prefetched"] is False
