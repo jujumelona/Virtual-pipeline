@@ -882,7 +882,7 @@ SkinTokens의 주 저장소와 배포 가중치는 MIT로 안내되지만, [업�
 | Marching Cubes mesh extraction | `scikit-image==0.26.0` (prebuilt wheel) | BSD-3-Clause |
 | TripoSR model snapshot | `c1cf7716aed5aa6c1c5e174657791ef0e1327bde` + verified `model.ckpt` SHA256 | model license in upstream repository |
 | TripoSR nested DINO config | `facebook/dino-vitb16@f205d5d8e640a89a2b8ef0369670dfc37cc07fc2` | Apache-2.0 |
-| rembg runtime | `2.0.85` | MIT |
+| rembg runtime | `2.0.69` (NumPy <2.3 compatible) | MIT |
 | rembg background model | forced `u2net`, MD5 `60024c5c889badc19c04ad937298a77b` | Apache-2.0 |
 | anime-face-detector package | `0.1.0` | MIT |
 | anime face YOLOv3 weight | `afdd4226a79ae8bb81f334dbcffd34f8cc000c38` + SHA256 `23bbc708…b2c4` | MIT |
