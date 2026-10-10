@@ -356,13 +356,15 @@ def _install_runtime(head: str) -> None:
     # live UI. Transformers 5.18 retains the public ViTModel API used by TripoSR;
     # the actual 3D model must still pass its GPU inference check.
     # Limit NumPy/Numba to the preinstalled Colab RAPIDS compatibility window.
+    # rembg >=2.0.70 requires NumPy >=2.3; 2.0.69 retains the U2Net
+    # session/checksum API and does not force an incompatible NumPy upgrade.
     print("[환경 4/7] TripoSR 의존성 설치 (GPU 추론 아님)", flush=True)
     runtime_packages = [
         "omegaconf==2.3.0",
         "einops==0.7.0",
         "transformers==5.18.0",
         "trimesh==4.12.2",
-        "rembg==2.0.85",
+        "rembg==2.0.69",
         "numpy>=2.1,<2.3",
         "numba>=0.60,<0.65",
         "jedi>=0.16",
@@ -482,9 +484,9 @@ def _install_runtime(head: str) -> None:
                 "scikit-image=0.26.0",
                 "moderngl=5.12.0",
                 "onnxruntime=1.30.0",
-                "transformers=4.57.6",
+                "transformers=5.18.0",
                 "trimesh=4.12.2",
-                "rembg=2.0.85",
+                "rembg=2.0.69",
             ]
         )
         + "\n",
