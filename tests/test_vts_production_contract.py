@@ -601,7 +601,10 @@ def test_official_lr_runs_even_if_independent_depth_stage_fails(tmp_path, monkey
             return Image.new("RGBA", (64, 64), (75, 45, 25, 255))
 
         def descendants(self):
-            return [object()] * (3 if "lrsplit" in self.path else 2)
+            class Leaf:
+                def is_group(self):
+                    return False
+            return [Leaf() for _ in range(3 if "lrsplit" in self.path else 2)]
 
     monkeypatch.setattr(vts_subprocess, "run_logged", fake_run)
     monkeypatch.setattr(PSDImage, "open", lambda p: FakePSD(p))
