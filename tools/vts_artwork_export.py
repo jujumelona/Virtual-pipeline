@@ -705,7 +705,7 @@ def validate_artwork_request(*, edition: str, scope: str, asset_kind: str | None
         raise ValueError("PRO must select exactly one body/hair/outfit/accessory asset")
     if edition == "free" and asset_kind is not None:
         raise ValueError("FREE is one complete fixed-look character")
-    if not 2 <= per_pass_layers <= 10 or not 0 <= max_qwen_passes <= 12:
+    if not 2 <= per_pass_layers <= 10 or not 0 <= max_qwen_passes <= 48:
         raise ValueError("Invalid Qwen recursion budget")
 
 
