@@ -201,23 +201,14 @@ def test_observed_anatomy_is_eligible_for_refinement(family):
     assert _candidate_score(part) > 0
 
 
-def test_free_request_respects_remaining_layer_budget(tmp_path):
-    archive = make_layers(tmp_path / "in", 99)
-    def infer(source, output, **kw):
-        assert kw["layer_count"] == 2
-        output.mkdir(parents=True)
-        im = Image.open(source).convert("RGBA")
-        a = Image.new("RGBA", im.size)
-        b = Image.new("RGBA", im.size)
-        a.paste((50, 50, 50, 255), (0, 0, im.width // 2, im.height))
-        b.paste((50, 50, 50, 255), (im.width // 2, 0, im.width, im.height))
-        paths = [output / "a.png", output / "b.png"]
-        a.save(paths[0]); b.save(paths[1])
-        return {"layers": list(map(str, paths))}
-    result = build_artwork_package(archive, tmp_path / "out", edition="free", scope="upper",
-                                   qwen=True, qwen_infer=infer, per_pass_layers=8, max_qwen_passes=1)
-    assert result["layer_count"] == 100
-    assert result["qwen_attempts"][0]["accepted"] is True
+def test_free_never_uses_qwen_even_with_injected_backend(tmp_path):
+    archive = make_layers(tmp_path / "in")
+    def must_not_run(*args, **kwargs):
+        pytest.fail("FREE must never execute an injected Qwen backend")
+    with pytest.raises(ValueError, match="only for PRO hair/accessory"):
+        build_artwork_package(archive, tmp_path / "out",
+                              edition="free", scope="upper", qwen=True,
+                              qwen_infer=must_not_run)
 
 
 def test_official_four_layer_default_applies_to_eyebrow_parts(tmp_path):
@@ -231,8 +222,10 @@ def test_official_four_layer_default_applies_to_eyebrow_parts(tmp_path):
     def infer(source, output, **kw):
         # Real orchestration records the requested setting; no model inference claim.
         return {"layers": [str(source)] * kw["layer_count"]}
-    result = build_artwork_package(archive, tmp_path / "out", edition="free", scope="upper",
+    result = build_artwork_package(archive, tmp_path / "out", edition="pro",
+                                   scope="upper", asset_kind="hair",
                                    qwen=True, qwen_infer=infer, max_qwen_passes=2)
+    assert result["qwen_attempts"]
     assert all(a["requested_count"] == 4 for a in result["qwen_attempts"])
 
 
@@ -282,7 +275,8 @@ def test_qwen_runtime_logs_are_in_final_package(tmp_path):
         for i in range(2):
             path = output / f"layer_{i}.png"; image.save(path); paths.append(str(path))
         return {"layers": paths, "log": str(log)}
-    result = build_artwork_package(source, tmp_path / "out", edition="free", scope="upper",
+    result = build_artwork_package(source, tmp_path / "out", edition="pro",
+                                   scope="upper", asset_kind="hair",
                                    qwen=True, qwen_infer=infer, max_qwen_passes=1)
     with ZipFile(result["package"]) as z:
         assert z.read("logs/qwen_000.log") == b"model completed: native worker evidence\n"
@@ -325,13 +319,13 @@ def test_foreground_proposal_wins_equal_alpha_overlap(tmp_path):
     assert children[1]["image"].getchannel("A").getbbox() == (0, 0, 20, 40)
 
 
-def test_recursion_covers_other_observed_regions_before_repeating_hair(tmp_path):
+def test_pro_hair_recursion_attempts_only_eligible_hair_parts(tmp_path):
     from io import BytesIO
     source = tmp_path / "regions.zip"
     with ZipFile(source, "w") as z:
         for name, box in [("hair.front", (0, 0, 200, 100)),
-                          ("eye.left", (10, 110, 40, 130)),
-                          ("mouth", (10, 140, 30, 160))]:
+                          ("hair.back", (10, 110, 40, 130)),
+                          ("hair.strand", (10, 140, 30, 160))]:
             image = Image.new("RGBA", (256, 384))
             image.paste((90, 80, 70, 255), box)
             buf = BytesIO(); image.save(buf, format="PNG")
@@ -345,9 +339,11 @@ def test_recursion_covers_other_observed_regions_before_repeating_hair(tmp_path)
             image.paste((0, 0, 0, 255), (index * size[0] // 2, 0, (index + 1) * size[0] // 2, size[1]))
             path = output / f"layer{index}.png"; image.save(path); paths.append(path)
         return {"layers": paths}
-    result = build_artwork_package(source, tmp_path / "out", edition="free", scope="upper",
+    result = build_artwork_package(source, tmp_path / "out", edition="pro",
+                                   scope="upper", asset_kind="hair",
                                    qwen=True, qwen_infer=infer, max_qwen_passes=3)
-    assert {x["source_layer"] for x in result["qwen_attempts"]} == {"hair.front", "eye.left", "mouth"}
+    assert len(result["qwen_attempts"]) == 3
+    assert all(x["source_layer"].startswith("hair.") for x in result["qwen_attempts"])
 
 
 def test_free_single_flattened_character_is_not_reported_as_separated_artwork(tmp_path):
@@ -702,13 +698,15 @@ def test_qwen_request_never_silently_passes_without_any_model_attempt(tmp_path):
     with ZipFile(source, "w") as z:
         for i in range(2):
             data = BytesIO()
-            Image.new("RGBA", (256, 384), (30, 40, 50, 255)).save(data, "PNG")
+            im = Image.new("RGBA", (256, 384))
+            im.paste((30, 40, 50, 255), (0, 0, 4, 4))
+            im.save(data, "PNG")
             z.writestr(f"unknown.{i}.png", data.getvalue())
     def must_run(*args, **kwargs):
         raise AssertionError("No semantic candidate should reach the model")
     with pytest.raises(RuntimeError, match="no eligible part"):
         build_artwork_package(source, tmp_path / "out",
-                              edition="free", scope="upper", qwen=True,
+                              edition="pro", asset_kind="hair", scope="upper", qwen=True,
                               max_qwen_passes=2, qwen_infer=must_run)
 
 
