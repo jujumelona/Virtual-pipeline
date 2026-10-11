@@ -18,7 +18,7 @@ ZIP_MEMBERS = {
     "06_ADVANCED_OFFICIAL_COMMUNITY.md",
     "07_REVIEW_BEFORE_FINAL_ZIP.md",
     "08_PRACTICAL_TIPS.md",
-    "references/ARTWORK_FLOW.svg",
+    "09_VISUAL_ART_QUALITY.md",
 }
 
 
@@ -39,6 +39,16 @@ def test_every_one_of_twenty_zips_is_readable_with_ten_complete_files():
                 advanced = archive.read("06_ADVANCED_OFFICIAL_COMMUNITY.md").decode("utf-8")
                 repeat = archive.read("07_REVIEW_BEFORE_FINAL_ZIP.md").decode("utf-8")
                 practical = archive.read("08_PRACTICAL_TIPS.md").decode("utf-8")
+                quality = archive.read("09_VISUAL_ART_QUALITY.md").decode("utf-8")
+                assert quality == (ROOT_KITS / "source" / (
+                    "QUALITY_STANDARD_3D.md" if mode == "3d"
+                    else "QUALITY_STANDARD_2D.md")).read_text(encoding="utf-8")
+                assert "09_VISUAL_ART_QUALITY.md" in prompt
+                assert "https://www.live2d.com/en/learn/sample/" in quality
+                assert "Pillow" in quality and "실제" in quality
+                assert "PNG" in quality and "최종" in quality
+                assert "도형" in prompt or "베지어" in prompt
+
                 assert ("08_PRACTICAL_TIPS.md" in prompt or
                         ("08" in prompt and "비공식" in prompt))
                 assert "07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt
