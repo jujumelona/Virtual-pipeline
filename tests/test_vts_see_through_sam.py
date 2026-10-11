@@ -134,9 +134,22 @@ def test_sam_gpu_worker_command_and_output_contract_without_cuda(monkeypatch, tm
         [source], (24, 16), output=tmp_path / "out", third_party=vendor)
     assert len(observed) == 1
     assert len(masks) == 19
-    assert masks[0].getchannel("A").getbbox() == (0, 0, 12, 16)
-    assert masks[1].getchannel("A").getbbox() == (12, 0, 24, 16)
-    assert masks[2].getchannel("A").getbbox() is None
+    assert all(mask.mode == "L" and mask.size == (24, 16) for mask in masks)
+    assert sum(len(mask.tobytes()) for mask in masks) == 19 * 24 * 16
+    assert masks[0].getbbox() == (0, 0, 12, 16)
+    assert masks[1].getbbox() == (12, 0, 24, 16)
+    assert masks[2].getbbox() is None
+    assert masks[0].getpixel((0, 0)) == 255
+    assert masks[1].getpixel((0, 0)) == 0
+    from tools.vts_official_second_pass import partition_from_masks
+    parts, decision = partition_from_masks(source, masks)
+    assert decision["accepted"] and len(parts) == 2
+    restored = np.zeros((16, 24, 4), dtype=np.uint8)
+    for part in parts:
+        rgba = np.asarray(part["image"])
+        occupied = rgba[:, :, 3] > 0
+        restored[occupied] = rgba[occupied]
+    assert np.array_equal(restored, np.asarray(source["image"]))
     assert log.is_file()
 
 

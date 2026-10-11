@@ -127,12 +127,9 @@ def run_sam_from_package(layers: list[dict], canvas: tuple[int, int],
         raise RuntimeError(f"Official SAM body parsing failed exit={code}; log={log}")
     with np.load(result, allow_pickle=False) as data:
         masks = check_masks(data["masks"], canvas)
-    # Every mask remains exactly the original image's full coordinate canvas.
-    images = []
-    for channel in masks:
-        rgba = np.zeros((canvas[1], canvas[0], 4), dtype=np.uint8)
-        rgba[..., 3] = channel * 255
-        images.append(Image.fromarray(rgba, "RGBA"))
+    # Full-canvas coverage masks need one byte per pixel, not four RGBA
+    # channels. The partitioner accepts L masks without losing source pixels.
+    images = [Image.fromarray(channel * 255, "L") for channel in masks]
     return images, log
 
 
