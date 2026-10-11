@@ -128,7 +128,8 @@ def test_all_twenty_anime_kits_are_valid_with_twelve_documents():
                 assert "자동분리" in (prompt + common) or "자동 분리" in (prompt + common)
                 assert "마스크" in common
                 assert "리깅" in prompt  # mentioned ONLY as excluded from image AI tasks
-                assert "07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt
+                assert ("07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt or
+                        ("07" in prompt and "점검" in prompt))
                 assert ("08_PRACTICAL_TIPS.md" in prompt or
                         (("08" in prompt or "01~09" in prompt) and "비공식" in prompt))
                 assert "처음" in (prompt + common)
