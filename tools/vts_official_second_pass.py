@@ -37,7 +37,10 @@ def partition_from_masks(layer: dict, masks: list[Image.Image],
     if coverage < 0.75:
         return [layer], {"accepted": False, "reason": "insufficient_mask_coverage",
                          "coverage": round(coverage, 5)}
-    assigned = alpha.argmax(axis=0)
+    # Vendor masks are ordered background-to-foreground. When a background
+    # mask is opaque everywhere, ordinary argmax steals foreground pixels on
+    # equal-alpha ties. Prefer the later (frontmost) proposal deterministically.
+    assigned = len(masks) - 1 - alpha[::-1].argmax(axis=0)
     minimum = max(24, int(count * min_fraction))
     meaningful = [i for i in range(len(masks))
                   if int(np.count_nonzero(visible & (assigned == i))) >= minimum]
@@ -47,7 +50,7 @@ def partition_from_masks(layer: dict, masks: list[Image.Image],
     # Any weakly-covered pixels are assigned to a real accepted mask rather
     # than deleted. Rejects masks with no material second independent region.
     assignment = np.asarray(meaningful, dtype=np.int32)[
-        alpha[meaningful].argmax(axis=0)]
+        len(meaningful) - 1 - alpha[meaningful][::-1].argmax(axis=0)]
     children = []
     for order, idx in enumerate(meaningful, start=1):
         block = np.zeros_like(rgba)

@@ -140,3 +140,44 @@ def test_official_second_pass_rejects_rgb_masks_without_coverage_channel():
     part = fixture_part()
     with pytest.raises(ValueError, match="alpha or grayscale"):
         partition_from_masks(part, [Image.new("RGB", (64, 32))] * 2)
+
+
+@pytest.mark.parametrize("mask_mode", ["RGBA", "L"])
+def test_second_pass_background_opaque_does_not_swallow_foreground(mask_mode):
+    part = fixture_part()
+    def proposal(region):
+        grayscale = Image.new("L", (64, 32), 255 if region == "background" else 0)
+        if region == "left":
+            grayscale.paste(255, (0, 0, 32, 32))
+        elif region == "right":
+            grayscale.paste(255, (32, 0, 64, 32))
+        if mask_mode == "L":
+            return grayscale
+        rgba = Image.new("RGBA", grayscale.size)
+        rgba.putalpha(grayscale)
+        return rgba
+
+    masks = [proposal(x) for x in ("background", "left", "right")]
+    children, report = partition_from_masks(part, masks)
+    assert report["accepted"] is True
+    assert len(children) == 2
+    observed = {child["image"].getchannel("A").getbbox() for child in children}
+    assert observed == {(0, 0, 32, 32), (32, 0, 64, 32)}
+    original = np.asarray(part["image"])
+    reconstructed = np.zeros_like(original)
+    for child in children:
+        pixels = np.asarray(child["image"])
+        occupied = pixels[:, :, 3] > 0
+        reconstructed[occupied] = pixels[occupied]
+    assert np.array_equal(reconstructed, original)
+
+
+@pytest.mark.parametrize("mask_mode", ["RGBA", "L"])
+def test_second_pass_all_identical_masks_are_still_rejected(mask_mode):
+    part = fixture_part()
+    grayscale = Image.new("L", (64, 32), 255)
+    mask = grayscale if mask_mode == "L" else Image.new("RGBA", (64, 32), (0, 0, 0, 255))
+    children, report = partition_from_masks(part, [mask, mask.copy(), mask.copy()])
+    assert children == [part]
+    assert report["accepted"] is False
+    assert report["reason"] == "no_meaningful_division"
