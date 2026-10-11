@@ -58,7 +58,9 @@ def test_all_twenty_anime_kits_are_valid_with_twelve_documents():
                 assert quality == (ROOT_KITS / "source" / (
                     "QUALITY_STANDARD_3D.md" if mode == "3d"
                     else "QUALITY_STANDARD_2D.md")).read_text(encoding="utf-8")
-                assert ("09_VISUAL_ART_QUALITY.md" in prompt or "07·09·10" in prompt)
+                assert ("09_VISUAL_ART_QUALITY.md" in prompt or
+                        ("09" in prompt and "품질" in prompt and
+                         "10_ANIME_STYLE.md" in prompt))
                 assert "https://www.live2d.com/en/learn/sample/" in quality
                 assert "Pillow" in quality and "실제" in quality
                 assert ("PNG" in quality if mode != "3d" else "그림" in quality)
