@@ -1,16 +1,38 @@
 # VTuber Commercial Pipeline
 
-**Live2D DEMO 재작업 요구:** [제작/납품 승인 기준 v2](docs/live2d_ai_asset_pack/PRODUCTION_ACCEPTANCE_V2.md) · [대형 이미지 AI용 DEMO 수정 지시](docs/live2d_ai_asset_pack/DEMO_REWORK_REQUEST.md). 단순 마스킹 파츠를 원화 완성으로 판단하지 않음.
-
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 
 외부 이미지 생성 AI가 만든 캐릭터 이미지를 입력받아 **Inochi2D**, **Live2D**, **3D VRM** 모델을 제작합니다. 모드별 이미지 생성 사양과 프롬프트는 아래에 정리되어 있습니다.
 
-### 공식 Live2D 기준의 대형 이미지 AI 독립 파츠 제작 문서
+## Live2D: GPT·Gemini 이미지 AI로 원화 ZIP 제작 (추천 입력)
 
-[대형 GPT/Gemini 실행 지시, 공식 예제, 파츠 분리/회전 명세](docs/live2d_ai_asset_pack/README.md)를 추가했습니다. 기존 프롬프트 ZIP에도 **large_image_ai_asset_pack/** 문서 6개가 포함됩니다. 외부 AI가 master와 독립 파츠 PNG들을 **실제 생성하고 ZIP 납품하도록 지시**합니다. **기존 1장 master → See-through·SAM → PSD2Live 경로가 자동으로 여러 PNG ZIP을 가져오도록 구현된 것은 아닙니다.** 공식에 없는 8장/60개 고정 수량을 강제하지 않습니다.
+**[① 이미지 AI 제작 지시서 ZIP 받기](docs/live2d_image_ai_kit/Live2D_Image_AI_Instruction_Kit.zip)** · [지시서·공식 링크 원문 보기](docs/live2d_image_ai_kit/README.md)
+
+1. GitHub에서 위 **지시서 ZIP을 다운로드**하여 GPT·Gemini 등 **이미지 생성과 파일 작성이 가능한 AI에게 그대로 첨부**합니다. 같은 대화에서 원하는 캐릭터 디자인과 상반신/전신 여부만 설명합니다.
+2. AI가 **기준 원화 1장 + 눈·입·머리·팔 등 움직임별 독립 파츠 그림 + 숨은 영역을 실제 그린 PNG**를 제작하고, `layer_order.txt`와 함께 **결과 ZIP**으로 전달합니다. 작은 파츠를 시트에 모아 생성해도 최종 납품은 개별 PNG입니다.
+3. **지시서 ZIP은 AI에 주는 파일**, **결과 ZIP은 AI가 완성해 돌려주는 파일**입니다. 둘을 혼동하지 않습니다.
+4. [Colab v8](notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb)을 열어 ③ Live2D 입력 = `ai_asset_zip` 선택 → ⑧에서 **결과 ZIP 1개 업로드** → ⑨ 기존 **PNG→PSD→PSD2Live** 제작 경로를 실행합니다. 이 입력은 이미 분리된 PNG를 사용하므로 See-through·SAM 분리를 다시 실행하지 않습니다.
+
+**이미지 AI에 요구하지 않는 것:** PSD 편집, .moc3/.model3.json, 실제 리깅, Cubism 테스트, 품질 인증서, 복잡한 좌표나 JSON manifest. 그런 작업은 **Colab 파이프라인의 후속 단계**입니다. 실제 그림 품질은 PNG 파일 수만으로 보장되지 않습니다.
+
+대형 AI 결과물 최소 폴더 규격:
+
+```text
+Live2D_Character_Artwork.zip
+  outputs/master.png
+  isolated_parts/hair_back.png
+  isolated_parts/hair_front.png
+  isolated_parts/face_skin.png
+  isolated_parts/eye_L_white.png
+  isolated_parts/eye_L_iris.png
+  isolated_parts/eye_L_lash.png
+  isolated_parts/... (실제 움직이는 부위별 독립 RGBA PNG)
+  layer_order.txt                 # 파츠 파일을 뒤→앞 순서로 한 줄씩
+```
+
+모든 독립 파츠 PNG는 마스터와 같은 캔버스·원점에 그려지도록 지시서에 적혀 있습니다. **100개 파츠·8장 이미지처럼 공식에 없는 수량을 고정하지 않습니다.** 공식 자료는 [여기](docs/live2d_image_ai_kit/OFFICIAL_LINKS.md)에 정리했습니다.
 
 ## Live2D FREE/PRO · PSD2Live 자동 리깅 (기본 경로)
 
@@ -18,7 +40,7 @@
 
 **PRO hair/outfit/accessory:** 단독 교체 자산은 얼굴 추적 가능한 완성 캐릭터가 아니므로 리깅 완료로 표시하지 않습니다. 기존 PSD/PNG 자산 ZIP을 반환합니다. 본 프로젝트는 PSD2Live GPL-3.0 코드를 포함하거나 재배포하지 않고 v3.3.1 소스를 별도 클론하여 CLI 프로세스로 실행합니다.
 
-### 이미지 생성 프롬프트: Live2D 자동 분리가 최대한 잘 되도록
+### 기존 방식: 원화 PNG 1장 자동 분리 (별도 옵션)
 
 프롬프트 설명만 추가하는 것이 아니라 `vtuber_pipeline/vts_modes.py`에서 **실제 다운로드되는 외부 이미지 생성용 prompts ZIP**에 강제 지침을 넣습니다. 외부 이미지 AI에서 가장 높은 **실제 지원 네이티브 해상도**를 선택하세요. 프롬프트만으로 해상도나 파츠 분리가 보장되지는 않습니다.
 
@@ -43,6 +65,8 @@ Avoid crossing arms, overlapping capes, random micro-fragments and occlusion.
 
 ### 입력과 출력
 
+**추천:** Live2D FREE 또는 PRO body에서 `ai_asset_zip`을 선택하면 위 **이미지 AI 결과 ZIP** 하나가 입력됩니다. 다음은 별도 유지하는 **기존 master_image 및 PRO 교체 자산** 입력표입니다.
+
 | 모드 | 업로드 | 최종 ZIP 내 PSD |
 |---|---|---|
 | FREE 상반신 | 헤어·얼굴·의상·액세서리 착용 완성 이미지 1장: free_upper_master.png | avatar.psd |
@@ -54,7 +78,9 @@ Avoid crossing arms, overlapping capes, random micro-fragments and occlusion.
 
 PRO 독립 제작은 네 종류를 한꺼번에 업로드하거나 만들어야 하는 방식이 **아닙니다**. 상반신은 upper, 전신은 full로 구분합니다. 기존 베이스 이미지는 자산의 **캔버스 크기 검증과 최종 PSD 합성의 중첩 검토**에 사용합니다. 이것만으로 픽셀 수준 위치 정합까지 입증했다고 주장하지 않습니다.
 
-### Colab 셀
+### Colab 셀 — 기존 master_image 경로
+
+위 추천 `ai_asset_zip` 경로는 별도이며 See-through·SAM을 사용하지 않습니다.
 
 1. ② TOP_MODE = live2d 상위 모드 선택
 2. ③ FREE/PRO 선택, PRO일 때 독립 제작 종류(body / hair / outfit / accessory) 한 종류 선택, 상반신/전신 및 Qwen 옵션 선택
