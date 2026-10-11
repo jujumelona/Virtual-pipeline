@@ -15,6 +15,12 @@ import sys
 SAM_REPO = "24yearsold/l2d_sam_iter2"
 SAM_FILE = "checkpoint-18000.pt"
 SAM_PART_COUNT = 19
+# Exact label order of the pinned See-through V2 19-channel checkpoint.
+SAM_LABELS_V2 = (
+    "hair", "headwear", "face", "eyes", "eyewear", "ears", "earwear",
+    "nose", "mouth", "neck", "neckwear", "topwear", "handwear",
+    "bottomwear", "legwear", "footwear", "tail", "wings", "objects",
+)
 
 
 def find_checkpoint(manifest: Path) -> Path:
@@ -56,8 +62,8 @@ def run_worker(*, third_party: Path, manifest: Path, source: Path, output: Path)
     from utils.torch_utils import init_model_from_pretrained
     from live2d.scrap_model import VALID_BODY_PARTS_V2
 
-    if len(VALID_BODY_PARTS_V2) != SAM_PART_COUNT:
-        raise RuntimeError("Pinned See-through SAM part-label contract changed")
+    if tuple(VALID_BODY_PARTS_V2) != SAM_LABELS_V2:
+        raise RuntimeError("Pinned See-through SAM part-label order changed")
     if not torch.cuda.is_available():
         raise RuntimeError("Official SemanticSam requires CUDA")
     model = init_model_from_pretrained(
