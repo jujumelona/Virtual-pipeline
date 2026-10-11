@@ -1,0 +1,27 @@
+name: VTS Colab Live2D setup smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb"
+      - "ci/vts_colab_setup_smoke.py"
+      - ".github/workflows/vts-colab-setup-smoke.yml"
+  pull_request:
+    paths:
+      - "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb"
+      - "ci/vts_colab_setup_smoke.py"
+      - ".github/workflows/vts-colab-setup-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  live2d-setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Compile every Colab cell and execute both Live2D setup paths without downloads
+        run: python -m ci.vts_colab_setup_smoke
