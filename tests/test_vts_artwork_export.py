@@ -465,7 +465,7 @@ def test_completed_see_through_psd_repackages_without_gpu_inference(tmp_path, mo
     report = vts_production.make_cubism_handoff(
         master, tmp_path / "recovery",
         edition="free", scope="upper", generated_psd=generated,
-        third_party=tmp_path,
+        third_party=tmp_path, psd2live=False,
     )
     assert report["state"] == "artwork_ready_editor_rig_required"
     assert report["reused_precomputed_see_through"] is True
