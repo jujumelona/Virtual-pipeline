@@ -103,7 +103,7 @@ def _git_revision(root: Path) -> str | None:
         return None
 
 
-def validate_psd2live_output(folder: Path) -> dict:
+def validate_psd2live_output(folder: Path, *, edition: str | None = None) -> dict:
     """Verify model references, MOC3 magic, texture PNG and optional sidecars.
 
     This is an artifact contract, not a proof of good animation or successful
@@ -116,6 +116,24 @@ def validate_psd2live_output(folder: Path) -> dict:
     model_dir = model.parent
     if not model_dir.is_relative_to(root):
         raise RuntimeError("PSD2LIVE_OUTPUT_OUTSIDE_ROOT")
+    # Runtime manifest is the source of truth for atlas pages. Setting
+    # --atlas 2048 does NOT by itself ensure Cubism FREE's one-page limit.
+    from PIL import Image
+    manifest = json.loads(model.read_text(encoding="utf-8"))
+    refs = manifest.get("FileReferences", {})
+    texture_names = refs.get("Textures", [])
+    atlas_pages = []
+    for name in texture_names:
+        texture = (model_dir / name).resolve()
+        with Image.open(texture) as image:
+            atlas_pages.append({"name": name, "size": [image.width, image.height]})
+    if edition == "free":
+        if len(atlas_pages) != 1 or any(
+                width > 2048 or height > 2048
+                for width, height in (item["size"] for item in atlas_pages)):
+            raise RuntimeError(
+                f"PSD2LIVE_FREE_ATLAS_LIMIT: expected one page <=2048px, "
+                f"actual={atlas_pages}")
     # PSD2Live may produce its editable project and CMO3 as siblings.
     all_files = []
     for path in sorted(root.rglob("*")):
@@ -136,7 +154,12 @@ def validate_psd2live_output(folder: Path) -> dict:
         "project": [str(p) for p in all_files if p.suffix.lower() == ".psd2live"],
         "runtime_references_valid": True,
         "runtime_execution_verified": False,
+        "atlas_pages": atlas_pages,
+        "cubism_free_atlas_verified": edition == "free",
         "cubism_free_editor_limits_verified": False,
+        "not_inspected": ["native_artmesh_count", "native_deformer_count",
+                          "native_parameter_count", "native_part_count",
+                          "native_blendshape_parameters", "native_artpath_count"],
     }
 
 
@@ -161,9 +184,17 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
     env = _java_env()
     # Do not use shell=True. Gradle --args takes a single value.
     atlas = 2048 if edition == "free" else 4096
+    # GUI PipelineConfig starts at 40 mesh units, while CLI defaults to
+    # 64. Choose the GUI's higher-detail setting explicitly, with DOCUMENT
+    # (2048-reference) units so huge source raster sizes do not explode
+    # the mesh budget. All remaining flags below are documented CLI knobs;
+    # there is NO --preset option in PSD2Live v3.3.1 CLI.
+    mesh_spacing = 40
     args = (f"--input {shlex.quote(str(psd))} "
             f"--output {shlex.quote(str(output))} "
-            f"--atlas {atlas} --lang en")
+            f"--atlas {atlas} --lang en "
+            f"--mesh-spacing {mesh_spacing} --mesh-wrap 0 "
+            f"--head-strength 1.0 --body-strength 1.0 --upscale 1")
     cmd = [str(root / "gradlew"), "--no-daemon", "run", f"--args={args}"]
     from tools.vts_subprocess import run_logged
     run = runner or run_logged
@@ -174,12 +205,24 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
              timeout_seconds=timeout_seconds)
     if rc:
         raise RuntimeError(f"PSD2LIVE_CLI_FAILED exit={rc}; log={log}")
-    checked = validate_psd2live_output(output)
+    checked = validate_psd2live_output(output, edition=edition)
     checked.update({
         "backend": "psd2live", "version_ref": PSD2LIVE_REF,
         "source": PSD2LIVE_URL, "commit": _git_revision(root),
         "license": "GPL-3.0", "cli_command": cmd,
         "log": str(log), "atlas_size": atlas,
+        "rig_options": {
+            "mesh_spacing": mesh_spacing,
+            "mesh_spacing_basis": "GUI PipelineConfig=40; CLI default=64",
+            "mesh_units": "document_2048_reference",
+            "mesh_wrap": 0,
+            "head_strength": 1.0, "body_strength": 1.0,
+            "upscale_factor": 1,
+            "generate_deformers": True, "generate_motions": True,
+            "generate_physics": True, "export_cmo3": True,
+            "export_moc3": True,
+            "preset": "CLI direct PSD generation; GUI Minimal/Default/Full not exposed",
+        },
         "status": "rigged_artifacts_validated",
     })
     print(f"[VTS PSD2LIVE PASS] model={checked['model3_json']} "
