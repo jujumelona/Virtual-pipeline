@@ -97,7 +97,8 @@ def test_every_one_of_twenty_zips_is_readable_with_ten_complete_files():
                 assert "자동분리" in (prompt + common) or "자동 분리" in (prompt + common)
                 assert "마스크" in common
                 assert "리깅" in prompt  # mentioned ONLY as excluded from image AI tasks
-                assert "06" in prompt and "07" in prompt and "08" in prompt
+                assert "07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt
+                assert "08_PRACTICAL_TIPS.md" in prompt
                 assert "처음" in (prompt + common)
                 assert "ZIP" in (prompt + output)
                 if mode != "3d":
