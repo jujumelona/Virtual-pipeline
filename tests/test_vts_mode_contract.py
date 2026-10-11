@@ -55,7 +55,7 @@ def test_pro_independent_asset_request(identity, scope, asset):
     assert spec["rigging"]["budget"] is None
     assert spec["rigging"]["editor_export_required"] is True
     assert spec["models"]["qwen_usage"] == (
-        "optional_detached_asset_only" if asset in ("outfit", "accessory") else "disabled")
+        "optional_detached_asset_only" if asset in ("hair", "accessory") else "disabled")
     assert spec["images"][0]["filename"].startswith(f"pro_{scope}_")
 
 
@@ -166,7 +166,7 @@ def test_all_ten_briefs_distinguish_native_generation_and_model_processing(ident
 
 @pytest.mark.parametrize("edition,asset,expected", [
     ("free", None, False), ("pro", "body", False),
-    ("pro", "hair", False), ("pro", "outfit", True),
+    ("pro", "hair", True), ("pro", "outfit", False),
     ("pro", "accessory", True),
 ])
 def test_qwen_plans_match_real_mode_gate(identity, edition, asset, expected):

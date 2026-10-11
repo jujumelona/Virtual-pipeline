@@ -58,6 +58,9 @@ def test_qwen_auto_modes():
     assert v["LIVE2D_USE_QWEN"] is False
     v["LIVE2D_EDITION"] = "pro"
     refresh_qwen(v)
+    assert v["LIVE2D_USE_QWEN"] is False
+    v["LIVE2D_PRO_ASSET"] = "hair"
+    refresh_qwen(v)
     assert v["LIVE2D_USE_QWEN"] is True
     v["LIVE2D_PRO_ASSET"] = "body"
     refresh_qwen(v)
@@ -69,7 +72,7 @@ def test_qwen_auto_modes():
     v["LIVE2D_QWEN"] = "on"
     refresh_qwen(v)
     assert v["LIVE2D_USE_QWEN"] is True
-    v["LIVE2D_PRO_ASSET"] = "hair"
+    v["LIVE2D_PRO_ASSET"] = "outfit"
     with pytest.raises(ValueError, match="PRO"):
         refresh_qwen(v)
     assert set(QWEN_LABELS) == {"auto", "on", "off"}
@@ -163,7 +166,7 @@ def test_live2d_qwen_budget_changes_mode_signature():
         "LIVE2D_EDITION": "pro", "LIVE2D_FRAMING": "upper",
         "LIVE2D_QWEN": "auto", "LIVE2D_USE_QWEN": True,
         "LIVE2D_QWEN_LAYERS": 8, "LIVE2D_QWEN_PASSES": 12,
-        "LIVE2D_PRO_ASSET": "outfit",
+        "LIVE2D_PRO_ASSET": "hair",
     }
     first = selection_signature(values)
     values["LIVE2D_QWEN_LAYERS"] = 7
@@ -187,8 +190,20 @@ def test_qwen_free_auto_signature_is_explicitly_disabled():
 
 
 def test_qwen_manual_on_disallowed_in_free_and_body():
-    for edition, asset in [("free", "body"), ("pro", "body"), ("pro", "hair")]:
+    for edition, asset in [("free", "hair"), ("pro", "body"), ("pro", "outfit")]:
         v = {"LIVE2D_QWEN": "on", "LIVE2D_EDITION": edition,
              "LIVE2D_PRO_ASSET": asset}
         with pytest.raises(ValueError, match="PRO"):
             refresh_qwen(v)
+
+
+
+@pytest.mark.parametrize("asset", ["hair", "accessory"])
+def test_qwen_is_opt_in_for_pro_hair_and_accessory(asset):
+    values = {"LIVE2D_QWEN": "off", "LIVE2D_EDITION": "pro",
+              "LIVE2D_PRO_ASSET": asset}
+    refresh_qwen(values)
+    assert values["LIVE2D_USE_QWEN"] is False
+    values["LIVE2D_QWEN"] = "on"
+    refresh_qwen(values)
+    assert values["LIVE2D_USE_QWEN"] is True

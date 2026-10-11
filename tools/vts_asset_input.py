@@ -8,6 +8,8 @@ from PIL import Image, ImageChops
 def prepare_detached_asset(master: Path, work: Path, *, asset_kind: str,
                            qwen: bool, layer_count: int, pass_budget: int,
                            third_party: Path, python: str | None = None):
+    if qwen and asset_kind not in ("hair", "accessory"):
+        raise ValueError("Qwen foreground masks are allowed only for PRO hair/accessory")
     from tools.vts_psd_layer import create_import_layer, new_import_psd, save_import_psd
 
     with Image.open(master) as source:
@@ -21,8 +23,8 @@ def prepare_detached_asset(master: Path, work: Path, *, asset_kind: str,
               "rgb_regenerated": False}
     if alpha.getextrema() == (255, 255):
         if not qwen or pass_budget < 1:
-            raise ValueError("PRO opaque detached asset needs Qwen foreground masks; "
-                             "enable Qwen with at least one pass, or supply actual "
+            raise ValueError("PRO opaque detached asset needs transparent artwork or an aligned PSD; "
+                             "Qwen is optional only for PRO hair/accessory; supply actual "
                              "transparent artwork/an aligned layered PSD")
         # The official Stable-Layers output is background first and then
         # back-to-front objects. Use only object alpha, never generated RGB.
