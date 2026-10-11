@@ -771,6 +771,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
             python_path=os.environ.get("VTUBER_SEETHROUGH_PYTHON"),
             official_second_pass=(external_psd is None and generated_psd is None
                                   and (edition == "free" or asset_kind == "body")),
+            psd2live_names=psd2live and (
+                edition == "free" or (edition == "pro" and asset_kind == "body")),
         )
         # Keep actual submitted imagery alongside the split PSD for manual
         # registration checks and independent PRO asset re-import.
