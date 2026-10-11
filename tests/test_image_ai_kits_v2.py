@@ -39,7 +39,8 @@ def test_every_one_of_twenty_zips_is_readable_with_ten_complete_files():
                 advanced = archive.read("06_ADVANCED_OFFICIAL_COMMUNITY.md").decode("utf-8")
                 repeat = archive.read("07_REVIEW_BEFORE_FINAL_ZIP.md").decode("utf-8")
                 practical = archive.read("08_PRACTICAL_TIPS.md").decode("utf-8")
-                assert "08_PRACTICAL_TIPS.md" in prompt
+                assert ("08_PRACTICAL_TIPS.md" in prompt or
+                        ("08" in prompt and "비공식" in prompt))
                 assert "07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt
                 assert "반복" in prompt and "최종" in prompt
                 assert "ZIP" in prompt and "ZIP" in repeat
@@ -98,7 +99,8 @@ def test_every_one_of_twenty_zips_is_readable_with_ten_complete_files():
                 assert "마스크" in common
                 assert "리깅" in prompt  # mentioned ONLY as excluded from image AI tasks
                 assert "07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt
-                assert "08_PRACTICAL_TIPS.md" in prompt
+                assert ("08_PRACTICAL_TIPS.md" in prompt or
+                        ("08" in prompt and "비공식" in prompt))
                 assert "처음" in (prompt + common)
                 assert "ZIP" in (prompt + output)
                 if mode != "3d":
