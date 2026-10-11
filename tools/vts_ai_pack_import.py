@@ -160,18 +160,6 @@ def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
             raise ValueError("AI_PACK_NO_INDEPENDENT_PARTS")
         if edition == "free" and len(rows) > 100:
             raise ValueError("AI_PACK_FREE_ARTMESH_LIMIT")
-        # Use the back-to-front order already supplied by artwork ZIPs.
-        # This is a layout instruction, not an image-quality certification.
-        order_list = manifest.get("layer_composite_order_back_to_front")
-        explicit_order = None
-        if order_list is not None:
-            if (not isinstance(order_list, list)
-                    or len(order_list) != len(rows)
-                    or any(not isinstance(x, str) for x in order_list)
-                    or len(set(order_list)) != len(order_list)
-                    or set(order_list) != {row.get("id") for row in rows if isinstance(row, dict)}):
-                raise ValueError("AI_PACK_LAYER_ORDER_NOT_MATCHING_SPRITES")
-            explicit_order = {part_id: i for i, part_id in enumerate(order_list)}
         seen_ids, seen_orders = set(), set()
         validated = []
         for row in rows:
@@ -186,14 +174,11 @@ def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
             filename = "isolated_parts/" + part_id + ".png"
             if row.get("file") != filename or prefix + filename not in names:
                 raise ValueError("AI_PACK_PART_FILE_MISSING: " + part_id)
-            # A raster ZIP importer must not demand that an image AI rig,
-            # test motion, or prove how a raster element was painted.
-            method = row.get("creation_method") or "unspecified"
+            method = row.get("creation_method")
+            if method not in ("generated", "redrawn", "edited_with_underpaint"):
+                # Visual quality still needs inspection; reject known mask-only art.
+                raise ValueError("AI_PACK_PART_NOT_AUTHORED: " + part_id)
             z = row.get("draw_order")
-            if z is None:
-                # Legacy artwork manifests expose either this explicit
-                # compositing list or their ordered parts array.
-                z = explicit_order[part_id] if explicit_order is not None else len(validated)
             if isinstance(z, bool) or not isinstance(z, int) or z in seen_orders:
                 raise ValueError("AI_PACK_DRAW_ORDER_REQUIRED_UNIQUE: " + part_id)
             seen_orders.add(z)
@@ -259,11 +244,11 @@ def prepare_large_ai_pack(source: Path, destination: Path, *, edition: str = "fr
         "psd": str(psd_file), "part_count": len(layers),
         "canvas": list(result["canvas"]),
         "skipped_see_through": True, "skipped_semantic_sam": True,
-        "raster_provenance_is_not_an_import_gate": True,
+        "mask_only_parts_rejected": True,
         "visual_quality_verified": False,
         "rigging_verified": False,
         "method": "direct_authored_png_to_psd",
-        "note": "The ZIP importer arranges raster artwork only; it does not impose rigging tasks on an image generator.",
+        "warning": "File and PSD validity do not prove semantic part quality or rotation.",
     }
     report.write_text(json.dumps(import_report, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"master": master, "psd": psd_file, "report": report, "metadata": import_report}
