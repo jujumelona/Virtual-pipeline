@@ -33,7 +33,7 @@ Keep hair in readable front/side/back masses, with eyes and mouth visible.
 Avoid crossing arms, overlapping capes, random micro-fragments and occlusion.
 ```
 
-**업스케일과 FREE 용량의 구분:** FREE의 공식 2048px **1장** 제한을 깨고 4096px 여러 장을 허용하면 FREE 호환성을 잃습니다. PSD2Live 네이티브 텍스처 확대는 FREE 2배·PRO 4배로 전달하지만 **신경망 업스케일링과 다르고**, 최종 `vts_atlas.json`에 기록되는 `fit`이 낮으면 재축소되어 실제 디테일 향상이 제한됩니다. 저하 수준은 `atlas_quality`와 로그로 표시합니다. 이를 무검증 고화질이라고 표시하지 않습니다.
+**업스케일과 FREE 용량의 구분:** FREE의 공식 2048px **1장** 제한을 깨고 4096px 여러 장을 허용하면 FREE 호환성을 잃습니다. PSD2Live 확대는 실제 **nunif/waifu2x 신경망 초해상도**입니다. 공식 기본은 비활성(1배)이며 Art 가중치가 준비되고 환경변수 `VTS_PSD2LIVE_NUNIF_DIR`와 `VTS_PSD2LIVE_NUNIF_MODELS`를 모두 설정한 경우에만 FREE 2배·PRO 4배로 실행합니다. 미설치 환경에서 강제 upscale로 실패하지 않습니다. 다만, 최종 `vts_atlas.json`에 기록되는 `fit`이 낮으면 재축소되어 실제 디테일 향상이 제한됩니다. 저하 수준은 `atlas_quality`와 로그로 표시합니다. 이를 무검증 고화질이라고 표시하지 않습니다.
 
 ### 입력과 출력
 
@@ -63,7 +63,7 @@ PRO 독립 제작은 네 종류를 한꺼번에 업로드하거나 만들어야 
 ### PSD2Live 실행·라이선스·출력 계약
 
 - **버전 고정**: PSD2Live `v3.3.1`; `tools/vts_psd2live.py`가 필요 시 원격 소스를 `third_party/psd2live`에 별도로 내려받습니다. Colab ⑦에서 JDK 21 확인·설치와 Gradle 컴파일을 미리 수행합니다. 로컬에서는 `VTS_PSD2LIVE_HOME`으로 이미 설치한 PSD2Live 소스 경로를 지정할 수 있습니다.
-- **실행 설정(PSD2Live v3.3.1)**: 별도 JVM 런처가 공식 `PipelineConfig`와 `AtlasBudget` API에 **FREE 2048px·1장·여백 2px / PRO 4096px·공식 기본 8장·여백 2px**을 생성 전에 전달합니다. 공식 일반 CLI의 `--atlas`는 한 장의 크기만 정하고 장수 기본값 8을 바꾸지 못하므로, 장수를 제한할 수 있는 API 경로를 사용합니다. 런처의 `--atlas-pages`는 이 프로젝트의 어댑터 인자이며 공식 일반 CLI 옵션이 아닙니다. 외부 원본 소스 파일은 수정하지 않습니다. 메쉬 간격 40(GUI `PipelineConfig` 초기값), `DOCUMENT` 메쉬 좌표, wrap 0, head/body strength 1.0, upscale FREE 2 / PRO 4 (PSD2Live 자체 텍스처 확대, 신경망 SR 아님) 및 공식 기본 디포머·모션·물리·CMO3/MOC3 내보내기를 유지합니다. GUI Full 프리셋을 강제하거나 이 설정을 실측 최적값이라고 주장하지 않습니다.
+- **실행 설정(PSD2Live v3.3.1)**: 별도 JVM 런처가 공식 `PipelineConfig`와 `AtlasBudget` API에 **FREE 2048px·1장·여백 2px / PRO 4096px·공식 기본 8장·여백 2px**을 생성 전에 전달합니다. 공식 일반 CLI의 `--atlas`는 한 장의 크기만 정하고 장수 기본값 8을 바꾸지 못하므로, 장수를 제한할 수 있는 API 경로를 사용합니다. 런처의 `--atlas-pages`는 이 프로젝트의 어댑터 인자이며 공식 일반 CLI 옵션이 아닙니다. 외부 원본 소스 파일은 수정하지 않습니다. 메쉬 간격 40(GUI `PipelineConfig` 초기값), `DOCUMENT` 메쉬 좌표, wrap 0, head/body strength 1.0, upscale 기본 1 / nunif+Art 모델이 명시된 경우 FREE 2 또는 PRO 4 (실제 신경망 초해상도) 및 공식 기본 디포머·모션·물리·CMO3/MOC3 내보내기를 유지합니다. GUI Full 프리셋을 강제하거나 이 설정을 실측 최적값이라고 주장하지 않습니다.
 - **분리 결과와 의미 분류**: See-through → SAM **한 번만** 실행하고 결과가 40개든 60개든 그대로 종료합니다. 추가 분리는 하지 않습니다. SAM이 반환한 19개 클래스 중 실제 채택된 마스크의 의미와 1차 원본 레이어의 눈·입·헤어·좌우 정보를 활용해 **PSD2Live v3.3.1의 실제 LayerClassifier가 읽는 레이어명**으로 변환합니다. 픽셀·레이어 개수·순서는 그대로이며 `metadata/psd2live_layer_names.json`에 이전 이름/새 이름/근거와 미분류 파츠를 보존합니다.
 - **완성 모델 ZIP**: PSD2Live 출력 디렉터리의 상대경로를 유지합니다. `*.model3.json`과 참조된 `*.moc3`, PNG 텍스처, 물리/모션의 존재를 검증하고, 편집용 `*.cmo3`가 없으면 실패합니다. PSD2Live 일반 CLI는 편집용 `.psd2live` 프로젝트를 **생성하지 않습니다**. 생성된 기타 파일과 원래 제작 ZIP(`source_artwork/`)도 보존합니다. `metadata/psd2live_bridge.json`에 설정값·검증 범위를 기록합니다.
 - **실패 처리**: JDK/Gradle/Git 오류, 실행 비정상 종료, 참조 파일 누락, 가짜 MOC3 또는 손상 PNG이면 `VTS_HANDOFF_FAIL`로 처리합니다. 기존 분해 PSD는 작업 폴더에 남지만 완성된 모델로 간주하지 않습니다.

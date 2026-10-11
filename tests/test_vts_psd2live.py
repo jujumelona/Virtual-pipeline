@@ -59,7 +59,8 @@ def test_budget_is_supplied_before_official_generation(
         assert options.get("--atlas-pages") == str(page_count), (
             "The official generator must receive a page budget before packing")
         assert options["--atlas"] == str(page_size)
-        assert options["--upscale"] == ("2" if edition == "free" else "4")
+        assert options["--upscale"] == "1"
+        assert "--nunif-dir" not in options
         assert Path(options["--input"]) == psd
         assert Path(options["--output"]) == dest
         assert "vtsRig" in command
@@ -82,7 +83,8 @@ def test_budget_is_supplied_before_official_generation(
     assert result["atlas_fit"]["fit"] == .35
     assert result["atlas_quality"] == "severely_downscaled"
     assert result["effective_texture_detail_verified"] is False
-    assert result["rig_options"]["upscale_factor"] == (2 if edition == "free" else 4)
+    assert result["rig_options"]["upscale_factor"] == 1
+    assert result["nunif_model_configured"] is False
     assert psd.read_bytes() == original
 
 
@@ -108,7 +110,7 @@ def test_official_cli_free_atlas_and_model_bundle(monkeypatch, tmp_path):
         assert "--mesh-wrap 0" in args
         assert "--head-strength 1.0" in args
         assert "--body-strength 1.0" in args
-        assert "--upscale 2" in args
+        assert "--upscale 1" in args
         assert "--preset" not in args  # unsupported in v3.3.1 CLI
         assert "'source PSD'" not in args  # quote the whole input path
         assert "'" in args
@@ -450,3 +452,53 @@ def test_psd2live_import_psd_uses_tight_alpha_bounds_without_moving_pixels(tmp_p
         assert leaf.topil(apply_icc=False).convert("RGBA").tobytes() == original.crop(bbox).tobytes()
     assert sum(p.width * p.height for p in leaves) < size[0] * size[1]
 
+
+def test_configured_nunif_art_weights_enable_real_psd2live_neural_sr(monkeypatch, tmp_path):
+    psd = tmp_path / "source" / "avatar.psd"
+    psd.parent.mkdir()
+    psd.write_bytes(b"8BPS" + bytes(64))
+    vendor = tmp_path / "psd2live"
+    vendor.mkdir()
+    (vendor / "gradlew").write_text("stub")
+    nunif = tmp_path / "nunif"
+    (nunif / "waifu2x").mkdir(parents=True)
+    weights = tmp_path / "Art weights"
+    weights.mkdir()
+    (weights / "scale4x.pth").write_bytes(b"fixture")
+    monkeypatch.setenv("VTS_PSD2LIVE_NUNIF_DIR", str(nunif))
+    monkeypatch.setenv("VTS_PSD2LIVE_NUNIF_MODELS", str(weights))
+    monkeypatch.setenv("VTS_PSD2LIVE_UPSCALE", "4")
+    monkeypatch.setattr(bridge, "ensure_psd2live", lambda *a, **k: vendor)
+    monkeypatch.setattr(bridge, "_java_env", lambda: {})
+    def runner(cmd, **kwargs):
+        args = shlex.split(next(x[7:] for x in cmd if x.startswith("--args=")))
+        opts = dict(zip(args[::2], args[1::2]))
+        assert opts["--upscale"] == "4"
+        assert Path(opts["--nunif-dir"]) == nunif
+        assert Path(opts["--upscale-model"]) == weights
+        assert Path(opts["--upscale-python"]).is_file()
+        sample_model(tmp_path / "model")
+        fit_path = tmp_path / "model" / "vts_atlas.json"
+        fit = json.loads(fit_path.read_text())
+        fit["page_size"], fit["max_pages"] = 4096, 8
+        fit_path.write_text(json.dumps(fit))
+        return 0
+    result = bridge.run_psd2live(psd, tmp_path / "model", edition="pro", runner=runner)
+    assert result["rig_options"]["upscale_factor"] == 4
+    assert result["nunif_model_configured"] is True
+
+
+def test_partial_nunif_setup_fails_explicitly(monkeypatch, tmp_path):
+    psd = tmp_path / "art" / "avatar.psd"
+    psd.parent.mkdir()
+    psd.write_bytes(b"8BPS" + bytes(64))
+    vendor = tmp_path / "vendor"
+    vendor.mkdir()
+    (vendor / "gradlew").write_text("stub")
+    monkeypatch.setattr(bridge, "ensure_psd2live", lambda *a, **k: vendor)
+    monkeypatch.setattr(bridge, "_java_env", lambda: {})
+    monkeypatch.setenv("VTS_PSD2LIVE_NUNIF_DIR", str(tmp_path))
+    monkeypatch.delenv("VTS_PSD2LIVE_NUNIF_MODELS", raising=False)
+    with pytest.raises(RuntimeError, match="PSD2LIVE_NUNIF_CONFIG_INCOMPLETE"):
+        bridge.run_psd2live(psd, tmp_path / "model", edition="free",
+                            runner=lambda *a, **k: pytest.fail("unexpected CLI"))

@@ -56,7 +56,8 @@ fun main(arguments: Array<String>) {
     val options = arguments.toList().chunked(2).associate { it[0] to it[1] }
     require(options.size * 2 == arguments.size) { "Duplicate VTS launcher option" }
     val allowed = setOf("--input", "--output", "--atlas", "--atlas-pages", "--lang",
-        "--mesh-spacing", "--mesh-wrap", "--head-strength", "--body-strength", "--upscale")
+        "--mesh-spacing", "--mesh-wrap", "--head-strength", "--body-strength", "--upscale",
+        "--upscale-python", "--nunif-dir", "--upscale-model")
     require(options.keys.all { it in allowed }) { "Unknown VTS launcher option" }
     fun value(key: String) = requireNotNull(options[key]) { "Missing $key" }
     I18n.setLanguage(requireNotNull(AppLanguage.fromTag(value("--lang"))))
@@ -66,7 +67,12 @@ fun main(arguments: Array<String>) {
     val config = PipelineConfig(
         atlasSize = budget.pageSize,
         atlasBudget = budget,
-        textureUpscale = TextureUpscaleConfig(scale = value("--upscale").toInt()),
+        textureUpscale = TextureUpscaleConfig(
+            scale = value("--upscale").toInt(),
+            python = options["--upscale-python"] ?: TextureUpscaleConfig.defaultPython,
+            nunifDirectory = options["--nunif-dir"] ?: "",
+            modelDirectory = options["--upscale-model"] ?: "",
+        ),
         meshSpacing = value("--mesh-spacing").toInt(),
         meshUnits = MeshUnits.DOCUMENT,
         meshWrap = value("--mesh-wrap").toFloat(),

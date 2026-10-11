@@ -205,15 +205,38 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
     # the mesh budget. The upstream CLI has no maxPages flag; our small
     # launcher supplies the official AtlasBudget API before generation.
     mesh_spacing = 40
-    # Native PSD2Live texture enlargement, not neural super-resolution.
-    # FREE has only one 2048px atlas; excessive intermediate enlargement may
-    # be thrown away at final packing. PRO can exploit larger multi-page atlas.
-    upscale_factor = 2 if edition == "free" else 4
+    # PSD2Live v3.3.1 uses actual nunif/waifu2x neural SR for scale > 1.
+    # Unlike ordinary resizing, this fails without explicitly configured Art weights.
+    nunif_dir = os.environ.get("VTS_PSD2LIVE_NUNIF_DIR", "").strip()
+    nunif_models = os.environ.get("VTS_PSD2LIVE_NUNIF_MODELS", "").strip()
+    if bool(nunif_dir) != bool(nunif_models):
+        raise RuntimeError("PSD2LIVE_NUNIF_CONFIG_INCOMPLETE: set both nunif and Art model directories")
+    upscale_factor = 1
+    upscale_args = ""
+    if nunif_dir:
+        repo_dir = Path(nunif_dir).expanduser().resolve()
+        model_dir = Path(nunif_models).expanduser().resolve()
+        if not (repo_dir / "waifu2x").is_dir() or not model_dir.is_dir():
+            raise RuntimeError("PSD2LIVE_NUNIF_CONFIG_INVALID: source or model directory missing")
+        if not any(model_dir.glob("*.pth")):
+            raise RuntimeError("PSD2LIVE_NUNIF_WEIGHTS_MISSING: no Art .pth files found")
+        upscale_factor = int(os.environ.get("VTS_PSD2LIVE_UPSCALE",
+                                           "2" if edition == "free" else "4"))
+        if upscale_factor not in (1, 2, 4):
+            raise ValueError("PSD2LIVE_UPSCALE_INVALID: choose 1, 2 or 4")
+        if upscale_factor > 1:
+            python_executable = Path(os.environ.get("VTS_PSD2LIVE_PYTHON", sys.executable))
+            if not python_executable.is_file():
+                raise RuntimeError("PSD2LIVE_UPSCALE_PYTHON_MISSING: configure a Python executable")
+            upscale_args = (f" --upscale-python {shlex.quote(str(python_executable))}"
+                            f" --nunif-dir {shlex.quote(str(repo_dir))}"
+                            f" --upscale-model {shlex.quote(str(model_dir))}")
     args = (f"--input {shlex.quote(str(psd))} "
             f"--output {shlex.quote(str(output))} "
             f"--atlas {atlas} --atlas-pages {atlas_pages} --lang en "
             f"--mesh-spacing {mesh_spacing} --mesh-wrap 0 "
-            f"--head-strength 1.0 --body-strength 1.0 --upscale {upscale_factor}")
+            f"--head-strength 1.0 --body-strength 1.0 --upscale {upscale_factor}"
+            f"{upscale_args}")
     cmd = _gradle_bridge(root, "vtsRig") + [f"--args={args}"]
     from tools.vts_subprocess import run_logged
     run = runner or run_logged
@@ -242,10 +265,11 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
                    "downscaled" if measured_fit < .9 else "high_density")
     print(f"[VTS ATLAS QUALITY] edition={edition} fit={measured_fit:.4f} "
           f"quality={fit_quality} native_upscale={upscale_factor} "
-          "neural_super_resolution=false", flush=True)
+          f"neural_super_resolution={bool(upscale_args)}", flush=True)
     checked.update({
         "atlas_quality": fit_quality,
         "effective_texture_detail_verified": False,
+        "nunif_model_configured": bool(upscale_args),
         "backend": "psd2live", "version_ref": PSD2LIVE_REF,
         "source": PSD2LIVE_URL, "commit": _git_revision(root),
         "license": "GPL-3.0", "cli_command": cmd,
@@ -260,7 +284,7 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
             "mesh_wrap": 0,
             "head_strength": 1.0, "body_strength": 1.0,
             "upscale_factor": upscale_factor,
-            "upscale_backend": "PSD2Live TextureUpscaleConfig (non-neural)",
+            "upscale_backend": "PSD2Live nunif/waifu2x neural SR" if upscale_args else "disabled (upstream default)",
             "generate_deformers": True, "generate_motions": True,
             "generate_physics": True, "export_cmo3": True,
             "export_moc3": True,
