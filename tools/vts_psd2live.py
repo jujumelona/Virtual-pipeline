@@ -205,11 +205,15 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
     # the mesh budget. The upstream CLI has no maxPages flag; our small
     # launcher supplies the official AtlasBudget API before generation.
     mesh_spacing = 40
+    # Native PSD2Live texture enlargement, not neural super-resolution.
+    # FREE has only one 2048px atlas; excessive intermediate enlargement may
+    # be thrown away at final packing. PRO can exploit larger multi-page atlas.
+    upscale_factor = 2 if edition == "free" else 4
     args = (f"--input {shlex.quote(str(psd))} "
             f"--output {shlex.quote(str(output))} "
             f"--atlas {atlas} --atlas-pages {atlas_pages} --lang en "
             f"--mesh-spacing {mesh_spacing} --mesh-wrap 0 "
-            f"--head-strength 1.0 --body-strength 1.0 --upscale 1")
+            f"--head-strength 1.0 --body-strength 1.0 --upscale {upscale_factor}")
     cmd = _gradle_bridge(root, "vtsRig") + [f"--args={args}"]
     from tools.vts_subprocess import run_logged
     run = runner or run_logged
@@ -233,7 +237,15 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
             [item.get("size") for item in fit.get("pages", [])] !=
             [item["size"] for item in checked["atlas_pages"]]):
         raise RuntimeError(f"PSD2LIVE_ATLAS_REPORT_INVALID: {fit_report}")
+    measured_fit = float(fit["fit"])
+    fit_quality = ("severely_downscaled" if measured_fit < .5 else
+                   "downscaled" if measured_fit < .9 else "high_density")
+    print(f"[VTS ATLAS QUALITY] edition={edition} fit={measured_fit:.4f} "
+          f"quality={fit_quality} native_upscale={upscale_factor} "
+          "neural_super_resolution=false", flush=True)
     checked.update({
+        "atlas_quality": fit_quality,
+        "effective_texture_detail_verified": False,
         "backend": "psd2live", "version_ref": PSD2LIVE_REF,
         "source": PSD2LIVE_URL, "commit": _git_revision(root),
         "license": "GPL-3.0", "cli_command": cmd,
@@ -247,7 +259,8 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
             "mesh_units": "document_2048_reference",
             "mesh_wrap": 0,
             "head_strength": 1.0, "body_strength": 1.0,
-            "upscale_factor": 1,
+            "upscale_factor": upscale_factor,
+            "upscale_backend": "PSD2Live TextureUpscaleConfig (non-neural)",
             "generate_deformers": True, "generate_motions": True,
             "generate_physics": True, "export_cmo3": True,
             "export_moc3": True,

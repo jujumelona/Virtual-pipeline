@@ -128,6 +128,42 @@ def _framing(scope: str) -> str:
     )
 
 
+
+# Strong, real user-facing prompts for the emitted Live2D image-generation ZIP.
+# These constraints aim for separability, not proof of segmentation or rigging.
+_RIGGABLE_CHARACTER_RULES = (
+    "MAXIMIZE LIVE2D AUTO-SEPARABILITY and aesthetic quality simultaneously. "
+    "Front-facing centered neutral pose, complete visible shoulders and neck, "
+    "unambiguous left/right arm silhouettes, clear shoulder attachment points, "
+    "forearms and hands away from face/chest, no crossed arms. Prefer simple "
+    "continuous LONG SLEEVES when a short sleeve, exposed shoulder or detached "
+    "cuff would produce confusing detached pieces. Sleeve covers the moving arm; "
+    "do not demand a separate visible skin-arm outline inside opaque sleeves. "
+    "Make the sleeve/torso seam unmistakable with no disconnected shoulder "
+    "fragments, floating cuffs or half-visible isolated upper arms. Keep hair "
+    "as readable front bangs, side locks and back hair with unoccluded eyes, "
+    "eyebrows, eyelids, irises, mouth and jaw. Keep ribbons and ornaments "
+    "attached to only the moving part they belong to, not bridging sleeves "
+    "and chest or both arms. Preserve necessary hidden backing behind hair, "
+    "torso and sleeves where possible, but do not claim unseen art is verified. "
+    "Use attractive but visually organized anime costume design, crisp lines, "
+    "clear flat lighting and the full requested character identity. "
+    "AVOID extreme poses/perspective, hands over body, cut-off hands, complex "
+    "overlapping transparent fabric, floating micro-parts, capes spanning "
+    "both arms, fused torso/sleeves, hair obscuring face, ambiguous shoulder "
+    "cutouts, tangled ribbons, heavy occlusion, labels and guide lines."
+)
+_RIGGABLE_DETACHED_RULES = (
+    "MAXIMIZE CLEAN DETACHED-PART SEPARABILITY. Render ONLY the selected "
+    "hair, outfit or accessory on the SAME reference canvas and anchor points. "
+    "For clothing keep complete visually connected sleeve volumes with "
+    "correct shoulder seams, cuffs and torso panels; never separate a random "
+    "shoulder fragment or draw skin through opaque long sleeves. Keep hair "
+    "front/side/back masses readable with complete roots. Keep ornaments "
+    "attached to only one moving parent. No floating fragments, cross-body "
+    "tangled fabric or unrelated face/body elements. Preserve fine anime art."
+)
+
 def _prompt(identity_text: str, framing: str, filename: str, task: str, *, free: bool = True, detached: bool = False) -> dict:
     prompt = (
         ("ORIGINAL FULLY CLOTHED ADULT ANIME VTUBER\n"
@@ -142,6 +178,7 @@ def _prompt(identity_text: str, framing: str, filename: str, task: str, *, free:
           "Do not promise 4K/8K or RGBA support.\n"
         + framing + "\n"
         + task + "\n"
+        + (_RIGGABLE_DETACHED_RULES if detached else _RIGGABLE_CHARACTER_RULES) + "\n"
         + ("Preserve the attached reference canvas dimensions, origin and asset "
            "attachment points. Do not add a character, eyes, lips or unrelated clothing. "
            "Use genuine transparent alpha if supported; otherwise use a plain contrasting "
@@ -272,7 +309,7 @@ def build_vts_brief(
                                   "resize": "preserve_aspect_then_round", "steps": 50,
                                   "sampler": "Heun", "guidance_scale": 1.0},
                 "upscale_before_decomposition": False,
-                "upscale_reason": "Official decomposition already resizes inputs; no mandatory SR stage.",
+                "upscale_reason": "Neural SR is not used before fixed-resolution See-through decomposition; the native PSD2Live texture enlargement is separate and its final atlas fit is audited.",
                 "external_generator": "Select its native size in its own UI/API; prompts cannot enforce pixels.",
             },
             "stages": [dict(item) for item in MODEL_STACK

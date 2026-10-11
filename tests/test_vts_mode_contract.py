@@ -42,6 +42,9 @@ def test_free_always_one_finished_character_no_unclothed_base(identity, scope):
     assert "accessories" in img["prompt"].lower()
     assert "bald" in img["prompt"].lower()
     assert "ONE image" in img["prompt"]
+    assert "MAXIMIZE LIVE2D AUTO-SEPARABILITY" in img["prompt"]
+    assert "LONG SLEEVES" in img["prompt"]
+    assert "disconnected shoulder" in img["prompt"]
     assert spec["rigging"]["budget"]["art_mesh_max"] == 100
     assert spec["rigging"]["guaranteed_moc3_export"] is False
 
@@ -151,6 +154,7 @@ def test_detached_prompt_has_no_character_pose_or_clothing_instruction(identity,
     assert 'Fully opaque modest clothing' not in image['prompt']
     assert 'reference canvas' in image['prompt']
     assert image['aspect_ratio_source'] == 'project_composition_not_model_requirement'
+    assert 'MAXIMIZE CLEAN DETACHED-PART SEPARABILITY' in image['prompt']
 
 @pytest.mark.parametrize('scope', ['upper', 'full'])
 @pytest.mark.parametrize('edition,asset', [('free', None), ('pro', 'body'),

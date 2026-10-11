@@ -59,6 +59,7 @@ def test_budget_is_supplied_before_official_generation(
         assert options.get("--atlas-pages") == str(page_count), (
             "The official generator must receive a page budget before packing")
         assert options["--atlas"] == str(page_size)
+        assert options["--upscale"] == ("2" if edition == "free" else "4")
         assert Path(options["--input"]) == psd
         assert Path(options["--output"]) == dest
         assert "vtsRig" in command
@@ -79,6 +80,9 @@ def test_budget_is_supplied_before_official_generation(
     assert result["atlas_budget"]["max_pages"] == page_count
     assert result["atlas_fit"]["packed_layer_count"] == 60
     assert result["atlas_fit"]["fit"] == .35
+    assert result["atlas_quality"] == "severely_downscaled"
+    assert result["effective_texture_detail_verified"] is False
+    assert result["rig_options"]["upscale_factor"] == (2 if edition == "free" else 4)
     assert psd.read_bytes() == original
 
 
