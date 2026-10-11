@@ -115,3 +115,14 @@ def test_real_psd_import_uses_author_defined_order(tmp_path):
     assert generated["metadata"]["skipped_see_through"]
     assert generated["metadata"]["skipped_semantic_sam"]
     assert not generated["metadata"]["visual_quality_verified"]
+
+def test_one_outer_zip_folder_is_allowed_without_guessing_artwork(tmp_path):
+    src = make_pack(tmp_path)
+    with ZipFile(src) as z:
+        entries = {n: z.read(n) for n in z.namelist()}
+    with ZipFile(src, "w") as z:
+        for name, data in entries.items():
+            z.writestr("Live2D_Character_Assets/" + name, data)
+    checked = inspect_large_ai_pack(src)
+    assert checked["archive_prefix"] == "Live2D_Character_Assets/"
+    assert len(checked["parts"]) == 3
