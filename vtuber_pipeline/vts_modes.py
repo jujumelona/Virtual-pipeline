@@ -170,8 +170,8 @@ def build_vts_brief(
 ) -> dict:
     """Generate inspectable artwork requests and machine-readable runtime PLAN.
 
-    Stable-Layers is the Qwen LoRA only for optional PRO outfit/accessory work.
-    FREE and PRO body/hair never invoke Qwen. This is a plan; no weights load.
+    Stable-Layers is an opt-in Qwen LoRA for PRO hair/accessory only (default OFF).
+    FREE and PRO body/outfit never invoke Qwen. This is a plan; no weights load.
     """
     if edition not in EDITIONS:
         raise ValueError("VTube Studio edition must be free or pro")
@@ -241,7 +241,7 @@ def build_vts_brief(
         images.append(_prompt(data, asset_frame, filename, task, free=False,
                               detached=asset_kind != "body"))
     qwen_usage = ("optional_detached_asset_only"
-                  if edition == "pro" and asset_kind in ("outfit", "accessory")
+                  if edition == "pro" and asset_kind in ("hair", "accessory")
                   else "disabled")
     brief = {
         "schema": "vtuber/vts-artwork-brief-v1",
@@ -277,7 +277,7 @@ def build_vts_brief(
             },
             "stages": [dict(item) for item in MODEL_STACK
                        if (item["stage"] != "recursive_layers"
-                           or (edition == "pro" and asset_kind in ("outfit", "accessory")))
+                           or (edition == "pro" and asset_kind in ("hair", "accessory")))
                        and (item["stage"] != "official_anime_body_parsing"
                             or edition == "free" or asset_kind == "body")],
             "qwen_usage": qwen_usage,
@@ -285,7 +285,7 @@ def build_vts_brief(
             "see_through_nf4_t4_verified": False,
             "stable_layers": {
                 **STABLE_LAYERS,
-                "enabled_for_planning": edition == "pro" and asset_kind in ("outfit", "accessory"),
+                "enabled_for_planning": edition == "pro" and asset_kind in ("hair", "accessory"),
                 "default_for_qwen_stage": True,
                 "adapter_downloaded": False,
                 "adapter_loaded": False,
