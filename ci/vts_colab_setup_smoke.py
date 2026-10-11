@@ -18,6 +18,8 @@ def main() -> None:
     cells = json.loads(nb_path.read_text(encoding="utf-8"))["cells"]
     code = ["".join(c["source"]) for c in cells if c["cell_type"] == "code"]
     assert len(code) == 4, f"Expected four setup/selection cells, found {len(code)}"
+    assert "TOP_MODE_LABEL" in code[1]
+    assert "ASSET_KIND_LABEL" in code[2]
     for i, content in enumerate(code):
         ast.parse(content, filename=f"colab-ui-cell-{i}")
     for mode in TOP_MODE_CHOICES:

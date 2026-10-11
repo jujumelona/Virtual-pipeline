@@ -21,6 +21,10 @@ ASSET_KINDS = {
     "outfit": "의상만",
 }
 
+# The Colab dropdown displays Korean labels; machine keys remain stable.
+DISPLAY_TO_MODE = {info[0]: key for key, info in TOP_MODE_CHOICES.items()}
+DISPLAY_TO_ASSET = {label: key for key, label in ASSET_KINDS.items()}
+
 @dataclass(frozen=True)
 class AssetSelection:
     top_mode: str

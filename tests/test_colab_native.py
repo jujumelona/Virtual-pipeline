@@ -186,7 +186,7 @@ def test_v8_notebook_has_only_selection_and_no_side_effectful_models():
     assert len(cells) == 4
     for cell in cells:
         ast.parse(cell)
-    assert "TOP_MODE" in cells[1] and "ASSET_KIND_OPTION" in cells[2]
+    assert "TOP_MODE_LABEL" in cells[1] and "ASSET_KIND_LABEL" in cells[2]
     assert "require_submode_config" in cells[3]
     assert not any(name in "\n".join(cells) for name in
                    ("files.upload(", "files.download(", "colab_mode_prepare",

@@ -60,8 +60,8 @@ def test_deprecated_asset_modes_are_not_accepted(asset):
 def test_static_native_colab_controls_are_only_two_selectors():
     codes = code_cells()
     assert len(codes) == 4
-    assert '#@param ["live2d_upper", "live2d_full", "inochi2d_upper", "inochi2d_full", "3d"]' in codes[1]
-    assert '#@param ["body", "hair", "accessory", "outfit"]' in codes[2]
+    assert '#@param ["Live2D 상반신", "Live2D 전신", "Inochi2D 상반신", "Inochi2D 전신", "3D"]' in codes[1]
+    assert '#@param ["신체만", "헤어만", "액세서리만", "의상만"]' in codes[2]
     assert "MODE_CONFIG_APPLIED" in codes[2]
     assert "require_submode_config(globals())" in codes[3]
     assert all("#@param" not in code for code in (codes[0], codes[3]))
