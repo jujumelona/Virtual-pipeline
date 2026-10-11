@@ -270,6 +270,51 @@ def test_autorig_failure_is_not_reported_as_success(monkeypatch, tmp_path):
     assert any((output / "artwork").glob("*.zip"))
 
 
+def test_colab_live2d_prepare_is_independent_of_later_cells():
+    """Both ⑦ input paths must work before ⑧ imports pathlib.Path."""
+    import ast
+    import os
+    import pathlib
+    import sys
+    from types import SimpleNamespace
+
+    notebook = (Path(__file__).resolve().parents[1] /
+                "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb")
+    cells = json.loads(notebook.read_text(encoding="utf-8"))["cells"]
+    setup = next("".join(c["source"]) for c in cells
+                 if c["cell_type"] == "code"
+                 and "".join(c["source"]).startswith("#@title ⑦"))
+    branch = next(node for node in ast.parse(setup).body
+                  if isinstance(node, ast.If)
+                  and "live2d_free" in ast.unparse(node.test)
+                  and "scope in" in ast.unparse(node.test))
+    code = compile(ast.fix_missing_locations(ast.Module(
+        body=[branch], type_ignores=[])), str(notebook), "exec")
+
+    for input_kind in ("ai_asset_zip", "master_image"):
+        calls = []
+        def capture(command, timeout):
+            assert timeout > 0
+            calls.append(command)
+
+        scope = {
+            "scope": "live2d_free",
+            "LIVE2D_INPUT_KIND": input_kind,
+            "LIVE2D_EDITION": "free",
+            "LIVE2D_PRO_ASSET": "body",
+            "LIVE2D_USE_QWEN": False,
+            "USAGE": "personalNonProfit",
+            "repo": pathlib.Path("/content/Virtual-pipeline"),
+            "pathlib": pathlib,
+            "sys": sys,
+            "os": SimpleNamespace(environ={}, pathsep=os.pathsep),
+            "run": capture,
+        }
+        exec(code, scope)
+        assert any("tools.vts_psd2live" in cmd for cmd in calls)
+        assert any("/content/vtuber_builder/third_party" in cmd for cmd in calls)
+
+
 def test_colab_prepares_psd2live_and_uses_rigged_zip():
     notebook = (Path(__file__).resolve().parents[1] /
                 "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb")
