@@ -43,6 +43,14 @@ def _alias(original: str, sam_label: str | None) -> tuple[str | None, str]:
     family = tokens[0] if tokens else ""
     tail = set(tokens[1:])
 
+    # Some first-pass names nest face/skin under a generic BODY panel.
+    # Preserve the more specific anatomy when the parent isn't proof of
+    # clothing; visible SAM may be absent for imported/external PSDs.
+    if family == "body" and tail & {"head", "face", "skin"}:
+        return "face", "specific_body_source"
+    if family == "face" and tail & {"detail", "blush", "cheek"}:
+        return "facedetail", "specific_face_source"
+
     # Explicit anatomy has higher confidence than global visible-only SAM
     # masks when the original source part is hidden by hair or clothing.
     if family in ("eye", "eyes", "eyewhite", "eyelash", "irides"):
