@@ -6,6 +6,7 @@ on:
       - "vtuber_pipeline/**"
       - "tools/**"
       - "tests/**"
+      - "docs/image_ai_kits_v2/**"
       - ".github/workflows/fast-contract.yml"
   workflow_dispatch:
 permissions:
@@ -39,6 +40,7 @@ jobs:
             tests/production/test_uv_projection.py \
             tests/test_visual_alignment.py \
             tests/test_cubism_export_validation.py \
+            tests/test_image_ai_kits_v2.py \
             tests/test_vts_mode_contract.py \
             tests/test_vts_production_contract.py \
             tests/test_vts_artwork_export.py \

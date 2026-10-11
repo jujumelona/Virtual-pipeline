@@ -15,11 +15,12 @@ ZIP_MEMBERS = {
     "03_MODE_RULES.md",
     "04_OUTPUT_FILES.md",
     "05_OFFICIAL_REFERENCES.md",
+    "06_ADVANCED_OFFICIAL_COMMUNITY.md",
     "references/ARTWORK_FLOW.svg",
 }
 
 
-def test_every_one_of_twenty_zips_exists_and_contains_all_seven_documents():
+def test_every_one_of_twenty_zips_is_readable_with_eight_complete_documents():
     existing = sorted((ROOT_KITS / "zips").glob("*.zip"))
     assert len(existing) == 20
     for mode in MODES:
@@ -33,6 +34,14 @@ def test_every_one_of_twenty_zips_exists_and_contains_all_seven_documents():
                 details = archive.read("02_ADVANCED_PARTS.md").decode("utf-8")
                 official = archive.read("05_OFFICIAL_REFERENCES.md").decode("utf-8")
                 output = archive.read("04_OUTPUT_FILES.md").decode("utf-8")
+                advanced = archive.read("06_ADVANCED_OFFICIAL_COMMUNITY.md").decode("utf-8")
+                expected_source = ROOT_KITS / "source" / ("ADVANCED_VERIFIED_3D.md" if mode == "3d" else "ADVANCED_VERIFIED_2D.md")
+                assert archive.read("06_ADVANCED_OFFICIAL_COMMUNITY.md") == expected_source.read_bytes()
+                assert "## 비공식" in advanced
+                assert "https://" in advanced
+                assert "공식" in advanced
+                assert "원화" in advanced
+                assert not any(n.lower().endswith((".psd", ".moc3", ".vrm", ".glb", ".fbx")) for n in archive.namelist())
                 assert prompt and details and official and output
                 assert f"{mode}__{asset}__ARTWORK.zip" in output
                 assert "실제" in details
@@ -50,6 +59,14 @@ def test_every_one_of_twenty_zips_exists_and_contains_all_seven_documents():
                     assert "VRM" in official
                 assert "자동분리" in prompt or "자동" in prompt
                 assert "리깅" in prompt  # mentioned ONLY as excluded from image AI tasks
+                assert "06" in prompt
+                assert "처음" in prompt
+                assert "ZIP" in prompt
+                if mode != "3d":
+                    assert "RGBA" in output
+                    assert "눈" in advanced and "입" in advanced
+                else:
+                    assert "3D" in advanced and "SpringBone" in advanced
 
 
 def test_main_readme_links_to_twenty_kit_index():
