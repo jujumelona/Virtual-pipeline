@@ -2,8 +2,41 @@
 from pathlib import Path
 import json
 
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageDraw
 
+
+
+def _flat_border_foreground_mask(rgba):
+    """Extract only a fully enclosed foreground on a near-uniform border.
+
+    This changes alpha only, not source RGB, and never reconstructs hidden
+    artwork. Ambiguous backgrounds and border-contacting objects fail closed.
+    """
+    width, height = rgba.size
+    if min(width, height) < 16:
+        return None
+    rgb = rgba.convert("RGB")
+    background_color = rgb.getpixel((0, 0))
+    edges = (
+        rgb.crop((0, 0, width, 1)),
+        rgb.crop((0, height - 1, width, height)),
+        rgb.crop((0, 0, 1, height)),
+        rgb.crop((width - 1, 0, width, height)),
+    )
+    for edge in edges:
+        difference = ImageChops.difference(
+            edge, Image.new("RGB", edge.size, background_color))
+        if any(high > 8 for low, high in difference.getextrema()):
+            return None
+    marker = tuple(0 if channel >= 128 else 255 for channel in background_color)
+    flooded = rgb.copy()
+    ImageDraw.floodfill(flooded, (0, 0), marker, thresh=8)
+    background = ImageChops.difference(rgb, flooded).convert("L").point(
+        lambda value: 255 if value else 0)
+    covered = background.histogram()[255]
+    if not (0.05 * width * height <= covered <= 0.95 * width * height):
+        return None
+    return ImageChops.invert(background)
 
 def prepare_detached_asset(master: Path, work: Path, *, asset_kind: str,
                            qwen: bool, layer_count: int, pass_budget: int,
@@ -21,11 +54,22 @@ def prepare_detached_asset(master: Path, work: Path, *, asset_kind: str,
               "inferred_hidden_pixels": False, "canvas": list(rgba.size),
               "mask_visual_accuracy_verified": False,
               "rgb_regenerated": False}
-    if alpha.getextrema() == (255, 255):
-        if not qwen or pass_budget < 1:
-            raise ValueError("PRO opaque detached asset needs transparent artwork or an aligned PSD; "
-                             "Qwen is optional only for PRO hair/accessory; supply actual "
-                             "transparent artwork/an aligned layered PSD")
+    if alpha.getextrema() == (255, 255) and not qwen:
+        mask = _flat_border_foreground_mask(rgba)
+        if mask is None:
+            raise ValueError(
+                "PRO opaque detached asset needs a uniform, unobstructed border, "
+                "transparent artwork or an aligned PSD; Qwen is optional "
+                "only for PRO hair/accessory")
+        rgba.putalpha(mask)
+        report.update(
+            method="flat_border_floodfill_original_rgb",
+            note="Connected near-uniform background removed; inspect edges and "
+                 "background leakage. Hidden pixels were not reconstructed.")
+    elif alpha.getextrema() == (255, 255):
+        if pass_budget < 1:
+            raise ValueError("PRO opaque detached asset needs a positive Qwen "
+                             "pass budget or transparent artwork")
         # The official Stable-Layers output is background first and then
         # back-to-front objects. Use only object alpha, never generated RGB.
         from tools.vts_qwen_refine import infer

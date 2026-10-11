@@ -476,6 +476,54 @@ def test_opaque_detached_asset_needs_foreground_proposal_not_head_hallucination(
             scope='full', asset_kind='outfit', reference_image=base, qwen=False)
 
 
+
+def test_opaque_pro_outfit_uniform_border_preserves_source_rgb(tmp_path, monkeypatch):
+    import json
+    from io import BytesIO
+    from tools import vts_production as production
+    master = tmp_path / "outfit.png"
+    original = Image.new("RGB", (256, 384), "white")
+    original.paste((115, 50, 220), (64, 40, 192, 320))
+    original.save(master)
+    reference = tmp_path / "base.png"
+    Image.new("RGBA", original.size).save(reference)
+    monkeypatch.setattr(production, "run_see_through",
+                        lambda *a, **k: pytest.fail("wrong model"))
+    result = production.make_cubism_handoff(
+        master, tmp_path / "out", edition="pro", scope="full",
+        asset_kind="outfit", reference_image=reference,
+        qwen=False, psd2live=False)
+    with ZipFile(result["package"]) as archive:
+        composite = Image.open(BytesIO(archive.read("preview/composite.png"))).convert("RGBA")
+        assert composite.getpixel((80, 80)) == (115, 50, 220, 255)
+        assert composite.getpixel((0, 0))[3] == 0
+        preparation = json.loads(archive.read("metadata/asset_preparation.json"))
+        assert preparation["method"] == "flat_border_floodfill_original_rgb"
+        assert preparation["inferred_hidden_pixels"] is False
+        assert preparation["rgb_regenerated"] is False
+        assert preparation["mask_visual_accuracy_verified"] is False
+
+
+@pytest.mark.parametrize("touch_edge", [True, False])
+def test_opaque_pro_outfit_rejects_ambiguous_border(tmp_path, monkeypatch, touch_edge):
+    from tools import vts_production as production
+    master = tmp_path / "outfit.png"
+    image = Image.new("RGB", (256, 384), "white")
+    image.paste((115, 50, 220), (64, 0 if touch_edge else 40, 192, 320))
+    if not touch_edge:
+        image.putpixel((255, 150), (30, 30, 30))
+    image.save(master)
+    reference = tmp_path / "base.png"
+    Image.new("RGBA", image.size).save(reference)
+    monkeypatch.setattr(production, "run_see_through",
+                        lambda *a, **k: pytest.fail("wrong model"))
+    with pytest.raises(ValueError, match="opaque"):
+        production.make_cubism_handoff(
+            master, tmp_path / "out", edition="pro", scope="full",
+            asset_kind="outfit", reference_image=reference,
+            qwen=False, psd2live=False)
+
+
 def test_opaque_detached_asset_uses_only_qwen_foreground_alpha_and_original_rgb(tmp_path, monkeypatch):
     import json
     from io import BytesIO
