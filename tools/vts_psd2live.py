@@ -80,6 +80,15 @@ def ensure_psd2live(third_party: Path | None, *, timeout_seconds: int = 300) -> 
             raise RuntimeError(f"PSD2LIVE_CLONE_FAILED: exit={rc}")
     if not (root / "gradlew").is_file():
         raise RuntimeError(f"PSD2LIVE_WRAPPER_MISSING: {root}/gradlew")
+    if (root / ".git").exists():
+        tag = subprocess.run(
+            ["git", "-C", str(root), "describe", "--tags", "--exact-match", "HEAD"],
+            capture_output=True, text=True, timeout=15, check=False)
+        if tag.returncode != 0 or tag.stdout.strip() != PSD2LIVE_REF:
+            raise RuntimeError(
+                f"PSD2LIVE_VERSION_MISMATCH: expected {PSD2LIVE_REF}, "
+                f"checkout={root}, tag={tag.stdout.strip()!r}; "
+                "use the exact pinned release")
     return root
 
 
@@ -189,7 +198,7 @@ def package_psd2live(result: dict, artwork_zip: Path, output_zip: Path) -> Path:
     output_zip = Path(output_zip).resolve()
     output_zip.parent.mkdir(parents=True, exist_ok=True)
     if output_zip.exists():
-        output_zip.unlink()
+        raise RuntimeError(f"PSD2LIVE_ARCHIVE_ALREADY_EXISTS: {output_zip}")
     tmp = output_zip.with_name(output_zip.name + ".partial")
     tmp.unlink(missing_ok=True)
     try:
