@@ -126,3 +126,53 @@ def test_one_outer_zip_folder_is_allowed_without_guessing_artwork(tmp_path):
     checked = inspect_large_ai_pack(src)
     assert checked["archive_prefix"] == "Live2D_Character_Assets/"
     assert len(checked["parts"]) == 3
+
+def make_simple_image_ai_pack(tmp_path, *, parent_prefix=""):
+    path = tmp_path / "image_ai_only.zip"
+    master = Image.new("RGB", (640, 768), (245, 240, 250))
+    out = BytesIO()
+    master.save(out, "PNG")
+    p1 = _png((640, 768), (100, 110, 180, 260))
+    p2 = _png((640, 768), (130, 180, 190, 280), color=(30, 70, 120, 255))
+    with ZipFile(path, "w", ZIP_DEFLATED) as z:
+        z.writestr(parent_prefix + "outputs/master.png", out.getvalue())
+        z.writestr(parent_prefix + "isolated_parts/hair_back.png", p1)
+        z.writestr(parent_prefix + "isolated_parts/face_skin.png", p2)
+        z.writestr(parent_prefix + "layer_order.txt",
+                   "isolated_parts/hair_back.png\\n"
+                   "isolated_parts/face_skin.png\\n")
+    return path
+
+
+@pytest.mark.parametrize("prefix", ["", "Live2D_Character_Artwork/"])
+def test_image_ai_only_zip_no_manifest_or_coordinates_required(tmp_path, prefix):
+    source = make_simple_image_ai_pack(tmp_path, parent_prefix=prefix)
+    result = inspect_large_ai_pack(source)
+    assert result["archive_prefix"] == prefix
+    assert result["manifest"]["schema"] == "live2d/simple-image-artwork-zip-v1"
+    assert [part["id"] for part in result["parts"]] == ["hair_back", "face_skin"]
+    assert all(part["image"].size == result["canvas"] for part in result["parts"])
+    assert result["visual_quality_verified"] is False
+
+
+def test_image_ai_only_zip_reaches_real_psd_without_metadata(tmp_path):
+    pytest.importorskip("psd_tools")
+    from psd_tools import PSDImage
+    pack = make_simple_image_ai_pack(tmp_path)
+    result = prepare_large_ai_pack(pack, tmp_path / "art")
+    psd = PSDImage.open(result["psd"])
+    leaves = [x for x in psd.descendants() if not x.is_group()]
+    assert [p.name for p in leaves] == ["hair_back", "face_skin"]
+    assert result["metadata"]["visual_quality_verified"] is False
+
+
+def test_image_ai_only_zip_misaligned_canvas_refused(tmp_path):
+    pack = make_simple_image_ai_pack(tmp_path)
+    with ZipFile(pack) as z:
+        data = {name: z.read(name) for name in z.namelist()}
+    data["isolated_parts/hair_back.png"] = _png((300, 400), (20, 30, 60, 80))
+    with ZipFile(pack, "w") as z:
+        for name, content in data.items():
+            z.writestr(name, content)
+    with pytest.raises(ValueError, match="AI_PACK_CANVAS_MISMATCH"):
+        inspect_large_ai_pack(pack)
