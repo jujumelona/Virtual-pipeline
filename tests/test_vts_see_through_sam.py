@@ -35,54 +35,76 @@ def test_sam_masks_are_exactly_nineteen_full_canvas_layers():
         check_masks(x, (14, 20))
 
 
-def test_semantic_sam_attempts_every_observed_first_pass_layer(monkeypatch, tmp_path):
+def test_semantic_sam_preserves_unknown_layers_instead_of_cross_class_cut(
+        monkeypatch, tmp_path):
     from tools import vts_see_through_sam as sam
     from tools.vts_artwork_export import _apply_official_semantic_sam_once
 
-    source_a = {"name": "mystery-A", "image": Image.new(
-        "RGBA", (40, 20), (10, 100, 160, 180)), "depth": 0}
-    source_b = {"name": "mystery-B", "image": Image.new(
-        "RGBA", (40, 20), (200, 25, 90, 255)), "depth": 0}
-    masks = [Image.new("RGBA", (40, 20)) for _ in range(19)]
-    masks[0].paste((0, 0, 0, 255), (0, 0, 20, 20))
-    masks[1].paste((0, 0, 0, 255), (20, 0, 40, 20))
+    layers = [
+        {"name": "mystery-A", "image": Image.new("RGBA", (40, 20), (10, 100, 160, 180)), "depth": 0},
+        {"name": "mystery-B", "image": Image.new("RGBA", (40, 20), (200, 25, 90, 255)), "depth": 0},
+    ]
+    masks = [Image.new("L", (40, 20), 0) for _ in range(19)]
+    masks[0].paste(255, (0, 0, 20, 20))
+    masks[11].paste(255, (20, 0, 40, 20))
     calls = []
 
-    def fake_run(layers, canvas, *, output, third_party):
-        calls.append([item["name"] for item in layers])
+    def fake_run(parts, canvas, *, output, third_party):
+        calls.append([item["name"] for item in parts])
         output.mkdir(parents=True, exist_ok=True)
         log = output / "sam19.log"
-        log.write_text("single-load fake; no GPU test")
+        log.write_text("one model call")
         return masks, log
 
     monkeypatch.setattr(sam, "run_sam_from_package", fake_run)
     parts, trace, log = _apply_official_semantic_sam_once(
-        [source_a, source_b], (40, 20),
-        output=tmp_path / "out", third_party=tmp_path, edition="free")
+        layers, (40, 20), output=tmp_path / "out",
+        third_party=tmp_path, edition="free")
     assert calls == [["mystery-A", "mystery-B"]]
-    assert len(trace) == 2 and all(t["accepted"] for t in trace)
-    assert len(parts) == 4 and log.is_file()
-    for input_part, child_group in zip([source_a, source_b], [parts[:2], parts[2:]]):
-        # Check stored pixels, not Pillow compositing round-trip arithmetic.
-        rebuilt = np.zeros((20, 40, 4), dtype=np.uint8)
-        for child in child_group:
-            rgba = np.asarray(child["image"], dtype=np.uint8)
-            owns = rgba[..., 3] > 0
-            rebuilt[owns] = rgba[owns]
-        assert np.array_equal(rebuilt, np.asarray(input_part["image"]))
+    assert len(parts) == 2 and len(trace) == 2 and log.is_file()
+    assert all(not x["accepted"] and x["reason"] == "no_compound_semantic_partition"
+               and x["candidate_labels"] == [] for x in trace)
+    for original, actual in zip(layers, parts):
+        np.testing.assert_array_equal(np.asarray(actual["image"]),
+                                      np.asarray(original["image"]))
+
+
+def test_semantic_sam_compatible_body_masks_partition_without_pixel_changes(
+        monkeypatch, tmp_path):
+    from tools import vts_see_through_sam as sam
+    from tools.vts_artwork_export import _apply_official_semantic_sam_once
+
+    layer = {"name": "body.compound", "image": Image.new(
+        "RGBA", (40, 20), (10, 100, 160, 180)), "depth": 0}
+    masks = [Image.new("L", (40, 20), 0) for _ in range(19)]
+    masks[2].paste(255, (0, 0, 20, 20))
+    masks[11].paste(255, (20, 0, 40, 20))
+    monkeypatch.setattr(sam, "run_sam_from_package",
+                        lambda *a, **k: (masks, tmp_path / "missing.log"))
+    parts, trace, _ = _apply_official_semantic_sam_once(
+        [layer], (40, 20), output=tmp_path, third_party=tmp_path, edition="pro")
+    assert len(parts) == 2 and trace[0]["accepted"]
+    assert "face" in trace[0]["candidate_labels"]
+    assert "topwear" in trace[0]["candidate_labels"]
+    rebuilt = np.zeros((20, 40, 4), dtype=np.uint8)
+    for part in parts:
+        rgba = np.asarray(part["image"])
+        occupied = rgba[..., 3] > 0
+        rebuilt[occupied] = rgba[occupied]
+    np.testing.assert_array_equal(rebuilt, np.asarray(layer["image"]))
 
 
 def test_semantic_sam_respects_free_artmesh_budget(monkeypatch, tmp_path):
     from tools import vts_see_through_sam as sam
     from tools.vts_artwork_export import _apply_official_semantic_sam_once
     masks = [Image.new("RGBA", (20, 20)) for _ in range(19)]
-    masks[0].paste((0, 0, 0, 255), (0, 0, 10, 20))
-    masks[1].paste((0, 0, 0, 255), (10, 0, 20, 20))
+    masks[2].paste((0, 0, 0, 255), (0, 0, 10, 20))
+    masks[11].paste((0, 0, 0, 255), (10, 0, 20, 20))
     def fake_run(layers, canvas, *, output, third_party):
         output.mkdir(parents=True, exist_ok=True)
         return masks, output / "unused.log"
     monkeypatch.setattr(sam, "run_sam_from_package", fake_run)
-    layers = [{"name": f"unclassified-{i}", "image": Image.new(
+    layers = [{"name": f"body.compound.{i}", "image": Image.new(
         "RGBA", (20, 20), (40, 80, 120, 255)), "depth": 0} for i in range(100)]
     produced, trace, _ = _apply_official_semantic_sam_once(
         layers, (20, 20), output=tmp_path, third_party=tmp_path, edition="free")

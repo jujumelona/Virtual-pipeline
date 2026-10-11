@@ -78,40 +78,41 @@ def test_batch_patch_loads_each_model_once_and_visits_all_sources():
         patch_quantized_batch(pinned.replace("srcp = args.srcp", "srcp = 'changed'"))
 
 
-def test_official_pass_one_full_composite_inference_for_sixty_layers(monkeypatch, tmp_path):
-    """Regression: 60 SAM pieces must not trigger 60 diffusion jobs."""
-    from tools import vts_production as production, vts_artwork_export as export
+def test_official_sam_one_inference_for_sixty_layers_without_second_diffusion(
+        monkeypatch, tmp_path):
+    """One SAM call, no second diffusion, exact source pixels for 60 parts."""
+    from tools import vts_production as production
+    from tools import vts_see_through_sam as sam
+    from tools import vts_artwork_export as export
 
     original = []
     for index in range(60):
         part = fixture_part()
-        part["name"] = f"fragment.{index:02d}"
+        part["name"] = f"body.fragment.{index:02d}"
         original.append(part)
+    masks = [Image.new("L", (64, 32), 0) for _ in range(19)]
+    masks[2].paste(255, (0, 0, 32, 32))  # face
+    masks[11].paste(255, (32, 0, 64, 32))  # topwear
     calls = []
 
-    def single(source, work, **kwargs):
-        source = Path(source)
-        assert source.is_file() and source.name == "composite_source.png"
-        assert Image.open(source).size == (64, 32)
-        assert kwargs["qwen"] is False
-        calls.append(source.name)
-        return tmp_path / "global.psd"
+    def sam_once(layers, canvas, *, output, third_party):
+        calls.append((len(layers), canvas))
+        output.mkdir(parents=True, exist_ok=True)
+        log = output / "sam19.log"
+        log.write_text("single SAM call")
+        return masks, log
 
-    monkeypatch.setattr(production, "run_see_through", single)
-    monkeypatch.setattr(production, "psd_to_registered_rgba",
-                        lambda p, d, **kwargs: (None, tmp_path / "layers.zip", 2))
-    monkeypatch.setattr(production, "restore_source_canvas",
-                        lambda p, c, d: (tmp_path / "restored.zip", {"test": True}))
-    monkeypatch.setattr(export, "_read_registered", lambda _: (
-        [{"image": im, "name": str(i)} for i, im in enumerate(split_masks())],
-        (64, 32),
-    ))
-    refined, trace, logfile = export._refine_all_layers_official_once(
+    def forbid_second_diffusion(*args, **kwargs):
+        pytest.fail("Second LayerDiff/Marigold inference is disabled")
+
+    monkeypatch.setattr(sam, "run_sam_from_package", sam_once)
+    monkeypatch.setattr(production, "run_see_through", forbid_second_diffusion)
+    refined, trace, logfile = export._apply_official_semantic_sam_once(
         original, (64, 32), output=tmp_path, third_party=tmp_path, edition="pro")
-    assert calls == ["composite_source.png"]
+    assert calls == [(60, (64, 32))]
     assert len(trace) == 60 and len(refined) == 120
-    assert all(item["accepted"] and item["inference_images"] == 1 for item in trace)
-    assert logfile.name == "see_through_full.log"
+    assert all(item["accepted"] and item["candidate_labels"] for item in trace)
+    assert logfile.is_file()
     for parent, children in zip(original, (refined[i:i+2] for i in range(0, 120, 2))):
         restored = np.zeros_like(np.asarray(parent["image"]))
         for child in children:

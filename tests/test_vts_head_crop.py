@@ -57,16 +57,18 @@ def run_crop(tmp_path, bbox, *, patched=True, size=(64, 96)):
     (None, (64, 96)), (None, (96, 64)),
     ((0, 0, 2, 10), (64, 96)), ((25, 15, 1, 1), (16, 24)),
 ])
-def test_empty_or_padding_only_head_uses_full_source_for_head_pass(tmp_path, bbox, size, capsys):
-    calls, saved = run_crop(tmp_path, bbox, size=size)
-    assert [call["group_index"] for call in calls] == [0, 1]
-    assert np.array_equal(calls[1]["fullpage"], calls[0]["fullpage"])
-    assert "VTS HEAD_CROP_FALLBACK" in capsys.readouterr().out
-    with Image.open(saved / "headwear.png") as im:
-        assert np.array_equal(np.asarray(im), calls[0]["fullpage"])
-    for name in ["src_img.png", "front hair.png", "head.png", "src_head.png", "headwear.png", "mouth.png"]:
-        with Image.open(saved / name) as im:
-            assert im.size == (64, 64)
+def test_empty_or_padding_only_head_fails_closed_without_full_image_substitution(
+        tmp_path, bbox, size):
+    # Never feed the full body to head-only prompts or fabricate headwear.
+    with pytest.raises(RuntimeError, match="VTS_HEAD_CROP_INVALID"):
+        run_crop(tmp_path, bbox, size=size)
+    saved = tmp_path / "out" / "part"
+    assert (saved / "src_img.png").is_file()
+    assert (saved / "front hair.png").is_file()
+    assert (saved / "head.png").is_file()
+    assert not (saved / "src_head.png").exists()
+    assert not (saved / "headwear.png").exists()
+    assert not (saved / "mouth.png").exists()
 
 
 def test_nonempty_head_retains_vendor_crop_and_registered_pixels(tmp_path):
