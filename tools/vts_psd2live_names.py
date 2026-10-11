@@ -109,7 +109,7 @@ def normalize_layer_names(layers: list[dict]) -> tuple[list[dict], dict]:
         # In v3.3.1 both side and variant suffix are recognized by the
         # classifier. Deterministic numeric IDs prevent collisions.
         new = (f"{tag}_{i:04d}" + (f"-{side}" if side else "")) if tag else old
-        normalized.append({**layer, "name": new})
+        normalized.append({**layer, "name": new, "source_name": old})
         records.append({"source": old, "psd2live": new, "sam_label": layer.get("sam_label"),
                         "semantic_tag": tag, "evidence": evidence,
                         "side": side})
