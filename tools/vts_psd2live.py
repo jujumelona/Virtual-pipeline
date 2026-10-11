@@ -145,12 +145,15 @@ def validate_psd2live_output(folder: Path, *, edition: str | None = None) -> dic
             all_files.append(path)
     if not all_files:
         raise RuntimeError("PSD2LIVE_OUTPUT_EMPTY")
+    cmo3_files = [str(p) for p in all_files if p.suffix.lower() == ".cmo3"]
+    if not cmo3_files:
+        raise RuntimeError("PSD2LIVE_CMO3_MISSING: CLI default must export editable Cubism CMO3")
     return {
         "model3_json": str(model),
         "moc3": checked["moc3"],
         "required_files": checked["files"],
         "files": [str(p) for p in all_files],
-        "cmo3": [str(p) for p in all_files if p.suffix.lower() == ".cmo3"],
+        "cmo3": cmo3_files,
         "project": [str(p) for p in all_files if p.suffix.lower() == ".psd2live"],
         "runtime_references_valid": True,
         "runtime_execution_verified": False,
