@@ -6,9 +6,11 @@
 
 외부 이미지 생성 AI가 만든 캐릭터 이미지를 입력받아 **Inochi2D**, **Live2D**, **3D VRM** 모델을 제작합니다. 모드별 이미지 생성 사양과 프롬프트는 아래에 정리되어 있습니다.
 
-## Live2D FREE/PRO 이미지·PSD 제작 (현재 구현)
+## Live2D FREE/PRO · PSD2Live 자동 리깅 (기본 경로)
 
-**Live2D 출력은 수정 가능한 레이어 PSD + 파츠별 RGBA PNG·알파 마스크 + 프리뷰 + 실제 좌표/레이어 목록 JSON + See-through 원본 PSD·입력 이미지 + 모드별 자동 작성 제작 안내 MD + 시각 검수 MD + Cubism Editor 안내 README**입니다. 실제 ArtMesh, 디포머, 키폼, 물리와 모션, .cmo3 및 .moc3는 **사용자가 Cubism Editor에서 제작**합니다. Linux Colab에서 Editor나 MOC3 제작기가 자동 실행되는 것으로 표시하지 않습니다.
+**FREE 완성 캐릭터와 PRO body:** See-through NF4 → 공식 SAM 19마스크 분리 → 실제 레이어 PSD → 별도 설치한 [PSD2Live v3.3.1](https://github.com/tsunehimatoi/psd2live/releases/tag/v3.3.1) CLI 자동 리깅 → `.moc3`, `.model3.json`, 텍스처, 물리, `.cmo3` 등의 **실제 생성된 파일**을 최종 `Live2D_PSD2Live_Rigged.zip`으로 묶습니다. 기존 PSD 전체 제작 ZIP은 `source_artwork/`에 중첩 보존합니다. 모델 참조 경로·MOC3 시그니처·PNG를 검증하지만 Cubism Core 실제 로딩, VTube Studio 구동, 얼굴 동작 품질과 FREE의 모든 개체 제한 충족 여부는 검증하지 않았습니다.
+
+**PRO hair/outfit/accessory:** 단독 교체 자산은 얼굴 추적 가능한 완성 캐릭터가 아니므로 리깅 완료로 표시하지 않습니다. 기존 PSD/PNG 자산 ZIP을 반환합니다. 본 프로젝트는 PSD2Live GPL-3.0 코드를 포함하거나 재배포하지 않고 v3.3.1 소스를 별도 클론하여 CLI 프로세스로 실행합니다.
 
 ### 입력과 출력
 
@@ -27,12 +29,22 @@ PRO 독립 제작은 네 종류를 한꺼번에 업로드하거나 만들어야 
 
 1. ② TOP_MODE = live2d 상위 모드 선택
 2. ③ FREE/PRO 선택, PRO일 때 독립 제작 종류(body / hair / outfit / accessory) 한 종류 선택, 상반신/전신 및 Qwen 옵션 선택
-3. ⑦ See-through NF4 준비, 필요 시 양자화 Qwen-Image-Layered + Stable-Layers 준비
+3. ⑦ See-through NF4 및 별도 PSD2Live v3.3.1/JDK 21/Gradle 준비, 필요 시 Qwen-Image-Layered + Stable-Layers 준비
 4. ⑧ FREE는 완성 이미지 1장, PRO는 선택 자산 1장과 (분리 자산일 때만) 신체 기준 1장 업로드
-5. ⑨ FREE/PRO 신체는 See-through NF4 기본 분해 → 공식 좌우/깊이 후처리 → See-through 공식 SAM Body Parsing(19종 마스크) 1회 → SAM 마스크로 유효하게 분할된 레이어를 그대로 채택하고 원본 RGBA 보존(Qwen OFF) → 원본 RGBA 검증 → PSD/PNG ZIP 제작. PRO 독립 헤어도 Qwen OFF이며, PRO 독립 의상·액세서리만 Qwen을 선택적으로 사용합니다.
-6. ⑩ 최종 ZIP 다운로드. 실제 리깅·물리는 Editor에서 제작
+5. ⑨ FREE/PRO 신체는 See-through NF4 분해 → 좌우/깊이 후처리 → SAM Body Parsing(19종 마스크) 1회 → 기존 파츠를 그대로 채택 → PSD/PNG ZIP → **PSD2Live CLI 자동 리깅 → 실제 Cubism 모델 파일 ZIP**. Qwen은 FREE 및 PRO body에서는 OFF, PRO hair/accessory에서만 선택할 수 있습니다.
+6. ⑩ 모델 ZIP 다운로드. `.model3.json`과 참조되는 `.moc3`, 텍스처·물리를 같은 폴더 구조로 유지하고 VTube Studio에서 동작 검증. 실패 시 가짜 성공 ZIP을 반환하지 않음.
 
 **세부 분할 검증:** `metadata/official_sam19.json`에는 SAM 19마스크로 각 파츠를 분리한 채택·거절 기록을, `metadata/official_second_pass.json`에는 추가 NF4 재분해 비활성화 사유를 기록하고, `metadata/segmentation_trace.json`에는 (PRO 의상·액세서리에서 활성화한 경우에만) Qwen 실제 시도·채택 횟수와 좌우 이미지 분리 기록을 남깁니다. `metadata/input_vs_psd_geometry.json`에는 원화 대비 불투명 전경 RGB 오차 통계를 넣습니다. 이 검사는 가려진 영역, 입 내부, 실제 눈 깜빡임, 아트메시 변형 품질을 증명하지 않습니다. 결과는 Cubism에서 추가 검수·수정이 필요합니다.
+
+
+### PSD2Live 실행·라이선스·출력 계약
+
+- **버전 고정**: PSD2Live `v3.3.1`; `tools/vts_psd2live.py`가 필요 시 원격 소스를 `third_party/psd2live`에 별도로 내려받습니다. Colab ⑦에서 JDK 21 확인·설치와 Gradle 컴파일을 미리 수행합니다. 로컬에서는 `VTS_PSD2LIVE_HOME`으로 이미 설치한 PSD2Live 소스 경로를 지정할 수 있습니다.
+- **명령**: `./gradlew --no-daemon run --args="--input <avatar.psd> --output <model_dir> --atlas 2048 --lang en"` (FREE) / PRO body 아틀라스 4096. 원본 PSD를 60번 다시 추론하지 않습니다.
+- **완성 모델 ZIP**: PSD2Live 출력 디렉터리의 원래 상대경로를 유지합니다. `*.model3.json`과 참조된 `*.moc3`, 텍스처, 물리/모션을 실체 검증하고, 생성됐다면 `*.cmo3` 및 `*.psd2live`도 함께 묶습니다. 원래 제작 ZIP은 `source_artwork/`에 보관합니다. `metadata/psd2live_bridge.json`에 백엔드/참조 SHA/검증 범위를 기록합니다.
+- **실패 처리**: JDK/Gradle/Git 오류, 실행 비정상 종료, 참조 파일 누락, 가짜 MOC3 또는 손상 PNG이면 `VTS_HANDOFF_FAIL`로 처리합니다. 기존 분해 PSD는 작업 폴더에 남지만 완성된 모델로 간주하지 않습니다.
+- **한계**: 자동 리깅은 완성도 보장 아님. FREE 제한(ArtMesh/디포머/파라미터/아틀라스) 중 아틀라스만 자동 지정합니다. 실제 VTube Studio 또는 Cubism Core 로딩 검증 전 상태는 `psd2live_rigged_unverified`입니다.
+- **라이선스**: 외부 PSD2Live는 GPL-3.0의 독립 실행 프로그램입니다. 이 저장소의 MIT와 혼합되지 않도록 소스코드나 빌드 바이너리를 저장소 또는 다운로드 모델 ZIP에 포함하지 않습니다.
 
 ### FREE 7개 제한
 
