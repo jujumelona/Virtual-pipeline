@@ -793,60 +793,14 @@ def _split_clear_bilateral_layer(layer):
     ]
 
 
-def _official_sam_masks_for_layer(layer_name: str, masks: list):
-    """Select only anatomically compatible SAM channels for a PSD layer.
-
-    Each 19-class mask covers the global *visible* character, not every
-    occluded layer. Never cut hair with clothes/face masks simply because
-    their pixel coordinates overlap. An unmapped layer stays unchanged.
-    """
-    from tools.vts_see_through_sam import SAM_LABELS_V2
-
-    raw = layer_name.casefold().replace("_", ".").replace("-", ".")
-    family = raw.split(".", 1)[0]
-    if any(token in raw for token in (".iris", ".sclera", ".pupil", ".lash", ".lid")):
-        labels = ("eyes",)
-    elif family in ("hair",):
-        labels = ("hair",)
-    elif family in ("eye", "eyes", "eyebrow"):
-        labels = ("eyes",)
-    elif family in ("mouth", "nose", "ear", "ears", "neck"):
-        labels = {"mouth": ("mouth",), "nose": ("nose",),
-                  "ear": ("ears",), "ears": ("ears",),
-                  "neck": ("neck",)}[family]
-    elif family == "face":
-        # A compound face panel may legitimately include adjacent face parts.
-        labels = ("face", "eyes", "ears", "nose", "mouth")
-    elif family in ("body", "head"):
-        labels = ("face", "ears", "nose", "mouth", "neck",
-                  "topwear", "handwear", "bottomwear", "legwear", "footwear")
-    elif family in ("cloth", "outfit", "sleeve", "shoe", "foot", "leg", "hand", "arm"):
-        labels = ("topwear", "handwear", "bottomwear", "legwear", "footwear")
-    elif family in ("ornament", "accessory"):
-        labels = ("headwear", "eyewear", "earwear", "neckwear",
-                  "tail", "wings", "objects")
-    else:
-        return [], []
-    if family == "ornament" and ".ears" in raw:
-        labels = ("earwear",)
-    elif family == "ornament" and ".eyes" in raw:
-        labels = ("eyewear",)
-    elif family == "ornament" and ".head" in raw:
-        labels = ("headwear",)
-    elif family == "ornament" and ".neck" in raw:
-        labels = ("neckwear",)
-    lookup = {label: index for index, label in enumerate(SAM_LABELS_V2)}
-    return [masks[lookup[label]] for label in labels], list(labels)
-
-
 def _apply_official_semantic_sam_once(layers: list, canvas: tuple[int, int],
                                       *, output: Path, third_party: Path,
                                       edition: str):
-    """Parse one full composite; refine only compatible existing 2D layers.
+    """Apply the official 19 SAM masks to first-pass layers exactly once.
 
-    Mask count is not an ArtMesh quality metric. If the named source family
-    has no unambiguous class mapping or a proposed partition is trivial,
-    preserve that 1st-pass layer with its source pixels intact.
+    Preserve the existing 22->60-style SAM output behavior. Do not invoke a
+    recursive or per-layer NF4 pass. Every accepted child owns source RGBA
+    pixels; rejected partitions keep their input layer unchanged.
     """
     from tools.vts_see_through_sam import run_sam_from_package
     from tools.vts_official_second_pass import partition_from_masks
@@ -857,30 +811,26 @@ def _apply_official_semantic_sam_once(layers: list, canvas: tuple[int, int],
         raise RuntimeError("Official SemanticSam worker returned invalid class count")
     refined, trace = [], []
     for index, layer in enumerate(layers):
-        selected, labels = _official_sam_masks_for_layer(layer["name"], masks)
-        diagnostic = {"source_layer": layer["name"], "stage": "semantic_sam_19",
-                      "candidate_labels": labels}
-        if len(selected) < 2:
-            children = [layer]
-            diagnostic.update(accepted=False, reason="no_compound_semantic_partition")
-        else:
-            try:
-                children, decision = partition_from_masks(layer, selected)
-                diagnostic.update(decision)
-                if (edition == "free" and
-                        len(refined) + len(children) + len(layers) - index - 1 > FREE_LIMIT):
-                    children = [layer]
-                    diagnostic.update(accepted=False, reason="free_artmesh_limit")
-            except Exception as exc:
+        diagnostic = {"source_layer": layer["name"], "stage": "semantic_sam_19"}
+        try:
+            children, decision = partition_from_masks(layer, masks)
+            diagnostic.update(decision)
+            if (edition == "free" and
+                    len(refined) + len(children) + len(layers) - index - 1 > FREE_LIMIT):
                 children = [layer]
-                diagnostic.update(accepted=False, reason="semantic_sam_partition_failed",
-                                  error=str(exc))
+                diagnostic.update(accepted=False, reason="free_artmesh_limit")
+        except Exception as exc:
+            children = [layer]
+            diagnostic.update(accepted=False, reason="semantic_sam_partition_failed",
+                              error=str(exc))
         refined.extend(children)
         diagnostic["output_count"] = len(children)
         trace.append(diagnostic)
         print(f"[VTS SAM] part={index + 1}/{len(layers)} "
-              f"accepted={diagnostic['accepted']} children={len(children)} "
-              f"candidates={labels}", flush=True)
+              f"accepted={diagnostic['accepted']} children={len(children)}", flush=True)
+    print(f"[VTS SAM COMPLETE] input_layers={len(layers)} "
+          f"output_layers={len(refined)} "
+          f"nf4_per_layer_passes=0 next=psd_export", flush=True)
     return refined, trace, log
 
 def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
@@ -928,9 +878,9 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         else:
             refined.append(layer)
     layers = refined
-    print(f"[VTS] Image-side auto splits: {len(bilateral_splits)} "
-          f"source parts -> {len(layers)} current layers; "
-          f"parts={bilateral_splits}", flush=True)
+    print(f"[VTS] bilateral_split_operations={len(bilateral_splits)} "
+          f"total_layers_after_split={len(layers)} "
+          f"split_parts={bilateral_splits}", flush=True)
     generated = []
     attempted = []
     runtime_logs = []
@@ -938,10 +888,10 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     semantic_sam_trace = []
     if official_second_pass:
         if third_party is None:
-            raise ValueError("Official second-pass needs an installed See-through source")
+            raise ValueError("Official SAM segmentation needs an installed See-through source")
         # See-through's 2.5D layer model has already inferred hidden parts.
-        # One SAM inference on the full composite supplies class-aware masks;
-        # no additional LayerDiff/Marigold diffusion runs on split fragments.
+        # One SAM inference on the full composite supplies 19 masks that
+        # partition the existing PSD layers; no further diffusion runs.
         official_root = Path(third_party) / "see-through"
         layers, semantic_sam_trace, sam_log = _apply_official_semantic_sam_once(
             layers, canvas, output=output / "official_sam19",
@@ -950,7 +900,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
             runtime_logs.append(("logs/official_sam19.log", sam_log.read_bytes()))
         # No second diffusion pass. Hidden-source reconstruction occurs in
         # the first See-through pass, not by re-inferencing each SAM fragment.
-        print("[VTS OFFICIAL PASS2] disabled reason=redundant_diffusion", flush=True)
+        print(f"[VTS] segmented_layers={len(layers)} "
+              "next=psd_export further_nf4_inference=disabled", flush=True)
     if qwen:
         if qwen_infer is None:
             from tools.vts_qwen_refine import infer as qwen_infer
