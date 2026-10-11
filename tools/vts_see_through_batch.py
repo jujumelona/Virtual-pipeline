@@ -20,7 +20,7 @@ def patch_quantized_head_crop(source: str) -> str:
     detected region cannot be silently replaced with the entire illustration;
     such a replacement corrupts head/mouth/eyewear semantic layers.
     """
-    anchor = "    input_head, (hx1, hy1, hx2, hy2) = _crop_head(input_img, [hx, hy, hw, hh])\\n"
+    anchor = "    input_head, (hx1, hy1, hx2, hy2) = _crop_head(input_img, [hx, hy, hw, hh])\n"
     if source.count(anchor) != 1:
         raise RuntimeError("Pinned See-through head crop boundary changed")
     check = '''    if hw <= 0 or hh <= 0:
