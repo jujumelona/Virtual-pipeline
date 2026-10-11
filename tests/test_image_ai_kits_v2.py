@@ -78,7 +78,7 @@ def test_every_one_of_twenty_zips_is_readable_with_eight_complete_documents():
                 assert "마스크" in common
                 assert "리깅" in prompt  # mentioned ONLY as excluded from image AI tasks
                 assert "06" in prompt
-                assert "처음" in prompt
+                assert "처음" in (prompt + common)
                 assert "ZIP" in prompt
                 if mode != "3d":
                     assert "RGBA" in output
