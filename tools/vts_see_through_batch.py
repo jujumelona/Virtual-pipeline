@@ -13,6 +13,34 @@ START = "    srcp = args.srcp\n"
 END = """    print(f'Stats saved to {osp.join(saved, "stats.json")}')"""
 
 
+def patch_quantized_head_crop(source: str) -> str:
+    """Use the full source when a standalone part has no usable head crop.
+
+    Both official tag groups still run exactly once. Normal head crops and
+    the vendor's registration math are unchanged; no model is reloaded.
+    """
+    anchor = "    input_head, (hx1, hy1, hx2, hy2) = _crop_head(input_img, [hx, hy, hw, hh])\n"
+    output_anchor = "    for rst, tag in zip(pipeline_output.images, head_tag_list):\n"
+    if source.count(anchor) != 1 or source.count(output_anchor) != 1:
+        raise RuntimeError("Pinned See-through head crop boundary changed")
+    generated = source.replace(anchor, "    _vts_full_head = False\n" + anchor + '''    if input_head.size == 0 or not np.any(input_head[..., -1] > 0):
+        print(f"[VTS HEAD_CROP_FALLBACK] source={imgp} "
+              f"predicted_xywh={[hx, hy, hw, hh]} "
+              f"crop_shape={list(input_head.shape)} mode=full_source", flush=True)
+        input_head = input_img.copy()
+        hx1, hy1, hx2, hy2 = 0, 0, input_img.shape[1], input_img.shape[0]
+        _vts_full_head = True
+''')
+    # Full-source outputs already occupy the body pass's padded square.
+    # Reapplying crop inversion would truncate padding at fractional scales.
+    generated = generated.replace(output_anchor, output_anchor + '''        if _vts_full_head:
+            Image.fromarray(rst).save(osp.join(saved, f'{tag}.png'))
+            continue
+''')
+    ast.parse(generated)
+    return generated
+
+
 def patch_quantized_batch(source: str) -> str:
     """Adapt a pinned quantized worker; reject changed upstream boundaries.
 

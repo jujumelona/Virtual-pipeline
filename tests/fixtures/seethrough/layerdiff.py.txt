@@ -1,0 +1,88 @@
+# From shitagaki-lab/see-through df019de5129d6c4b406587a14c3501669441a783
+# Apache-2.0; see LICENSE.txt. Original unmodified function excerpts.
+
+def run_layerdiff(pipeline, imgp, save_dir, seed, num_inference_steps, resolution):
+    """Run LayerDiff3D body + head passes. Replicates inference_utils.py v3 logic exactly."""
+    saved = osp.join(save_dir, osp.splitext(osp.basename(imgp))[0])
+    os.makedirs(saved, exist_ok=True)
+    input_img = np.array(Image.open(imgp).convert('RGBA'))
+    fullpage, pad_size, pad_pos = center_square_pad_resize(input_img, resolution, return_pad_info=True)
+    scale = pad_size[0] / resolution
+    Image.fromarray(fullpage).save(osp.join(saved, 'src_img.png'))
+
+    rng = torch.Generator(device=pipeline.unet.device).manual_seed(seed)
+
+    # Body pass
+    body_tag_list = ['front hair', 'back hair', 'head', 'neck', 'neckwear', 'topwear', 'handwear', 'bottomwear', 'legwear', 'footwear', 'tail', 'wings', 'objects']
+    pipeline_output = pipeline(
+        strength=1.0,
+        num_inference_steps=num_inference_steps,
+        batch_size=1,
+        generator=rng,
+        guidance_scale=1.0,
+        prompt=body_tag_list,
+        negative_prompt='',
+        fullpage=fullpage,
+        group_index=0
+    )
+    images = pipeline_output.images
+    for rst, tag in zip(pipeline_output.images, body_tag_list):
+        Image.fromarray(rst).save(osp.join(saved, f'{tag}.png'))
+    head_img = images[2]
+
+    # Head crop
+    head_tag_list = ['headwear', 'face', 'irides', 'eyebrow', 'eyewhite', 'eyelash', 'eyewear', 'ears', 'earwear', 'nose', 'mouth']
+    hx0, hy0, hw, hh = cv2.boundingRect(cv2.findNonZero((head_img[..., -1] > 15).astype(np.uint8)))
+
+    hx = int(hx0 * scale) - pad_pos[0]
+    hy = int(hy0 * scale) - pad_pos[1]
+    hw = int(hw * scale)
+    hh = int(hh * scale)
+
+    def _crop_head(img, xywh):
+        x, y, w, h = xywh
+        ih, iw = img.shape[:2]
+        x1 = x
+        y1 = y
+        x2 = x + w
+        y2 = y + h
+        if w < iw // 2:
+            px = min(iw - x - w, x, w // 5)
+            x1 = min(max(x - px, 0), iw)
+            x2 = min(max(x + w + px, 0), iw)
+        if h < ih // 2:
+            py = min(ih - y - h, y, h // 5)
+            y2 = min(max(y + h + py, 0), ih)
+            y1 = min(max(y - py, 0), ih)
+        return img[y1: y2, x1: x2], (x1, y1, x2, y2)
+
+    input_head, (hx1, hy1, hx2, hy2) = _crop_head(input_img, [hx, hy, hw, hh])
+    hx1 = int(hx1 / scale + pad_pos[0] / scale)
+    hy1 = int(hy1 / scale + pad_pos[1] / scale)
+    ih, iw = input_head.shape[:2]
+    input_head, pad_size, pad_pos = center_square_pad_resize(input_head, resolution, return_pad_info=True)
+    Image.fromarray(input_head).save(osp.join(saved, 'src_head.png'))
+
+    # Head pass
+    pipeline_output = pipeline(
+        strength=1.0,
+        num_inference_steps=num_inference_steps,
+        batch_size=1,
+        generator=rng,
+        guidance_scale=1.0,
+        prompt=head_tag_list,
+        negative_prompt='',
+        fullpage=input_head,
+        group_index=1
+    )
+    canvas = np.zeros((resolution, resolution, 4), dtype=np.uint8)
+
+    py1, py2, px1, px2 = (np.array([pad_pos[1], pad_pos[1] + ih, pad_pos[0], pad_pos[0] + iw]) / scale).astype(np.int64)
+
+    scale_size = (int(pad_size[0] / scale), int(pad_size[1] / scale))
+
+    for rst, tag in zip(pipeline_output.images, head_tag_list):
+        rst = smart_resize(rst, scale_size)[py1: py2, px1: px2]
+        full = canvas.copy()
+        full[hy1: hy1 + rst.shape[0], hx1: hx1 + rst.shape[1]] = rst
+        Image.fromarray(full).save(osp.join(saved, f'{tag}.png'))

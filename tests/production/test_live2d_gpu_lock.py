@@ -42,7 +42,10 @@ def test_live2d_inference_stops_prewarm_and_holds_gpu_lock(monkeypatch, tmp_path
     if worker == "see_through":
         program = third_party / "inference/scripts/inference_psd_quantized.py"
         program.parent.mkdir(parents=True)
-        program.write_text("# fixture")
+        program.write_text("def unused_head_crop_contract():\n"
+                           "    input_head, (hx1, hy1, hx2, hy2) = _crop_head(input_img, [hx, hy, hw, hh])\n"
+                           "    for rst, tag in zip(pipeline_output.images, head_tag_list):\n"
+                           "        pass\n")
         monkeypatch.setitem(sys.modules, "torch", types.SimpleNamespace(
             cuda=types.SimpleNamespace(is_available=lambda: True,
                                       get_device_capability=lambda _: (8, 0))))

@@ -1,0 +1,35 @@
+# From shitagaki-lab/see-through df019de5129d6c4b406587a14c3501669441a783
+# Apache-2.0; see LICENSE.txt. Original unmodified function excerpts.
+
+def smart_resize(src: np.ndarray, target_size, upscale_interpolation=cv2.INTER_LINEAR, downscale_interpolation=cv2.INTER_AREA):
+    h, w = src.shape[:2]
+    th, tw = target_size
+    if th == h and tw == w:
+        return src.copy()
+    if th * tw < h * w:
+        interpolation = downscale_interpolation
+    else:
+        interpolation = upscale_interpolation
+    return cv2.resize(src, (tw, th), interpolation=interpolation)
+
+def center_square_pad_resize(img: np.ndarray, target_size, pad_value=0, upscale_interpolation=cv2.INTER_LINEAR, downscale_interpolation=cv2.INTER_AREA, return_pad_info=False):
+    h, w = img.shape[:2]
+    pad_size = (w, h)
+    pad_pos = (0, 0)
+    if h != w:
+        sz = max(h, w)
+        px1 = (sz - w) // 2
+        py1 = (sz - h) // 2
+        shape = (sz, sz) if img.ndim == 2 else (sz, sz, img.shape[-1])
+        padded = np.full(shape, pad_value, dtype=img.dtype)
+        padded[py1: py1 + h, px1: px1 + w] = img
+        h, w = padded.shape[:2]
+        img = padded
+        pad_size = (w, h)
+        pad_pos = (px1, py1)
+    if h != target_size or w != target_size:
+        img = smart_resize(img, (target_size, target_size), upscale_interpolation=upscale_interpolation, downscale_interpolation=downscale_interpolation)
+    if return_pad_info:
+        return img, pad_size, pad_pos
+    else:
+        return img

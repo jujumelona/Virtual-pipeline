@@ -414,8 +414,11 @@ def run_see_through(master: Path, work: Path, *, third_party: Path,
         raise RuntimeError("See-through NF4 decomposition requires a CUDA GPU")
     capability = torch.cuda.get_device_capability(0)
     t4_low_vram = capability[0] < 8
+    from tools.vts_see_through_batch import patch_quantized_head_crop
+    source_program = patch_quantized_head_crop(program.read_text(encoding="utf-8"))
+    program = program.with_name("inference_psd_quantized_vts_head.py")
+    program.write_text(source_program, encoding="utf-8")
     if t4_low_vram:
-        source_program = program.read_text(encoding="utf-8")
         if source_program.count("torch.bfloat16") < 8:
             raise RuntimeError("See-through upstream BF16 patch contract changed")
         patched = source_program.replace("torch.bfloat16", "torch.float16")

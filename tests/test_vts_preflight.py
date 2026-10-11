@@ -43,6 +43,10 @@ def unused_layerdiff_pass_boundaries():
     )
 def unused_offload_rng_contract():
     return torch.Generator(device=pipeline.unet.device)
+def unused_head_crop_contract():
+    input_head, (hx1, hy1, hx2, hy2) = _crop_head(input_img, [hx, hy, hw, hh])
+    for rst, tag in zip(pipeline_output.images, head_tag_list):
+        pass
 def unused_nf4_marigold_branch():
         marigold_pipe.vae.to(device='cuda')
         marigold_pipe.unet.to(device='cuda')
