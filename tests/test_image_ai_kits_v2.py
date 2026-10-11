@@ -37,6 +37,22 @@ def test_every_one_of_twenty_zips_is_readable_with_eight_complete_documents():
                 advanced = archive.read("06_ADVANCED_OFFICIAL_COMMUNITY.md").decode("utf-8")
                 expected_source = ROOT_KITS / "source" / ("ADVANCED_VERIFIED_3D.md" if mode == "3d" else "ADVANCED_VERIFIED_2D.md")
                 assert archive.read("06_ADVANCED_OFFICIAL_COMMUNITY.md") == expected_source.read_bytes()
+                # Exact per-mode/per-asset source reconciliation prevents a
+                # valid but wrong kit (e.g. hair rules inside the body ZIP).
+                family = "3D" if mode == "3d" else "2D"
+                kind_source = ROOT_KITS / "source" / f"{asset.upper()}_{family}.md"
+                mode_source = ROOT_KITS / "source" / f"MODE_{family}.md"
+                official_source = ROOT_KITS / "source" / f"OFFICIAL_{family}.md"
+                assert archive.read("01_COMMON_RULES.md") == (ROOT_KITS / "source" / "COMMON.md").read_bytes()
+                assert archive.read("02_ADVANCED_PARTS.md") == kind_source.read_bytes()
+                assert archive.read("03_MODE_RULES.md") == mode_source.read_bytes()
+                assert archive.read("05_OFFICIAL_REFERENCES.md") == official_source.read_bytes()
+                labels = {"body": "신체만", "hair": "헤어만",
+                          "outfit": "의상만", "accessory": "액세서리만"}
+                assert labels[asset] in prompt
+                assert ("3D" if mode == "3d" else
+                        "Inochi2D" if mode.startswith("inochi2d") else "Live2D") in prompt
+
                 assert "## 비공식" in advanced
                 assert "https://" in advanced
                 assert "공식" in advanced
