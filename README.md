@@ -40,10 +40,11 @@ PRO 독립 제작은 네 종류를 한꺼번에 업로드하거나 만들어야 
 ### PSD2Live 실행·라이선스·출력 계약
 
 - **버전 고정**: PSD2Live `v3.3.1`; `tools/vts_psd2live.py`가 필요 시 원격 소스를 `third_party/psd2live`에 별도로 내려받습니다. Colab ⑦에서 JDK 21 확인·설치와 Gradle 컴파일을 미리 수행합니다. 로컬에서는 `VTS_PSD2LIVE_HOME`으로 이미 설치한 PSD2Live 소스 경로를 지정할 수 있습니다.
-- **명령**: `./gradlew --no-daemon run --args="--input <avatar.psd> --output <model_dir> --atlas 2048 --lang en"` (FREE) / PRO body 아틀라스 4096. 원본 PSD를 60번 다시 추론하지 않습니다.
-- **완성 모델 ZIP**: PSD2Live 출력 디렉터리의 원래 상대경로를 유지합니다. `*.model3.json`과 참조된 `*.moc3`, 텍스처, 물리/모션을 실체 검증하고, 생성됐다면 `*.cmo3` 및 `*.psd2live`도 함께 묶습니다. 원래 제작 ZIP은 `source_artwork/`에 보관합니다. `metadata/psd2live_bridge.json`에 백엔드/참조 SHA/검증 범위를 기록합니다.
+- **실행 옵션(PSD2Live v3.3.1)**: `--atlas 2048` (FREE) / `4096` (PRO), `--mesh-spacing 40` (GUI의 PipelineConfig 초기값; CLI 기본은 64), `--mesh-wrap 0`, `--head-strength 1.0`, `--body-strength 1.0`, `--upscale 1`, `--lang en`을 명시합니다. 문서 기준 `DOCUMENT` 좌표(긴 변 2048 정규화)로 메쉬 크기를 해석하며 `--no-deformers`, `--no-motions`, `--no-physics`, `--no-cmo3`, `--no-moc3`를 지정하지 않아 공식 기본 자동 생성 경로를 유지합니다. GUI의 Minimal/Default/Full 선택은 v3.3.1의 일반 CLI `--input` 모드에서 옵션으로 제공되지 않으므로 **Full 프리셋을 강제했다고 주장하지 않습니다**. 40은 고세부 메쉬를 위한 선택이며 실측 최적값으로 검증된 것은 아닙니다.
+- **분리 결과와 의미 분류**: See-through → SAM **한 번만** 실행하고 결과가 40개든 60개든 그대로 종료합니다. 추가 분리는 하지 않습니다. SAM이 반환한 19개 클래스 중 실제 채택된 마스크의 의미와 1차 원본 레이어의 눈·입·헤어·좌우 정보를 활용해 **PSD2Live v3.3.1의 실제 LayerClassifier가 읽는 레이어명**으로 변환합니다. 픽셀·레이어 개수·순서는 그대로이며 `metadata/psd2live_layer_names.json`에 이전 이름/새 이름/근거와 미분류 파츠를 보존합니다.
+- **완성 모델 ZIP**: PSD2Live 출력 디렉터리의 상대경로를 유지합니다. `*.model3.json`과 참조된 `*.moc3`, PNG 텍스처, 물리/모션의 존재를 검증하고, 편집용 `*.cmo3`가 없으면 실패합니다. PSD2Live 일반 CLI는 편집용 `.psd2live` 프로젝트를 **생성하지 않습니다**. 생성된 기타 파일과 원래 제작 ZIP(`source_artwork/`)도 보존합니다. `metadata/psd2live_bridge.json`에 설정값·검증 범위를 기록합니다.
 - **실패 처리**: JDK/Gradle/Git 오류, 실행 비정상 종료, 참조 파일 누락, 가짜 MOC3 또는 손상 PNG이면 `VTS_HANDOFF_FAIL`로 처리합니다. 기존 분해 PSD는 작업 폴더에 남지만 완성된 모델로 간주하지 않습니다.
-- **한계**: 자동 리깅은 완성도 보장 아님. FREE 제한(ArtMesh/디포머/파라미터/아틀라스) 중 아틀라스만 자동 지정합니다. 실제 VTube Studio 또는 Cubism Core 로딩 검증 전 상태는 `psd2live_rigged_unverified`입니다.
+- **FREE 검증**: FREE는 `--atlas 2048` 전달만 하지 않고, **최종 `.model3.json`에서 참조하는 PNG 아틀라스가 실제로 한 장이고 가로·세로 2048px 이내인지** 확인합니다. 위반 시 성공 ZIP을 내지 않습니다. ArtMesh·디포머·파라미터·블렌드셰이프·ArtPath 등의 **최종 네이티브 객체 수는 아직 실측/검증하지 않으며** 이를 통과로 표시하지 않습니다. 실제 VTube Studio 또는 Cubism Core 동작을 확인하기 전까지 상태는 `psd2live_rigged_unverified`입니다.
 - **라이선스**: 외부 PSD2Live는 GPL-3.0의 독립 실행 프로그램입니다. 이 저장소의 MIT와 혼합되지 않도록 소스코드나 빌드 바이너리를 저장소 또는 다운로드 모델 ZIP에 포함하지 않습니다.
 
 ### FREE 7개 제한
