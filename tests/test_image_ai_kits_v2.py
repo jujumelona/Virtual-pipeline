@@ -53,7 +53,9 @@ def test_every_one_of_twenty_zips_is_readable_with_ten_complete_files():
                 assert ("08_PRACTICAL_TIPS.md" in prompt or
                         ("08" in prompt and "비공식" in prompt))
                 assert "07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt
-                assert "반복" in prompt and "최종" in prompt
+                assert "최종" in prompt
+                assert ("재생성" in prompt or "수정" in prompt or "재작업" in prompt)
+                assert "다시" in (prompt + repeat)
                 assert "ZIP" in prompt and "ZIP" in repeat
                 assert "최종" in repeat and "반복" in repeat
                 assert "수정" in repeat
