@@ -108,7 +108,7 @@ def test_official_cli_free_atlas_and_model_bundle(monkeypatch, tmp_path):
         assert "--mesh-wrap 0" in args
         assert "--head-strength 1.0" in args
         assert "--body-strength 1.0" in args
-        assert "--upscale 1" in args
+        assert "--upscale 2" in args
         assert "--preset" not in args  # unsupported in v3.3.1 CLI
         assert "'source PSD'" not in args  # quote the whole input path
         assert "'" in args
