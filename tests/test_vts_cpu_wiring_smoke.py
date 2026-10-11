@@ -105,17 +105,15 @@ def test_nf4_batch_rejects_empty_png_before_any_model_load(tmp_path):
     assert "load_Marigold" not in events
 
 
-def test_colab_code_cells_compile_and_preserve_live2d_model_handoffs():
+def test_colab_ui_selects_assets_without_downloading_split_models():
+    from tools.colab_mode_ui import TOP_MODE_CHOICES, ASSET_KINDS
     notebook_path = (Path(__file__).resolve().parents[1] /
                      "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb")
-    nb = json.loads(notebook_path.read_text(encoding="utf-8"))
-    cells = ["".join(c["source"]) for c in nb["cells"]
+    cells = ["".join(c["source"]) for c in json.loads(notebook_path.read_text())["cells"]
              if c.get("cell_type") == "code"]
-    assert len(cells) >= 9
+    assert len(cells) == 4
     for i, code in enumerate(cells):
         ast.parse(code, filename=f"{notebook_path.name}:cell:{i}")
-    setup = next(c for c in cells if "--skip-sam-body" in c)
-    production = next(c for c in cells if "sam_body_weights_prefetched" in c)
-    assert 'LIVE2D_EDITION == "pro"' in setup
-    assert "LIVE2D_USE_QWEN" in production
-    assert "VTUBER_SEETHROUGH_PYTHON" in production
+    assert len(TOP_MODE_CHOICES) == 5 and len(ASSET_KINDS) == 4
+    assert all(t not in "\n".join(cells) for t in ("vts_setup", "See-through",
+               "SAM", "MODEL_DOWNLOAD", "colab_mode_prepare"))

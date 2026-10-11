@@ -270,65 +270,19 @@ def test_autorig_failure_is_not_reported_as_success(monkeypatch, tmp_path):
     assert any((output / "artwork").glob("*.zip"))
 
 
-def test_colab_live2d_prepare_is_independent_of_later_cells():
-    """Both ⑦ input paths must work before ⑧ imports pathlib.Path."""
-    import ast
-    import os
-    import pathlib
-    import sys
-    from types import SimpleNamespace
-
+def test_colab_ui_has_no_preparation_or_rig_export_step_yet():
     notebook = (Path(__file__).resolve().parents[1] /
                 "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb")
-    cells = json.loads(notebook.read_text(encoding="utf-8"))["cells"]
-    setup = next("".join(c["source"]) for c in cells
-                 if c["cell_type"] == "code"
-                 and "".join(c["source"]).startswith("#@title ⑦"))
-    branch = next(node for node in ast.parse(setup).body
-                  if isinstance(node, ast.If)
-                  and "live2d_free" in ast.unparse(node.test)
-                  and "scope in" in ast.unparse(node.test))
-    code = compile(ast.fix_missing_locations(ast.Module(
-        body=[branch], type_ignores=[])), str(notebook), "exec")
-
-    for input_kind in ("ai_asset_zip", "master_image"):
-        calls = []
-        def capture(command, timeout):
-            assert timeout > 0
-            calls.append(command)
-
-        scope = {
-            "scope": "live2d_free",
-            "LIVE2D_INPUT_KIND": input_kind,
-            "LIVE2D_EDITION": "free",
-            "LIVE2D_PRO_ASSET": "body",
-            "LIVE2D_USE_QWEN": False,
-            "USAGE": "personalNonProfit",
-            "repo": pathlib.Path("/content/Virtual-pipeline"),
-            "pathlib": pathlib,
-            "sys": sys,
-            "os": SimpleNamespace(environ={}, pathsep=os.pathsep),
-            "run": capture,
-        }
-        exec(code, scope)
-        assert any("tools.vts_psd2live" in cmd for cmd in calls)
-        assert any("/content/vtuber_builder/third_party" in cmd for cmd in calls)
-
-
-def test_colab_prepares_psd2live_and_uses_rigged_zip():
-    notebook = (Path(__file__).resolve().parents[1] /
-                "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb")
-    data = json.loads(notebook.read_text(encoding="utf-8"))
-    sources = ["".join(cell["source"]) for cell in data["cells"]
-               if cell["cell_type"] == "code"]
+    sources = ["".join(c["source"]) for c in json.loads(notebook.read_text())["cells"]
+               if c["cell_type"] == "code"]
     import ast
-    for code in sources:
-        ast.parse(code)
-    setup = next(code for code in sources if "psd2live" in code and "--prepare" in code)
-    production = next(code for code in sources if "make_cubism_handoff(" in code and "report" in code)
-    assert "tools.vts_psd2live" in setup
-    assert "psd2live=True" in production
-    assert 'RESULT_FILE=report["package"]' in production
+    assert len(sources) == 4
+    for source in sources:
+        ast.parse(source)
+    assert 'TOP_MODE = "live2d_upper" #@param' in sources[1]
+    assert 'ASSET_KIND_OPTION = "body" #@param' in sources[2]
+    assert "psd2live" not in "\n".join(sources).lower()
+    assert "make_cubism_handoff(" not in "\n".join(sources)
 
 
 @pytest.mark.parametrize("name,label,expected", [

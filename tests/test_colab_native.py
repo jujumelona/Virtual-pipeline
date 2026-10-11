@@ -167,27 +167,15 @@ def test_ambiguous_auto_accessory_names_fail_before_model_loading(tmp_path, monk
         )
 
 
-def test_character_mode_rejects_accessory_only_mode_in_ui_dispatch():
-    import ast
-    import json
-    repo = Path(__file__).resolve().parents[1]
-    notebook = json.loads((repo / "notebooks" /
-                           "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
-    cells = ["".join(cell["source"]) for cell in notebook["cells"]
-             if cell["cell_type"] == "code"]
-    assert 'TOP_MODE = "live2d" #@param' in cells[1]
-    assert 'ACCESSORY_ANCHOR_OPTION = "AUTO" #@param' in cells[5]
-    assert 'elif TASK == "액세서리 제작":' in cells[8]
-    tree = ast.parse(cells[8])
-    branches = [node for node in ast.walk(tree) if isinstance(node, ast.If)]
-    work = next(node for node in branches if
-                ast.unparse(node.test) == "TASK == '캐릭터 생성'")
-    character_code = ast.unparse(ast.Module(body=work.body, type_ignores=[]))
-    assert "accessory_anchor=" not in character_code
-    assert "accessory_image_paths=" not in character_code
+def test_accessory_is_a_shared_asset_not_a_top_level_mode():
+    from tools.colab_mode_ui import TOP_MODE_CHOICES, ASSET_KINDS, select_mode
+    assert "accessory" not in TOP_MODE_CHOICES
+    assert "accessory" in ASSET_KINDS
+    for top in TOP_MODE_CHOICES:
+        assert select_mode(top, "accessory").asset_kind == "accessory"
 
 
-def test_v8_notebook_cells_are_independent_and_failure_is_not_success():
+def test_v8_notebook_has_only_selection_and_no_side_effectful_models():
     import ast
     import json
     repo = Path(__file__).resolve().parents[1]
@@ -195,44 +183,14 @@ def test_v8_notebook_cells_are_independent_and_failure_is_not_success():
                            "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
     cells = ["".join(c["source"]) for c in notebook["cells"]
              if c["cell_type"] == "code"]
-    assert len(cells) == 12
+    assert len(cells) == 4
     for cell in cells:
         ast.parse(cell)
-    setup, selection, live2d, inochi, three_d, accessory, prefetch, upload, build, download, diagnostics, last = cells
-    assert "build_prompts(" not in "\n".join(cells)
-    assert "write_prompt_package" not in "\n".join(cells)
-    assert "store_uploaded_zip" in upload
-    assert "SHEET_PACK_PATH" in upload
-    assert "sheet_zip_path=" in build
-    assert "prepare_2d_image_uploads" in upload  # optional legacy mode
-    assert "LAYER_ZIP_PATH" in upload
-    assert "layers_zip_path=" in build
-    assert "--sheet-pack" in prefetch
-    assert 'TOP_MODE = "live2d" #@param' in selection
-    assert 'INOCHI_INPUT_OPTION = "sheets" #@param' in inochi
-    assert 'ACCESSORY_SUBTYPE_OPTION = "소품" #@param' in accessory
-    assert "colab_mode_prepare.py" in prefetch
-    assert "--mode" in prefetch
-    assert "generate(" not in prefetch
-    assert "files.upload" in upload
-    assert "_stored_uploads" in upload
-    assert "generate(" not in upload
-    assert "generate(" in build
-    assert "files.upload" not in build
-    assert "files.download" not in build
-    assert 'VTUBER_NOTEBOOK_EXPLICIT_DOWNLOAD' in build
-    assert "if not RESULT_FILE:" in build
-    assert "raise RuntimeError(" in build
-    assert "DOWNLOAD_NOW = False" in download
-    assert "files.download(" in download
-    assert "generate(" not in download
-    assert "status.json" in diagnostics
-    assert "generation.log" in diagnostics
-    assert "generate(" not in diagnostics
-    assert "generate(" not in last
-    assert "files.download" not in last
-    assert "files.upload" not in last
-    assert "gradio" not in "\n".join(cells).lower()
+    assert "TOP_MODE" in cells[1] and "ASSET_KIND_OPTION" in cells[2]
+    assert "require_submode_config" in cells[3]
+    assert not any(name in "\n".join(cells) for name in
+                   ("files.upload(", "files.download(", "colab_mode_prepare",
+                    "See-through", "MODEL_DOWNLOAD", "generate(", "psd2live"))
 
 
 def test_notebook_event_printer_displays_unfiltered_logs_including_early_errors(capsys):
