@@ -113,3 +113,101 @@ def test_vendor_label_metadata_does_not_claim_cubism_free_validation(tmp_path):
     checked = bridge.validate_psd2live_output(tmp_path / "full")
     assert checked["cubism_free_editor_limits_verified"] is False
     assert checked["runtime_execution_verified"] is False
+
+
+def test_free_character_exports_primary_psd2live_model_zip(monkeypatch, tmp_path):
+    """Exercise production orchestration, not only the standalone bridge."""
+    from psd_tools import PSDImage
+    from psd_tools.api.layers import PixelLayer
+    from tools import vts_production
+
+    source = tmp_path / "source.png"
+    Image.new("RGBA", (256, 384), (60, 80, 95, 255)).save(source)
+    doc = PSDImage.new("RGB", (256, 384))
+    face = Image.new("RGBA", (256, 384))
+    hair = Image.new("RGBA", (256, 384))
+    face.paste((100, 120, 150, 255), (48, 60, 160, 180))
+    hair.paste((70, 30, 60, 255), (35, 25, 185, 70))
+    PixelLayer.frompil(face, parent=doc, name="face")
+    PixelLayer.frompil(hair, parent=doc, name="front hair")
+    original = tmp_path / "existing.psd"
+    doc.save(original)
+    calls = []
+
+    def fake_cli(psd, output, *, edition, third_party):
+        calls.append((str(psd), edition))
+        assert psd.name == "avatar.psd"
+        assert edition == "free"
+        sample_model(output)
+        return {
+            **bridge.validate_psd2live_output(output),
+            "backend": "psd2live",
+            "license": "GPL-3.0",
+            "atlas_size": 2048,
+        }
+    monkeypatch.setattr(bridge, "run_psd2live", fake_cli)
+    output = tmp_path / "final"
+    report = vts_production.make_cubism_handoff(
+        source, output, edition="free", scope="upper",
+        external_psd=original, psd2live=True)
+    assert len(calls) == 1
+    assert report["state"] == "psd2live_rigged_unverified"
+    assert report["moc3_generated"] is True
+    assert report["editor_required"] is False
+    assert Path(report["artwork_package"]).is_file()
+    with ZipFile(report["package"]) as archive:
+        names = archive.namelist()
+        assert "avatar.model3.json" in names
+        assert "avatar.moc3" in names
+        assert "texture_00.png" in names
+        assert any(name.startswith("source_artwork/") and name.endswith(".zip")
+                   for name in names)
+        assert "metadata/psd2live_bridge.json" in names
+
+
+def test_autorig_failure_is_not_reported_as_success(monkeypatch, tmp_path):
+    from psd_tools import PSDImage
+    from psd_tools.api.layers import PixelLayer
+    from tools import vts_production
+
+    source = tmp_path / "source.png"
+    Image.new("RGBA", (256, 384), (120, 125, 140, 255)).save(source)
+    doc = PSDImage.new("RGB", (256, 384))
+    first = Image.new("RGBA", (256, 384), (0, 0, 0, 0))
+    second = Image.new("RGBA", (256, 384), (0, 0, 0, 0))
+    first.paste((120, 130, 140, 255), (10, 10, 100, 100))
+    second.paste((100, 120, 140, 255), (90, 20, 180, 160))
+    PixelLayer.frompil(first, parent=doc, name="face")
+    PixelLayer.frompil(second, parent=doc, name="hair.front")
+    original = tmp_path / "original.psd"
+    doc.save(original)
+
+    def fail(*a, **k):
+        raise RuntimeError("PSD2LIVE_CLI_FAILED simulated")
+    monkeypatch.setattr(bridge, "run_psd2live", fail)
+    output = tmp_path / "out"
+    with pytest.raises(RuntimeError, match="PSD2LIVE_CLI_FAILED"):
+        vts_production.make_cubism_handoff(
+            source, output, edition="free", scope="upper",
+            external_psd=original, psd2live=True)
+    status = json.loads((output / "vts_status.json").read_text())
+    assert status["state"] == "failed"
+    assert status["moc3_generated"] is False
+    assert not (output / "Live2D_PSD2Live_Rigged.zip").exists()
+    assert any((output / "artwork").glob("*.zip"))
+
+
+def test_colab_prepares_psd2live_and_uses_rigged_zip():
+    notebook = (Path(__file__).resolve().parents[1] /
+                "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb")
+    data = json.loads(notebook.read_text(encoding="utf-8"))
+    sources = ["".join(cell["source"]) for cell in data["cells"]
+               if cell["cell_type"] == "code"]
+    import ast
+    for code in sources:
+        ast.parse(code)
+    setup = next(code for code in sources if "psd2live" in code and "--prepare" in code)
+    production = next(code for code in sources if "report=make_cubism_handoff(" in code)
+    assert "tools.vts_psd2live" in setup
+    assert "psd2live=True" in production
+    assert 'RESULT_FILE=report["package"]' in production
