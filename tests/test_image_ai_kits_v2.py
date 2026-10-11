@@ -46,7 +46,8 @@ def test_every_one_of_twenty_zips_is_readable_with_ten_complete_files():
                 assert "09_VISUAL_ART_QUALITY.md" in prompt
                 assert "https://www.live2d.com/en/learn/sample/" in quality
                 assert "Pillow" in quality and "실제" in quality
-                assert "PNG" in quality and "최종" in quality
+                assert ("PNG" in quality if mode != "3d" else "그림" in quality)
+                assert "최종" in quality
                 assert "도형" in prompt or "베지어" in prompt
 
                 assert ("08_PRACTICAL_TIPS.md" in prompt or
