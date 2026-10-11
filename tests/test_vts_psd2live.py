@@ -280,7 +280,7 @@ def test_colab_prepares_psd2live_and_uses_rigged_zip():
     for code in sources:
         ast.parse(code)
     setup = next(code for code in sources if "psd2live" in code and "--prepare" in code)
-    production = next(code for code in sources if "report=make_cubism_handoff(" in code)
+    production = next(code for code in sources if "make_cubism_handoff(" in code and "report" in code)
     assert "tools.vts_psd2live" in setup
     assert "psd2live=True" in production
     assert 'RESULT_FILE=report["package"]' in production
