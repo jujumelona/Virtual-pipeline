@@ -153,6 +153,7 @@ SIGKILL만으로 OOM이라고 단정하지 말고 `oom_kill` 증가와 함께 �
 별도 제작 프로세스에 남아 있으며, VM 전체의 OOM까지 격리로 방지한다고 보장하지 않습니다.
 Colab에서 `git pull`이나 pip 설치만 하면 이미 import된 Python 모듈은 갱신되지 않습니다.
 업데이트한 뒤 새 Python 프로세스로 실행하거나 해당 모듈을 다시 로드하세요.
+**중요 — 열려 있는 Colab 노트북의 셀 소스도 자동으로 바뀌지 않습니다.** ①에서 `git fetch/reset`이 최신 main으로 성공해도 브라우저에 이미 열린 ⑦ 셀은 이전 코드(예: `str(Path(...))`)를 계속 실행할 수 있습니다. 따라서 노트북 코드 수정 후에는 상단 **Open In Colab** 링크에서 main의 최신 노트북을 **새로 열고** ①부터 실행하세요. 모델 파일과 저장소가 갱신됐다는 로그는 현재 열린 셀 코드가 갱신됐다는 증거가 아닙니다. 빠른 회귀 검사는 `python -m ci.vts_colab_setup_smoke`이며 ⑦의 master_image/ai_asset_zip 두 경로를 모델 다운로드 없이 실행합니다.
 
 See-through 추론은 끝났으나 최종 PSD 포장에서 실패했다면 생성된 분리 PSD를
 `make_cubism_handoff(..., generated_psd=Path("완료된_분리_PSD_경로"))`에 전달합니다.
