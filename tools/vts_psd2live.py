@@ -193,7 +193,7 @@ def package_psd2live(result: dict, artwork_zip: Path, output_zip: Path) -> Path:
     tmp = output_zip.with_name(output_zip.name + ".partial")
     tmp.unlink(missing_ok=True)
     try:
-        with ZipFile(output_zip, "w", ZIP_DEFLATED, compresslevel=6) as z:
+        with ZipFile(tmp, "w", ZIP_DEFLATED, compresslevel=6) as z:
             for p in all_files:
                 if p.is_symlink() or not p.is_relative_to(root) or not p.is_file():
                     raise RuntimeError(f"PSD2LIVE_OUTPUT_PATH_INVALID: {p}")
