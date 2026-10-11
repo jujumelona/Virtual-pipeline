@@ -41,6 +41,12 @@ def test_official_cli_free_atlas_and_model_bundle(monkeypatch, tmp_path):
         calls.append((command, cwd, env, log_path, timeout_seconds))
         assert command[1:3] == ["--no-daemon", "run"]
         assert "--atlas 2048" in command[3]
+        assert "--mesh-spacing 40" in command[3]
+        assert "--mesh-wrap 0" in command[3]
+        assert "--head-strength 1.0" in command[3]
+        assert "--body-strength 1.0" in command[3]
+        assert "--upscale 1" in command[3]
+        assert "--preset" not in command[3]  # unsupported in v3.3.1 CLI
         assert "'source PSD'" not in command[3]  # quote the whole input path
         assert "'" in command[3]
         assert cwd == root
@@ -211,3 +217,113 @@ def test_colab_prepares_psd2live_and_uses_rigged_zip():
     assert "tools.vts_psd2live" in setup
     assert "psd2live=True" in production
     assert 'RESULT_FILE=report["package"]' in production
+
+
+@pytest.mark.parametrize("name,label,expected", [
+    ("hair.front.03", None, "front hair"),
+    ("hair.back.pass2.01", "hair", "back hair"),
+    ("eye.left.iris.1", "eyes", "irides"),
+    ("eye.right.sclera", "eyes", "eyewhite"),
+    ("eye.left.lash", "eyes", "eyelash"),
+    ("cloth.lower.01", None, "bottomwear"),
+    ("cloth.sleeve.left", None, "handwear"),
+    ("face.pass2.02", "mouth", "mouth"),
+    ("body.pass2.01", "topwear", "topwear"),
+    ("face.pass2.01", "eyes", "irides"),
+    ("ornament.ears.right.2", None, "earwear"),
+    ("unknown.pass2.01", "eyewear", "eyewear"),
+])
+def test_psd2live_vendor_semantic_name_and_side(name, label, expected):
+    from tools.vts_psd2live_names import normalize_layer_names
+    from PIL import Image
+    image = Image.new("RGBA", (8, 8), (123, 4, 56, 90))
+    layers, data = normalize_layer_names([
+        {"name": name, "image": image, "sam_label": label}])
+    renamed = layers[0]["name"]
+    assert renamed.startswith(expected + "_0001")
+    if ".left." in name or name.endswith(".left"):
+        assert renamed.endswith("-l")
+    if ".right." in name or name.endswith(".right"):
+        assert renamed.endswith("-r")
+    assert layers[0]["image"] is image
+    assert len(layers) == 1
+    assert data["pixel_operations"] == 0
+    assert data["extra_inference_passes"] == 0
+
+
+def test_unknown_layer_keeps_identity_not_fake_body_part():
+    from tools.vts_psd2live_names import normalize_layer_names
+    layer = {"name": "mystery-glyph", "image": Image.new("RGBA", (2, 2))}
+    output, trace = normalize_layer_names([layer])
+    assert output[0]["name"] == "mystery-glyph"
+    assert trace["unclassified_count"] == 1
+
+
+def test_vendor_sam_mask_evidence_preserved_on_split(tmp_path):
+    from tools.vts_official_second_pass import partition_from_masks
+    image = Image.new("RGBA", (40, 20), (45, 89, 130, 240))
+    masks = [Image.new("L", image.size, 0) for _ in range(19)]
+    masks[3].paste(255, (0, 0, 20, 20))
+    masks[8].paste(255, (20, 0, 40, 20))
+    from tools.vts_see_through_sam import SAM_LABELS_V2
+    children, trace = partition_from_masks(
+        {"name": "face", "image": image}, masks, mask_labels=SAM_LABELS_V2)
+    assert trace["accepted"] and len(children) == 2
+    assert {child["sam_label"] for child in children} == {"eyes", "mouth"}
+
+
+def test_free_rejects_multiple_atlas_pages(tmp_path):
+    bridge_psd = tmp_path / "result"
+    sample_model(bridge_psd)
+    Image.new("RGBA", (16, 16)).save(bridge_psd / "texture_01.png")
+    model = bridge_psd / "avatar.model3.json"
+    contents = json.loads(model.read_text())
+    contents["FileReferences"]["Textures"].append("texture_01.png")
+    model.write_text(json.dumps(contents))
+    with pytest.raises(RuntimeError, match="PSD2LIVE_FREE_ATLAS_LIMIT"):
+        bridge.validate_psd2live_output(bridge_psd, edition="free")
+
+
+def test_free_rejects_oversize_atlas(tmp_path):
+    bridge_psd = tmp_path / "result"
+    sample_model(bridge_psd)
+    Image.new("RGBA", (2049, 20)).save(bridge_psd / "texture_00.png")
+    with pytest.raises(RuntimeError, match="PSD2LIVE_FREE_ATLAS_LIMIT"):
+        bridge.validate_psd2live_output(bridge_psd, edition="free")
+
+
+def test_vendor_names_are_exported_and_original_mappings_are_preserved(tmp_path):
+    from tools import vts_artwork_export as export
+    from io import BytesIO
+    from psd_tools import PSDImage
+    parts = [
+        ("hair.front.01", (30, 45, 75, 90)),
+        ("eye.left.iris.01", (70, 90, 82, 103)),
+        ("eye.right.sclera.01", (111, 91, 125, 108)),
+        ("mouth.open.01", (86, 115, 102, 125)),
+    ]
+    path = tmp_path / "layers.zip"
+    with ZipFile(path, "w") as z:
+        for name, rect in parts:
+            png = Image.new("RGBA", (256, 384))
+            png.paste((10, 140, 180, 255), rect)
+            blob = BytesIO()
+            png.save(blob, format="PNG")
+            z.writestr(name + ".png", blob.getvalue())
+    info = export.build_artwork_package(
+        path, tmp_path / "output", edition="free", scope="upper",
+        official_second_pass=False, psd2live_names=True, qwen=False)
+    doc = PSDImage.open(info["art_psd"])
+    leaves = [v for v in doc.descendants() if not v.is_group()]
+    names = {v.name for v in leaves}
+    assert any(x.startswith("front hair_") for x in names)
+    assert any(x.startswith("irides_") and x.endswith("-l") for x in names)
+    assert any(x.startswith("eyewhite_") and x.endswith("-r") for x in names)
+    assert any(x.startswith("mouth open_") for x in names)
+    with ZipFile(info["package"]) as z:
+        data = json.loads(z.read("metadata/psd2live_layer_names.json"))
+        assert data["source_layer_count"] == len(parts)
+        assert data["output_layer_count"] == len(parts)
+        assert data["pixel_operations"] == 0
+        assert data["extra_inference_passes"] == 0
+        assert data["unclassified_count"] == 0
