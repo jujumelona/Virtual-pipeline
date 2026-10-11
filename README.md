@@ -849,10 +849,10 @@ Save exact filename outfit_variant.png, rename the download if needed.
 | UI 모드 | 오픈소스 기반 준비 도구 | 현재 실제 출력 | 완성 방송 모델의 포맷 | 구현 상태 |
 |---|---|---|---|---|
 | **Inochi2D** | Florence-2 / SAM2 / FLUX + Inochi2D SDK | 실제 레이어 PSD/ORA, 메시·키폼·물리 JSON | `.inp` | **네이티브 구현 및 SDK E2E PASS**: 공식 0.8.7 SDK로 변형·물리 `.inp`를 실제 생성/재로딩. 입력 모델별 SDK 검증 성공 시에만 `complete`, 실패 시 `prepared` |
-| **Live2D FREE/PRO** | See-through NF4 + 선택적 Qwen/Stable-Layers + 정식 Cubism Editor | 독립 PSD, RGBA PNG, 마스크, 검수 MD와 ZIP | `.moc3` + `.model3.json` + 텍스처/물리 | **needs_editor_export**: 공식 Editor에서 출력한 폴더만 검증·수집. 자동 MOC3 인코더 없음 |
+| **Live2D FREE/PRO** | See-through NF4 + SemanticSam + 독립 PSD2Live v3.3.1 CLI | FREE 및 PRO body는 PSD2Live 모델 파일 + 원본 PSD ZIP, PRO 개별 자산은 PSD ZIP | `.moc3` + `.model3.json` + 텍스처/물리 | **psd2live_rigged_unverified**: PSD2Live 파일 구조 확인 후 제공. VTube Studio 구동과 FREE 제한은 미검증 |
 | **3D VRM** | TripoSR, Depth Anything V2 Small, MakeHuman, Blender VRM Add-on | 피팅/텍스처/리깅 자료 및 검증 시 `avatar.vrm` + `avatar_rigged.blend` | `.vrm` | **상업용 모델 교체 반영**: InstantMesh 제외, MIT TripoSR 정면·후면·좌우 독립 복원으로 대체. 실제 Colab T4 E2E 검증은 별도 |
 
-**2D 중간 준비 ZIP은 최종 모델이 아닙니다.** Inochi2D는 SDK가 검증한 `.inp`만 방송 모델로 인정하며, Live2D는 정식 Cubism Editor에서 내보낸 `.moc3`만 최종 모델로 인정합니다. 준비된 PSD/ORA는 보완·후속 수정을 위한 편집 자료입니다.
+**2D 중간 준비 ZIP은 최종 모델이 아닙니다.** Inochi2D `.inp`는 SDK 검증 시 완성을 인정하며, Live2D는 PSD2Live의 `.moc3` 파일 구조·참조 검증과 별개로 Cubism Core/VTube Studio 실제 구동·리깅 품질 확인이 필요합니다. 기존 PSD/ORA는 편집 중간자료입니다.
 
 ### Inochi2D
 
@@ -865,9 +865,9 @@ Save exact filename outfit_variant.png, rename the download if needed.
 ### Live2D
 
 - FREE 입력: 헤어·의상·장식까지 착용한 완성 캐릭터 한 장. PRO 입력: body/hair/outfit/accessory 중 한 종류의 이미지와, 탈착 자산일 때만 신체 기준 한 장.
-- 출력: FREE `avatar.psd`, PRO 선택 자산의 `body.psd` / `hair.psd` / `outfit.psd` / `accessory.psd`와 PNG·마스크·비교 이미지·제작/검수 MD를 포함한 ZIP. JSON은 관측 메타데이터와 수동 참고이며 리깅 완성을 뜻하지 않습니다. 공식 Editor 내보내기 결과는 별도 `live2d-import-export`에서 확인합니다.
-- 목표: **Live2D Cubism Editor에서 리깅 후 `.moc3`, `.model3.json`, 텍스처/물리 출력**, VTube Studio에서 로드.
-- **Live2D Cubism Editor는 비오픈소스**입니다. 공식 모델 바이너리 생성은 [Cubism 내보내기 문서](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/)에 기술돼 있습니다. 검증된 상업용 오픈소스 MOC3 인코더가 없어 이 프로젝트는 완성된 Live2D 모델을 자동 생성한다고 주장하지 않습니다.
+- 출력: FREE 및 PRO body는 분리 PSD 제작 뒤 별도 PSD2Live CLI로 `.moc3`, `.model3.json`, 텍스처/물리, `.cmo3`를 생성한 모델 ZIP을 우선 반환합니다. PRO 헤어·의상·액세서리는 단독 모델이 아닌 자산 PSD ZIP으로 반환합니다. 수동 Editor 내보내기 모델 수집 기능 `live2d-import-export`는 별도로 유지합니다.
+- 목표: **PSD2Live로 리깅된 `.moc3`와 참조 파일 생성** 후 VTube Studio에서 실행·동작 확인. 필요하면 공식 Cubism Editor에서 편집·수정합니다.
+- **PSD2Live는 GPL-3.0 독립 오픈소스 프로그램**으로, 프로젝트에서는 CLI 호출과 모델 파일 검증만 수행합니다. `.moc3` 출력이 가능하다는 것과 사용자의 PSD에서 시각적으로 자연스러운 리깅이 검증됐다는 것은 다릅니다. [공식 Cubism 포맷 안내](https://docs.live2d.com/en/cubism-editor-manual/export-moc3-motion3-files/)를 참고하세요.
 - Inochi2D의 `.inp`는 Live2D의 `.moc3`로 자동 호환되지 않습니다.
 
 ### 2D CLI
