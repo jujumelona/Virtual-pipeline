@@ -833,62 +833,69 @@ def _apply_official_semantic_sam_once(layers: list, canvas: tuple[int, int],
 def _refine_all_layers_official_once(layers: list, canvas: tuple[int, int],
                                      *, output: Path, third_party: Path,
                                      edition: str):
-    """Exactly one second See-through inference for every first-pass layer.
+    """One extra full-character NF4 inference, then reuse its masks on all layers.
 
-    The NF4 worker processes *one batch* with one LayerDiff load and one
-    Marigold load. Output masks only: source pixels remain byte-exact.
+    Running a complete body/head diffusion on *every* already-separated SAM
+    fragment makes a 60-part character execute 120 expensive denoisers.
+    Instead, the full composite is inferred once and its aligned proposals
+    are intersected with each original RGBA layer. No synthetic RGB enters
+    the deliverable; unchanged or invalid splits retain the original layer.
     """
     from tools.vts_production import (
         run_see_through, psd_to_registered_rgba, restore_source_canvas,
     )
     from tools.vts_official_second_pass import partition_from_masks
 
+    if not layers:
+        raise ValueError("Official second-pass requires source layers")
     work = output / "official_second_pass"
-    inputs = work / "inputs"
-    inputs.mkdir(parents=True, exist_ok=True)
-    names = []
-    for index, item in enumerate(layers):
-        name = f"source_{index:04d}.png"
-        item["image"].save(inputs / name)
-        names.append(name)
-    print(f"[VTS OFFICIAL PASS2] input_layers={len(names)}", flush=True)
-    psds = run_see_through(inputs, work / "batch", third_party=third_party,
-                           timeout=21600, qwen=False)
-    if set(psds) != set(names):
-        raise RuntimeError("See-through batch returned missing or foreign source PSDs")
+    work.mkdir(parents=True, exist_ok=True)
+    source = Image.new("RGBA", canvas, (0, 0, 0, 0))
+    for layer in reversed(layers):
+        image = layer["image"].convert("RGBA")
+        if image.size != canvas:
+            raise ValueError("Official second-pass layers must share the source canvas")
+        source.alpha_composite(image)
+    master = work / "composite_source.png"
+    source.save(master)
+    print(f"[VTS OFFICIAL PASS2] input_layers={len(layers)} "
+          "inference_images=1 mode=full_composite", flush=True)
+    # A file (not a directory) selects the pinned *single-image* inference,
+    # avoiding the NF4 batch loop over all already-split layers.
+    psd = run_see_through(master, work / "global", third_party=third_party,
+                          timeout=7200, qwen=False)
+    _, registered, _ = psd_to_registered_rgba(
+        psd, work / "registered" / "global", artmesh_max=None)
+    restored, transform = restore_source_canvas(
+        registered, canvas, work / "restored" / "global.zip")
+    candidates, size = _read_registered(restored)
+    if size != canvas:
+        raise ValueError("Official pass2 composite canvas mismatch")
+    masks = [part["image"] for part in candidates]
+
     refined, trace = [], []
-    for index, (item, name) in enumerate(zip(layers, names)):
-        diagnostic = {"source_layer": item["name"], "input_image": name}
+    for index, item in enumerate(layers):
+        diagnostic = {"source_layer": item["name"],
+                      "input_image": master.name, "inference_images": 1,
+                      "source_psd": str(psd), "registration": transform}
         try:
-            _, registered, _ = psd_to_registered_rgba(
-                psds[name], work / "registered" / f"part_{index:04d}",
-                artmesh_max=None)
-            restored, transform = restore_source_canvas(
-                registered, canvas, work / "restored" / f"part_{index:04d}.zip")
-            candidates, size = _read_registered(restored)
-            if size != canvas:
-                raise ValueError("Official pass2 canvas mismatch")
-            children, decision = partition_from_masks(
-                item, [part["image"] for part in candidates])
+            children, decision = partition_from_masks(item, masks)
             diagnostic.update(decision)
-            diagnostic["source_psd"] = str(psds[name])
-            diagnostic["registration"] = transform
             if (edition == "free" and
                 len(refined) + len(children) + (len(layers) - index - 1) > FREE_LIMIT):
                 children = [item]
                 diagnostic.update(accepted=False, reason="free_artmesh_limit")
         except Exception as exc:
             children = [item]
-            diagnostic.update(accepted=False, reason="pass2_registration_failed",
+            diagnostic.update(accepted=False, reason="pass2_mask_partition_failed",
                               error=str(exc))
         refined.extend(children)
         diagnostic["output_count"] = len(children)
         trace.append(diagnostic)
-        print(f"[VTS OFFICIAL PASS2] {index + 1}/{len(names)} "
+        print(f"[VTS OFFICIAL PASS2] {index + 1}/{len(layers)} "
               f"source={item['name']} accepted={diagnostic['accepted']} "
               f"parts={len(children)} total={len(refined)}", flush=True)
-    return refined, trace, work / "batch" / "see_through_full.log"
-
+    return refined, trace, work / "global" / "see_through_full.log"
 
 def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
                           scope: str, asset_kind: str | None = None,
@@ -955,8 +962,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
             third_party=official_root, edition=edition)
         if sam_log.is_file():
             runtime_logs.append(("logs/official_sam19.log", sam_log.read_bytes()))
-        # Exactly one extra See-through NF4 pass for all resulting parts.
-        # LayerDiff and Marigold each load once for the entire pass-2 batch.
+        # Run ONE full-character NF4 inference after SAM. Reuse its masks
+        # across all layers without re-running diffusion on each fragment.
         layers, official_trace, second_log = _refine_all_layers_official_once(
             layers, canvas, output=output, third_party=official_root,
             edition=edition)
