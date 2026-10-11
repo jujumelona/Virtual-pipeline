@@ -6,6 +6,10 @@
 
 외부 이미지 생성 AI가 만든 캐릭터 이미지를 입력받아 **Inochi2D**, **Live2D**, **3D VRM** 모델을 제작합니다. 모드별 이미지 생성 사양과 프롬프트는 아래에 정리되어 있습니다.
 
+### 공식 Live2D 기준의 대형 이미지 AI 독립 파츠 제작 문서
+
+[대형 GPT/Gemini 실행 지시, 공식 예제, 파츠 분리/회전 명세](docs/live2d_ai_asset_pack/README.md)를 추가했습니다. 기존 프롬프트 ZIP에도 **large_image_ai_asset_pack/** 문서 6개가 포함됩니다. 외부 AI가 master와 독립 파츠 PNG들을 **실제 생성하고 ZIP 납품하도록 지시**합니다. **기존 1장 master → See-through·SAM → PSD2Live 경로가 자동으로 여러 PNG ZIP을 가져오도록 구현된 것은 아닙니다.** 공식에 없는 8장/60개 고정 수량을 강제하지 않습니다.
+
 ## Live2D FREE/PRO · PSD2Live 자동 리깅 (기본 경로)
 
 **FREE 완성 캐릭터와 PRO body:** See-through NF4 → 공식 SAM 19마스크 분리 → 실제 레이어 PSD → 별도 설치한 [PSD2Live v3.3.1](https://github.com/tsunehimatoi/psd2live/releases/tag/v3.3.1) CLI 자동 리깅 → `.moc3`, `.model3.json`, 텍스처, 물리, `.cmo3` 등의 **실제 생성된 파일**을 최종 `Live2D_PSD2Live_Rigged.zip`으로 묶습니다. 기존 PSD 전체 제작 ZIP은 `source_artwork/`에 중첩 보존합니다. 모델 참조 경로·MOC3 시그니처·PNG를 검증하지만 Cubism Core 실제 로딩, VTube Studio 구동, 얼굴 동작 품질과 FREE의 모든 개체 제한 충족 여부는 검증하지 않았습니다.

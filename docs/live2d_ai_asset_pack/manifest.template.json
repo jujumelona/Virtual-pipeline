@@ -1,0 +1,194 @@
+{
+  "schema": "live2d/large-image-ai-artwork-pack-v1",
+  "status": "TEMPLATE_NOT_GENERATED",
+  "scope": "upper_or_full",
+  "viewpoint_convention": "L_R_are_character_left_right",
+  "canvas": {
+    "width": null,
+    "height": null,
+    "color_space": "sRGB",
+    "alpha_mode": "straight"
+  },
+  "master": {
+    "file": "outputs/master.png",
+    "exists": false
+  },
+  "references": [
+    "https://docs.live2d.com/en/cubism-editor-tutorials/psd/",
+    "https://docs.live2d.com/en/cubism-editor-manual/divide-the-material/",
+    "https://docs.live2d.com/ko/cubism-editor-manual/standard-parameter-list/"
+  ],
+  "rigging_reference": {
+    "angle_x": [
+      -30,
+      0,
+      30
+    ],
+    "angle_y": [
+      -30,
+      0,
+      30
+    ],
+    "source": "Official standard parameter list",
+    "note": "Keyforms are not image count"
+  },
+  "parts": [
+    {
+      "id": "face_skin",
+      "file": "isolated_parts/face_skin.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "hair_front",
+      "file": "isolated_parts/hair_front.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "hair_side_L",
+      "file": "isolated_parts/hair_side_L.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "hair_side_R",
+      "file": "isolated_parts/hair_side_R.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "hair_back",
+      "file": "isolated_parts/hair_back.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "brow_L",
+      "file": "isolated_parts/brow_L.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "brow_R",
+      "file": "isolated_parts/brow_R.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "eye_L_lash",
+      "file": "isolated_parts/eye_L_lash.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "eye_L_white",
+      "file": "isolated_parts/eye_L_white.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "eye_L_iris",
+      "file": "isolated_parts/eye_L_iris.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "eye_R_lash",
+      "file": "isolated_parts/eye_R_lash.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "eye_R_white",
+      "file": "isolated_parts/eye_R_white.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "eye_R_iris",
+      "file": "isolated_parts/eye_R_iris.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "mouth_upper",
+      "file": "isolated_parts/mouth_upper.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "mouth_lower",
+      "file": "isolated_parts/mouth_lower.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "mouth_inside",
+      "file": "isolated_parts/mouth_inside.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "neck",
+      "file": "isolated_parts/neck.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "torso",
+      "file": "isolated_parts/torso.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "arm_L_upper",
+      "file": "isolated_parts/arm_L_upper.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "arm_L_forearm",
+      "file": "isolated_parts/arm_L_forearm.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "hand_L",
+      "file": "isolated_parts/hand_L.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "arm_R_upper",
+      "file": "isolated_parts/arm_R_upper.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "arm_R_forearm",
+      "file": "isolated_parts/arm_R_forearm.png",
+      "placement": null,
+      "alpha_verified": false
+    },
+    {
+      "id": "hand_R",
+      "file": "isolated_parts/hand_R.png",
+      "placement": null,
+      "alpha_verified": false
+    }
+  ],
+  "extra_parts": [],
+  "sheets": [],
+  "quality": {
+    "files_present": "NOT_TESTED",
+    "rgba_alpha": "NOT_TESTED",
+    "master_match": "NOT_TESTED",
+    "cubism_import": "NOT_TESTED",
+    "xy_rotation": "NOT_TESTED"
+  },
+  "legal": {
+    "official_artwork_bundled": false,
+    "official_urls_only": true
+  }
+}
