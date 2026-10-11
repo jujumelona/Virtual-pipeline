@@ -65,8 +65,12 @@ def supervise_handoff(command, output: Path, *, timeout_seconds=21600):
         if not result_path.is_file():
             raise RuntimeError(f"VTS child exited without a result manifest: {result_path}")
         result = json.loads(result_path.read_text(encoding="utf-8"))
-        if result.get("state") != "artwork_ready_editor_rig_required" or not Path(result.get("package", "")).is_file():
+        states = {"artwork_ready_editor_rig_required", "psd2live_rigged_unverified"}
+        if result.get("state") not in states or not Path(result.get("package", "")).is_file():
             raise RuntimeError("VTS child returned an invalid result manifest or missing package")
+        if result["state"] == "psd2live_rigged_unverified":
+            if not result.get("moc3_generated") or not result.get("psd2live", {}).get("runtime_references_valid"):
+                raise RuntimeError("PSD2Live result lacks verified MOC3 file references")
     except BaseException as exc:
         last_psd_step = None
         last_runtime_step = None
