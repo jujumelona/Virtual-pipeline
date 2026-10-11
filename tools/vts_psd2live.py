@@ -6,10 +6,12 @@ success after a real CLI exit and checking every Cubism runtime dependency.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -150,7 +152,9 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
     env = _java_env()
     # Do not use shell=True. Gradle --args takes a single value.
     atlas = 2048 if edition == "free" else 4096
-    args = f"--input {psd} --output {output} --atlas {atlas} --lang en"
+    args = (f"--input {shlex.quote(str(psd))} "
+            f"--output {shlex.quote(str(output))} "
+            f"--atlas {atlas} --lang en")
     cmd = [str(root / "gradlew"), "--no-daemon", "run", f"--args={args}"]
     from tools.vts_subprocess import run_logged
     run = runner or run_logged
@@ -186,17 +190,67 @@ def package_psd2live(result: dict, artwork_zip: Path, output_zip: Path) -> Path:
     output_zip.parent.mkdir(parents=True, exist_ok=True)
     if output_zip.exists():
         output_zip.unlink()
-    with ZipFile(output_zip, "w", ZIP_DEFLATED, compresslevel=6) as z:
-        for p in all_files:
-            if p.is_symlink() or not p.is_relative_to(root) or not p.is_file():
-                raise RuntimeError(f"PSD2LIVE_OUTPUT_PATH_INVALID: {p}")
-            name = str(p.relative_to(root)).replace("\\", "/")
-            if name.startswith("source_artwork/") or name.startswith("metadata/"):
-                raise RuntimeError("PSD2LIVE_OUTPUT_RESERVED_PREFIX")
-            z.write(p, name)
-        z.write(artwork_zip, "source_artwork/" + artwork_zip.name)
-        public = {key: value for key, value in result.items()
-                  if key != "cli_command"}
-        z.writestr("metadata/psd2live_bridge.json",
-                   json.dumps(public, ensure_ascii=False, indent=2))
+    tmp = output_zip.with_name(output_zip.name + ".partial")
+    tmp.unlink(missing_ok=True)
+    try:
+        with ZipFile(output_zip, "w", ZIP_DEFLATED, compresslevel=6) as z:
+            for p in all_files:
+                if p.is_symlink() or not p.is_relative_to(root) or not p.is_file():
+                    raise RuntimeError(f"PSD2LIVE_OUTPUT_PATH_INVALID: {p}")
+                name = str(p.relative_to(root)).replace("\\", "/")
+                if name.startswith("source_artwork/") or name.startswith("metadata/"):
+                    raise RuntimeError("PSD2LIVE_OUTPUT_RESERVED_PREFIX")
+                z.write(p, name)
+            z.write(artwork_zip, "source_artwork/" + artwork_zip.name)
+            public = {key: value for key, value in result.items()
+                      if key != "cli_command"}
+            z.writestr("metadata/psd2live_bridge.json",
+                       json.dumps(public, ensure_ascii=False, indent=2))
+
+        tmp.replace(output_zip)
+    finally:
+        tmp.unlink(missing_ok=True)
     return output_zip
+
+def prepare_psd2live(third_party: Path | None = None, *,
+                     build_timeout_seconds: int = 3600) -> Path:
+    """Colab preflight: provision JDK21, pin PSD2Live release, compile once."""
+    from tools.vts_subprocess import run_logged
+    try:
+        env = _java_env()
+    except RuntimeError:
+        if os.name != "posix" or getattr(os, "geteuid", lambda: 1)() != 0:
+            raise
+        apt = shutil.which("apt-get")
+        if apt is None:
+            raise
+        print("[VTS PSD2LIVE SETUP] installing OpenJDK 21", flush=True)
+        for cmd, seconds in (
+            ([apt, "update", "-qq"], 600),
+            ([apt, "install", "-y", "openjdk-21-jdk-headless"], 900),
+        ):
+            rc = run_logged(cmd, cwd=Path("/tmp"),
+                            timeout_seconds=seconds,
+                            log_path=Path("/tmp/psd2live_jdk_setup.log"))
+            if rc:
+                raise RuntimeError(f"PSD2LIVE_JDK21_INSTALL_FAILED exit={rc}")
+        env = _java_env()
+    root = ensure_psd2live(third_party)
+    log = root.parent / "psd2live_build.log"
+    print(f"[VTS PSD2LIVE SETUP] building {PSD2LIVE_REF} from {root}", flush=True)
+    rc = run_logged([str(root / "gradlew"), "--no-daemon", "classes"],
+                    cwd=root, env=env, log_path=log,
+                    timeout_seconds=build_timeout_seconds)
+    if rc:
+        raise RuntimeError(f"PSD2LIVE_GRADLE_BUILD_FAILED exit={rc}; log={log}")
+    print(f"[VTS PSD2LIVE SETUP PASS] ref={PSD2LIVE_REF} "
+          f"commit={_git_revision(root)}", flush=True)
+    return root
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="PSD2Live CLI dependency preflight")
+    parser.add_argument("--prepare", action="store_true", required=True)
+    parser.add_argument("--third-party", type=Path, default=None)
+    args = parser.parse_args()
+    prepare_psd2live(args.third_party)
