@@ -78,21 +78,26 @@ def test_batch_patch_loads_each_model_once_and_visits_all_sources():
         patch_quantized_batch(pinned.replace("srcp = args.srcp", "srcp = 'changed'"))
 
 
-def test_official_pass_attempts_each_initial_layer_once(monkeypatch, tmp_path):
+def test_official_pass_one_full_composite_inference_for_sixty_layers(monkeypatch, tmp_path):
+    """Regression: 60 SAM pieces must not trigger 60 diffusion jobs."""
     from tools import vts_production as production, vts_artwork_export as export
-    import tools.vts_official_second_pass as second
 
-    a, b = fixture_part(), fixture_part()
-    b["name"] = "other.unknown"
-    original = [a, b]
+    original = []
+    for index in range(60):
+        part = fixture_part()
+        part["name"] = f"fragment.{index:02d}"
+        original.append(part)
     calls = []
 
-    def batch(sources, work, **kwargs):
-        calls.append(sorted(p.name for p in Path(sources).glob("*.png")))
+    def single(source, work, **kwargs):
+        source = Path(source)
+        assert source.is_file() and source.name == "composite_source.png"
+        assert Image.open(source).size == (64, 32)
         assert kwargs["qwen"] is False
-        return {name: tmp_path / (name + ".psd") for name in calls[-1]}
+        calls.append(source.name)
+        return tmp_path / "global.psd"
 
-    monkeypatch.setattr(production, "run_see_through", batch)
+    monkeypatch.setattr(production, "run_see_through", single)
     monkeypatch.setattr(production, "psd_to_registered_rgba",
                         lambda p, d, **kwargs: (None, tmp_path / "layers.zip", 2))
     monkeypatch.setattr(production, "restore_source_canvas",
@@ -101,11 +106,19 @@ def test_official_pass_attempts_each_initial_layer_once(monkeypatch, tmp_path):
         [{"image": im, "name": str(i)} for i, im in enumerate(split_masks())],
         (64, 32),
     ))
-    result, trace, _ = export._refine_all_layers_official_once(
-        original, (64, 32), output=tmp_path, third_party=tmp_path, edition="free")
-    assert calls == [["source_0000.png", "source_0001.png"]]
-    assert len(trace) == 2 and all(item["accepted"] for item in trace)
-    assert len(result) == 4
+    refined, trace, logfile = export._refine_all_layers_official_once(
+        original, (64, 32), output=tmp_path, third_party=tmp_path, edition="pro")
+    assert calls == ["composite_source.png"]
+    assert len(trace) == 60 and len(refined) == 120
+    assert all(item["accepted"] and item["inference_images"] == 1 for item in trace)
+    assert logfile.name == "see_through_full.log"
+    for parent, children in zip(original, (refined[i:i+2] for i in range(0, 120, 2))):
+        restored = np.zeros_like(np.asarray(parent["image"]))
+        for child in children:
+            pixel = np.asarray(child["image"])
+            occupied = pixel[..., 3] > 0
+            restored[occupied] = pixel[occupied]
+        np.testing.assert_array_equal(restored, np.asarray(parent["image"]))
 
 
 @pytest.mark.parametrize("edition,asset", [
