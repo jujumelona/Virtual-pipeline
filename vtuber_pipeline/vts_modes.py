@@ -355,12 +355,16 @@ def write_vts_brief_package(brief: dict, destination: str) -> str:
             "LARGE_AI_EXECUTION_INSTRUCTIONS.md", "manifest.template.json",
             "QUALITY_REVIEW_TEMPLATE.md",
             "references/sheet_contract.svg", "references/rotation_guide.svg",
+            "PRODUCTION_ACCEPTANCE_V2.md", "DEMO_REWORK_REQUEST.md",
         ):
             archive.writestr("large_image_ai_asset_pack/" + filename,
                              (spec_root / filename).read_bytes())
 
         archive.writestr(
             "READ_ME_FIRST.txt",
+            "Read large_image_ai_asset_pack/PRODUCTION_ACCEPTANCE_V2.md and "
+            "large_image_ai_asset_pack/DEMO_REWORK_REQUEST.md BEFORE generating. "
+            "Mask-only cutouts are not finished art; PSD and rigging are separate stages. "
             "These are EXTERNAL image AI prompts and an UNIMPLEMENTED production "
             "plan. Neither a layered PSD nor a .moc3 is included. "
             "Cubism Editor is still required for actual export. "

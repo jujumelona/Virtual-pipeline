@@ -115,6 +115,12 @@ def test_bundle_contains_license_notice_and_no_weight_file(identity, tmp_path):
         assert "large_image_ai_asset_pack/LARGE_AI_EXECUTION_INSTRUCTIONS.md" in names
         assert "large_image_ai_asset_pack/OFFICIAL_REFERENCES.md" in names
         assert "large_image_ai_asset_pack/PARTS_AND_ROTATION_SPEC.md" in names
+        assert "large_image_ai_asset_pack/PRODUCTION_ACCEPTANCE_V2.md" in names
+        assert "large_image_ai_asset_pack/DEMO_REWORK_REQUEST.md" in names
+        acceptance = z.read("large_image_ai_asset_pack/PRODUCTION_ACCEPTANCE_V2.md").decode("utf-8")
+        assert "extracted_only" in acceptance and "MOTION_VERIFIED" in acceptance
+        assert "PRODUCTION_ACCEPTANCE_V2.md" in z.read("READ_ME_FIRST.txt").decode("utf-8")
+
         assert "large_image_ai_asset_pack/references/sheet_contract.svg" in names
         assert "large_image_ai_asset_pack/references/rotation_guide.svg" in names
         guide = z.read("large_image_ai_asset_pack/OFFICIAL_REFERENCES.md").decode("utf-8")

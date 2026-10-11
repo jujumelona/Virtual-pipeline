@@ -1,3 +1,5 @@
+> **A/B/C/D 납품 및 DEMO 재작업 기준:** [PRODUCTION_ACCEPTANCE_V2.md](PRODUCTION_ACCEPTANCE_V2.md), [DEMO_REWORK_REQUEST.md](DEMO_REWORK_REQUEST.md)를 가장 먼저 읽으세요. 기존 마스크 추출만 한 파츠를 완성으로 제출하지 마세요.
+
 # GPT/Gemini 대형 이미지 AI용 실제 작업 지시서
 
 **반드시 사용자 캐릭터 브리프, 이 디렉터리의 README, OFFICIAL_REFERENCES, PARTS_AND_ROTATION_SPEC와 manifest.template.json을 함께 제공하라.** 이 지시는 이미지 생성/파일 저장/ZIP 기능을 실제로 가진 환경에서만 실행 가능하다.

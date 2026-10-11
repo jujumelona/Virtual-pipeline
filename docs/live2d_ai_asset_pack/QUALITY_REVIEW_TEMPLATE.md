@@ -12,3 +12,16 @@
 - 누락·실패·재생성 ID: (기록)
 
 *실제 검증하지 않은 단계를 PASS로 표시하지 않는다.*
+
+## V2 필수 검수
+
+- 파츠별 creation_method 및 새로 그린 underpaint_regions: (실제 기록)
+- 눈 속눈썹/흰자/홍채 혼합 없음: PASS/FAIL/UNKNOWN
+- 머리 앞/옆/뒤 섞이지 않음: PASS/FAIL/UNKNOWN
+- 목/이마/귀/관절 뒤쪽 숨은 그림 완성: PASS/FAIL/UNKNOWN
+- 회전 참고화와 master 디자인 동일성: PASS/REJECTED/NOT_USED
+- 실제 PSD_READY: PASS/NOT_DELIVERED
+- 실제 RIGGED_EXPORT: PASS/NOT_TESTED
+- 실제 MOTION_VERIFIED: PASS/NOT_TESTED
+
+단순 RGBA/파일 개수 검사만으로 이 항목들을 PASS 하지 않는다.

@@ -1,5 +1,7 @@
 # VTuber Commercial Pipeline
 
+**Live2D DEMO 재작업 요구:** [제작/납품 승인 기준 v2](docs/live2d_ai_asset_pack/PRODUCTION_ACCEPTANCE_V2.md) · [대형 이미지 AI용 DEMO 수정 지시](docs/live2d_ai_asset_pack/DEMO_REWORK_REQUEST.md). 단순 마스킹 파츠를 원화 완성으로 판단하지 않음.
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)

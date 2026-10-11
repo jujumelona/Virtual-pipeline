@@ -37,145 +37,217 @@
       "id": "face_skin",
       "file": "isolated_parts/face_skin.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "hair_front",
       "file": "isolated_parts/hair_front.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "hair_side_L",
       "file": "isolated_parts/hair_side_L.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "hair_side_R",
       "file": "isolated_parts/hair_side_R.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "hair_back",
       "file": "isolated_parts/hair_back.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "brow_L",
       "file": "isolated_parts/brow_L.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "brow_R",
       "file": "isolated_parts/brow_R.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "eye_L_lash",
       "file": "isolated_parts/eye_L_lash.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "eye_L_white",
       "file": "isolated_parts/eye_L_white.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "eye_L_iris",
       "file": "isolated_parts/eye_L_iris.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "eye_R_lash",
       "file": "isolated_parts/eye_R_lash.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "eye_R_white",
       "file": "isolated_parts/eye_R_white.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "eye_R_iris",
       "file": "isolated_parts/eye_R_iris.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "mouth_upper",
       "file": "isolated_parts/mouth_upper.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "mouth_lower",
       "file": "isolated_parts/mouth_lower.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "mouth_inside",
       "file": "isolated_parts/mouth_inside.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "neck",
       "file": "isolated_parts/neck.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "torso",
       "file": "isolated_parts/torso.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "arm_L_upper",
       "file": "isolated_parts/arm_L_upper.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "arm_L_forearm",
       "file": "isolated_parts/arm_L_forearm.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "hand_L",
       "file": "isolated_parts/hand_L.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "arm_R_upper",
       "file": "isolated_parts/arm_R_upper.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "arm_R_forearm",
       "file": "isolated_parts/arm_R_forearm.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     },
     {
       "id": "hand_R",
       "file": "isolated_parts/hand_R.png",
       "placement": null,
-      "alpha_verified": false
+      "alpha_verified": false,
+      "creation_method": "NOT_GENERATED",
+      "underpaint_regions": [],
+      "design_consistency_review": "NOT_TESTED"
     }
   ],
   "extra_parts": [],
@@ -185,10 +257,19 @@
     "rgba_alpha": "NOT_TESTED",
     "master_match": "NOT_TESTED",
     "cubism_import": "NOT_TESTED",
-    "xy_rotation": "NOT_TESTED"
+    "xy_rotation": "NOT_TESTED",
+    "artwork_ready": "NOT_TESTED",
+    "psd_ready": "NOT_DELIVERED",
+    "rigged_export": "NOT_TESTED",
+    "motion_verified": "NOT_TESTED"
   },
   "legal": {
     "official_artwork_bundled": false,
     "official_urls_only": true
-  }
+  },
+  "delivery_tier": "TEMPLATE_NOT_GENERATED",
+  "required_previews": [
+    "previews/neutral_composite.png",
+    "previews/parts_contact_sheet.png"
+  ]
 }
