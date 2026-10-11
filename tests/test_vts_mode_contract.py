@@ -185,3 +185,27 @@ def test_qwen_plans_match_real_mode_gate(identity, edition, asset, expected):
     assert ("recursive_layers" in {x["stage"] for x in spec["models"]["stages"]}) is expected
     assert ("official_anime_body_parsing" in {x["stage"] for x in spec["models"]["stages"]}) is (edition == "free" or asset == "body")
 
+
+
+
+def test_github_published_image_ai_kit_zip_is_a_real_self_contained_artwork_brief():
+    from pathlib import Path
+    folder = Path(__file__).resolve().parents[1] / "docs" / "live2d_image_ai_kit"
+    package = folder / "Live2D_Image_AI_Instruction_Kit.zip"
+    assert package.is_file()
+    with zipfile.ZipFile(package) as archive:
+        assert archive.testzip() is None
+        names = set(archive.namelist())
+        assert names == {
+            "README.md", "START_HERE.md", "PARTS_ARTWORK.md",
+            "OUTPUT_FILES.md", "OFFICIAL_LINKS.md",
+            "visual_references/sheet_contract.svg",
+            "visual_references/rotation_guide.svg",
+        }
+        for name in ("README.md", "START_HERE.md", "PARTS_ARTWORK.md",
+                     "OUTPUT_FILES.md", "OFFICIAL_LINKS.md"):
+            assert archive.read(name) == (folder / name).read_bytes()
+        assert "layer_order.txt" in archive.read("START_HERE.md").decode("utf-8")
+        assert "docs.live2d.com" in archive.read("OFFICIAL_LINKS.md").decode("utf-8")
+        assert not any(name.endswith((".psd", ".moc3", ".model3.json", ".gguf"))
+                       for name in names)
