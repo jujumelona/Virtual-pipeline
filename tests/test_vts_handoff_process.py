@@ -52,7 +52,7 @@ def test_isolated_handoff_reuses_real_completed_psd(tmp_path):
     for name in ('hair.front','body.torso'):
         create_import_layer(Image.new('RGBA',(384,384),(127,90,180,2)), psd, name=name)
     source = tmp_path / 'completed.psd'; psd.save(source)
-    report = make_cubism_handoff_isolated(master, tmp_path / 'out', edition='free', scope='upper', generated_psd=source, timeout_seconds=60)
+    report = make_cubism_handoff_isolated(master, tmp_path / 'out', edition='free', scope='upper', generated_psd=source, psd2live=False, timeout_seconds=60)
     assert report['reused_precomputed_see_through']
     assert Path(report['package']).is_file()
     assert Path(report['process_log']).is_file()
