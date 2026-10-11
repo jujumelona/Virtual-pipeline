@@ -158,7 +158,7 @@ def prepare_large_ai_pack(source: Path, destination: Path, *, edition: str = "fr
     from psd_tools import PSDImage
     from tools.vts_psd_layer import new_import_psd, create_import_layer, save_import_psd
     psd = new_import_psd(result["canvas"])
-    group = psd.create_group("AI_AUTHORED_PARTS")
+    group = psd.create_group(name="AI_AUTHORED_PARTS")
     for item in result["parts"]:  # back to front in native PSD record order
         image = item["image"]
         bbox = image.getchannel("A").getbbox()
