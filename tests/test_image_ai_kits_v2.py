@@ -48,7 +48,7 @@ def test_every_one_of_twenty_zips_is_readable_with_ten_complete_files():
                 assert "수정" in repeat
                 assert "## 비공식" in practical
                 assert "https://www.reddit.com/" in practical if mode != "3d" else "https://" in practical
-                assert "리깅" in repeat  # explicitly excluded as an image-AI task
+                assert "리깅" in prompt  # downstream work explicitly excluded
                 assert archive.read("07_REVIEW_BEFORE_FINAL_ZIP.md") == (
                     ROOT_KITS / "source" / ("REPEAT_REVIEW_3D.md" if mode == "3d"
                                           else "REPEAT_REVIEW_2D.md")).read_bytes()
