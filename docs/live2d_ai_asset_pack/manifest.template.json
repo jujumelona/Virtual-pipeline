@@ -1,7 +1,7 @@
 {
-  "schema": "live2d/large-image-ai-artwork-pack-v1",
+  "schema": "live2d/large-image-ai-artwork-pack-v2",
   "status": "TEMPLATE_NOT_GENERATED",
-  "scope": "upper_or_full",
+  "scope": "upper",
   "viewpoint_convention": "L_R_are_character_left_right",
   "canvas": {
     "width": null,
@@ -40,7 +40,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "hair_front",
@@ -49,7 +50,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "hair_side_L",
@@ -58,7 +60,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "hair_side_R",
@@ -67,7 +70,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "hair_back",
@@ -76,7 +80,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "brow_L",
@@ -85,7 +90,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "brow_R",
@@ -94,7 +100,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "eye_L_lash",
@@ -103,7 +110,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "eye_L_white",
@@ -112,7 +120,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "eye_L_iris",
@@ -121,7 +130,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "eye_R_lash",
@@ -130,7 +140,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "eye_R_white",
@@ -139,7 +150,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "eye_R_iris",
@@ -148,7 +160,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "mouth_upper",
@@ -157,7 +170,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "mouth_lower",
@@ -166,7 +180,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "mouth_inside",
@@ -175,7 +190,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "neck",
@@ -184,7 +200,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "torso",
@@ -193,7 +210,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "arm_L_upper",
@@ -202,7 +220,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "arm_L_forearm",
@@ -211,7 +230,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "hand_L",
@@ -220,7 +240,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "arm_R_upper",
@@ -229,7 +250,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "arm_R_forearm",
@@ -238,7 +260,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     },
     {
       "id": "hand_R",
@@ -247,7 +270,8 @@
       "alpha_verified": false,
       "creation_method": "NOT_GENERATED",
       "underpaint_regions": [],
-      "design_consistency_review": "NOT_TESTED"
+      "design_consistency_review": "NOT_TESTED",
+      "draw_order": null
     }
   ],
   "extra_parts": [],
@@ -271,5 +295,6 @@
   "required_previews": [
     "previews/neutral_composite.png",
     "previews/parts_contact_sheet.png"
-  ]
+  ],
+  "draw_order_rule": "Integer unique per part; larger draw_order is in FRONT, smaller is in BACK; actual character design determines values"
 }

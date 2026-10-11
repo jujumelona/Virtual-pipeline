@@ -33,3 +33,13 @@ Use the actual attached master image as the **fixed reference image**. Maintain 
 - **Full body:** 사용자가 전신을 원할 때만 다리/치마/신발을 추가.
 
 **성공 기준:** 실제 파일 유무/알파/파트 ID를 기계적으로 확인. 캐릭터 일치·회전 품질은 실제 이미지 및 모델링을 검토한 범위만 PASS. **PSD import, 회전 리깅, FREE ArtMesh 예산은 테스트 전 NOT_TESTED**.
+
+## 중요: Colab 자동 PSD 조립용 manifest 필수 값
+
+- ZIP에는 실제 `outputs/master.png`, `isolated_parts/<id>.png`, `manifest.json`이 **정확한 상대 경로**로 들어가야 한다. 폴더 전체를 한 번 더 감싸 압축하지 말 것.
+- `manifest.schema`는 `live2d/large-image-ai-artwork-pack-v2`, `status`와 `delivery_tier`는 `TEMPLATE_NOT_GENERATED`가 아니라 실제 제작 상태여야 한다. `scope`는 `upper` 또는 `full`, `canvas.width/height`는 master 실제 픽셀 크기.
+- **각 `parts[]`에 `id`, `file`, `creation_method`, `draw_order` 고유 정수, `placement`를 기록**한다. `draw_order`는 **작은 값이 뒤, 큰 값이 앞**. 얼굴/머리/눈/의상마다 실제 원화에 맞춰 지정. 프로그램이 외형을 추측해 앞뒤 순서를 정하지 않는다.
+- 파츠 PNG가 master 크기와 같으면 `placement: null`이 허용된다. 크롭 PNG라면 `placement: {"left":12,"top":30,"width":50,"height":80}` 형태로 **크롭 PNG 크기와 동일한 width/height**를 기록하고 master 영역 내부에 둔다. `rect_on_sheet`는 시트 좌표로 별도 기록한다.
+- 파츠 PNG는 투명 채널이 실제 저장된 **8bit RGBA PNG**, 서로 다른 ID당 실제 독립 PNG여야 한다. `creation_method`는 `generated`, `redrawn`, `edited_with_underpaint` 중 실제 수행한 방식. `extracted_only`는 완성된 원화가 아니므로 자동 입력 거부.
+- `previews/neutral_composite.png`, `previews/parts_contact_sheet.png`를 포함해 사람이 의미적 분리·가려진 영역을 시각 검수할 수 있게 한다. 자동 ZIP 검사는 **의미/디자인/회전 퀄리티를 보증하지 않는다**.
+- 사용자 Colab v8에서 `③ LIVE2D_INPUT_OPTION=ai_asset_zip`을 고르고 `⑧`에서 ZIP을 하나 올린다. 별도 이미지 원화 1장만 올리는 흐름과 구별된다. `⑦`은 PSD/PSD2Live만 준비하고 See-through/SAM 다운로드를 건너뛴다.

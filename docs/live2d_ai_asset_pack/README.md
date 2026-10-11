@@ -33,3 +33,10 @@ Cubism FREE: **ArtMesh ≤100 / Parameter ≤30 / Deformer ≤50 / 텍스처 아
 - [공식 일러스트 분리 예제/모모세 히요리 PSD 다운로드 안내](https://docs.live2d.com/en/cubism-editor-tutorials/psd/)
 - [공식 소재 분리](https://docs.live2d.com/en/cubism-editor-manual/divide-the-material/)
 - [공식 FREE/PRO 제한](https://www.live2d.com/en/cubism/comparison/)
+
+## 현재 Colab v8와의 실제 입력 연결
+
+- `③ Live2D 입력`: `master_image`(기존 한 장 See-through/SAM 분리) 또는 `ai_asset_zip`(대형 AI가 그린 독립 파츠 ZIP)을 선택한다.
+- `ai_asset_zip`을 선택했다면 `⑦`에서 원화 자동 분리 모델 준비를 생략하고 PSD/PSD2Live 설치만 한다. `⑧`에서 ZIP 하나를 올리고, `⑨`에서 각 `isolated_parts/*.png`를 manifest의 `draw_order`/`placement`에 따라 실제 RGB8 PSD로 만든 뒤 **See-through/SAM 없이** PSD2Live로 전달한다.
+- 실제 ZIP 내부 파일명은 `outputs/master.png`, `manifest.json`, `isolated_parts/<part_id>.png`. 각 파츠 `draw_order`는 필수이며 템플릿의 `null`을 사용하면 **명확한 오류**가 난다.
+- 이전 이미지 한 장 경로는 그대로 지원한다. 아직 시각적 파츠 퀄리티나 리깅 회전 품질을 자동 인증할 수는 없다.

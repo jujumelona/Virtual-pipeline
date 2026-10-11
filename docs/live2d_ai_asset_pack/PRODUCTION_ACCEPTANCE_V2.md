@@ -82,3 +82,9 @@ Live2D_Character_Assets/
 - [FREE/PRO 비교](https://www.live2d.com/en/cubism/comparison/)
 
 **공식:** 움직임에 따라 파츠를 나누고 숨은 곳을 보완하며 PSD를 준비하는 원칙. **프로젝트 자체 요구:** 위 A/B/C/D 검수 등급, AI provenance 메타데이터와 ZIP 구조. 혼동하지 않는다.
+
+## 8. Colab v8 직접 임포트를 위한 추가 계약 (2026-10-11)
+
+새 `tools/vts_ai_pack_import.py`는 **AI가 직접 만든 파츠 ZIP을 최종 리깅용 PSD로 조립**한다. 자동 의미 판단기는 없고 입력값을 검증한다. 각 part 객체는 `draw_order` 고유 정수(작을수록 뒤쪽), 독립 `RGBA` PNG, `creation_method`(generated/redrawn/edited_with_underpaint), 실제 크롭시 `placement.left/top/width/height`를 포함한다. 명시되지 않은 머리카락 뒤/눈/입 배경을 임의로 보완하지 않는다. 100개 아트메시 초과 FREE는 즉시 거부. 세부 요구는 [LARGE_AI_EXECUTION_INSTRUCTIONS.md](LARGE_AI_EXECUTION_INSTRUCTIONS.md)를 따른다.
+
+**주의:** PNG/PSD 기술 검증을 통과했다고 ARTWORK_READY의 시각 검수 또는 MOTION_VERIFIED가 자동 PASS되는 것이 아니다.
