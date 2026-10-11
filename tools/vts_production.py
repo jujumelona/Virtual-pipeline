@@ -1,7 +1,8 @@
-"""Executable VTube Studio FREE/PRO artwork preparation via See-through PSD.
+"""See-through/SAM PSD preparation and optional PSD2Live native auto-rigging.
 
-Only authentic Cubism exports are reported as complete. This runner prepares
-PSD and rigging data for the official editor; it does not synthesize MOC3.
+PSD2Live is an independent GPL-3.0 CLI that writes MOC3/CMO3; this module
+never invents those files. Structural validation does not prove animations
+work in Cubism Core or VTube Studio.
 """
 from __future__ import annotations
 
@@ -678,10 +679,9 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         qwen: bool = False, qwen_layers: int = 4,
                         qwen_passes: int = 32, psd2live: bool = True,
                         _worker: bool = False) -> dict:
-    """Produce a *layered image* ZIP, not an unimportable pseudo-rig.
+    """Build real layered PSD, then PSD2Live model bundle for eligible assets.
 
-    Each PRO call processes exactly one body/hair/outfit/accessory asset.
-    It never requires all detachable assets from the same user.
+    A detachable PRO hair/outfit/accessory is not a full Live2D character.
     """
     # Never send FREE characters or PRO body/outfit to Qwen. The slow
     # model is opt-in only for independent PRO hair/accessory artwork.
@@ -929,7 +929,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="VTS FREE/PRO Cubism PSD handoff (not MOC3)")
+    ap = argparse.ArgumentParser(description="VTS FREE/PRO PSD + PSD2Live MOC3 auto-rigging")
     ap.add_argument("--edition", required=True, choices=("free", "pro"))
     ap.add_argument("--scope", required=True, choices=("upper", "full"))
     ap.add_argument("--master", type=Path, required=True)
