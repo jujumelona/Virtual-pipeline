@@ -228,7 +228,7 @@ def test_live2d_pro_builds_each_asset_without_batch_companions(tmp_path, asset):
     result = make_cubism_handoff(
         png, tmp_path / ("output_" + asset), edition="pro", scope="upper",
         asset_kind=asset, reference_image=None if asset == "body" else reference,
-        external_psd=Path(psd["psd"]), qwen=False)
+        external_psd=Path(psd["psd"]), qwen=False, psd2live=False)
     with ZipFile(result["package"]) as zipfile:
         assert asset + ".psd" in zipfile.namelist()
         assert "README_CUBISM.md" in zipfile.namelist()
@@ -349,7 +349,7 @@ def test_generated_pro_body_handoff_uses_source_coordinate_frame(tmp_path, monke
     # its second-pass batch; keep this unit test strictly CPU-only.
     result = production.make_cubism_handoff(master, tmp_path / "out", edition="pro", scope="upper",
                                            asset_kind="body", reference_image=body,
-                                           generated_psd=path)
+                                           generated_psd=path, psd2live=False)
     assert PSDImage.open(result["art_psd"]).size == (256, 384)
     with ZipFile(result["package"]) as z:
         report = json.loads(z.read("metadata/pro_reference_alignment.json"))
@@ -374,7 +374,7 @@ def test_handoff_inventory_lists_all_final_companion_files(tmp_path):
     hair = Image.new("RGBA", im.size); hair.paste((20, 30, 40, 255), (10, 10, 100, 30))
     PixelLayer.frompil(hair, parent=psd, name="front hair")
     path = tmp_path / "source.psd"; psd.save(path)
-    result = make_cubism_handoff(master, tmp_path / "out", edition="free", scope="upper", external_psd=path)
+    result = make_cubism_handoff(master, tmp_path / "out", edition="free", scope="upper", external_psd=path, psd2live=False)
     with ZipFile(result["package"]) as z:
         assert set(result["supporting_files"]) == set(z.namelist()) - {"avatar.psd"}
 
@@ -418,7 +418,8 @@ def test_all_ten_public_modes_make_registered_psd_handoffs(tmp_path, scope, edit
     original_psd = tmp_path / "original.psd"; psd.save(original_psd)
     result = make_cubism_handoff(source, tmp_path / "output", edition=edition, scope=scope,
                                 asset_kind=asset, external_psd=original_psd,
-                                reference_image=body if edition == "pro" and asset != "body" else None)
+                                reference_image=body if edition == "pro" and asset != "body" else None,
+                                psd2live=False)
     assert result["edition"] == edition and result["scope"] == scope and result["asset_kind"] == asset
     assert result["moc3_generated"] is False
     output_name = (asset if edition == "pro" else "avatar") + ".psd"
