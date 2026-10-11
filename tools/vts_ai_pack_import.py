@@ -52,12 +52,19 @@ def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
         if (len(members) > _MAX_FILES or len(names) != len(set(names))
                 or sum(x.file_size for x in members) > _MAX_UNCOMPRESSED_BYTES):
             raise ValueError("AI_PACK_ARCHIVE_LIMIT_OR_DUPLICATE")
+        # Accept both root contents and one conventional parent folder.
+        # Never silently merge multiple nested manifests or ambiguous roots.
+        prefix = ""
         if "manifest.json" not in names:
-            raise ValueError("AI_PACK_MANIFEST_MISSING")
-        if archive.getinfo("manifest.json").file_size > _MAX_MANIFEST_BYTES:
+            candidates = [n[:-len("manifest.json")] for n in names
+                          if n.endswith("/manifest.json") and n.count("/") == 1]
+            if len(candidates) != 1:
+                raise ValueError("AI_PACK_MANIFEST_MISSING_OR_AMBIGUOUS")
+            prefix = candidates[0]
+        if archive.getinfo(prefix + "manifest.json").file_size > _MAX_MANIFEST_BYTES:
             raise ValueError("AI_PACK_MANIFEST_TOO_LARGE")
         try:
-            manifest = json.loads(archive.read("manifest.json"))
+            manifest = json.loads(archive.read(prefix + "manifest.json"))
         except (ValueError, UnicodeDecodeError) as exc:
             raise ValueError("AI_PACK_MANIFEST_INVALID_JSON") from exc
         if not isinstance(manifest, dict) or manifest.get("schema") not in (
@@ -72,9 +79,9 @@ def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
         master_info = manifest.get("master")
         if not isinstance(master_info, dict) or master_info.get("file") != "outputs/master.png":
             raise ValueError("AI_PACK_MASTER_CONTRACT_INVALID")
-        if master_info["file"] not in names:
+        if prefix + master_info["file"] not in names:
             raise ValueError("AI_PACK_MASTER_MISSING")
-        master = _decode_png(archive, "outputs/master.png")
+        master = _decode_png(archive, prefix + "outputs/master.png")
         canvas = manifest.get("canvas", {})
         if (not isinstance(canvas, dict) or
                 canvas.get("width") != master.width or
@@ -99,7 +106,7 @@ def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
                 raise ValueError("AI_PACK_DUPLICATE_PART_ID: " + part_id)
             seen_ids.add(part_id)
             filename = "isolated_parts/" + part_id + ".png"
-            if row.get("file") != filename or filename not in names:
+            if row.get("file") != filename or prefix + filename not in names:
                 raise ValueError("AI_PACK_PART_FILE_MISSING: " + part_id)
             method = row.get("creation_method")
             if method not in ("generated", "redrawn", "edited_with_underpaint"):
@@ -109,7 +116,7 @@ def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
             if isinstance(z, bool) or not isinstance(z, int) or z in seen_orders:
                 raise ValueError("AI_PACK_DRAW_ORDER_REQUIRED_UNIQUE: " + part_id)
             seen_orders.add(z)
-            image = _decode_png(archive, filename, is_part=True)
+            image = _decode_png(archive, prefix + filename, is_part=True)
             bounds = image.getchannel("A").getbbox()
             if bounds is None:
                 raise ValueError("AI_PACK_EMPTY_ALPHA: " + part_id)
@@ -130,12 +137,12 @@ def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
             validated.append({"id": part_id, "filename": filename, "z": z,
                               "left": left, "top": top,
                               "image": image, "method": method})
-        actual_files = {name for name in names if name.startswith("isolated_parts/") and name.endswith(".png")}
+        actual_files = {name[len(prefix):] for name in names if name.startswith(prefix + "isolated_parts/") and name.endswith(".png")}
         if actual_files != {part["filename"] for part in validated}:
             raise ValueError("AI_PACK_UNDECLARED_PART_IMAGES")
         validated.sort(key=lambda x: x["z"])  # back -> front
         return {"master": master, "parts": validated, "canvas": master.size,
-                "manifest": manifest, "source": source,
+                "manifest": manifest, "source": source, "archive_prefix": prefix,
                 "visual_quality_verified": False}
 
 
