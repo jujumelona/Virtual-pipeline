@@ -1,71 +1,36 @@
-"""Offline smoke test for the real Colab Live2D preparation cell.
+"""No-network smoke for the replacement five-mode Colab UI.
 
-Run with: python -m ci.vts_colab_setup_smoke
-No model downloads, GPU, pytest, or PSD2Live installation required.
+Phase 1 should never import/setup any image splitting models, packages
+or production engines. Validate syntax + all 20 combinations.
 """
 from __future__ import annotations
 
 import ast
 import json
-import os
 from pathlib import Path
-from types import SimpleNamespace
-import sys
+
+from tools.colab_mode_ui import ASSET_KINDS, TOP_MODE_CHOICES, select_mode
 
 
 def main() -> None:
-    notebook = (Path(__file__).resolve().parents[1] /
-                "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb")
-    cells = json.loads(notebook.read_text(encoding="utf-8"))["cells"]
-    code_cells = ["".join(cell["source"]) for cell in cells
-                  if cell.get("cell_type") == "code"]
-    for index, source in enumerate(code_cells):
-        try:
-            ast.parse(source)
-        except SyntaxError as exc:
-            raise AssertionError(f"Notebook code cell {index} is invalid") from exc
-
-    setup = next((source for source in code_cells
-                  if source.startswith("#@title ⑦ AI 모델")), None)
-    assert setup is not None, "Live2D preparation cell not found"
-    tree = ast.parse(setup)
-    branch = next((node for node in tree.body
-                   if isinstance(node, ast.If)
-                   and "live2d_free" in ast.unparse(node.test)
-                   and "LIVE2D_INPUT_KIND" in ast.unparse(node.test)), None)
-    assert branch is not None, "Live2D preparation branches not found"
-    isolated = compile(ast.fix_missing_locations(
-        ast.Module(body=[branch], type_ignores=[])), str(notebook), "exec")
-
-    for input_kind in ("ai_asset_zip", "master_image"):
-        commands = []
-
-        def record(command, timeout):
-            assert timeout > 0
-            commands.append(command)
-
-        namespace = {
-            "scope": "live2d_free",
-            "LIVE2D_INPUT_KIND": input_kind,
-            "LIVE2D_EDITION": "free",
-            "LIVE2D_PRO_ASSET": "body",
-            "LIVE2D_USE_QWEN": False,
-            "USAGE": "personalNonProfit",
-            "repo": Path("/content/Virtual-pipeline"),
-            "pathlib": __import__("pathlib"),
-            "sys": sys,
-            "os": SimpleNamespace(environ={}, pathsep=os.pathsep),
-            "run": record,
-        }
-        # Intentionally do not define 'Path' in this namespace. ⑦ must
-        # resolve every name itself, without relying on later notebook cells.
-        exec(isolated, namespace)
-        cli = [command for command in commands
-               if "tools.vts_psd2live" in command]
-        assert len(cli) == 1, f"{input_kind}: expected one PSD2Live setup"
-        assert "/content/vtuber_builder/third_party" in cli[0]
-        print(f"[Colab smoke] {input_kind}: PASS")
-    print(f"[Colab smoke] {len(code_cells)} notebook code cells parse: PASS")
+    nb_path = (Path(__file__).resolve().parents[1] /
+               "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb")
+    cells = json.loads(nb_path.read_text(encoding="utf-8"))["cells"]
+    code = ["".join(c["source"]) for c in cells if c["cell_type"] == "code"]
+    assert len(code) == 4, f"Expected four setup/selection cells, found {len(code)}"
+    for i, content in enumerate(code):
+        ast.parse(content, filename=f"colab-ui-cell-{i}")
+    for mode in TOP_MODE_CHOICES:
+        for asset in ASSET_KINDS:
+            row = select_mode(mode, asset).as_dict()
+            assert row["top_mode"] == mode and row["asset_kind"] == asset
+    forbidden = ("tools.vts_setup", "tools.colab_mode_prepare",
+                 "See-through", "Qwen", "SAM", "activate_2d_environment",
+                 "pip install", "--prepare")
+    joined = "\n".join(code)
+    assert all(word not in joined for word in forbidden)
+    print("[Colab UI smoke] Five modes × four common assets = 20 selections: PASS")
+    print("[Colab UI smoke] No splitter installs/inference in notebook: PASS")
 
 
 if __name__ == "__main__":

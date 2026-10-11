@@ -1,8 +1,4 @@
-"""Colab native form architecture: one parent mode + mode-specific cells.
-
-All visible choices are Colab #@param values that exist BEFORE the user runs
-a cell. No JavaScript/ipywidgets popup and no confirmation-button contract.
-"""
+"""The production notebook UI uses five top-level modes and a shared asset selector."""
 import ast
 import json
 from pathlib import Path
@@ -10,200 +6,98 @@ from pathlib import Path
 import pytest
 
 from tools.colab_mode_ui import (
-    MODE_LABELS, EDITION_LABELS, FRAMING_LABELS, QWEN_LABELS,
-    ACCESSORY_LABELS, ANCHOR_LABELS, internal_scope,
-    input_profile, refresh_qwen, selection_signature,
+    ASSET_KINDS, TOP_MODE_CHOICES, apply_submode, begin_mode_selection,
+    require_submode_config, select_mode, selection_signature,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-NB = ROOT / "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb"
+NOTEBOOK = ROOT / "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb"
 
 
-def cells():
-    nb = json.loads(NB.read_text(encoding="utf-8"))
-    c = ["".join(cell["source"]) for cell in nb["cells"]
-         if cell["cell_type"] == "code"]
-    assert len(c) == 12
-    return c
+def code_cells():
+    notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+    cells = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
+    for index, cell in enumerate(cells):
+        ast.parse(cell, filename=f"notebook-cell-{index}")
+    return cells
 
 
-@pytest.mark.parametrize("edition,framing,expected", [
-    ("free", "upper", "live2d_free"),
-    ("pro", "full", "live2d_pro"),
-    ("free", "full", "live2d_free"),
-    ("pro", "upper", "live2d_pro"),
+def test_five_top_modes_and_four_shared_assets():
+    assert tuple(TOP_MODE_CHOICES) == (
+        "live2d_upper", "live2d_full", "inochi2d_upper", "inochi2d_full", "3d")
+    assert tuple(ASSET_KINDS) == ("body", "hair", "accessory", "outfit")
+    assert {select_mode(m, a).asset_kind for m in TOP_MODE_CHOICES
+            for a in ASSET_KINDS} == set(ASSET_KINDS)
+
+
+@pytest.mark.parametrize("mode,family,framing", [
+    ("live2d_upper", "live2d", "upper"),
+    ("live2d_full", "live2d", "full"),
+    ("inochi2d_upper", "inochi2d", "upper"),
+    ("inochi2d_full", "inochi2d", "full"),
+    ("3d", "3d", "full"),
 ])
-def test_live2d_is_parent_mode(edition, framing, expected):
-    assert internal_scope("캐릭터 생성", "live2d", edition, "소품", "live2d") == expected
-    assert set(EDITION_LABELS) == {"free", "pro"}
-    assert framing in FRAMING_LABELS
-    assert set(MODE_LABELS) == {"3d", "inochi2d", "live2d"}
+def test_mode_routes_are_exact(mode, family, framing):
+    for asset in ASSET_KINDS:
+        selected = select_mode(mode, asset)
+        assert (selected.family, selected.framing, selected.asset_kind) == (
+            family, framing, asset)
+        assert selected.as_dict()["schema"] == "vtuber/asset-selection-v1"
 
 
-def test_inactive_2d_options_stay_separate():
-    assert internal_scope("캐릭터 생성", "3d", "free", "소품", "live2d") == "3d"
-    assert internal_scope("캐릭터 생성", "inochi2d", "free", "소품", "live2d") == "inochi2d"
-    assert internal_scope("액세서리 제작", "3d", "free", "소품", "live2d") == "3d"
-    assert internal_scope("액세서리 제작", "3d", "free", "2D 교체 의상", "inochi2d") == "inochi2d"
-    assert internal_scope("액세서리 제작", "3d", "free", "3D 교체 의상(XWear)", "live2d") == "wardrobe_handoff"
-    assert input_profile("캐릭터 생성", "live2d", "소품", "sheets", True) == "live2d_artwork"
-    assert "소품" in ACCESSORY_LABELS
-    assert "AUTO" in ANCHOR_LABELS
-
-
-def test_qwen_auto_modes():
-    v = {"LIVE2D_QWEN": "auto", "LIVE2D_EDITION": "free",
-         "LIVE2D_PRO_ASSET": "outfit"}
-    refresh_qwen(v)
-    assert v["LIVE2D_USE_QWEN"] is False
-    v["LIVE2D_EDITION"] = "pro"
-    refresh_qwen(v)
-    assert v["LIVE2D_USE_QWEN"] is False
-    v["LIVE2D_PRO_ASSET"] = "hair"
-    refresh_qwen(v)
-    assert v["LIVE2D_USE_QWEN"] is True
-    v["LIVE2D_PRO_ASSET"] = "body"
-    refresh_qwen(v)
-    assert v["LIVE2D_USE_QWEN"] is False
-    v["LIVE2D_PRO_ASSET"] = "accessory"
-    v["LIVE2D_QWEN"] = "off"
-    refresh_qwen(v)
-    assert v["LIVE2D_USE_QWEN"] is False
-    v["LIVE2D_QWEN"] = "on"
-    refresh_qwen(v)
-    assert v["LIVE2D_USE_QWEN"] is True
-    v["LIVE2D_PRO_ASSET"] = "outfit"
-    with pytest.raises(ValueError, match="PRO"):
-        refresh_qwen(v)
-    assert set(QWEN_LABELS) == {"auto", "on", "off"}
-
-
-def test_all_cells_compile_and_submode_settings_are_native_colab_forms():
-    c = cells()
-    for i, cell in enumerate(c):
-        ast.parse(cell, filename=f"colab_cell_{i}")
-    parent = c[1]
-    assert '#@param ["live2d", "inochi2d", "3d", "accessory"]' in parent
-    assert 'TOP_MODE = "live2d"' in parent
-    assert '#@param ["free", "pro"]' not in parent
-    assert 'ACCESSORY_SUBTYPE_OPTION' not in parent
-    assert "choose_notebook_controls(" not in "\n".join(c)
-    assert "render_notebook_controls(" not in "\n".join(c)
-    assert "require_confirmed_selection(" not in "\n".join(c)
-    assert "output.eval_js" not in "\n".join(c)
-    for i, mode in [(2, "live2d"), (3, "inochi2d"), (4, "3d"), (5, "accessory")]:
-        cell = c[i]
-        assert "#@param" in cell
-        assert f'globals().get("TOP_MODE") == "{mode}"' in cell
-        assert 'else:' in cell
-        assert f'MODE_DETAILS_SELECTED = TOP_MODE' in cell
-    assert 'LIVE2D_EDITION_OPTION = "free" #@param' in c[2]
-    assert 'INOCHI_INPUT_OPTION = "sheets" #@param' in c[3]
-    assert 'THREE_D_MULTIVIEW_OPTION = True #@param' in c[4]
-    assert 'ACCESSORY_SUBTYPE_OPTION = "소품" #@param' in c[5]
-
-
-@pytest.mark.parametrize("upper,active_index,task,mode", [
-    ("live2d", 2, "캐릭터 생성", "live2d"),
-    ("inochi2d", 3, "캐릭터 생성", "inochi2d"),
-    ("3d", 4, "캐릭터 생성", "3d"),
-    ("accessory", 5, "액세서리 제작", "3d"),
-])
-def test_only_selected_mode_cell_sets_active_details(upper, active_index, task, mode, capsys):
-    c = cells()
-    scope = {}
-    exec(compile(c[1], "select_parent", "exec"), scope)
-    assert scope["TOP_MODE"] == "live2d"
-    scope["TOP_MODE"] = upper
-    scope["TASK"] = task
-    scope["MODE"] = mode
-    for i in range(2, 6):
-        exec(compile(c[i], f"submode_{i}", "exec"), scope)
-        if i < active_index:
-            assert scope["MODE_DETAILS_SELECTED"] is None
-    assert scope["MODE_DETAILS_SELECTED"] == upper
-    assert scope["MODE_DETAILS_SNAPSHOT"] == selection_signature(scope)
-    assert "생략" in capsys.readouterr().out or upper == "live2d"
-
-
-def test_model_download_requires_matching_mode_detail_not_popup():
-    c = cells()
-    setup, upload, build = c[6:9]
-    assert 'MODE_DETAILS_SELECTED' in setup
-    assert 'MODE_DETAILS_SNAPSHOT' in setup
-    assert setup.index('MODE_DETAILS_SELECTED') < setup.index('run([sys.executable')
-    assert 'MODEL_DOWNLOAD_SELECTION = SELECTED_MODE' in setup
-    assert 'selection_signature(globals())' in upload
-    assert 'selection_signature(globals())' in build
-    assert 'make_cubism_handoff(' in build
-    assert "MODE_SELECTION_CONFIRMED" not in "\n".join(c)
-
-
-def test_no_prompt_generator_in_notebook():
-    content = "\n".join(cells())
-    for forbidden in ("prepare_vts_notebook_brief", "write_vts_brief_package",
-                      "FLUX.2 Klein", "VTS_SCOPE"):
-        assert forbidden not in content
-
-
-def test_readme_describes_static_submode_form():
-    text = (ROOT/"README.md").read_text(encoding="utf-8")
-    assert "Live2D" in text and "Inochi2D" in text
-    assert "FREE" in text and "PRO" in text
-    assert "pro_upper_base_master.png" in text
-    assert "free_upper_master.png" in text
-    assert "TOP_MODE" in text
-
-
-def test_invalid_cubism_edition_fails():
+@pytest.mark.parametrize("mode", ["", "live2d", "inochi2d", "accessory", "unknown"])
+def test_deprecated_modes_are_not_accepted(mode):
     with pytest.raises(ValueError):
-        internal_scope("캐릭터 생성", "live2d", "enterprise", "소품", "live2d")
-
-def test_live2d_qwen_budget_changes_mode_signature():
-    from tools.colab_mode_ui import selection_signature
-    values = {
-        "TASK": "캐릭터 생성", "MODE": "live2d", "USAGE": "personalNonProfit",
-        "LIVE2D_EDITION": "pro", "LIVE2D_FRAMING": "upper",
-        "LIVE2D_QWEN": "auto", "LIVE2D_USE_QWEN": True,
-        "LIVE2D_QWEN_LAYERS": 8, "LIVE2D_QWEN_PASSES": 12,
-        "LIVE2D_PRO_ASSET": "hair",
-    }
-    first = selection_signature(values)
-    values["LIVE2D_QWEN_LAYERS"] = 7
-    assert selection_signature(values) != first
-    values["LIVE2D_QWEN_LAYERS"] = 11
-    with pytest.raises(ValueError, match="2..10"):
-        selection_signature(values)
+        select_mode(mode, "body")
 
 
-def test_qwen_free_auto_signature_is_explicitly_disabled():
-    v = {"TASK": "캐릭터 생성", "MODE": "live2d",
-         "USAGE": "personalNonProfit", "LIVE2D_EDITION": "free",
-         "LIVE2D_FRAMING": "upper", "LIVE2D_QWEN": "auto",
-         "LIVE2D_QWEN_LAYERS": 4, "LIVE2D_QWEN_PASSES": 8}
-    refresh_qwen(v)
-    assert v["LIVE2D_USE_QWEN"] is False
-    selection_signature(v)
-    v["LIVE2D_USE_QWEN"] = True
-    with pytest.raises(ValueError, match="Qwen 옵션"):
-        selection_signature(v)
+@pytest.mark.parametrize("asset", ["", "free", "pro", "automatic", "other"])
+def test_deprecated_asset_modes_are_not_accepted(asset):
+    with pytest.raises(ValueError):
+        select_mode("live2d_upper", asset)
 
 
-def test_qwen_manual_on_disallowed_in_free_and_body():
-    for edition, asset in [("free", "hair"), ("pro", "body"), ("pro", "outfit")]:
-        v = {"LIVE2D_QWEN": "on", "LIVE2D_EDITION": edition,
-             "LIVE2D_PRO_ASSET": asset}
-        with pytest.raises(ValueError, match="PRO"):
-            refresh_qwen(v)
+def test_static_native_colab_controls_are_only_two_selectors():
+    codes = code_cells()
+    assert len(codes) == 4
+    assert '#@param ["live2d_upper", "live2d_full", "inochi2d_upper", "inochi2d_full", "3d"]' in codes[1]
+    assert '#@param ["body", "hair", "accessory", "outfit"]' in codes[2]
+    assert "MODE_CONFIG_APPLIED" in codes[2]
+    assert "require_submode_config(globals())" in codes[3]
+    assert all("#@param" not in code for code in (codes[0], codes[3]))
 
 
+def test_no_legacy_splitters_or_their_installs_in_runtime_cells():
+    joined = "\n".join(code_cells())
+    prohibited = (
+        "vts_setup", "See-through", "see_through", "SAM", "sam2",
+        "FLUX", "Qwen", "qwen", "split_layer", "activate_2d_environment",
+        "MODEL_DOWNLOAD", "LIVE2D_EDITION_OPTION", "FREE", "PRO",
+        "ACCESSORY_SUBTYPE", "TWO_D_INPUT", "MULTI_REFERENCE_3D",
+        "psd2live", "pip install", "runpy", "colab_mode_prepare",
+    )
+    # This is a UI-only phase. No model inference or downloader can run.
+    for forbidden in prohibited:
+        assert forbidden not in joined
 
-@pytest.mark.parametrize("asset", ["hair", "accessory"])
-def test_qwen_is_opt_in_for_pro_hair_and_accessory(asset):
-    values = {"LIVE2D_QWEN": "off", "LIVE2D_EDITION": "pro",
-              "LIVE2D_PRO_ASSET": asset}
-    refresh_qwen(values)
-    assert values["LIVE2D_USE_QWEN"] is False
-    values["LIVE2D_QWEN"] = "on"
-    refresh_qwen(values)
-    assert values["LIVE2D_USE_QWEN"] is True
+
+def test_shared_submode_must_be_reapplied_after_parent_change():
+    state = {"TOP_MODE": "live2d_upper"}
+    begin_mode_selection(state)
+    assert state["ASSET_KIND"] is None
+    assert apply_submode(state, "live2d_upper", {"ASSET_KIND": "body"})
+    assert require_submode_config(state).asset_kind == "body"
+    state["TOP_MODE"] = "inochi2d_full"
+    with pytest.raises(RuntimeError):
+        require_submode_config(state)
+    begin_mode_selection(state)
+    assert apply_submode(state, "live2d_upper", {"ASSET_KIND": "hair"}) is False
+    assert apply_submode(state, "inochi2d_full", {"ASSET_KIND": "outfit"})
+    assert selection_signature(state) == ("inochi2d_full", "outfit")
+
+
+def test_readme_explains_phase_and_not_yet_connected_production():
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "Live2D 상반신" in text and "Inochi2D 전신" in text
+    assert "신체만" in text and "액세서리만" in text
+    assert "구조 개편" in text and "후속 단계" in text
