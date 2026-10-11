@@ -57,36 +57,21 @@ def test_wrong_size_and_non_rgba_rejected(tmp_path, small_png_set):
         inputs.prepare_2d_image_uploads(small_png_set, str(tmp_path))
 
 
-def test_readme_is_the_only_colab_prompt_source():
+def test_new_colab_defers_prompts_without_running_legacy_splitters():
     import json
     from pathlib import Path
-
     root = Path(__file__).resolve().parents[1]
     readme = (root / "README.md").read_text(encoding="utf-8")
     notebook = json.loads((root / "notebooks" /
                            "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
     code = "\n".join("".join(c["source"]) for c in notebook["cells"]
                      if c["cell_type"] == "code")
-    assert "## 모드별 이미지 생성 — 영구 베이스 캐릭터와 교체형 의상 분리" in readme
-    assert "sheet_body_base.png" in readme
-    assert "outfit_variant.png" in readme
-    assert "front_master.png" in readme
-    assert "hair_variant.png" in readme
-    assert "sheet_front_back.png" in readme
-    assert "sheet_side_views.png" in readme
-    assert "sheet_eye_left.png" in readme
-    assert "sheet_eye_right.png" in readme
-    assert "sheet_mouth.png" in readme
-    assert "sheet_arms_hands.png" in readme
-    assert "character_2d_sheet_pack.zip" in readme
-    assert "character_3d_sheet_pack.zip" in readme
-    assert "build_prompts(" not in code
-    assert "write_prompt_package" not in code
-    assert "Identity(" not in code
-    assert "HAIR_COLOR =" not in code
-    assert "store_uploaded_zip(" in code
-    assert "sheet_zip_path=" in code
-    assert "files.upload()" in code
+    assert "후속 단계" in readme
+    assert "신체만" in readme
+    for forbidden in ("build_prompts(", "write_prompt_package", "store_uploaded_zip(",
+                      "prepare_2d_image_uploads", "sheet_zip_path=",
+                      "files.upload()", "sam_body_weights_prefetched"):
+        assert forbidden not in code
 
 
 def test_every_external_2d_layer_name_has_a_valid_rig_semantic():

@@ -99,7 +99,8 @@ def test_all_source_and_model_pins_agree():
     assert colab["TRIPOSR_MODEL_REVISION"] == TRIPOSR_MODEL_REVISION
     assert colab["TRIPOSR_MODEL_WEIGHT_SHA256"] == TRIPOSR_MODEL_WEIGHT_SHA256
     assert TRIPOSR_PINNED_COMMIT in requirements
-    assert TRIPOSR_PINNED_COMMIT in readme
+    # The source pin remains enforced by third_party.lock.json / runtime,
+    # not duplicated in the stage-1 UI README.
 
     assert tools["makehuman_cc0"]["source_commit"] == MAKEHUMAN_CC0_COMMIT
     assert (
@@ -107,7 +108,7 @@ def test_all_source_and_model_pins_agree():
         == MAKEHUMAN_BASE_GIT_BLOB_SHA1
     )
     assert re.fullmatch(r"[0-9a-f]{40}", MAKEHUMAN_BASE_GIT_BLOB_SHA1)
-    assert MAKEHUMAN_CC0_COMMIT in readme
+    # The MakeHuman source pin remains verified against the lock above.
 
     assert "torchmcubes" not in tools
     assert "TORCHMCUBES_COMMIT" not in colab
@@ -304,58 +305,36 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
         "".join(cell.get("source", [])) for cell in canonical_notebook["cells"]
         if cell.get("cell_type") == "code"
     )
-    assert "colab_mode_prepare.py" in canonical_code
+    assert "colab_mode_prepare.py" not in canonical_code
+    assert "TOP_MODE_LABEL" in canonical_code and "ASSET_KIND_LABEL" in canonical_code
     assert "app['ensure_runtime']()" not in canonical_code
     assert "import gradio" not in canonical_code
 
 
 
-def test_readme_open_in_colab_badge_targets_canonical_separate_cells_notebook():
-    """The public Colab link targets the native multi-step notebook."""
+def test_readme_badge_targets_new_four_code_cell_selection_notebook():
     readme = _read("README.md")
     notebook_file = "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb"
-    badge = (
-        "[![Open In Colab]"
-        "(https://colab.research.google.com/assets/colab-badge.svg)]"
-    )
-    launch_url = (
-        "https://colab.research.google.com/github/"
-        "jujumelona/Virtual-pipeline/blob/main/" + notebook_file
-    )
-    assert badge + "(" + launch_url + ")" in readme
-    assert readme.count(launch_url) == 1
+    launch_url = ("https://colab.research.google.com/github/"
+                  "jujumelona/Virtual-pipeline/blob/main/" + notebook_file)
+    assert "[![Open current Colab]" in readme
+    assert launch_url in readme
     notebook = json.loads(_read(notebook_file))
     cells = ["".join(c.get("source", [])) for c in notebook["cells"]
              if c.get("cell_type") == "code"]
-    assert len(cells) == 12
-    setup, selection, live2d, inochi, three_d, accessory, prefetch, upload, generate, download, diagnostics, final = cells
-    assert "prepare_2d_image_uploads" in upload
-    assert "write_prompt_package(" not in "\n".join(cells)
-    assert "setup_code" not in setup
+    assert len(cells) == 4
+    setup, top, assets, summary = cells
+    assert '"git", "clone"' in setup and '"main"' in setup
     assert "colab_app.py" not in setup
-    assert "colab_mode_prepare.py" in prefetch
-    assert "--mode" in prefetch
-    assert "stop_legacy_server()" in setup
-    assert 'TOP_MODE = "live2d" #@param' in selection
-    assert 'MODE = "3d" if TOP_MODE == "accessory" else TOP_MODE' in selection
-    assert "prepare_models(" not in selection
-    assert "subprocess.Popen(" not in selection
-    assert "files.upload" in upload
-    assert "generate(" not in upload
-    assert "from tools.colab_native import generate" in generate
-    assert "RESULT_FILE = generate(" in generate
-    assert "files.upload" not in generate
-    assert "files.download(" not in generate
-    assert "colab_ui_launcher.py" not in generate
-    assert "DOWNLOAD_NOW = False" in download
-    assert "files.download(" in download
-    assert "generate(" not in download
-    assert "generation.log" in diagnostics
-    assert "status.json" in diagnostics
-    assert "generate(" not in diagnostics
-    assert "subprocess" not in diagnostics
-    assert "files.upload" not in final
-    assert "files.download(" not in final
+    assert "TOP_MODE_LABEL" in top and "ASSET_KIND_LABEL" in assets
+    assert "require_submode_config" in summary
+    for old in ("prepare_2d_image_uploads", "MODEL_DOWNLOAD_READY",
+                "sam_body_weights_prefetched", "See-through",
+                "colab_mode_prepare.py", "vts_setup", "files.upload(",
+                "from tools.colab_native import generate"):
+        assert old not in "\n".join(cells)
+    # Legacy model locking still applies to legacy code, but no longer
+    # appears as a dependency of the new selection-only notebook.
     app = _read("tools/colab_app.py")
     assert "prepare_models(mode)" in app
     assert "_model_marker(scope)" in app

@@ -1,63 +1,45 @@
-"""Colab v8 clothing selector is disjoint from rigid accessory route."""
+"""The new Colab selector treats outfit and accessories as shared assets.
+
+Legacy wardrobe implementation stays isolated until its production route
+is replaced after the common body contract and prompt work.
+"""
 import ast
 import json
 from pathlib import Path
 
+from tools.colab_mode_ui import TOP_MODE_CHOICES, ASSET_KINDS, select_mode
+
 ROOT=Path(__file__).resolve().parents[1]
 NB=ROOT/"notebooks"/"VTuber_Commercial_Pipeline_Colab_v8.ipynb"
 
+
 def code_cells():
-    notebook=json.loads(NB.read_text(encoding="utf-8"))
-    return [("".join(x["source"])) for x in notebook["cells"]
-            if x["cell_type"]=="code"]
+    n=json.loads(NB.read_text(encoding="utf-8"))
+    return ["".join(c["source"]) for c in n["cells"] if c["cell_type"]=="code"]
 
-def test_wardrobe_cells_compile_without_notebook_controlflow_errors():
-    for index in range(1, 9):
-        ast.parse(code_cells()[index],filename=f"colab_v8_code_{index}")
 
-def test_wardrobe_is_accessory_subtype_not_falsely_static_bone_attachment():
+def test_shared_outfit_and_accessory_assets_across_all_mode_families():
+    assert set(ASSET_KINDS) == {"body", "hair", "accessory", "outfit"}
+    for mode in TOP_MODE_CHOICES:
+        for kind in ("outfit", "accessory"):
+            assert select_mode(mode, kind).asset_kind == kind
+
+
+def test_removed_separate_wardrobe_ui_cannot_install_models_or_build():
     cells=code_cells()
-    options=cells[5]
-    uploads=cells[7]
-    build=cells[8]
-    assert 'ACCESSORY_SUBTYPE_OPTION = "소품"' in options
-    # User-visible task options now live in the dynamic, scoped UI module.
-    from tools.colab_mode_ui import ACCESSORY_LABELS
-    assert "소품" in ACCESSORY_LABELS
-    for subtype in ("2D 교체 의상","3D 교체 의상(XWear)"):
-        assert subtype in ACCESSORY_LABELS and subtype in uploads and subtype in build
-    assert 'globals().get("TOP_MODE") == "accessory"' in options
-    assert 'OUTFIT_2D_TARGET' in options
-    assert 'outfit_variant.png' in uploads
-    assert 'costume.xwear' in uploads
-    assert 'sheet_prepare_worker.py' in build
-    assert 'wardrobe_2d' in build
-    assert 'inspect_image' in uploads
-    assert 'hair_variant.png' in uploads
-    assert '"hair_png"' in build
-    assert 'prepare_vroid_dressup(' in build
-    assert 'generate(' in build
-    # The generic static attach path must be the last accessory branch.
-    assert build.index('prepare_vroid_dressup(')<build.index(
-        'elif TASK == "액세서리 제작":\n    accessories'
-    )
+    assert len(cells)==4
+    for index, code in enumerate(cells):
+        ast.parse(code,filename=f"colab_v8_code_{index}")
+    joined="\n".join(cells)
+    assert '["신체만", "헤어만", "액세서리만", "의상만"]' in joined
+    for previous in ("ACCESSORY_SUBTYPE_OPTION", "WARDROBE_2D_BASE",
+                     "costume.xwear", "prepare_vroid_dressup(",
+                     "sheet_prepare_worker.py", "colab_mode_prepare.py",
+                     "files.upload", "files.download"):
+        assert previous not in joined
 
-def test_wardrobe_3d_never_claims_complete_automatically_skinned_vrm():
-    cells=code_cells()
-    download=cells[6]
-    assert 'if wardrobe_3d:' in download
-    assert 'GPU를 설치하지 않습니다.' in download
-    generation=cells[8]
-    assert '착용 완료 VRM이 아닙니다' in generation
-    assert 'prepare_vroid_dressup(' in generation
 
-def test_readme_cites_correct_2d_and_3d_wardrobe_file_names():
-    readme=(ROOT/"README.md").read_text(encoding="utf-8")
-    for name in (
-        "outfit_variant.png", "costume.xwear", "base_avatar.vrm",
-        "vroid_dressup_handoff.zip",
-        "sheet_front_back.png", "sheet_side_views.png", "face.png",
-        "hair_variant.png",
-    ):
-        assert name in readme
-    assert "STATIC" not in readme or "static" in readme.lower()
+def test_readme_reserves_wardrobe_generation_for_followup_phase():
+    r=(ROOT/"README.md").read_text(encoding="utf-8")
+    assert "신체만" in r and "의상만" in r
+    assert "후속 단계" in r

@@ -1,5 +1,7 @@
 # Virtual-pipeline
 
+지원 Python 버전: **3.12 또는 3.13** (코드·잠금 버전은 `pyproject.toml` 및 `third_party.lock.json`에 명시).
+
 [![Open current Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb)
 
 ## 구조 개편 — 1단계: 모드 UI 및 AI 자동 분리 제거
