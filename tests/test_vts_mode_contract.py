@@ -103,43 +103,27 @@ def test_sam_descriptor_matches_executable_pinned_model():
     assert FREE_BUDGET["art_mesh_max"] == 100
 
 
-def test_bundle_contains_license_notice_and_no_weight_file(identity, tmp_path):
+def test_bundle_contains_only_image_ai_artwork_material(identity, tmp_path):
     spec = build_vts_brief("free", "upper", identity)
     pkg = write_vts_brief_package(spec, str(tmp_path))
     with zipfile.ZipFile(pkg) as z:
-        names = z.namelist()
-        assert "manifest.json" in names
-        assert "STABILITY_LICENSE_NOTICE.txt" in names
-        assert "prompts/free_upper_master.png.txt" in names
-        assert "large_image_ai_asset_pack/README.md" in names
-        assert "large_image_ai_asset_pack/LARGE_AI_EXECUTION_INSTRUCTIONS.md" in names
-        assert "large_image_ai_asset_pack/OFFICIAL_REFERENCES.md" in names
-        assert "large_image_ai_asset_pack/PARTS_AND_ROTATION_SPEC.md" in names
-        assert "large_image_ai_asset_pack/PRODUCTION_ACCEPTANCE_V2.md" in names
-        assert "large_image_ai_asset_pack/DEMO_REWORK_REQUEST.md" in names
-        acceptance = z.read("large_image_ai_asset_pack/PRODUCTION_ACCEPTANCE_V2.md").decode("utf-8")
-        assert "extracted_only" in acceptance and "MOTION_VERIFIED" in acceptance
-        assert "PRODUCTION_ACCEPTANCE_V2.md" in z.read("READ_ME_FIRST.txt").decode("utf-8")
-
-        assert "large_image_ai_asset_pack/references/sheet_contract.svg" in names
-        assert "large_image_ai_asset_pack/references/rotation_guide.svg" in names
-        guide = z.read("large_image_ai_asset_pack/OFFICIAL_REFERENCES.md").decode("utf-8")
-        assert "https://docs.live2d.com/en/cubism-editor-tutorials/psd/" in guide
-        assert "https://www.live2d.com/en/cubism/comparison/" in guide
-        parts = z.read("large_image_ai_asset_pack/PARTS_AND_ROTATION_SPEC.md").decode("utf-8")
-        assert "arm_L_upper" in parts and "mouth_inside" in parts
-        template = json.loads(z.read("large_image_ai_asset_pack/manifest.template.json"))
-        assert template["status"] == "TEMPLATE_NOT_GENERATED"
-        assert len(template["parts"]) >= 20
-
+        names = set(z.namelist())
+        assert names == {
+            "README.md", "START_HERE.md", "PARTS_ARTWORK.md",
+            "OUTPUT_FILES.md", "OFFICIAL_LINKS.md",
+            "CHARACTER_DESIGN_BRIEF.txt",
+        }
+        prompt = z.read("START_HERE.md").decode("utf-8")
+        assert "isolated_parts/" in prompt
+        assert "layer_order.txt" in prompt
+        assert "PSD" in prompt  # only to exclude PSD from image AI tasks
+        assert "MOC3" not in prompt
+        assert "Qwen" not in prompt
+        assert "Stable-Layers" not in prompt
+        assert "official" in z.read("OFFICIAL_LINKS.md").decode("utf-8").lower() or (
+            "docs.live2d.com" in z.read("OFFICIAL_LINKS.md").decode("utf-8"))
+        assert "ONE image" not in z.read("CHARACTER_DESIGN_BRIEF.txt").decode("utf-8")
         assert not any(name.endswith((".safetensors", ".bin", ".gguf")) for name in names)
-        notice = z.read("STABILITY_LICENSE_NOTICE.txt").decode("utf-8")
-        assert "Powered by Stability AI" in notice
-        assert "stability.ai/license" in notice
-        assert "Community" in notice
-        parsed = json.loads(z.read("manifest.json"))
-        assert parsed["models"]["stable_layers"]["default_for_qwen_stage"] is True
-        assert parsed["models"]["qwen_usage"] == "disabled"
 
 
 def test_invalid_scope_and_missing_outfit_rejected(identity):
