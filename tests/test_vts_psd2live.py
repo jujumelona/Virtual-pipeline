@@ -327,3 +327,31 @@ def test_vendor_names_are_exported_and_original_mappings_are_preserved(tmp_path)
         assert data["pixel_operations"] == 0
         assert data["extra_inference_passes"] == 0
         assert data["unclassified_count"] == 0
+
+
+def test_missing_editable_cmo3_blocks_success(tmp_path):
+    root = tmp_path / "rigged"
+    sample_model(root)
+    (root / "avatar.cmo3").unlink()
+    with pytest.raises(RuntimeError, match="PSD2LIVE_CMO3_MISSING"):
+        bridge.validate_psd2live_output(root)
+
+
+def test_sixty_layers_preserve_count_pixels_and_semantics():
+    from tools.vts_psd2live_names import normalize_layer_names
+    names = [f"hair.front.{i:03d}" for i in range(20)]
+    names += [f"hair.back.{i:03d}" for i in range(10)]
+    names += [f"face.pass2.{i:03d}" for i in range(10)]
+    names += [f"eye.left.iris.{i:03d}" for i in range(10)]
+    names += [f"eye.right.sclera.{i:03d}" for i in range(10)]
+    pixels = Image.new("RGBA", (3, 4), (34, 56, 78, 128))
+    original = [{"name": name, "image": pixels} for name in names]
+    new, trace = normalize_layer_names(original)
+    assert len(new) == 60
+    assert all(before["image"] is after["image"]
+               for before, after in zip(original, new))
+    assert all(new[i]["name"].startswith("front hair_") for i in range(20))
+    assert all(new[i]["name"].startswith("back hair_") for i in range(20, 30))
+    assert len(set(item["name"] for item in new)) == 60
+    assert trace["source_layer_count"] == trace["output_layer_count"] == 60
+    assert trace["pixel_operations"] == trace["extra_inference_passes"] == 0
