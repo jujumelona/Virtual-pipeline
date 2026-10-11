@@ -802,7 +802,7 @@ def _apply_official_semantic_sam_once(layers: list, canvas: tuple[int, int],
     recursive or per-layer NF4 pass. Every accepted child owns source RGBA
     pixels; rejected partitions keep their input layer unchanged.
     """
-    from tools.vts_see_through_sam import run_sam_from_package
+    from tools.vts_see_through_sam import run_sam_from_package, SAM_LABELS_V2
     from tools.vts_official_second_pass import partition_from_masks
 
     masks, log = run_sam_from_package(layers, canvas, output=output,
@@ -813,7 +813,8 @@ def _apply_official_semantic_sam_once(layers: list, canvas: tuple[int, int],
     for index, layer in enumerate(layers):
         diagnostic = {"source_layer": layer["name"], "stage": "semantic_sam_19"}
         try:
-            children, decision = partition_from_masks(layer, masks)
+            children, decision = partition_from_masks(
+                layer, masks, mask_labels=SAM_LABELS_V2)
             diagnostic.update(decision)
             if (edition == "free" and
                     len(refined) + len(children) + len(layers) - index - 1 > FREE_LIMIT):
@@ -838,7 +839,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
                           qwen: bool = False, qwen_infer=None, third_party=None,
                           python_path=None, max_qwen_passes: int = 4,
                           per_pass_layers: int = 4,
-                           official_second_pass: bool = False) -> dict:
+                           official_second_pass: bool = False,
+                           psd2live_names: bool = False) -> dict:
     """Build one FREE character or one independently authored PRO asset PSD."""
     # All API entry points, including dependency-injected callers, must obey
     # the same execution contract. FREE and PRO body/outfit never use Qwen.
@@ -973,6 +975,13 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         raise ValueError("FREE output is a single flattened character image, not separated artwork")
     if edition == "free" and len(layers) > FREE_LIMIT:
         raise ValueError("FREE ArtMesh ceiling exceeded")
+    # PSD2Live's classifier does not recognize several dotted See-through
+    # family names. Normalize labels exactly once after all splitting is done.
+    # No segmentation count threshold or extra image inference is involved.
+    rig_names_report = None
+    if psd2live_names:
+        from tools.vts_psd2live_names import normalize_layer_names
+        layers, rig_names_report = normalize_layer_names(layers)
     name = "avatar" if edition == "free" else asset_kind
     psd_path = output / (name + ".psd")
     group_count = _write_psd(layers, psd_path, free=edition == "free")
@@ -1002,6 +1011,9 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
                                "input_count": len(official_trace),
                                "accepted_count": sum(bool(x.get("accepted")) for x in official_trace)},
                               ensure_ascii=False, indent=2).encode("utf-8")))
+    if rig_names_report is not None:
+        extras.append(("metadata/psd2live_layer_names.json",
+                       json.dumps(rig_names_report, ensure_ascii=False, indent=2).encode("utf-8")))
     extras.append(("OFFICIAL_EDITOR_SETTINGS.md", editor_settings_md()))
     extras.extend(runtime_logs)
     with ZipFile(package, "w", ZIP_DEFLATED, compresslevel=6) as z:
@@ -1023,6 +1035,7 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         "asset_kind": asset_kind, "canvas": list(canvas),
         "qwen_attempts": attempted, "qwen_splits_accepted": generated,
         "bilateral_splits": bilateral_splits,
+        "psd2live_layer_names": rig_names_report,
         "official_sam19_attempts": len(semantic_sam_trace),
         "official_sam19_accepted": sum(bool(x.get("accepted")) for x in semantic_sam_trace),
         "official_second_pass_attempts": len(official_trace),
