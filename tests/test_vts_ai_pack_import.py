@@ -139,8 +139,8 @@ def make_simple_image_ai_pack(tmp_path, *, parent_prefix=""):
         z.writestr(parent_prefix + "isolated_parts/hair_back.png", p1)
         z.writestr(parent_prefix + "isolated_parts/face_skin.png", p2)
         z.writestr(parent_prefix + "layer_order.txt",
-                   "isolated_parts/hair_back.png\\n"
-                   "isolated_parts/face_skin.png\\n")
+                   "isolated_parts/hair_back.png\n"
+                   "isolated_parts/face_skin.png\n")
     return path
 
 
