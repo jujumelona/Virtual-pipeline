@@ -39,6 +39,66 @@ def _decode_png(archive: ZipFile, name: str, *, is_part: bool = False) -> Image.
         raise ValueError(f"AI_PACK_IMAGE_DECODE_FAILED: {name}") from exc
 
 
+def _inspect_image_only_pack(archive: ZipFile, names: list[str], source: Path,
+                             edition: str) -> dict:
+    """Read only artwork PNG files and a plain back-to-front filename list.
+
+    No metadata, spatial guesswork, AI self-evaluation, or Cubism operations
+    are required from the artwork-generation model.
+    """
+    order_files = [name for name in names
+                   if name == "layer_order.txt"
+                   or (name.endswith("/layer_order.txt") and name.count("/") == 1)]
+    if len(order_files) != 1:
+        raise ValueError("AI_PACK_LAYER_ORDER_MISSING_OR_AMBIGUOUS")
+    order_name = order_files[0]
+    prefix = order_name[:-len("layer_order.txt")]
+    master_file = prefix + "outputs/master.png"
+    if master_file not in names:
+        raise ValueError("AI_PACK_MASTER_MISSING")
+    master = _decode_png(archive, master_file)
+    if master.width < 256 or master.height < 256:
+        raise ValueError("AI_PACK_MASTER_TOO_SMALL")
+    try:
+        raw_order = archive.read(order_name).decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError("AI_PACK_LAYER_ORDER_NOT_UTF8") from exc
+    listed = [line.strip() for line in raw_order.splitlines()
+              if line.strip() and not line.lstrip().startswith("#")]
+    actual = {name[len(prefix):] for name in names
+              if name.startswith(prefix + "isolated_parts/") and name.endswith(".png")}
+    if (not 2 <= len(listed) <= _MAX_FILES
+            or len(listed) != len(set(listed)) or set(listed) != actual):
+        raise ValueError("AI_PACK_LAYER_ORDER_NOT_MATCHING_SPRITES")
+    if edition == "free" and len(listed) > 100:
+        raise ValueError("AI_PACK_FREE_ARTMESH_LIMIT")
+    parts = []
+    for z, filename in enumerate(listed):
+        if not filename.startswith("isolated_parts/") or not filename.endswith(".png"):
+            raise ValueError("AI_PACK_LAYER_ORDER_INVALID_PATH")
+        part_id = filename[len("isolated_parts/"):-4]
+        if not _PART_ID.fullmatch(part_id) or filename != f"isolated_parts/{part_id}.png":
+            raise ValueError("AI_PACK_PART_ID_INVALID")
+        image = _decode_png(archive, prefix + filename, is_part=True)
+        if image.size != master.size:
+            raise ValueError("AI_PACK_CANVAS_MISMATCH: " + part_id)
+        alpha = image.getchannel("A")
+        if alpha.getbbox() is None:
+            raise ValueError("AI_PACK_EMPTY_ALPHA: " + part_id)
+        if alpha.getextrema()[0] == 255:
+            raise ValueError("AI_PACK_TRANSPARENCY_MISSING: " + part_id)
+        parts.append({"id": part_id, "filename": filename, "z": z,
+                      "left": 0, "top": 0, "image": image,
+                      "method": "supplied_independent_artwork"})
+    return {
+        "master": master, "parts": parts, "canvas": master.size,
+        "manifest": {"schema": "live2d/simple-image-artwork-zip-v1",
+                     "scope": "unspecified", "part_count": len(parts)},
+        "source": source, "archive_prefix": prefix,
+        "visual_quality_verified": False,
+    }
+
+
 def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
     """Inspect actual bytes. Never trust creator-provided PASS or visual claims."""
     source = Path(source).expanduser().resolve(strict=True)
@@ -55,6 +115,12 @@ def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
         # Accept both root contents and one conventional parent folder.
         # Never silently merge multiple nested manifests or ambiguous roots.
         prefix = ""
+        # New external image AI ZIP: only independent PNG files and a simple
+        # human-readable layer_order.txt. Existing manifest ZIPs remain supported.
+        has_manifest = ("manifest.json" in names or any(
+            n.endswith("/manifest.json") and n.count("/") == 1 for n in names))
+        if not has_manifest:
+            return _inspect_image_only_pack(archive, names, source, edition)
         if "manifest.json" not in names:
             candidates = [n[:-len("manifest.json")] for n in names
                           if n.endswith("/manifest.json") and n.count("/") == 1]
