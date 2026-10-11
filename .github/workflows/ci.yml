@@ -236,6 +236,8 @@ jobs:
                   "vtuber_pipeline/avatar/triposr_runner.py",
                   "vtuber_pipeline/accessory/build.py",
                   "vtuber_pipeline/cli.py",
+                  "tools/psd2live_bridge/VtsRigMain.kt",
+                  "tools/psd2live_bridge/bridge.init.gradle",
               }
               assert required <= names, sorted(required - names)
 
@@ -270,6 +272,8 @@ jobs:
               assert any(name.endswith("/third_party.lock.json") for name in names)
               assert any(name.endswith("/requirements.txt") for name in names)
               assert any(name.endswith("/vtuber_pipeline/avatar/build.py") for name in names)
+              for source in ("VtsRigMain.kt", "bridge.init.gradle"):
+                  assert any(name.endswith(f"/tools/psd2live_bridge/{source}") for name in names)
           PY
       - name: Install wheel into clean venv
         run: |

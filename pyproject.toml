@@ -33,3 +33,6 @@ where = ["."]
 
 [tool.setuptools]
 include-package-data = false
+
+[tool.setuptools.package-data]
+tools = ["psd2live_bridge/*.kt", "psd2live_bridge/*.gradle"]

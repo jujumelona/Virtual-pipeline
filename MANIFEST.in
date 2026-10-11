@@ -3,3 +3,4 @@ include LICENSE
 include requirements.txt
 include third_party.lock.json
 recursive-include notebooks *.ipynb
+recursive-include tools/psd2live_bridge *.kt *.gradle

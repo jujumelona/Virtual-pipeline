@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shlex
 from zipfile import ZipFile
 
 import pytest
@@ -24,6 +25,61 @@ def sample_model(dest: Path):
     }))
     (dest / "avatar.cmo3").write_bytes(b"CMO3\x00")
     (dest / "avatar.psd2live").write_bytes(b"PK\x03\x04" + b"x" * 32)
+    (dest / "vts_atlas.json").write_text(json.dumps({
+        "schema": "vtuber/psd2live-atlas-v1", "page_size": 2048,
+        "max_pages": 1, "padding": 2, "fit": 1.0,
+        "source_layer_count": 1, "packed_layer_count": 1,
+        "pages": [{"size": [16, 16]}], "canvas_coordinate_scale": 1.0,
+        "source_rasters_preserved": True, "artwork_resized": False,
+    }))
+
+
+@pytest.mark.parametrize("edition,page_size,page_count", [
+    ("free", 2048, 1), ("pro", 4096, 8),
+])
+def test_budget_is_supplied_before_official_generation(
+        monkeypatch, tmp_path, edition, page_size, page_count):
+    """An atlas-size flag alone left the real sixty-layer run at eight pages."""
+    psd = tmp_path / "source art" / "avatar.psd"
+    psd.parent.mkdir()
+    original = b"8BPS" + bytes(64)
+    psd.write_bytes(original)
+    vendor = tmp_path / "external source" / "psd2live"
+    vendor.mkdir(parents=True)
+    (vendor / "gradlew").write_text("stub")
+    monkeypatch.setattr(bridge, "ensure_psd2live", lambda *a, **k: vendor)
+    monkeypatch.setattr(bridge, "_java_env", lambda: {})
+    dest = tmp_path / "native model"
+    called = []
+
+    def official_process(command, **kwargs):
+        tokens = shlex.split(next(x.removeprefix("--args=") for x in command
+                                 if x.startswith("--args=")))
+        options = dict(zip(tokens[::2], tokens[1::2]))
+        assert options.get("--atlas-pages") == str(page_count), (
+            "The official generator must receive a page budget before packing")
+        assert options["--atlas"] == str(page_size)
+        assert Path(options["--input"]) == psd
+        assert Path(options["--output"]) == dest
+        assert "vtsRig" in command
+        assert "--init-script" in command
+        called.append(command)
+        sample_model(dest)
+        (dest / "vts_atlas.json").write_text(json.dumps({
+            "schema": "vtuber/psd2live-atlas-v1", "max_pages": page_count,
+            "page_size": page_size, "padding": 2, "fit": .35,
+            "source_layer_count": 60, "packed_layer_count": 60,
+            "pages": [{"size": [16, 16]}], "canvas_coordinate_scale": 1.0,
+            "source_rasters_preserved": True, "artwork_resized": False,
+        }))
+        return 0
+
+    result = bridge.run_psd2live(psd, dest, edition=edition, runner=official_process)
+    assert len(called) == 1
+    assert result["atlas_budget"]["max_pages"] == page_count
+    assert result["atlas_fit"]["packed_layer_count"] == 60
+    assert result["atlas_fit"]["fit"] == .35
+    assert psd.read_bytes() == original
 
 
 def test_official_cli_free_atlas_and_model_bundle(monkeypatch, tmp_path):
@@ -39,16 +95,19 @@ def test_official_cli_free_atlas_and_model_bundle(monkeypatch, tmp_path):
 
     def execute(command, *, cwd, env, log_path, timeout_seconds):
         calls.append((command, cwd, env, log_path, timeout_seconds))
-        assert command[1:3] == ["--no-daemon", "run"]
-        assert "--atlas 2048" in command[3]
-        assert "--mesh-spacing 40" in command[3]
-        assert "--mesh-wrap 0" in command[3]
-        assert "--head-strength 1.0" in command[3]
-        assert "--body-strength 1.0" in command[3]
-        assert "--upscale 1" in command[3]
-        assert "--preset" not in command[3]  # unsupported in v3.3.1 CLI
-        assert "'source PSD'" not in command[3]  # quote the whole input path
-        assert "'" in command[3]
+        assert command[1] == "--no-daemon"
+        assert "vtsRig" in command
+        args = next(x for x in command if x.startswith("--args="))
+        assert "--atlas 2048" in args
+        assert "--atlas-pages 1" in args
+        assert "--mesh-spacing 40" in args
+        assert "--mesh-wrap 0" in args
+        assert "--head-strength 1.0" in args
+        assert "--body-strength 1.0" in args
+        assert "--upscale 1" in args
+        assert "--preset" not in args  # unsupported in v3.3.1 CLI
+        assert "'source PSD'" not in args  # quote the whole input path
+        assert "'" in args
         assert cwd == root
         assert env["JAVA_HOME"] == "/test/jdk21"
         sample_model(tmp_path / "model")
@@ -94,7 +153,8 @@ def test_fake_moc3_rejects_false_success(tmp_path):
 
 
 def test_stale_rigged_model_is_never_accepted(monkeypatch, tmp_path):
-    psd = tmp_path / "avatar.psd"
+    psd = tmp_path / "artwork" / "avatar.psd"
+    psd.parent.mkdir()
     psd.write_bytes(b"8BPS" + bytes(64))
     sample_model(tmp_path / "output")
     with pytest.raises(RuntimeError, match="PSD2LIVE_OUTPUT_NOT_EMPTY"):
@@ -102,7 +162,8 @@ def test_stale_rigged_model_is_never_accepted(monkeypatch, tmp_path):
 
 
 def test_nonzero_external_cli_does_not_yield_model(monkeypatch, tmp_path):
-    psd = tmp_path / "avatar.psd"
+    psd = tmp_path / "artwork" / "avatar.psd"
+    psd.parent.mkdir()
     psd.write_bytes(b"8BPS" + bytes(64))
     root = tmp_path / "psd2live"
     root.mkdir()

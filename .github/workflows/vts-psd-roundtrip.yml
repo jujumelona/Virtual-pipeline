@@ -10,6 +10,7 @@ on:
       - "tools/vts_see_through_sam.py"
       - "tools/vts_handoff_process.py"
       - "tools/vts_psd2live.py"
+      - "tools/psd2live_bridge/**"
       - "tools/vts_psd2live_names.py"
       - "tools/vts_official_second_pass.py"
       - "tools/vts_handoff_worker.py"

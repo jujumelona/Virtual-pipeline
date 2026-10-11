@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -19,6 +20,16 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 PSD2LIVE_URL = "https://github.com/tsunehimatoi/psd2live.git"
 PSD2LIVE_REF = "v3.3.1"
+
+
+def _gradle_bridge(root: Path, task: str) -> list[str]:
+    """Configure our launcher without modifying the external release's files."""
+    sources = Path(__file__).resolve().parent / "psd2live_bridge"
+    init = sources / "bridge.init.gradle"
+    if not init.is_file() or not (sources / "VtsRigMain.kt").is_file():
+        raise RuntimeError(f"PSD2LIVE_BUDGET_ADAPTER_MISSING: {sources}")
+    return [str(root / "gradlew"), "--no-daemon", "--init-script", str(init),
+            f"-PvtsBridgeSources={sources}", task]
 
 
 def _source_root(third_party: Path | None) -> Path:
@@ -169,7 +180,7 @@ def validate_psd2live_output(folder: Path, *, edition: str | None = None) -> dic
 def run_psd2live(psd: Path, output: Path, *, edition: str,
                  third_party: Path | None = None, timeout_seconds: int = 7200,
                  runner=None) -> dict:
-    """Invoke official Gradle CLI (one model, no per-layer re-inference)."""
+    """Run the pinned official pipeline with an explicit atlas generation budget."""
     if edition not in ("free", "pro"):
         raise ValueError("invalid Cubism edition")
     psd = Path(psd).expanduser().resolve(strict=True)
@@ -187,33 +198,49 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
     env = _java_env()
     # Do not use shell=True. Gradle --args takes a single value.
     atlas = 2048 if edition == "free" else 4096
+    atlas_pages = 1 if edition == "free" else 8  # official AtlasBudget default
     # GUI PipelineConfig starts at 40 mesh units, while CLI defaults to
     # 64. Choose the GUI's higher-detail setting explicitly, with DOCUMENT
     # (2048-reference) units so huge source raster sizes do not explode
-    # the mesh budget. All remaining flags below are documented CLI knobs;
-    # there is NO --preset option in PSD2Live v3.3.1 CLI.
+    # the mesh budget. The upstream CLI has no maxPages flag; our small
+    # launcher supplies the official AtlasBudget API before generation.
     mesh_spacing = 40
     args = (f"--input {shlex.quote(str(psd))} "
             f"--output {shlex.quote(str(output))} "
-            f"--atlas {atlas} --lang en "
+            f"--atlas {atlas} --atlas-pages {atlas_pages} --lang en "
             f"--mesh-spacing {mesh_spacing} --mesh-wrap 0 "
             f"--head-strength 1.0 --body-strength 1.0 --upscale 1")
-    cmd = [str(root / "gradlew"), "--no-daemon", "run", f"--args={args}"]
+    cmd = _gradle_bridge(root, "vtsRig") + [f"--args={args}"]
     from tools.vts_subprocess import run_logged
     run = runner or run_logged
     log = output.parent / "psd2live_cli.log"
-    print(f"[VTS PSD2LIVE START] input={psd} atlas={atlas} "
+    print(f"[VTS PSD2LIVE START] input={psd} atlas={atlas} pages={atlas_pages} "
           f"source={root} ref={PSD2LIVE_REF}", flush=True)
     rc = run(cmd, cwd=root, env=env, log_path=log,
              timeout_seconds=timeout_seconds)
     if rc:
         raise RuntimeError(f"PSD2LIVE_CLI_FAILED exit={rc}; log={log}")
     checked = validate_psd2live_output(output, edition=edition)
+    fit_report = output / "vts_atlas.json"
+    if not fit_report.is_file():
+        raise RuntimeError("PSD2LIVE_ATLAS_REPORT_MISSING: official budget launcher did not complete")
+    fit = json.loads(fit_report.read_text(encoding="utf-8"))
+    if (fit.get("schema") != "vtuber/psd2live-atlas-v1" or
+            fit.get("page_size") != atlas or fit.get("max_pages") != atlas_pages or
+            fit.get("padding") != 2 or
+            not isinstance(fit.get("fit"), (int, float)) or
+            not math.isfinite(fit["fit"]) or not 0 < fit["fit"] <= 1 or
+            [item.get("size") for item in fit.get("pages", [])] !=
+            [item["size"] for item in checked["atlas_pages"]]):
+        raise RuntimeError(f"PSD2LIVE_ATLAS_REPORT_INVALID: {fit_report}")
     checked.update({
         "backend": "psd2live", "version_ref": PSD2LIVE_REF,
         "source": PSD2LIVE_URL, "commit": _git_revision(root),
         "license": "GPL-3.0", "cli_command": cmd,
         "log": str(log), "atlas_size": atlas,
+        "atlas_budget": {"page_size": atlas, "max_pages": atlas_pages, "padding": 2},
+        "atlas_fit": fit,
+        "invocation": "official PipelineConfig/AtlasBudget API via external Gradle launcher",
         "rig_options": {
             "mesh_spacing": mesh_spacing,
             "mesh_spacing_basis": "GUI PipelineConfig=40; CLI default=64",
@@ -293,7 +320,7 @@ def prepare_psd2live(third_party: Path | None = None, *,
     root = ensure_psd2live(third_party)
     log = root.parent / "psd2live_build.log"
     print(f"[VTS PSD2LIVE SETUP] building {PSD2LIVE_REF} from {root}", flush=True)
-    rc = run_logged([str(root / "gradlew"), "--no-daemon", "classes"],
+    rc = run_logged(_gradle_bridge(root, "classes"),
                     cwd=root, env=env, log_path=log,
                     timeout_seconds=build_timeout_seconds)
     if rc:

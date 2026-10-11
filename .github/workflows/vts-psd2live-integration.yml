@@ -5,9 +5,12 @@ on:
     branches: [main]
     paths:
       - "tools/vts_psd2live.py"
+      - "tools/psd2live_bridge/**"
       - "tools/vts_psd2live_names.py"
       - "tools/vts_production.py"
       - "tools/vts_artwork_export.py"
+      - "ci/vts_psd2live_integration.py"
+      - "tests/test_vts_psd2live.py"
       - ".github/workflows/vts-psd2live-integration.yml"
   workflow_dispatch:
 
@@ -25,40 +28,14 @@ jobs:
           distribution: temurin
           java-version: "21"
       - name: Install Python verifier
-        run: python -m pip install "Pillow>=10"
+        run: python -m pip install "Pillow==12.3.0" "psd-tools==1.14.2" "numpy<3"
       - name: Build exact PSD2Live v3.3.1 without vendoring third-party code
         run: |
           python -m tools.vts_psd2live --prepare --third-party "$RUNNER_TEMP/psd2live_external"
-      - name: Run real external CLI against upstream sample PSD and verify resulting MOC3 bundle
+      - name: Export 60-layer FREE, oversized FREE and upstream PRO through the real pinned JVM
         env:
           VTS_PSD2LIVE_HOME: ${{ runner.temp }}/psd2live_external/psd2live
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import os
-          from zipfile import ZipFile
-          from tools.vts_psd2live import run_psd2live, package_psd2live
-
-          vendor = Path(os.environ["VTS_PSD2LIVE_HOME"])
-          sample = vendor / "examples/tml/psd-input/tml.psd"
-          if not sample.is_file():
-              raise RuntimeError(f"Pinned vendor sample PSD missing: {sample}")
-          destination = Path("psd2live-integration-output")
-          result = run_psd2live(sample, destination, edition="pro", timeout_seconds=900)
-          assert result["runtime_references_valid"] is True
-          assert result["cmo3"], "editable CMO3 missing"
-          assert result["rig_options"]["mesh_spacing"] == 40
-          backup = Path("sample_source.zip")
-          with ZipFile(backup, "w") as z:
-              z.write(sample, "example.psd")
-          target = package_psd2live(result, backup, Path("psd2live-verified.zip"))
-          with ZipFile(target) as z:
-              assert any(x.endswith(".model3.json") for x in z.namelist())
-              assert any(x.endswith(".moc3") for x in z.namelist())
-              assert any(x.endswith(".cmo3") for x in z.namelist())
-              assert "metadata/psd2live_bridge.json" in z.namelist()
-          print("PSD2LIVE_REAL_CLI_ARTIFACT_PASS", target)
-          PY
+        run: python -m ci.vts_psd2live_integration
       - name: Upload result and diagnostics
         uses: actions/upload-artifact@v4
         if: always()
@@ -66,8 +43,6 @@ jobs:
           name: psd2live-real-cli-evidence
           path: |
             psd2live-integration-output/
-            psd2live-verified.zip
-            psd2live_cli.log
             ${{ runner.temp }}/psd2live_external/psd2live_build.log
             ${{ runner.temp }}/psd2live_external/psd2live_clone.log
           if-no-files-found: ignore

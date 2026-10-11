@@ -1,0 +1,20 @@
+// Original process adapter. It adds only our launcher to the separately cloned
+// pinned application; none of PSD2Live's source files are patched or vendored.
+gradle.projectsEvaluated {
+    def app = gradle.rootProject
+    def sourceDirectory = app.findProperty('vtsBridgeSources')
+    if (!sourceDirectory) throw new GradleException('vtsBridgeSources is required')
+    app.extensions.getByName('kotlin').sourceSets.getByName('main').kotlin.srcDir(sourceDirectory)
+    def officialRun = app.tasks.named('run', JavaExec).get()
+    app.tasks.register('vtsRig', JavaExec) {
+        // Preserve the pinned application's runtime build, heap budget and
+        // native-library location without starting its ordinary main method.
+        dependsOn officialRun.taskDependencies.getDependencies(officialRun)
+        classpath = officialRun.classpath
+        mainClass.set('io.github.psd2live.vtsbridge.VtsRigMainKt')
+        javaLauncher.set(officialRun.javaLauncher)
+        jvmArgs officialRun.jvmArgs
+        systemProperties officialRun.systemProperties
+        jvmArgs '-Djava.awt.headless=true'
+    }
+}
