@@ -10,13 +10,16 @@ from PIL import Image
 
 
 def partition_from_masks(layer: dict, masks: list[Image.Image],
-                         *, min_fraction: float = 0.03) -> tuple[list[dict], dict]:
+                         *, min_fraction: float = 0.03,
+                         mask_labels: tuple[str, ...] | None = None) -> tuple[list[dict], dict]:
     source = layer["image"].convert("RGBA")
     rgba = np.asarray(source, dtype=np.uint8)
     visible = rgba[:, :, 3] > 0
     count = int(np.count_nonzero(visible))
     if count == 0 or len(masks) < 2:
         return [layer], {"accepted": False, "reason": "empty_or_single_mask"}
+    if mask_labels is not None and len(mask_labels) != len(masks):
+        raise ValueError("SAM class labels must match the masks exactly")
     for mask in masks:
         if mask.size != source.size:
             raise ValueError("Official second-pass masks must use the source canvas")
@@ -59,9 +62,14 @@ def partition_from_masks(layer: dict, masks: list[Image.Image],
         if not np.any(owns):
             continue
         out = Image.fromarray(block, "RGBA")
-        children.append({"name": f'{layer["name"]}.pass2.{order:02d}',
-                         "image": out,
-                         "depth": layer.get("depth", 0) + 1})
+        # Keep original part identity, and record the actual SAM class that
+        # assigned this child. The later PSD2Live name adapter uses this
+        # evidence instead of guessing whether a mask is an eye or a skirt.
+        child = {"name": f'{layer["name"]}.pass2.{order:02d}',
+                 "image": out, "depth": layer.get("depth", 0) + 1}
+        if mask_labels is not None:
+            child["sam_label"] = mask_labels[idx]
+        children.append(child)
     if len(children) < 2:
         return [layer], {"accepted": False, "reason": "empty_children"}
     reconstructed = np.zeros_like(rgba)
