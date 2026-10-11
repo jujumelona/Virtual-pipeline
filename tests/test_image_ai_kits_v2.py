@@ -19,10 +19,12 @@ ZIP_MEMBERS = {
     "07_REVIEW_BEFORE_FINAL_ZIP.md",
     "08_PRACTICAL_TIPS.md",
     "09_VISUAL_ART_QUALITY.md",
+    "10_ANIME_STYLE.md",
+    "11_OFFICIAL_IMAGE_EXAMPLES.md",
 }
 
 
-def test_every_one_of_twenty_zips_is_readable_with_ten_complete_files():
+def test_all_twenty_anime_kits_are_valid_with_twelve_documents():
     existing = sorted((ROOT_KITS / "zips").glob("*.zip"))
     assert len(existing) == 20
     for mode in MODES:
@@ -40,19 +42,32 @@ def test_every_one_of_twenty_zips_is_readable_with_ten_complete_files():
                 repeat = archive.read("07_REVIEW_BEFORE_FINAL_ZIP.md").decode("utf-8")
                 practical = archive.read("08_PRACTICAL_TIPS.md").decode("utf-8")
                 quality = archive.read("09_VISUAL_ART_QUALITY.md").decode("utf-8")
+                anime = archive.read("10_ANIME_STYLE.md").decode("utf-8")
+                examples = archive.read("11_OFFICIAL_IMAGE_EXAMPLES.md").decode("utf-8")
+                assert anime == (ROOT_KITS / "source" / (
+                    "ANIME_VTUBER_STYLE_3D.md" if mode == "3d"
+                    else "ANIME_VTUBER_STYLE_2D.md")).read_text(encoding="utf-8")
+                assert examples == (ROOT_KITS / "source" / "OFFICIAL_VISUAL_EXAMPLES.md").read_text(encoding="utf-8")
+                assert "10_ANIME_STYLE.md" in prompt
+                assert "11_OFFICIAL_IMAGE_EXAMPLES.md" in prompt
+                assert "애니" in prompt and "외곽선" in prompt
+                assert "셀" in anime and "테이퍼" in anime
+                assert "sample-img-tsumiki.png" in examples
+                assert "sample-img-izumi.jpg" in examples
+                assert "![Live2D official" in examples
                 assert quality == (ROOT_KITS / "source" / (
                     "QUALITY_STANDARD_3D.md" if mode == "3d"
                     else "QUALITY_STANDARD_2D.md")).read_text(encoding="utf-8")
-                assert "09_VISUAL_ART_QUALITY.md" in prompt
+                assert ("09_VISUAL_ART_QUALITY.md" in prompt or "07·09·10" in prompt)
                 assert "https://www.live2d.com/en/learn/sample/" in quality
                 assert "Pillow" in quality and "실제" in quality
                 assert ("PNG" in quality if mode != "3d" else "그림" in quality)
                 assert "최종" in quality
-                assert "도형" in prompt or "베지어" in prompt
+                assert "도형" in prompt or "SVG" in prompt or "베지어" in prompt
 
                 assert ("08_PRACTICAL_TIPS.md" in prompt or
                         (("08" in prompt or "01~09" in prompt) and "비공식" in prompt))
-                assert "07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt
+                assert ("07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt or "07·09·10" in prompt)
                 assert "최종" in prompt
                 assert ("재생성" in prompt or "수정" in prompt or "재작업" in prompt)
                 assert "다시" in (prompt + repeat)

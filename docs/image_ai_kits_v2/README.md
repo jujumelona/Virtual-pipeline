@@ -1,6 +1,6 @@
 # 이미지 AI 제작 지시서 ZIP — 5개 상위 모드 × 4개 자산 = 20종
 
-**각 ZIP 하나에 해당 작업의 실제 제작 문서 10개를 넣었습니다.** 사용자는 아래에서 모드와 자산 종류를 조합해 한 개를 내려받아 실제 이미지 생성·파일 저장 도구를 갖춘 GPT/Gemini에 그대로 첨부하고, 원하는 디자인을 설명하면 됩니다.
+**각 ZIP 하나에 해당 작업의 실제 제작 문서 12개를 넣었습니다.** 사용자는 아래에서 모드와 자산 종류를 조합해 한 개를 내려받아 실제 이미지 생성·파일 저장 도구를 갖춘 GPT/Gemini에 그대로 첨부하고, 원하는 디자인을 설명하면 됩니다.
 
 | 상위 모드 | 신체만 | 헤어만 | 의상만 | 액세서리만 |
 |---|---|---|---|---|
@@ -21,7 +21,9 @@
 - 06_ADVANCED_OFFICIAL_COMMUNITY.md — **재조사한 최신 공식 문서와 비공식 제작 실무를 구분한 고급 그림 기법**. 2D 눈/입/헤어/관절·마스킹·Glue/Skinning의 원화 요구, 3D VRM/Blender 참고 그림·다각도 정합 지침
 - 07_REVIEW_BEFORE_FINAL_ZIP.md — **실제 원화·PNG·합성본을 확인하고 문제가 있는 파츠를 수정·재생성해 반복 점검**, 해당 요구를 모두 충족한 뒤에만 최종 결과 ZIP 납품
 - 08_PRACTICAL_TIPS.md — **비공식 제작자의 실전 원화 팁**: 겹침 여유, 선화부터 파츠별 제작, L/R 명칭, 동일 기준선, 숨은 그림, 알파·합성 비교
-- 09_VISUAL_ART_QUALITY.md — **고품질 원화·자연스러운 인체/선화/명암·실제 이미지 생성 도구 사용 필수**, 단순 도형식 마네킹 금지, 실제 Live2D 공식 샘플 캐릭터 갤러리·공식 PSD ZIP 경로
+- 09_VISUAL_ART_QUALITY.md — 고품질 원화와 선화/명암/비례 기준, 단순 도형식 그림 금지
+- 10_ANIME_STYLE.md — **전문 일본 애니풍 VTuber 기본 스타일: 검정에 가까운 굵기 가변 외곽선·가늘어지는 끝·얼굴/손·2~3톤 셀 셰이딩**
+- 11_OFFICIAL_IMAGE_EXAMPLES.md — **Live2D 공식 캐릭터 실사례 이미지 2장의 직접 URL + Markdown 원격 미리보기** (공식 이미지 파일 자체 재배포 아님)
 
 ## 반드시 구분할 작업
 
@@ -41,7 +43,7 @@
 - **공식 3D:** [VRM Humanoid](https://vrm.dev/en/vrm1/humanoid/), [VRM 기능](https://vrm.dev/en/vrm/vrm_features/), [Blender UV](https://docs.blender.org/manual/en/latest/modeling/meshes/uv/unwrapping/introduction.html). 이미지 AI는 모델이 아닌 4면도와 부분 원화만 만든다.
 - **비공식 실무:** [Live2D 작화/파츠 그룹](https://www.reddit.com/r/Live2D/comments/15lc7ku/), [세밀한 레이어 구분](https://www.reddit.com/r/Live2D/comments/1140xr5/), [숨은 옷감 보완](https://www.reddit.com/r/Live2D/comments/1myir8h), [3D 참조 시트](https://virmii.com/blog/tutorial/how-to-make-vtuber-reference-sheet). 개인 작업 노하우이며 공식 고정 규격이 아니다.
 
-**20개 ZIP 검증:** `tests/test_image_ai_kits_v2.py`에서 ZIP 20개 파일 존재·CRC 무결성·문서 10종, 이미지 퀄리티 계약·고급 공식/비공식 원문·반복 점검 지시·모드/자산별 파일 계약을 검사한다. **이 검사는 생성된 캐릭터 그림의 실제 시각 품질 검사가 아니다.**
+**20개 ZIP 검증:** `tests/test_image_ai_kits_v2.py`에서 ZIP 20개 파일 존재·CRC 무결성·문서 12종(애니풍 선화 + 공식 시각 이미지 링크 포함)·고급 공식/비공식 원문·반복 점검 지시·모드/자산별 파일 계약을 검사한다. **이 검사는 생성된 캐릭터 그림의 실제 시각 품질 검사가 아니다.**
 
 ## 최종 그림 ZIP 납품 전에 AI가 해야 할 반복 작업
 
@@ -65,3 +67,11 @@
 - **공식 링크가 들어 있다는 사실 자체가 이미지 AI가 공식 예제 원화를 실제 열어 봤다는 뜻은 아닙니다.** 웹/첨부 파일 접근이 불가능하면 봤다고 주장하지 않도록 합니다. 따라서 원화 품질 기준을 링크 없이도 사용할 수 있게 ZIP 안에 직접 작성했습니다.
 
 이 ZIP들에 실제 공식 PSD나 저작권 있는 샘플 원화의 복사본을 동봉한 것은 아닙니다. 그림 AI가 납품할 결과 원화의 미술적 완성도는 **나중에 실제 생성·검토**해야 하며 GitHub CI의 텍스트·ZIP 검사 PASS가 이를 보장하지 않습니다.
+
+## 애니풍 기본값과 실제 공식 시각 예시 (2026-10-12)
+
+모든 ZIP의 첫 실행 프롬프트는 이제 **고급 일본 애니메이션풍 버튜버 원화**, **검정에 가까운 짙은 외곽선(가변 선폭·테이퍼)**, **2~3단 셀 셰이딩**, **홍채·얼굴·손·헤어/옷의 애니풍 디테일**을 명시합니다. 피부/머리 내부선에 순수 검정을 똑같이 굵게 사용하지 말고 소재에 맞는 짙은 색선과 가는 보조선을 활용하도록 합니다. 사용자 스타일이 분명한 경우 그 스타일을 우선합니다.
+
+**실제 미리보기 링크:** [Tsumiki 공식 이미지](https://www.live2d.com/wp-content/themes/cubism_new/assets/img/sample/sample-img-tsumiki.png), [Izumi 공식 이미지](https://www.live2d.com/wp-content/themes/cubism_new/assets/img/sample/sample-img-izumi.jpg), [공식 샘플 모델](https://www.live2d.com/en/learn/sample/). [전체 시각 참고 설명](source/OFFICIAL_VISUAL_EXAMPLES.md)에도 두 그림이 Markdown 이미지로 링크됩니다.
+
+**주의:** 이미지 파일 자체는 저작권·재배포 규정 때문에 지시서 ZIP에 복사하지 않았습니다. 원격 이미지를 열 수 없는 이미지 AI에는 실제 예시가 시각적으로 전달되지 않을 수 있습니다. ZIP에 링크가 있다는 것과 그림을 실제 보았다는 것은 별개입니다.
