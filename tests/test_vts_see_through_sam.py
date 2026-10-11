@@ -199,3 +199,71 @@ def test_sam_accepts_exact_bool_and_uint8_binary_masks():
         result = check_masks(masks, (5, 4))
         assert result.dtype == np.uint8
         assert result[0, 0, 0] == 1
+
+
+def test_sam_output_sixty_layers_goes_to_psd_without_nf4_recursion(monkeypatch, tmp_path):
+    """22 initial 2D layers may yield 60 SAM layers; do not infer them again."""
+    from io import BytesIO
+    from zipfile import ZipFile
+
+    from tools import vts_artwork_export as export
+    from tools import vts_see_through_sam as sam
+
+    canvas = (90, 48)
+    mask_images = [Image.new("L", canvas) for _ in range(19)]
+    for index, interval in enumerate(((0, 30), (30, 60), (60, 90))):
+        mask_images[index].paste(255, (interval[0], 0, interval[1], 48))
+    source_layers = []
+    for i in range(22):
+        image = Image.new("RGBA", canvas)
+        width = 90 if i < 19 else 30
+        image.paste((i + 20, 65, 110, 255), (0, 0, width, 48))
+        source_layers.append({"name": f"body.layer.{i:03d}", "image": image, "depth": 0})
+
+    runs = []
+    def once(parts, shape, *, output, third_party):
+        runs.append((len(parts), shape))
+        output.mkdir(parents=True, exist_ok=True)
+        logfile = output / "sam19.log"
+        logfile.write_text("one SAM model call")
+        return mask_images, logfile
+
+    monkeypatch.setattr(sam, "run_sam_from_package", once)
+    parts, report, _ = export._apply_official_semantic_sam_once(
+        source_layers, canvas, output=tmp_path / "sam",
+        third_party=tmp_path, edition="free")
+    assert runs == [(22, canvas)]
+    assert len(parts) == 60
+    assert sum(bool(item["accepted"]) for item in report) == 19
+    assert all(item["output_count"] == (3 if i < 19 else 1)
+               for i, item in enumerate(report))
+    for i, parent in enumerate(source_layers):
+        offset = i * 3 if i < 19 else 57 + i - 19
+        children = parts[offset:offset + (3 if i < 19 else 1)]
+        restored = np.zeros_like(np.asarray(parent["image"], dtype=np.uint8))
+        for child in children:
+            pixels = np.asarray(child["image"], dtype=np.uint8)
+            visible = pixels[..., 3] > 0
+            restored[visible] = pixels[visible]
+        np.testing.assert_array_equal(restored, np.asarray(parent["image"]))
+
+    archive = tmp_path / "registered.zip"
+    with ZipFile(archive, "w") as z:
+        for source in source_layers:
+            buf = BytesIO()
+            source["image"].save(buf, format="PNG")
+            z.writestr(source["name"] + ".png", buf.getvalue())
+    # Only this SAM stage may run; the second NF4 function must never execute.
+    monkeypatch.setattr(export, "_refine_all_layers_official_once",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            AssertionError("second NF4 inference forbidden")))
+    package = export.build_artwork_package(
+        archive, tmp_path / "export", edition="free", scope="upper",
+        third_party=tmp_path, official_second_pass=True, qwen=False)
+    assert package["layer_count"] == 60
+    assert package["official_second_pass_attempts"] == 0
+    assert package["official_sam19_attempts"] == 22
+    with ZipFile(package["package"]) as z:
+        report = json.loads(z.read("metadata/official_second_pass.json"))
+        assert report["enabled"] is False
+        assert len([p for p in z.namelist() if p.startswith("layers_png/")]) == 60
