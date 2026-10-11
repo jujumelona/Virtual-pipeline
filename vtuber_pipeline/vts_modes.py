@@ -343,49 +343,24 @@ def write_vts_brief_package(brief: dict, destination: str) -> str:
     target = path / name
     temp = target.with_suffix(".tmp")
     with ZipFile(temp, "w", ZIP_DEFLATED) as archive:
-        from tools.vts_official_settings import editor_settings_md
-        archive.writestr("OFFICIAL_EDITOR_SETTINGS.md", editor_settings_md())
-        archive.writestr("manifest.json", json.dumps(brief, ensure_ascii=False, indent=2))
-        # Include the official-reference and multi-image asset-contract docs.
-        # This is a handoff instruction, NOT a claim that the existing one-master
-        # runtime can already import multi-image packs.
-        spec_root = Path(__file__).resolve().parent.parent / "docs" / "live2d_ai_asset_pack"
+        # Everything handed to GPT/Gemini is an artwork-generation task or
+        # an official illustration reference. No PSD/Cubism/rigging/QA commands.
+        spec_root = Path(__file__).resolve().parent.parent / "docs" / "live2d_image_ai_kit"
         for filename in (
-            "README.md", "OFFICIAL_REFERENCES.md", "PARTS_AND_ROTATION_SPEC.md",
-            "LARGE_AI_EXECUTION_INSTRUCTIONS.md", "manifest.template.json",
-            "QUALITY_REVIEW_TEMPLATE.md",
-            "references/sheet_contract.svg", "references/rotation_guide.svg",
-            "PRODUCTION_ACCEPTANCE_V2.md", "DEMO_REWORK_REQUEST.md",
+            "README.md", "START_HERE.md", "PARTS_ARTWORK.md",
+            "OUTPUT_FILES.md", "OFFICIAL_LINKS.md",
         ):
-            archive.writestr("large_image_ai_asset_pack/" + filename,
-                             (spec_root / filename).read_bytes())
-
+            archive.writestr(filename, (spec_root / filename).read_bytes())
+        sample = brief["images"][0]["prompt"]
+        character = sample.split("OUTPUT EXACT FILE NAME:", 1)[0].strip()
         archive.writestr(
-            "READ_ME_FIRST.txt",
-            "Read large_image_ai_asset_pack/PRODUCTION_ACCEPTANCE_V2.md and "
-            "large_image_ai_asset_pack/DEMO_REWORK_REQUEST.md BEFORE generating. "
-            "Mask-only cutouts are not finished art; PSD and rigging are separate stages. "
-            "These are EXTERNAL image AI prompts and an UNIMPLEMENTED production "
-            "plan. Neither a layered PSD nor a .moc3 is included. "
-            "Cubism Editor is still required for actual export. "
-            "Stable-Layers is the default Qwen LoRA whenever the Qwen stage "
-            "runs. Commercial users must observe Stability AI registration, "
-            "NOTICE and Community/Enterprise license conditions; no revenue "
-            "check or license selection gate is imposed by this program. "
-            "Weights are not bundled with this prompt ZIP.\n",
+            "CHARACTER_DESIGN_BRIEF.txt",
+            character + "\n\n"
+            + f"Project edition: {brief['edition']}\n"
+            + f"Character framing: {brief['scope']}\n"
+            + f"Requested asset: {brief.get('asset_kind') or 'complete character'}\n"
+            + "Read START_HERE.md first and create all independent illustration "
+            "sprites appropriate to the actual character, not only one master PNG.\n"
         )
-        archive.writestr("STABILITY_LICENSE_NOTICE.txt", (
-            "Stable-Layers (StabilityLabs/Stable-Layers) by Stability AI.\n"
-            "This Stability AI Model is licensed under the Stability AI Community License, "
-            "Copyright © Stability AI Ltd. All Rights Reserved.\n"
-            "Powered by Stability AI\n"
-            "License: https://stability.ai/license\n"
-            "Commercial registration: https://stability.ai/community-license\n"
-            "Adapter source: https://huggingface.co/StabilityLabs/Stable-Layers\n"
-            "Individuals and eligible small-scale commercial creators may use it for free; "
-            "commercial registration and Enterprise conditions may apply.\n"
-        ))
-        for item in brief["images"]:
-            archive.writestr("prompts/" + item["filename"] + ".txt", item["prompt"])
     temp.replace(target)
     return str(target)
