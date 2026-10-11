@@ -180,7 +180,7 @@ def _partition_part(part, suggestions, diagnostics=None):
     return list(reversed(children))
 
 
-def _write_psd(parts, target: Path, *, free: bool):
+def _write_psd(parts, target: Path, *, free: bool, compact_for_atlas: bool = False):
     """Preserve the original visual z-order while adding navigable part groups.
 
     Group by contiguous semantic runs only. Consolidating all "hair" parts
@@ -214,10 +214,33 @@ def _write_psd(parts, target: Path, *, free: bool):
         "canvas": list(parts[0]["image"].size), "free": free}), flush=True)
     step("create_document", canvas=list(parts[0]["image"].size))
     psd = new_import_psd(parts[0]["image"].size, checkpoint=step)
+    # PSD2Live reads each raster's bounds, not just visible alpha pixels.
+    # The former full-canvas-per-part PSD wastes most of a FREE 2048px atlas.
+    # Crop only truly transparent margins while retaining every visible RGBA
+    # pixel and absolute placement. Original source inference is untouched.
+    encoded_parts = []
+    before_pixels = after_pixels = 0
+    for part in parts:
+        image = part["image"]
+        before_pixels += image.width * image.height
+        origin = (0, 0)
+        if compact_for_atlas:
+            bounds = image.getchannel("A").getbbox()
+            if bounds is None:
+                raise ValueError("Empty alpha raster cannot become a rigging part: " +
+                                 str(part["name"]))
+            origin = (bounds[0], bounds[1])
+            image = image.crop(bounds)
+        after_pixels += image.width * image.height
+        encoded_parts.append({**part, "image": image, "_origin": origin})
+    if compact_for_atlas:
+        step("atlas_alpha_bounds_compacted", before_pixels=before_pixels,
+             after_pixels=after_pixels, layer_count=len(encoded_parts),
+             note="visible RGBA and absolute coordinates preserved; outside-alpha hidden RGB dropped")
     group = None
     active_family = None
     groups = 0
-    for part in reversed(parts):  # input is top-to-bottom, PSD appends bottom-up
+    for part in reversed(encoded_parts):  # input is top-to-bottom, PSD appends bottom-up
         family = part.get("source_name", part["name"]).split(".", 1)[0].upper()
         if family != active_family and (not free or groups < 30):
             step("create_group", name=family)
@@ -230,7 +253,8 @@ def _write_psd(parts, target: Path, *, free: bool):
         # Some versions do not expose Group.create_pixel_layer.
         step("create_layer", name=part['name'])
         create_import_layer(part["image"], parent=group,
-                            name=part["name"], top=0, left=0, checkpoint=step)
+                            name=part["name"], top=part["_origin"][1],
+                            left=part["_origin"][0], checkpoint=step)
     target.parent.mkdir(parents=True, exist_ok=True)
     step("save", note="bounded Pillow preview + PSD format writer; no float compositor")
     save_import_psd(psd, target, checkpoint=step)
@@ -246,7 +270,7 @@ def _write_psd(parts, target: Path, *, free: bool):
         raise RuntimeError("Cubism import PSD retains an unapplied layer mask")
     # psd-tools enumerates bottom-up; validate the actual saved pixel leaves,
     # not just the in-memory writer objects or an embedded preview.
-    for index, (actual, expected) in enumerate(zip(reversed(leaves), parts)):
+    for index, (actual, expected) in enumerate(zip(reversed(leaves), encoded_parts)):
         step("decode_layer", index=index, name=actual.name, apply_icc=False,
              note="stored RGBA verification; no ICC color transform")
         # Verify stored channels, not color-managed display pixels. The
@@ -258,8 +282,8 @@ def _write_psd(parts, target: Path, *, free: bool):
         first_difference = None
         if actual.name != expected["name"]:
             problems.append(f"name={actual.name!r} expected={expected['name']!r}")
-        if (actual.left, actual.top) != (0, 0):
-            problems.append(f"origin={(actual.left, actual.top)} expected=(0, 0)")
+        if (actual.left, actual.top) != expected["_origin"]:
+            problems.append(f"origin={(actual.left, actual.top)} expected={expected['_origin']}")
         if actual.opacity != 255:
             problems.append(f"opacity={actual.opacity} expected=255")
         if actual.blend_mode.name != "NORMAL":
@@ -984,7 +1008,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         layers, rig_names_report = normalize_layer_names(layers)
     name = "avatar" if edition == "free" else asset_kind
     psd_path = output / (name + ".psd")
-    group_count = _write_psd(layers, psd_path, free=edition == "free")
+    group_count = _write_psd(layers, psd_path, free=edition == "free",
+                             compact_for_atlas=psd2live_names)
     package = output / ("Live2D_" + edition.upper() +
                          ("_" + scope if edition == "free" else "_" + asset_kind)
                          + ".zip")

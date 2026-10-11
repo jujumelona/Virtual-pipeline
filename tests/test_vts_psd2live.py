@@ -420,3 +420,33 @@ def test_sixty_layers_preserve_count_pixels_and_semantics():
     assert len(set(item["name"] for item in new)) == 60
     assert trace["source_layer_count"] == trace["output_layer_count"] == 60
     assert trace["pixel_operations"] == trace["extra_inference_passes"] == 0
+
+
+def test_psd2live_import_psd_uses_tight_alpha_bounds_without_moving_pixels(tmp_path):
+    """60 full-canvas PSD rasters must not waste full atlas rectangles."""
+    from psd_tools import PSDImage
+    from tools.vts_artwork_export import _write_psd
+
+    size = (256, 384)
+    p1 = Image.new("RGBA", size, (47, 51, 68, 0))
+    p2 = Image.new("RGBA", size, (0, 0, 0, 0))
+    p1.paste((200, 90, 40, 128), (20, 35, 65, 95))
+    p2.paste((30, 130, 220, 255), (130, 170, 220, 275))
+    parts = [
+        {"name": "front hair_0001", "image": p1},
+        {"name": "topwear_0002", "image": p2},
+    ]
+    dest = tmp_path / "atlas_compact.psd"
+    _write_psd(parts, dest, free=True, compact_for_atlas=True)
+    doc = PSDImage.open(dest)
+    leaves = list(reversed([p for p in doc.descendants() if not p.is_group()]))
+    assert len(leaves) == 2
+    assert (leaves[0].left, leaves[0].top, leaves[0].width, leaves[0].height) == (
+        20, 35, 45, 60)
+    assert (leaves[1].left, leaves[1].top, leaves[1].width, leaves[1].height) == (
+        130, 170, 90, 105)
+    for leaf, original in zip(leaves, (p1, p2)):
+        bbox = original.getchannel("A").getbbox()
+        assert leaf.topil(apply_icc=False).convert("RGBA").tobytes() == original.crop(bbox).tobytes()
+    assert sum(p.width * p.height for p in leaves) < size[0] * size[1]
+
