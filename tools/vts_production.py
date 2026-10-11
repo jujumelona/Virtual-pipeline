@@ -676,7 +676,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         generated_psd: Path | None = None,
                         third_party: Path | None = None,
                         qwen: bool = False, qwen_layers: int = 4,
-                        qwen_passes: int = 32, _worker: bool = False) -> dict:
+                        qwen_passes: int = 32, psd2live: bool = True,
+                        _worker: bool = False) -> dict:
     """Produce a *layered image* ZIP, not an unimportable pseudo-rig.
 
     Each PRO call processes exactly one body/hair/outfit/accessory asset.
@@ -695,7 +696,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
             master, output, edition=edition, scope=scope, asset_kind=asset_kind,
             reference_image=reference_image, external_psd=external_psd,
             generated_psd=generated_psd, third_party=third_party,
-            qwen=qwen, qwen_layers=qwen_layers, qwen_passes=qwen_passes)
+            qwen=qwen, qwen_layers=qwen_layers, qwen_passes=qwen_passes,
+            psd2live=psd2live)
     from tools.vts_artwork_export import validate_artwork_request
     validate_artwork_request(edition=edition, scope=scope, asset_kind=asset_kind,
                              per_pass_layers=qwen_layers, max_qwen_passes=qwen_passes)
@@ -866,17 +868,48 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
             produced["supporting_files"] = [
                 name for name in archive.namelist()
                 if name != Path(produced["art_psd"]).name]
+        rig_result = None
+        # PSD2Live runs only after the final SAM-partitioned PSD is saved and
+        # byte-exact round-trip checked. Never re-run LayerDiff on 60 parts.
+        # Independent PRO hair/outfit/accessory PSDs are attachments, not a
+        # standalone face-tracked Live2D character.
+        rig_eligible = edition == "free" or (edition == "pro" and asset_kind == "body")
+        if psd2live and rig_eligible:
+            from tools.vts_psd2live import run_psd2live, package_psd2live
+            status["stage"] = "psd2live_autorig"
+            _write(state_path, status)
+            print(f"[VTS PSD2LIVE] layering_complete={produced['layer_count']} "
+                  "next=single_cli_autorig", flush=True)
+            rig_result = run_psd2live(
+                Path(produced["art_psd"]), output / "psd2live_model",
+                edition=edition, third_party=model_root.parent)
+            status["stage"] = "psd2live_packaging"
+            _write(state_path, status)
+            final_zip = output / "Live2D_PSD2Live_Rigged.zip"
+            package_psd2live(rig_result, Path(produced["package"]), final_zip)
+            produced["artwork_package"] = produced["package"]
+            produced["package"] = str(final_zip)
+            produced["moc3_generated"] = True
+            produced["editor_required"] = False
         report = {
-            **status, **produced, "state": "artwork_ready_editor_rig_required", "stage": "complete",
+            **status, **produced, "state": (
+                "psd2live_rigged_unverified" if rig_result
+                else "artwork_ready_editor_rig_required"), "stage": "complete",
             "psd_source": str(psd), "source_master": str(master),
             "source_layer_count": count,
             "reused_precomputed_see_through": generated_psd is not None,
             "source_master_verified_against_reused_psd": False,
             "reference_image": (
                 str(reference_image) if reference_image else None),
-            "warning": "Genuine layered PSD artwork only; Cubism Editor must "
-                       "create ArtMeshes, deformers, keyforms, physics and export MOC3. "
-                       "PRO alignment requires visual review in Editor.",
+            "psd2live": rig_result,
+            "warning": (
+                "PSD2Live created a real MOC3 file set and passed structural "
+                "reference checks; native Core, animation quality and Cubism FREE "
+                "limits remain unverified." if rig_result else
+                "Layered PSD artwork only; no model generated. PRO detachable "
+                "assets are not standalone rigged characters. Cubism Editor "
+                "or a full-character model is needed for final rigging."),
+
         }
         _write(state_path, report)
         return report
@@ -905,6 +938,10 @@ def main() -> None:
     ap.add_argument("--third-party", type=Path)
     ap.add_argument("--qwen", dest="qwen", action="store_true", default=False, help="Enable optional Qwen only for PRO hair/accessory (default OFF)")
     ap.add_argument("--no-qwen", dest="qwen", action="store_false", help="Explicitly skip Qwen refinement; output may be insufficient for detailed rigging")
+    ap.add_argument("--psd2live", dest="psd2live", action="store_true",
+                    default=True, help="Rig FREE/full character with PSD2Live CLI (default)")
+    ap.add_argument("--no-psd2live", dest="psd2live", action="store_false",
+                    help="Export PSD-only handoff")
     ap.add_argument("--qwen-layers", type=int, default=4)
     ap.add_argument("--qwen-passes", type=int, default=32)
     ap.add_argument("--asset", choices=("body", "hair", "outfit", "accessory"), help="Required for PRO")
@@ -915,9 +952,11 @@ def main() -> None:
         external_psd=args.psd, third_party=args.third_party, qwen=args.qwen,
         asset_kind=args.asset, reference_image=args.reference,
         qwen_layers=args.qwen_layers, qwen_passes=args.qwen_passes,
+        psd2live=args.psd2live,
     )
     print(json.dumps({"status": out["state"], "package": out["package"],
-                      "moc3_generated": False}, ensure_ascii=False))
+                      "moc3_generated": out["moc3_generated"]},
+                     ensure_ascii=False))
 
 
 if __name__ == "__main__":
