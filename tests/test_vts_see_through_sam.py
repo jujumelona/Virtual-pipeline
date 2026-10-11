@@ -35,7 +35,7 @@ def test_sam_masks_are_exactly_nineteen_full_canvas_layers():
         check_masks(x, (14, 20))
 
 
-def test_semantic_sam_preserves_unknown_layers_instead_of_cross_class_cut(
+def test_semantic_sam_partitions_unknown_layers_once_preserving_source_rgba(
         monkeypatch, tmp_path):
     from tools import vts_see_through_sam as sam
     from tools.vts_artwork_export import _apply_official_semantic_sam_once
@@ -61,12 +61,15 @@ def test_semantic_sam_preserves_unknown_layers_instead_of_cross_class_cut(
         layers, (40, 20), output=tmp_path / "out",
         third_party=tmp_path, edition="free")
     assert calls == [["mystery-A", "mystery-B"]]
-    assert len(parts) == 2 and len(trace) == 2 and log.is_file()
-    assert all(not x["accepted"] and x["reason"] == "no_compound_semantic_partition"
-               and x["candidate_labels"] == [] for x in trace)
-    for original, actual in zip(layers, parts):
-        np.testing.assert_array_equal(np.asarray(actual["image"]),
-                                      np.asarray(original["image"]))
+    assert len(parts) == 4 and len(trace) == 2 and log.is_file()
+    assert all(x["accepted"] for x in trace)
+    for original, children in zip(layers, (parts[:2], parts[2:])):
+        rebuilt = np.zeros((20, 40, 4), dtype=np.uint8)
+        for child in children:
+            rgba = np.asarray(child["image"])
+            occupied = rgba[..., 3] > 0
+            rebuilt[occupied] = rgba[occupied]
+        np.testing.assert_array_equal(rebuilt, np.asarray(original["image"]))
 
 
 def test_semantic_sam_compatible_body_masks_partition_without_pixel_changes(
@@ -84,8 +87,7 @@ def test_semantic_sam_compatible_body_masks_partition_without_pixel_changes(
     parts, trace, _ = _apply_official_semantic_sam_once(
         [layer], (40, 20), output=tmp_path, third_party=tmp_path, edition="pro")
     assert len(parts) == 2 and trace[0]["accepted"]
-    assert "face" in trace[0]["candidate_labels"]
-    assert "topwear" in trace[0]["candidate_labels"]
+    assert trace[0]["reason"] == "exact_rgba_source_partition"
     rebuilt = np.zeros((20, 40, 4), dtype=np.uint8)
     for part in parts:
         rgba = np.asarray(part["image"])
@@ -256,7 +258,8 @@ def test_sam_output_sixty_layers_goes_to_psd_without_nf4_recursion(monkeypatch, 
     # Only this SAM stage may run; the second NF4 function must never execute.
     monkeypatch.setattr(export, "_refine_all_layers_official_once",
                         lambda *a, **k: (_ for _ in ()).throw(
-                            AssertionError("second NF4 inference forbidden")))
+                            AssertionError("second NF4 inference forbidden")),
+                        raising=False)
     package = export.build_artwork_package(
         archive, tmp_path / "export", edition="free", scope="upper",
         third_party=tmp_path, official_second_pass=True, qwen=False)

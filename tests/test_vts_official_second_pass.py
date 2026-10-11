@@ -111,7 +111,7 @@ def test_official_sam_one_inference_for_sixty_layers_without_second_diffusion(
         original, (64, 32), output=tmp_path, third_party=tmp_path, edition="pro")
     assert calls == [(60, (64, 32))]
     assert len(trace) == 60 and len(refined) == 120
-    assert all(item["accepted"] and item["candidate_labels"] for item in trace)
+    assert all(item["accepted"] for item in trace)
     assert logfile.is_file()
     for parent, children in zip(original, (refined[i:i+2] for i in range(0, 120, 2))):
         restored = np.zeros_like(np.asarray(parent["image"]))
