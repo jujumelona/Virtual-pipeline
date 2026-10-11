@@ -204,7 +204,11 @@ def test_github_published_image_ai_kit_zip_is_a_real_self_contained_artwork_brie
         }
         for name in ("README.md", "START_HERE.md", "PARTS_ARTWORK.md",
                      "OUTPUT_FILES.md", "OFFICIAL_LINKS.md"):
-            assert archive.read(name) == (folder / name).read_bytes()
+            current = (folder / name).read_bytes()
+            archived = archive.read(name)
+            # The legacy kit is now deprecated in its source README; the
+            # published historical ZIP remains intentionally unchanged.
+            assert current.endswith(archived) if name == "README.md" else archived == current
         assert "layer_order.txt" in archive.read("START_HERE.md").decode("utf-8")
         assert "docs.live2d.com" in archive.read("OFFICIAL_LINKS.md").decode("utf-8")
         assert not any(name.endswith((".psd", ".moc3", ".model3.json", ".gguf"))
