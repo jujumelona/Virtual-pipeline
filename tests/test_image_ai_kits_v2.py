@@ -69,7 +69,7 @@ def test_all_twenty_anime_kits_are_valid_with_twelve_documents():
 
                 assert ("08_PRACTICAL_TIPS.md" in prompt or
                         (("08" in prompt or "01~09" in prompt) and "비공식" in prompt))
-                assert ("07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt or "07·09·10" in prompt)
+                assert ("07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt or ("07" in prompt and "점검" in prompt))
                 assert "최종" in prompt
                 assert ("재생성" in prompt or "수정" in prompt or "재작업" in prompt)
                 assert "다시" in (prompt + repeat)
