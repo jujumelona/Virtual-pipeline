@@ -678,6 +678,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         third_party: Path | None = None,
                         qwen: bool = False, qwen_layers: int = 4,
                         qwen_passes: int = 32, psd2live: bool = True,
+                        preserve_supplied_parts: bool = False,
                         _worker: bool = False) -> dict:
     """Build real layered PSD, then PSD2Live model bundle for eligible assets.
 
@@ -697,7 +698,8 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
             reference_image=reference_image, external_psd=external_psd,
             generated_psd=generated_psd, third_party=third_party,
             qwen=qwen, qwen_layers=qwen_layers, qwen_passes=qwen_passes,
-            psd2live=psd2live)
+            psd2live=psd2live,
+            preserve_supplied_parts=preserve_supplied_parts)
     from tools.vts_artwork_export import validate_artwork_request
     validate_artwork_request(edition=edition, scope=scope, asset_kind=asset_kind,
                              per_pass_layers=qwen_layers, max_qwen_passes=qwen_passes)
@@ -773,6 +775,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                                   and (edition == "free" or asset_kind == "body")),
             psd2live_names=psd2live and (
                 edition == "free" or (edition == "pro" and asset_kind == "body")),
+            preserve_source_parts=preserve_supplied_parts,
         )
         # Keep actual submitted imagery alongside the split PSD for manual
         # registration checks and independent PRO asset re-import.

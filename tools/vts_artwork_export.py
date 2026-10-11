@@ -864,7 +864,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
                           python_path=None, max_qwen_passes: int = 4,
                           per_pass_layers: int = 4,
                            official_second_pass: bool = False,
-                           psd2live_names: bool = False) -> dict:
+                           psd2live_names: bool = False,
+                           preserve_source_parts: bool = False) -> dict:
     """Build one FREE character or one independently authored PRO asset PSD."""
     # All API entry points, including dependency-injected callers, must obey
     # the same execution contract. FREE and PRO body/outfit never use Qwen.
@@ -895,14 +896,19 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     # Preserve adjacency/z-order and every nontransparent source pixel.
     bilateral_splits = []
     refined = []
-    for layer in layers:
-        children = _split_clear_bilateral_layer(layer)
-        if children and (edition != "free" or
-                         len(layers) + len(bilateral_splits) < FREE_LIMIT):
-            refined.extend(children)
-            bilateral_splits.append(layer["name"])
-        else:
-            refined.append(layer)
+    if preserve_source_parts:
+        # AI-authored sprites are already final independent movement parts.
+        # Never split a validated eyelash, forearm or named hair root again.
+        refined = layers
+    else:
+        for layer in layers:
+            children = _split_clear_bilateral_layer(layer)
+            if children and (edition != "free" or
+                             len(layers) + len(bilateral_splits) < FREE_LIMIT):
+                refined.extend(children)
+                bilateral_splits.append(layer["name"])
+            else:
+                refined.append(layer)
     layers = refined
     print(f"[VTS] bilateral_split_operations={len(bilateral_splits)} "
           f"total_layers_after_split={len(layers)} "
