@@ -114,7 +114,7 @@ def test_bundle_contains_only_image_ai_artwork_material(identity, tmp_path):
             "CHARACTER_DESIGN_BRIEF.txt",
         }
         prompt = z.read("START_HERE.md").decode("utf-8")
-        assert "isolated_parts/" in prompt
+        assert "isolated_parts/" in z.read("OUTPUT_FILES.md").decode("utf-8")
         assert "layer_order.txt" in prompt
         assert "PSD" in prompt  # only to exclude PSD from image AI tasks
         assert "MOC3" not in prompt
