@@ -354,6 +354,7 @@ def write_vts_brief_package(brief: dict, destination: str) -> str:
             "README.md", "OFFICIAL_REFERENCES.md", "PARTS_AND_ROTATION_SPEC.md",
             "LARGE_AI_EXECUTION_INSTRUCTIONS.md", "manifest.template.json",
             "QUALITY_REVIEW_TEMPLATE.md",
+            "references/sheet_contract.svg", "references/rotation_guide.svg",
         ):
             archive.writestr("large_image_ai_asset_pack/" + filename,
                              (spec_root / filename).read_bytes())

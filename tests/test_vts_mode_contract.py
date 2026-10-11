@@ -111,6 +111,21 @@ def test_bundle_contains_license_notice_and_no_weight_file(identity, tmp_path):
         assert "manifest.json" in names
         assert "STABILITY_LICENSE_NOTICE.txt" in names
         assert "prompts/free_upper_master.png.txt" in names
+        assert "large_image_ai_asset_pack/README.md" in names
+        assert "large_image_ai_asset_pack/LARGE_AI_EXECUTION_INSTRUCTIONS.md" in names
+        assert "large_image_ai_asset_pack/OFFICIAL_REFERENCES.md" in names
+        assert "large_image_ai_asset_pack/PARTS_AND_ROTATION_SPEC.md" in names
+        assert "large_image_ai_asset_pack/references/sheet_contract.svg" in names
+        assert "large_image_ai_asset_pack/references/rotation_guide.svg" in names
+        guide = z.read("large_image_ai_asset_pack/OFFICIAL_REFERENCES.md").decode("utf-8")
+        assert "https://docs.live2d.com/en/cubism-editor-tutorials/psd/" in guide
+        assert "https://www.live2d.com/en/cubism/comparison/" in guide
+        parts = z.read("large_image_ai_asset_pack/PARTS_AND_ROTATION_SPEC.md").decode("utf-8")
+        assert "arm_L_upper" in parts and "mouth_inside" in parts
+        template = json.loads(z.read("large_image_ai_asset_pack/manifest.template.json"))
+        assert template["status"] == "TEMPLATE_NOT_GENERATED"
+        assert len(template["parts"]) >= 20
+
         assert not any(name.endswith((".safetensors", ".bin", ".gguf")) for name in names)
         notice = z.read("STABILITY_LICENSE_NOTICE.txt").decode("utf-8")
         assert "Powered by Stability AI" in notice
