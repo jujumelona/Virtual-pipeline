@@ -46,3 +46,17 @@ def test_native_and_detached_paths_have_explicit_outcome():
     assert "application_runtime_verified':False" in code
     assert "source_artwork/imported_parts.psd" in code
     assert "raise RuntimeError('네이티브 모델 누락')" in code
+
+
+def test_free_body_is_not_forced_to_pro_in_all_modes():
+    """FREE is a legitimate Cubism edition even for a body-only source ZIP."""
+    notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+    cells = ["".join(cell["source"]) for cell in notebook["cells"]
+             if cell["cell_type"] == "code"]
+    selection, production = cells[1], cells[4]
+    assert "EDITION='free' #@param ['free','pro']" in selection
+    assert "FREE에서도 신체만 원화 제작/리깅 가능" in selection
+    assert "edition=EDITION" in production
+    assert "asset_kind=ASSET if EDITION=='pro' else None" in production
+    assert "psd2live=(ASSET=='body')" in production
+    assert "EDITION='pro' #@param" not in selection
