@@ -609,7 +609,7 @@ def _reference_bundle(layers, *, edition: str, scope: str, asset_kind: str | Non
 
 
 def _editor_readme(edition, asset_kind, count, qwen_count):
-    label = "FREE finished character" if edition == "free" else "PRO independent " + asset_kind
+    label = "FREE layered artwork (check actual contents)" if edition == "free" else "PRO independent " + asset_kind
     limits = "\n".join("- %s: %s" % item for item in FREE_BUDGET.items())
     return (
         "# Live2D Cubism layered artwork — " + label + "\n\n"
@@ -684,7 +684,7 @@ def _review_regions(edition: str, asset_kind: str | None, scope: str) -> list[st
 
 def _guide_md(edition: str, scope: str, asset_kind: str | None,
               count: int, groups: int, qwen_attempts: list) -> str:
-    title = ("FREE 완성 캐릭터" if edition == "free" else
+    title = ("FREE 분리 원화 (실제 구성 확인)" if edition == "free" else
              {"body": "PRO 신체", "hair": "PRO 헤어",
               "outfit": "PRO 의상", "accessory": "PRO 액세서리"}[asset_kind])
     kind = "상반신(양손 포함)" if scope == "upper" else "전신(양발 포함)"
@@ -707,7 +707,7 @@ def _guide_md(edition: str, scope: str, asset_kind: str | None,
         "단, 실제 성능과 GPU 메모리는 무제한이 아니며 "
         "신체 기준 PSD와의 시각 정합이 필요합니다.\n"
     )
-    mode = ("완성된 옷·헤어·액세서리를 착용한 이미지 한 장으로 제작한 원화입니다."
+    mode = ("실제 ZIP에 존재하는 부위만 포함합니다. FREE에서 신체만 제작하는 것도 가능하며 없는 헤어·의상을 완성했다고 표시하지 않습니다."
             if edition == "free" else
             "선택 자산 한 종류만 제작한 원화입니다. 다른 자산을 동시에 요구하지 "
             "않으며 같은 캔버스 기준으로 기존 신체 프로젝트에 추가합니다.")
