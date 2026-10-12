@@ -64,7 +64,10 @@ def test_drawing_and_reviews_are_genuinely_asset_specific(mode, published):
         assert "참조" in scope_doc and "자산" in scope_doc
         assert "다른" in docs["01_COMMON_RULES.md"]
         assert "반복" in docs["07_REVIEW_BEFORE_FINAL_ZIP.md"]
-        assert "## 비공식" in docs["08_PRACTICAL_TIPS.md"]
+        if mode == "live2d_bust_up":
+            assert "실무" in docs["08_PRACTICAL_TIPS.md"]
+        else:
+            assert "## 비공식" in docs["08_PRACTICAL_TIPS.md"]
         if mode == "3d":
             assert "views/" in scope_doc and "turnaround_sheet.png" in scope_doc
             assert "별도로 그" in scope_doc or "실제 다른 시점" in scope_doc

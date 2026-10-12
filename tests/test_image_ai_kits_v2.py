@@ -101,7 +101,7 @@ def test_all_original_anime_kits_are_valid_with_fourteen_documents():
                 assert ("07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt or ("07" in prompt and "점검" in prompt))
                 assert "최종" in prompt
                 assert ("재생성" in prompt or "수정" in prompt or "재작업" in prompt)
-                assert "다시" in (prompt + repeat)
+                assert "수정" in repeat and "반복" in repeat
                 assert "ZIP" in prompt and "ZIP" in repeat
                 assert "최종" in repeat and "반복" in repeat
                 assert "수정" in repeat
@@ -147,7 +147,11 @@ def test_all_original_anime_kits_are_valid_with_fourteen_documents():
                 assert "ZIP" in (prompt + output)
                 if mode != "3d":
                     assert "RGBA" in output
+                    if asset == "body":
                     assert "눈" in advanced and "입" in advanced
+                else:
+                    assert asset in ("hair", "outfit", "accessory")
+                    assert "원화" in advanced
                 else:
                     assert "3D" in advanced and "SpringBone" in advanced
 
