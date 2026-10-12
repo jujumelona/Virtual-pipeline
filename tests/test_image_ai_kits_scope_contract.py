@@ -159,3 +159,22 @@ def test_bust_up_body_must_be_created_while_other_assets_do_not_redraw_it(publis
         else:
             assert "제공된 기준 몸체를 새로 그리지 않고" in master
             assert "신체만이라는 이유로 PRO를 강제하지 않는다" not in docs["04_OUTPUT_FILES.md"]
+
+
+def test_3d_references_do_not_contain_2d_workflow_or_cross_asset_accessory_tasks(published):
+    for asset in ASSETS:
+        docs=published[("3d",asset)]
+        assert all("2D 원본 분리/3D 참조 확장" not in body for body in docs.values())
+        assert "실제 다른 시점" in docs["08_PRACTICAL_TIPS.md"] or "후면·좌우" in docs["04_OUTPUT_FILES.md"]
+        tips=docs["08_PRACTICAL_TIPS.md"]
+        if asset=="body":
+            assert "신체 원화를 직접 제작" in tips
+            assert "참조하고 다른 자산 그림을 추가로 생성" not in tips
+        elif asset=="hair":
+            assert "해당 헤어의 모근 연결" in tips
+            assert "디테일·액세서리 부착을 검수" not in tips
+        elif asset=="outfit":
+            assert "해당 의상의 옷깃·소매" in tips
+            assert "디테일·액세서리 부착을 검수" not in tips
+        else:
+            assert "액세서리 한 종류의 앵커" in tips
