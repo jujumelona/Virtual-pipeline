@@ -59,7 +59,7 @@ def test_deprecated_asset_modes_are_not_accepted(asset):
 
 def test_static_native_colab_controls_are_only_two_selectors():
     codes = code_cells()
-    assert len(codes) == 4
+    assert len(codes) >= 9  # Four selection cells plus Live2D upload/build/download
     assert '#@param ["Live2D 상반신", "Live2D 전신", "Inochi2D 상반신", "Inochi2D 전신", "3D"]' in codes[1]
     assert '#@param ["신체만", "헤어만", "액세서리만", "의상만"]' in codes[2]
     assert "MODE_CONFIG_APPLIED" in codes[2]
@@ -68,7 +68,7 @@ def test_static_native_colab_controls_are_only_two_selectors():
 
 
 def test_no_legacy_splitters_or_their_installs_in_runtime_cells():
-    joined = "\n".join(code_cells())
+    joined = "\n".join(code_cells()[:4])  # Later Live2D cells intentionally run production
     prohibited = (
         "vts_setup", "See-through", "see_through", "SAM", "sam2",
         "FLUX", "Qwen", "qwen", "split_layer", "activate_2d_environment",
@@ -76,7 +76,7 @@ def test_no_legacy_splitters_or_their_installs_in_runtime_cells():
         "ACCESSORY_SUBTYPE", "TWO_D_INPUT", "MULTI_REFERENCE_3D",
         "psd2live", "pip install", "runpy", "colab_mode_prepare",
     )
-    # This is a UI-only phase. No model inference or downloader can run.
+    # The four top-level selector cells remain UI-only; production is isolated in ⑤~⑨.
     for forbidden in prohibited:
         assert forbidden not in joined
 
