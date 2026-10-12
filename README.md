@@ -1,5 +1,30 @@
 # Virtual-pipeline
 
+## 이미 완성한 이미지 AI 원화 ZIP을 처리하는 Colab
+
+**사용할 노트북:** [완성 원화 ZIP → 실제 Live2D / Inochi2D / 3D VRM 변환](notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb)
+
+[Colab에서 직접 열기](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb)
+
+이 노트북은 이미지 생성용 지시 ZIP을 만들지 않습니다. **외부 대형 AI가 실제로 그린 결과 ZIP**을 업로드하여 선택한 엔진에 연결합니다.
+
+| ZIP 제작 대상 | 연결되는 엔진 | 실제 산출 상태 |
+|---|---|---|
+| Live2D 상반신·전신 신체 | 이미지 파츠 ZIP → PSD → PSD2Live CLI | 실제 MOC3 / model3.json / 텍스처가 생성된 경우에만 네이티브 산출 성공 |
+| Live2D 독립 헤어·의상·장식 | 원본 이미지/레이어 → PSD | 기존 Cubism 모델과 Editor에서 결합·추가 리깅 필요 |
+| Inochi2D 신체 | 원본 파츠 → PSD/ORA → Inochi SDK exporter | 실제 바인딩/물리가 포함된 네이티브 INP 파일의 검사 통과 시에만 성공 |
+| Inochi2D 독립 헤어·의상·장식 | 원본 이미지/레이어 → PSD | 기존 Inochi Creator 프로젝트에서 결합·추가 리깅 필요 |
+| 3D 신체 | ZIP의 실제 앞·뒤·좌·우 4면도 → TripoSR/Blender → VRM validator | VRM 1.0 모델/본/표정 등 검증 통과 시에만 성공 |
+| 3D 액세서리 | ZIP의 정면 원화 + 기존 VRM → 액세서리 복원/부착 | 기존 VRM을 실제로 수정·검사. ZIP의 다른 3개 면도는 이 단계에 미반영 |
+| 3D 독립 헤어·의상 | **미지원** | 그림만으로 기존 VRM에 스킨/의상을 결합하는 제작 엔진 미연결. 가짜 VRM을 납품하지 않음 |
+
+실행 순서: **완성 ZIP 업로드 → 파츠 PNG 또는 4면도 검사 → 필요한 모델/SDK만 준비 → 실제 제작/리깅 시도 → 원본·산출물 패키징 → 다운로드**.
+
+PDF/PSD 편집 자산과 방송용 실제 네이티브 모델은 구분합니다. Cubism Editor, Inochi Session, VTube Studio 및 VRM 방송 프로그램에서의 실제 트래킹·표정·움직임 품질은 Colab의 파일 검증만으로 인증되지 않습니다. 독립 파츠가 모델에 자동으로 결합되었다고 주장하지 않습니다.
+
+**아래 기존 v8 노트북 및 구조 개편 설명은 구형/부분 경로 참고용입니다. 완성 AI ZIP을 처리하려면 위 통합 노트북을 사용하세요.**
+
+
 지원 Python 버전: **3.12 또는 3.13** (코드·잠금 버전은 `pyproject.toml` 및 `third_party.lock.json`에 명시).
 
 [![Open current Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb)
