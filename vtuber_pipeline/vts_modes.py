@@ -207,8 +207,9 @@ def build_vts_brief(
 ) -> dict:
     """Generate inspectable artwork requests and machine-readable runtime PLAN.
 
-    Stable-Layers is opt-in only for independent PRO hair/accessory artwork.
-    FREE and PRO body/outfit do not invoke Qwen. This is a plan.
+    Qwen is optional for FREE semantic subparts and independent PRO
+    hair/accessory artwork; PRO body/outfit do not invoke Qwen.
+    This is a capability plan, not automatic model execution.
     """
     if edition not in EDITIONS:
         raise ValueError("VTube Studio edition must be free or pro")
@@ -277,8 +278,11 @@ def build_vts_brief(
         )
         images.append(_prompt(data, asset_frame, filename, task, free=False,
                               detached=asset_kind != "body"))
-    allow_qwen = edition == "pro" and asset_kind in ("hair", "accessory")
-    qwen_usage = "optional_detached_asset_only" if allow_qwen else "disabled"
+    allow_qwen = edition == "free" or (edition == "pro" and asset_kind in ("hair", "accessory"))
+    qwen_usage = (
+        "optional_semantic_subparts" if edition == "free"
+        else "optional_detached_asset_only" if allow_qwen else "disabled"
+    )
     brief = {
         "schema": "vtuber/vts-artwork-brief-v1",
         "edition": edition,

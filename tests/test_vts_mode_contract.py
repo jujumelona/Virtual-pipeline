@@ -81,7 +81,7 @@ def test_stable_layers_is_default_without_revenue_prompt(identity, edition):
     assert sl["base"] == "Qwen/Qwen-Image-Layered"
     assert sl["adapter_subfolder"] == "model"
     assert sl["default_for_qwen_stage"] is True
-    assert sl["enabled_for_planning"] is False
+    assert sl["enabled_for_planning"] is (edition == "free")
     assert sl["requires_revenue_input"] is False
     assert sl["adapter_downloaded"] is False
     assert sl["adapter_loaded"] is False
@@ -147,7 +147,7 @@ def test_cli_no_license_gate_and_outputs_zip(identity, tmp_path):
     ])
     assert result.exit_code == 0, result.output
     assert '"status": "plan_only"' in result.output
-    assert '"stable_layers_enabled_for_planning": false' in result.output
+    assert '"stable_layers_enabled_for_planning": true' in result.output
     assert (tmp_path / "vts_free_upper_prompts.zip").is_file()
     assert "NOT a .moc3" in result.output
 
@@ -174,16 +174,20 @@ def test_all_ten_briefs_distinguish_native_generation_and_model_processing(ident
     assert brief['images'][0]['native_generation_settings_verified'] is False
 
 @pytest.mark.parametrize("edition,asset,expected", [
-    ("free", None, False), ("pro", "body", False),
+    ("free", None, True), ("pro", "body", False),
     ("pro", "hair", True), ("pro", "outfit", False),
     ("pro", "accessory", True),
 ])
-def test_qwen_plans_match_real_mode_gate(identity, edition, asset, expected):
-    spec = build_vts_brief(edition, "upper", identity, asset_kind=asset)
+@pytest.mark.parametrize("scope", ["upper", "full"])
+def test_qwen_plans_match_real_mode_gate(identity, edition, asset, expected, scope):
+    spec = build_vts_brief(edition, scope, identity, asset_kind=asset)
     assert spec["models"]["stable_layers"]["enabled_for_planning"] is expected
     assert spec["models"]["qwen_usage"] == (
-        "optional_detached_asset_only" if expected else "disabled")
+        "optional_semantic_subparts" if edition == "free"
+        else "optional_detached_asset_only" if expected else "disabled")
     assert ("recursive_layers" in {x["stage"] for x in spec["models"]["stages"]}) is expected
+    assert spec["models"]["qwen_quantized_t4_verified"] is False
+    assert spec["models"]["stable_layers"]["adapter_loaded"] is False
     assert ("official_anime_body_parsing" in {x["stage"] for x in spec["models"]["stages"]}) is (edition == "free" or asset == "body")
 
 
