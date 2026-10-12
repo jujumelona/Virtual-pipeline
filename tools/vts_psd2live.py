@@ -345,7 +345,7 @@ def package_psd2live(result: dict, artwork_zip: Path, output_zip: Path) -> Path:
     return output_zip
 
 def rig_existing_artwork_zip(artwork_zip: Path, output: Path, *,
-                             edition: str) -> dict:
+                             edition: str, scope: str = "upper") -> dict:
     """Resume an already-made PSD ZIP directly into real PSD2Live CLI export.
 
     The user's finished artwork ZIP already includes a true layered PSD.
@@ -388,6 +388,21 @@ def rig_existing_artwork_zip(artwork_zip: Path, output: Path, *,
                 remaining -= len(chunk)
             if incoming.read(1):
                 raise ValueError("ARTWORK_ZIP_PSD_OVERRUN")
+        # Previous Colab releases collapsed eye_L/eye_R into generic eye.002
+        # in avatar.psd. Preserve the independently authored source semantics
+        # when the original PSD is also packaged and its composite matches.
+        semantic_source = output / "artwork" / "semantic_original.psd"
+        source_name = "source_psd/see_through_layers.psd"
+        if source_name in archive.namelist():
+            member = archive.getinfo(source_name)
+            if (26 <= member.file_size <= 1024 * 1024 * 1024 and
+                    (member.external_attr >> 16) & 0o170000 != 0o120000):
+                with archive.open(member) as incoming, semantic_source.open("xb") as dst:
+                    while True:
+                        block = incoming.read(1024 * 1024)
+                        if not block:
+                            break
+                        dst.write(block)
     from psd_tools import PSDImage
     psd = PSDImage.open(source)
     leaves = [node for node in psd.descendants() if not node.is_group()
@@ -395,6 +410,45 @@ def rig_existing_artwork_zip(artwork_zip: Path, output: Path, *,
     if (psd.depth != 8 or psd.color_mode.name != "RGB" or
             psd.width < 256 or psd.height < 256 or len(leaves) < 2):
         raise ValueError("ARTWORK_ZIP_REQUIRES_REAL_LAYERED_RGB8_PSD")
+    restored_semantics = False
+    if semantic_source.is_file():
+        from PIL import ImageChops
+        authored = PSDImage.open(semantic_source)
+        authored_leaves = [node for node in authored.descendants()
+                           if not node.is_group() and node.is_visible()]
+        authored_names = [str(node.name).lower() for node in authored_leaves]
+        original_image = authored.composite(apply_icc=False)
+        packaged_image = psd.composite(apply_icc=False)
+        same_visible_art = (
+            authored.size == psd.size and len(authored_leaves) == len(leaves)
+            and original_image is not None and packaged_image is not None
+            and ImageChops.difference(
+                original_image.convert("RGBA"),
+                packaged_image.convert("RGBA")).getbbox() is None
+        )
+        has_bilateral_identity = any(
+            "_l" in name or "_r" in name or ".left" in name or ".right" in name
+            for name in authored_names
+        )
+        if same_visible_art and has_bilateral_identity:
+            from tools.vts_production import psd_to_registered_rgba
+            from tools.vts_artwork_export import build_artwork_package
+            _, registered_zip, _ = psd_to_registered_rgba(
+                semantic_source, output / "semantic_registration",
+                artmesh_max=100 if edition == "free" else None)
+            recovered = build_artwork_package(
+                registered_zip, output / "semantic_recovered",
+                edition=edition, scope=scope,
+                asset_kind=None if edition == "free" else "body",
+                qwen=False, official_second_pass=False,
+                psd2live_names=True, preserve_source_parts=True)
+            source = Path(recovered["art_psd"])
+            restored_semantics = True
+            print("[PSD2Live] Original source artwork pixels retained; "
+                  "bilateral eye/arm/ear semantics restored without inference", flush=True)
+        else:
+            print("[PSD2Live] Semantic source not pixel-equivalent or not bilateral; "
+                  "using original final PSD without guessing layer identity", flush=True)
     rig = run_psd2live(source, output / "native_model", edition=edition)
     native_zip = output / "Live2D_PSD2Live_From_Existing_Artwork.zip"
     package_psd2live(rig, artwork_zip, native_zip)
@@ -403,6 +457,7 @@ def rig_existing_artwork_zip(artwork_zip: Path, output: Path, *,
         "moc3_generated": True, "psd2live": rig, "layer_count": len(leaves),
         "source_artwork": str(artwork_zip), "reused_existing_psd": True,
         "runtime_verified_in_app": False,
+        "bilateral_semantics_restored": restored_semantics,
     }
 
 
