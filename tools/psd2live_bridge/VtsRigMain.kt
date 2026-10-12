@@ -57,7 +57,7 @@ fun main(arguments: Array<String>) {
     require(options.size * 2 == arguments.size) { "Duplicate VTS launcher option" }
     val allowed = setOf("--input", "--output", "--atlas", "--atlas-pages", "--lang",
         "--mesh-spacing", "--mesh-wrap", "--head-strength", "--body-strength", "--upscale",
-        "--upscale-python", "--nunif-dir", "--upscale-model")
+        "--upscale-python", "--nunif-dir", "--upscale-model", "--mouth-outline")
     require(options.keys.all { it in allowed }) { "Unknown VTS launcher option" }
     fun value(key: String) = requireNotNull(options[key]) { "Missing $key" }
     I18n.setLanguage(requireNotNull(AppLanguage.fromTag(value("--lang"))))
@@ -78,6 +78,13 @@ fun main(arguments: Array<String>) {
         meshWrap = value("--mesh-wrap").toFloat(),
         headTurnStrength = value("--head-strength").toFloat(),
         bodyStrength = value("--body-strength").toFloat(),
+        // Authored mouth/lip art is already drawn. Auto-generated lip outlines
+        // superimpose another mouth over those pixels.
+        mouthOutlineEnabled = when (value("--mouth-outline")) {
+            "true" -> true
+            "false" -> false
+            else -> error("--mouth-outline must be true or false")
+        },
     )
     val original = PsdReader.read(Files.readAllBytes(input))
     val (source, canvasScale) = canvasForBudget(original, budget)
