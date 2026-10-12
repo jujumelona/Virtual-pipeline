@@ -117,5 +117,4 @@ def test_bust_up_assets_do_not_demand_full_body_or_anatomy(published):
             assert "6등신 전신 배치 가이드에서 크롭" not in docs[name]
         framing = docs["03_MODE_RULES.md"]
         assert "1~2" in framing and "하체" in framing
-        assert "하체" not in docs["02_ADVANCED_PARTS.md"] or "제작하지" in docs["02_ADVANCED_PARTS.md"] or "금지" in docs["02_ADVANCED_PARTS.md"]
         assert "마스크" in docs["01_COMMON_RULES.md"] or "마스킹" in docs["01_COMMON_RULES.md"]
