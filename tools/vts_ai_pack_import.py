@@ -7,6 +7,7 @@ Visual correctness is deliberately NOT certified by this importer.
 from __future__ import annotations
 
 from io import BytesIO
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -16,16 +17,28 @@ from PIL import Image
 
 from tools.vts_psd_layer import validate_srgb_profile
 
-_PART_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{1,79}$")
+_PART_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)*$")
+
+
+def _valid_part_id(value: str) -> bool:
+    return len(value) <= 80 and _PART_ID.fullmatch(value) is not None
 _MAX_FILES = 500
 _MAX_UNCOMPRESSED_BYTES = 650 * 1024 * 1024
 _MAX_MANIFEST_BYTES = 2 * 1024 * 1024
 _MAX_IMAGE_PIXELS = 32_000_000
 
 
-def _decode_png(archive: ZipFile, name: str, *, is_part: bool = False) -> Image.Image:
+def _decode_png(archive: ZipFile, name: str, *, is_part: bool = False,
+                expected_sha256: str | None = None) -> Image.Image:
     try:
-        with Image.open(BytesIO(archive.read(name))) as image:
+        raw = archive.read(name)
+        if expected_sha256 is not None:
+            if (not isinstance(expected_sha256, str) or
+                    re.fullmatch(r"[a-fA-F0-9]{64}", expected_sha256) is None):
+                raise ValueError(f"AI_PACK_SHA256_INVALID: {name}")
+            if hashlib.sha256(raw).hexdigest() != expected_sha256.lower():
+                raise ValueError(f"AI_PACK_SHA256_MISMATCH: {name}")
+        with Image.open(BytesIO(raw)) as image:
             if image.format != "PNG":
                 raise ValueError(f"AI_PACK_NOT_PNG: {name}")
             if image.mode not in (("RGBA",) if is_part else ("RGB", "RGBA")):
@@ -77,7 +90,7 @@ def _inspect_image_only_pack(archive: ZipFile, names: list[str], source: Path,
         if not filename.startswith("isolated_parts/") or not filename.endswith(".png"):
             raise ValueError("AI_PACK_LAYER_ORDER_INVALID_PATH")
         part_id = filename[len("isolated_parts/"):-4]
-        if not _PART_ID.fullmatch(part_id) or filename != f"isolated_parts/{part_id}.png":
+        if not _valid_part_id(part_id) or filename != f"isolated_parts/{part_id}.png":
             raise ValueError("AI_PACK_PART_ID_INVALID")
         image = _decode_png(archive, prefix + filename, is_part=True)
         if image.size != master.size:
@@ -147,7 +160,8 @@ def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
             raise ValueError("AI_PACK_MASTER_CONTRACT_INVALID")
         if prefix + master_info["file"] not in names:
             raise ValueError("AI_PACK_MASTER_MISSING")
-        master = _decode_png(archive, prefix + "outputs/master.png")
+        master = _decode_png(archive, prefix + "outputs/master.png",
+                             expected_sha256=master_info.get("sha256"))
         canvas = manifest.get("canvas", {})
         if (not isinstance(canvas, dict) or
                 canvas.get("width") != master.width or
@@ -166,7 +180,7 @@ def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
             if not isinstance(row, dict):
                 raise ValueError("AI_PACK_PART_ROW_INVALID")
             part_id = row.get("id")
-            if not isinstance(part_id, str) or not _PART_ID.fullmatch(part_id):
+            if not isinstance(part_id, str) or not _valid_part_id(part_id):
                 raise ValueError("AI_PACK_PART_ID_INVALID")
             if part_id in seen_ids:
                 raise ValueError("AI_PACK_DUPLICATE_PART_ID: " + part_id)
@@ -182,7 +196,8 @@ def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
             if isinstance(z, bool) or not isinstance(z, int) or z in seen_orders:
                 raise ValueError("AI_PACK_DRAW_ORDER_REQUIRED_UNIQUE: " + part_id)
             seen_orders.add(z)
-            image = _decode_png(archive, prefix + filename, is_part=True)
+            image = _decode_png(archive, prefix + filename, is_part=True,
+                                expected_sha256=row.get("sha256"))
             bounds = image.getchannel("A").getbbox()
             if bounds is None:
                 raise ValueError("AI_PACK_EMPTY_ALPHA: " + part_id)
