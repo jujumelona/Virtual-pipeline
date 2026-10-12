@@ -491,6 +491,81 @@ def _reference_bundle(layers, *, edition: str, scope: str, asset_kind: str | Non
             for x in records
         ],
     }
+    # The finished ZIP is intended to be opened in Cubism Editor. Reference
+    # JSON must expose the exact intended setup and the uncreated native state.
+    # This is NOT an Editor-importable CMO3 or an automatically rigged MOC3.
+    parameter_targets = [
+        ("ParamAngleX", -30, 0, 30), ("ParamAngleY", -30, 0, 30),
+        ("ParamAngleZ", -30, 0, 30),
+        ("ParamEyeLOpen", 0, 1, 1), ("ParamEyeROpen", 0, 1, 1),
+        ("ParamEyeBallX", -1, 0, 1), ("ParamEyeBallY", -1, 0, 1),
+        ("ParamBrowLY", -1, 0, 1), ("ParamBrowRY", -1, 0, 1),
+        ("ParamMouthOpenY", 0, 0, 1), ("ParamMouthForm", -1, 0, 1),
+        ("ParamBodyAngleX", -10, 0, 10), ("ParamBodyAngleY", -10, 0, 10),
+        ("ParamBodyAngleZ", -10, 0, 10), ("ParamBreath", 0, 0, 1),
+        ("ParamArmLA", -30, 0, 30), ("ParamArmRA", -30, 0, 30),
+        ("ParamArmLB", -30, 0, 30), ("ParamArmRB", -30, 0, 30),
+        ("ParamHandL", -10, 0, 10), ("ParamHandR", -10, 0, 10),
+        ("ParamShoulderY", -10, 0, 10),
+    ]
+    def _suggest_parent(name):
+        tokens = name.replace("_", ".").lower().split(".")
+        family = tokens[0]
+        side = "L" if "left" in tokens or "l" in tokens else (
+            "R" if "right" in tokens or "r" in tokens else "")
+        if family == "eye":
+            return "D_Iris" + side if "iris" in tokens else "D_Eye" + side
+        if family in ("eyebrow", "brow"):
+            return "D_Brow" + side
+        if family == "mouth":
+            return "D_Mouth"
+        if family == "arm":
+            return "R_Arm" + side + ("_Elbow" if "forearm" in tokens else "_Shoulder")
+        if family == "hand":
+            return "R_Hand" + side
+        if family == "neck":
+            return "D_Neck"
+        if family in ("face", "ear", "nose"):
+            return "D_FaceDetail"
+        if family in ("body", "cloth", "outfit"):
+            return "D_Torso"
+        return "D_ReviewOther"
+    source_has_hair = any(x["semantic_family"] == "hair" for x in records)
+    source_has_outfit = any(x["semantic_family"] in
+                            ("cloth", "outfit", "sleeve") for x in records)
+    manual_guide["body_only_observed"] = not source_has_hair and not source_has_outfit
+    manual_guide["editor_setup_plan"] = {
+        "kind": "HUMAN_EDITOR_WORKSHEET_NOT_NATIVE_JSON",
+        "editor_importable": False,
+        "psd_path": "avatar.psd" if edition == "free" else asset_kind + ".psd",
+        "cubism_edition": edition,
+        "parameter_targets_not_created": [
+            {"id": p, "min": lo, "default": default, "max": hi}
+            for p, lo, default, hi in parameter_targets
+        ] if asset_kind in (None, "body") else [],
+        "suggested_layer_parent_deformers_not_created": [
+            {"layer": x["semantic_name"], "parent_deformer": _suggest_parent(x["semantic_name"]),
+             "observed_centroid_xy": x["visible_alpha_centroid_xy"],
+             "top_to_bottom": x["z_index_top_first"]}
+            for x in records
+        ],
+        "editor_actions_not_performed": [
+            "import PSD and inspect generated ArtMeshes",
+            "create suitable warp/rotation deformers",
+            "create parameters and actual keyforms",
+            "fix hidden mouth/eyelid layers and joint underpaint where required",
+            "configure physics in Cubism Editor",
+            "save editable CMO3 and export native MOC3+model3.json+textures",
+        ],
+        "native_cmo3_created": False, "native_moc3_created": False,
+        "native_physics3_json_created": False,
+        "native_keyforms_created": False,
+        "free_budget_if_edition_is_free": {
+            "artmeshes": 100, "folders": 30, "deformers": 50,
+            "parameters": 30, "blendshape_parameters": 3,
+            "artpaths": 3, "texture_pages": 1, "texture_edge": 2048},
+        "texture_packing_verified": False,
+    }
     trace = {
         "schema": "vtuber/layer-segmentation-trace-v1",
         "accepted_source_names": split_names,
