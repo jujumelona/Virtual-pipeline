@@ -32,3 +32,29 @@ def test_bust_up_four_published_zips_are_valid_and_distinct():
             assert "isolated_parts/" in output
             assert f"live2d_bust_up__{asset}__ARTWORK.zip" in output
     assert "Live2D 바스트업" in (ROOT/"README.md").read_text(encoding="utf-8")
+
+
+def test_bust_up_zips_keep_distinct_asset_specific_workmanship():
+    expected = {
+        "body": ("홍채", "입", "목"),
+        "hair": ("앞머리", "뒷머리", "머리카락 뿌리"),
+        "outfit": ("옷깃", "소매", "불투명"),
+        "accessory": ("한 종류", "부착 앵커", "알파"),
+    }
+    distinct = set()
+    for asset, phrases in expected.items():
+        with ZipFile(KIT / "zips" / f"live2d_bust_up__{asset}.zip") as z:
+            assert z.testzip() is None
+            assert len(z.namelist()) == 14
+            parts = z.read("02_ADVANCED_PARTS.md").decode("utf-8")
+            tips = z.read("08_PRACTICAL_TIPS.md").decode("utf-8")
+            official = z.read("06_ADVANCED_OFFICIAL_COMMUNITY.md").decode("utf-8")
+            review = z.read("07_REVIEW_BEFORE_FINAL_ZIP.md").decode("utf-8")
+            for phrase in phrases:
+                assert phrase in (parts + tips), (asset, phrase)
+            assert "precautions-for-psd-data" in official
+            assert "synthesize-corners" in official
+            assert "원본 기준 원화" in tips
+            assert "불투명" in review
+            distinct.add(tips)
+    assert len(distinct) == 4
