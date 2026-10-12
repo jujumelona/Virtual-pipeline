@@ -66,9 +66,21 @@ def _inspect_image_only_pack(archive: ZipFile, names: list[str], source: Path,
         raise ValueError("AI_PACK_LAYER_ORDER_MISSING_OR_AMBIGUOUS")
     order_name = order_files[0]
     prefix = order_name[:-len("layer_order.txt")]
-    master_file = prefix + "outputs/master.png"
-    if master_file not in names:
-        raise ValueError("AI_PACK_MASTER_MISSING")
+    # Both names denote the actual authored master; no need to re-generate.
+    master_options = [prefix + item for item in (
+        "outputs/master.png", "master_original.png", "master.png")
+        if prefix + item in names]
+    if not master_options:
+        raise ValueError("AI_PACK_MASTER_MISSING: expected outputs/master.png, "
+                         "master_original.png, or master.png")
+    if len(master_options) > 1:
+        fingerprints = {
+            hashlib.sha256(archive.read(item)).digest()
+            for item in master_options
+        }
+        if len(fingerprints) != 1:
+            raise ValueError("AI_PACK_MASTER_AMBIGUOUS: conflicting master images")
+    master_file = master_options[0]
     master = _decode_png(archive, master_file)
     if master.width < 256 or master.height < 256:
         raise ValueError("AI_PACK_MASTER_TOO_SMALL")
