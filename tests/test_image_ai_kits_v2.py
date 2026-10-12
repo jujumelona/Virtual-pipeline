@@ -208,7 +208,8 @@ def test_all_body_kits_require_six_heads_and_large_anime_eyes():
         assert "6등신" in review, mode
         assert "reference_views/body_six_heads_guide.png" in output, mode
         assert "reference_views/face_large_anime_eyes.png" in output, mode
-        assert ("매끈한" in first if mode != "3d" else "셀 셰이딩" in first), mode
+        assert "애니" in first, mode
+        assert "매끈한" in master or "매끈한" in detailed, mode
         if mode != "3d":
             assert "머리 1 : 상체 2 : 하체 3" in detailed, mode
             assert "모든 캐릭터에 일률적인 등신을 강요하지 않는다" not in detailed
