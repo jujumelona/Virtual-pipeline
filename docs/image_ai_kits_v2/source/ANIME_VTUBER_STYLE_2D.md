@@ -15,7 +15,7 @@
 - 헤어 없는 **신체만** ZIP도 얼굴 품질을 낮추지 않는다. 머리는 나중 헤어 파츠를 장착하기 위한 민머리 베이스지만 **고급 애니 얼굴**이어야 한다. 가짜 머리카락·헤어라인을 임의 생성하지 않는다.
 
 ## 3. 헤어·의상·액세서리
-- 헤어: 실루엣이 다각형 빗자루처럼 뭉치지 않게 **크고 작은 머리카락 묶음의 리듬**, 가느다란 속선, 뿌리→끝으로 흐르는 방향성, 짙은 그림자·좁은 반사광을 자연스럽게 그린다. 앞/옆/뒤의 서로 다른 깊이 부품은 처음부터 독립 원화.
+- 헤어: 실루엣이 다각형 빗자루처럼 뭉치지 않게 **크고 작은 머리카락 묶음의 리듬**, 가느다란 속선, 뿌리→끝으로 흐르는 방향성, 짙은 그림자·좁은 반사광을 자연스럽게 그린다. 앞/옆/뒤의 독립 움직임이 필요한 덩어리는 완성 헤어 원화에서 분리하고 숨은 부분을 추가 작화한다.
 - 의상: 실제 의상의 솔기·접힘·장력에 따른 자연스러운 **주름 위치**, 셀 음영·원단 색 변화, 소재별 반짝임과 가장자리 선화. 소매/옷깃/리본/프릴은 실제 다르게 움직이는 경우만 별도 PNG.
 - 액세서리: **사용자가 요청한 물건 한 종류만**, 작은 금속 테두리/보석/천 질감도 가독성 있게. 안경이나 머리장식 하나만으로 충분하면 추가 장식 세트 금지.
 
@@ -26,6 +26,13 @@
 
 ## 5. 생성 프롬프트 맨 앞에 넣을 문장
 
-> **Commercial-quality Japanese anime VTuber character artwork, polished 2D Live2D-ready illustration, strong clean dark ink outlines, expressive tapered line weight, colored inner lineart, refined anime facial anatomy, expressive layered irises, clean 2–3 value cel shading with subtle soft skin gradients, beautifully proportioned arms and hands, consistent studio-quality drawing across each independently generated part. Not flat vector art, not cartoon icon art, not crude mannequin, not uniformly thick black strokes.**
+> **Commercial-quality Japanese anime VTuber character artwork, polished 2D Live2D-ready illustration, strong clean dark ink outlines, expressive tapered line weight, colored inner lineart, refined anime facial anatomy, expressive layered irises, clean 2–3 value cel shading with subtle soft skin gradients, asset-appropriate proportions and artwork (body anatomy ONLY in the body kit, hair flow ONLY in the hair kit, fabric structure ONLY in outfit, attachment structure ONLY in accessory), consistent studio-quality drawing across each extracted and completed part. Not flat vector art, not cartoon icon art, not crude mannequin, not uniformly thick black strokes.**
 
 이 문장은 구체 스타일 요청이 없다면 신체·헤어·의상·액세서리의 **실제 이미지 생성 프롬프트에 적용**한다. 이 문구를 결과 ZIP에 넣는 것만으로 품질을 보장할 수 없으므로, 생성된 파츠와 합성 미리보기를 실제로 비교·수정한다.
+
+### 애니풍 프롬프트 분배
+- 신체: 큰 홍채·눈/귀/입·목·어깨·실제 관절의 선화/셀 명암.
+- 헤어: 요청한 모발만의 볼륨·테이퍼·재질별 광택.
+- 의상: 요청한 옷의 옷깃·솔기·주름/안감.
+- 액세서리: 사용자 주문 하나의 실제 부착·투명/금속 재질.
+타 자산의 피부/표정/팔/손은 합성 위치 참조만 허용하고 PNG 신규 제작을 금지한다.
