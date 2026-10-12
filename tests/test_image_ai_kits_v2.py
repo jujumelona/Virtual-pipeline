@@ -1,4 +1,4 @@
-"""All 20 published image-AI ZIPs must be standalone and scope-specific."""
+"""The original 20 kits keep their contracts alongside 4 dedicated bust-up kits."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -41,9 +41,9 @@ RELEASE_SHARED_DOCUMENTS = (
 )
 
 
-def test_all_twenty_anime_kits_are_valid_with_fourteen_documents():
+def test_all_original_anime_kits_are_valid_with_fourteen_documents():
     existing = sorted((ROOT_KITS / "zips").glob("*.zip"))
-    assert len(existing) == 20
+    assert len(existing) == 24  # 20 original kits + 4 dedicated bust-up kits
     shared_release_docs = {}
     for mode in MODES:
         for asset in ASSETS:
