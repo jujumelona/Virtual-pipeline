@@ -344,6 +344,68 @@ def package_psd2live(result: dict, artwork_zip: Path, output_zip: Path) -> Path:
         tmp.unlink(missing_ok=True)
     return output_zip
 
+def rig_existing_artwork_zip(artwork_zip: Path, output: Path, *,
+                             edition: str) -> dict:
+    """Resume an already-made PSD ZIP directly into real PSD2Live CLI export.
+
+    The user's finished artwork ZIP already includes a true layered PSD.
+    Running segmentation, importing the authored PNGs and re-exporting the
+    PSD again would add cost and can alter semantics; use the actual bytes.
+    """
+    if edition not in ("free", "pro"):
+        raise ValueError("Invalid Cubism edition")
+    artwork_zip = Path(artwork_zip).expanduser().resolve(strict=True)
+    if artwork_zip.suffix.lower() != ".zip":
+        raise ValueError("Existing artwork input must be a ZIP")
+    output = Path(output).expanduser().resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    with ZipFile(artwork_zip) as archive:
+        entries = [item for item in archive.infolist() if not item.is_dir()]
+        root_psds = [item for item in entries
+                     if item.filename in {"avatar.psd", "body.psd"}]
+        if len(root_psds) != 1 or any(
+            item.filename == root_psds[0].filename for item in entries
+            if item is not root_psds[0]
+        ):
+            raise ValueError("ARTWORK_ZIP_EXPECTS_SINGLE_ROOT_AVATAR_OR_BODY_PSD")
+        psd_member = root_psds[0]
+        if (psd_member.file_size < 26 or
+                psd_member.file_size > 1024 * 1024 * 1024 or
+                (psd_member.external_attr >> 16) & 0o170000 == 0o120000):
+            raise ValueError("ARTWORK_ZIP_PSD_INVALID_SIZE_OR_SYMLINK")
+        source = output / "artwork" / "registered.psd"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        if source.exists():
+            raise ValueError("ARTWORK_ZIP_OUTPUT_NOT_EMPTY")
+        # Stream only the chosen PSD: do not extract arbitrary archive files.
+        with archive.open(psd_member) as incoming, source.open("xb") as dst:
+            remaining = psd_member.file_size
+            while remaining:
+                chunk = incoming.read(min(1024 * 1024, remaining))
+                if not chunk:
+                    raise ValueError("ARTWORK_ZIP_PSD_TRUNCATED")
+                dst.write(chunk)
+                remaining -= len(chunk)
+            if incoming.read(1):
+                raise ValueError("ARTWORK_ZIP_PSD_OVERRUN")
+    from psd_tools import PSDImage
+    psd = PSDImage.open(source)
+    leaves = [node for node in psd.descendants() if not node.is_group()
+              and node.is_visible()]
+    if (psd.depth != 8 or psd.color_mode.name != "RGB" or
+            psd.width < 256 or psd.height < 256 or len(leaves) < 2):
+        raise ValueError("ARTWORK_ZIP_REQUIRES_REAL_LAYERED_RGB8_PSD")
+    rig = run_psd2live(source, output / "native_model", edition=edition)
+    native_zip = output / "Live2D_PSD2Live_From_Existing_Artwork.zip"
+    package_psd2live(rig, artwork_zip, native_zip)
+    return {
+        "state": "psd2live_rigged_unverified", "package": str(native_zip),
+        "moc3_generated": True, "psd2live": rig, "layer_count": len(leaves),
+        "source_artwork": str(artwork_zip), "reused_existing_psd": True,
+        "runtime_verified_in_app": False,
+    }
+
+
 def prepare_psd2live(third_party: Path | None = None, *,
                      build_timeout_seconds: int = 3600) -> Path:
     """Colab preflight: provision JDK21, pin PSD2Live release, compile once."""
