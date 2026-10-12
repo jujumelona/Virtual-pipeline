@@ -139,7 +139,7 @@ def test_official_cli_free_atlas_and_model_bundle(monkeypatch, tmp_path):
         assert {"avatar.moc3", "avatar.model3.json", "avatar.physics3.json",
                 "texture_00.png", "avatar.cmo3", "avatar.psd2live",
                 "source_artwork/original.zip",
-                "metadata/psd2live_bridge.json"} <= names
+                "metadata/psd2live_bridge.json", "README_VTUBE_STUDIO.md"} <= names
         meta = json.loads(z.read("metadata/psd2live_bridge.json"))
         assert meta["runtime_execution_verified"] is False
 
