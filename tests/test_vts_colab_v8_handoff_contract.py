@@ -26,9 +26,10 @@ def test_colab_live2d_handoff_has_uploaded_inputs_and_real_builder():
     assert len(cells) >= 9
     for required in (
         "files.upload()", "files.download(", "prepare_large_ai_pack(",
-        "make_cubism_handoff(", "psd2live=False", "preserve_supplied_parts=",
+        "make_cubism_handoff(", "psd2live=DO_NATIVE_RIG", "preserve_supplied_parts=",
         "reference_image=REFERENCE_FILE", "archive.testzip()",
-        "preview/pro_body_asset_overlay.png",
+        "preview/pro_body_asset_overlay.png", "rig_existing_artwork_zip(",
+        "DO_NATIVE_RIG = RIGGING == \"auto\"",
     ):
         assert required in combined, required
     assert "실제 시각 품질, 가림 복원, Cubism Editor 동작: 미검증" in combined
@@ -93,7 +94,7 @@ def test_colab_live2d_handoff_checks_real_result_zip(tmp_path, monkeypatch, miss
     monkeypatch.setitem(sys.modules, "tools.vts_production", producer)
     args = dict(INPUT_KIND="parts_zip", EDITION="free", SCOPE="upper",
                 ASSET=None, REFERENCE_FILE=None, INPUT_FILE=tmp_path / "in.zip",
-                WORK=tmp_path)
+                WORK=tmp_path, DO_NATIVE_RIG=False)
     if missing_mask:
         with pytest.raises(RuntimeError, match="alpha_masks"):
             exec(compile(cell, "cell-8", "exec"), args)
@@ -108,11 +109,74 @@ def test_colab_live2d_handoff_checks_real_result_zip(tmp_path, monkeypatch, miss
 
 @pytest.mark.parametrize("asset", ["hair", "outfit", "accessory"])
 def test_pro_detached_asset_skips_see_through_model_preparation(asset, monkeypatch):
-    cell = next(c for c in _load_cells() if "#@title ⑦ 의존성 / See-through 준비" in c)
+    cell = next(c for c in _load_cells() if "#@title ⑦ 입력 파츠 재사용 및 필요 시 PSD2Live 리깅 준비" in c)
     import subprocess
     calls = []
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: calls.append((a, k)))
     exec(compile(cell, "cell-7", "exec"),
-         {"INPUT_KIND": "single_image", "EDITION": "pro", "ASSET": asset})
+         {"INPUT_KIND": "single_image", "EDITION": "pro", "ASSET": asset, "DO_NATIVE_RIG": False})
     assert len(calls) == 1
     assert "psd-tools==1.14.2" in calls[0][0][0]
+
+
+def test_existing_psd_zip_skips_rebuilding_and_requires_real_native_files(tmp_path, monkeypatch):
+    """Existing PSD ZIP is handed directly to PSD2Live without image reconstruction."""
+    cell = next(c for c in _load_cells() if "#@title ⑧ 실제 Live2D PSD 제작" in c)
+    producer = ModuleType("tools.vts_production")
+    native = ModuleType("tools.vts_psd2live")
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Existing PSD ZIP must not run the artwork builder")
+    producer.make_cubism_handoff = forbidden
+    calls = []
+    def rig(source, destination, *, edition):
+        calls.append((source, destination, edition))
+        destination.mkdir(parents=True, exist_ok=True)
+        package = destination / "native.zip"
+        with ZipFile(package, "w") as archive:
+            for name in ("model.moc3", "model.model3.json", "model.cmo3",
+                         "metadata/psd2live_bridge.json", "source_artwork/parts.zip"):
+                archive.writestr(name, b"fixture")
+        return {"package": package, "state": "psd2live_rigged_unverified",
+                "moc3_generated": True}
+    native.rig_existing_artwork_zip = rig
+    monkeypatch.setitem(sys.modules, "tools.vts_production", producer)
+    monkeypatch.setitem(sys.modules, "tools.vts_psd2live", native)
+    source = tmp_path / "already_completed.zip"
+    args = dict(INPUT_KIND="existing_psd_zip", DO_NATIVE_RIG=True,
+                INPUT_FILE=source, WORK=tmp_path, EDITION="pro",
+                ASSET="body", SCOPE="upper", REFERENCE_FILE=None)
+    exec(compile(cell, "cell-8", "exec"), args)
+    assert calls == [(source, tmp_path / "production", "pro")]
+    assert args["PACKAGE"].is_file()
+
+
+def test_existing_psd_zip_rejects_artwork_only_mode(tmp_path, monkeypatch):
+    cell = next(c for c in _load_cells() if "#@title ⑧ 실제 Live2D PSD 제작" in c)
+    producer = ModuleType("tools.vts_production")
+    producer.make_cubism_handoff = lambda *a, **k: None
+    monkeypatch.setitem(sys.modules, "tools.vts_production", producer)
+    with pytest.raises(ValueError, match="자동 리깅 모드"):
+        exec(compile(cell, "cell-8", "exec"),
+             dict(INPUT_KIND="existing_psd_zip", DO_NATIVE_RIG=False,
+                  WORK=tmp_path, INPUT_FILE=tmp_path / "input.zip"))
+
+
+def test_native_rig_rejects_missing_moc3_in_zip(tmp_path, monkeypatch):
+    cell = next(c for c in _load_cells() if "#@title ⑧ 실제 Live2D PSD 제작" in c)
+    producer = ModuleType("tools.vts_production")
+    native = ModuleType("tools.vts_psd2live")
+    producer.make_cubism_handoff = lambda *a, **k: None
+    def rig(source, destination, *, edition):
+        destination.mkdir(parents=True, exist_ok=True)
+        package = destination / "incomplete.zip"
+        with ZipFile(package, "w") as archive:
+            archive.writestr("model.model3.json", b"fixture")
+        return {"package": package, "state": "psd2live_rigged_unverified",
+                "moc3_generated": True}
+    native.rig_existing_artwork_zip = rig
+    monkeypatch.setitem(sys.modules, "tools.vts_production", producer)
+    monkeypatch.setitem(sys.modules, "tools.vts_psd2live", native)
+    with pytest.raises(RuntimeError, match="실제 리깅 파일 누락"):
+        exec(compile(cell, "cell-8", "exec"),
+             dict(INPUT_KIND="existing_psd_zip", DO_NATIVE_RIG=True,
+                  INPUT_FILE=tmp_path / "input.zip", WORK=tmp_path, EDITION="pro"))
