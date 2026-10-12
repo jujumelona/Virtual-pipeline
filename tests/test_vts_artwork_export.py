@@ -843,3 +843,36 @@ def test_bilateral_split_preserves_existing_semantic_side(semantic_name):
     image.paste((40, 120, 220, 180), (125, 10, 184, 85))
     assert _split_clear_bilateral_layer(
         {"name": semantic_name, "depth": 0, "image": image}) is None
+
+
+def test_cubism_editor_manual_json_has_parameter_deformer_plan_not_fake_rig():
+    from tools.vts_artwork_export import _reference_bundle
+    layers = [
+        {"name": "eye.left.iris.000", "depth": 0,
+         "image": Image.new("RGBA", (256, 384), (80, 90, 100, 240))},
+        {"name": "body.001", "depth": 0,
+         "image": Image.new("RGBA", (256, 384), (210, 170, 150, 245))},
+    ]
+    entries = dict(_reference_bundle(
+        layers, edition="free", scope="upper", asset_kind=None,
+        qwen_attempts=[], split_names=[], group_count=1))
+    guide = json.loads(entries["metadata/manual_rig_reference.json"])
+    plan = guide["editor_setup_plan"]
+    assert guide["native_cubism_import"] is False
+    assert guide["body_only_observed"] is True
+    assert plan["psd_path"] == "avatar.psd"
+    assert plan["cubism_edition"] == "free"
+    assert plan["editor_importable"] is False
+    assert plan["native_cmo3_created"] is False
+    assert plan["native_moc3_created"] is False
+    assert plan["native_keyforms_created"] is False
+    assert plan["texture_packing_verified"] is False
+    parameters = plan["parameter_targets_not_created"]
+    assert len(parameters) == 22
+    assert len({item["id"] for item in parameters}) == 22
+    assert all(item["min"] <= item["default"] <= item["max"] for item in parameters)
+    assignments = plan["suggested_layer_parent_deformers_not_created"]
+    assert len(assignments) == 2
+    assert assignments[0]["parent_deformer"] == "D_IrisL"
+    assert assignments[1]["parent_deformer"] == "D_Torso"
+    assert plan["free_budget_if_edition_is_free"]["texture_pages"] == 1
