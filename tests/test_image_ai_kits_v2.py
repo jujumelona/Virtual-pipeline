@@ -183,3 +183,47 @@ def test_live2d_upper_body_kit_declares_colab_master_file():
     assert "previews/composite_preview.png" in guide
     assert "master_original.png" in guide
     assert "최신 Colab" in guide
+
+
+def test_all_body_kits_require_six_heads_and_large_anime_eyes():
+    """The user's character has exactly 6 head units, never an arbitrary range.
+
+    Body art must visually use big anime eyes and must not claim the output
+    has rigged side-view keyframes. Other independent assets can be varied
+    designs and inherit the actual matching body reference.
+    """
+    for mode in MODES:
+        path = ROOT_KITS / "zips" / f"{mode}__body.zip"
+        with ZipFile(path) as archive:
+            assert archive.testzip() is None, mode
+            master = archive.read("00_MASTER_FIRST.md").decode("utf-8")
+            detailed = archive.read("02_ADVANCED_PARTS.md").decode("utf-8")
+            output = archive.read("04_OUTPUT_FILES.md").decode("utf-8")
+            review = archive.read("00_DELIVERY_AND_RECHECK.md").decode("utf-8")
+            first = archive.read("00_READ_FIRST.md").decode("utf-8")
+        assert "정확히 6등신" in master, mode
+        assert "6등신" in detailed, mode
+        assert "큰" in detailed and "홍채" in detailed and "눈" in detailed, mode
+        assert "실사" in detailed and "입" in detailed and "귀" in detailed, mode
+        assert "6등신" in review, mode
+        assert "reference_views/body_six_heads_guide.png" in output, mode
+        assert "reference_views/face_large_anime_eyes.png" in output, mode
+        assert "매끈한" in first, mode
+        if mode != "3d":
+            assert "머리 1 : 상체 2 : 하체 3" in detailed, mode
+            assert "모든 캐릭터에 일률적인 등신을 강요하지 않는다" not in detailed
+            assert "신체만이라는 이유로 PRO를 강제하지 않는다" in output
+            assert "원화" in master and "파츠" in master
+        else:
+            assert "정면/후면/좌우 측면" in detailed, mode
+
+
+def test_body_source_contract_explicitly_denies_fake_live2d_proportions():
+    for source in ("BODY_2D.md", "BODY_3D.md"):
+        text = (ROOT_KITS / "source" / source).read_text(encoding="utf-8")
+        assert "6등신" in text and "홍채" in text
+        assert "실사" in text and "눈" in text
+    text = (ROOT_KITS / "source" / "BODY_2D.md").read_text(encoding="utf-8")
+    assert "정확히 6등신" in text
+    assert "마스터" in text
+    assert "고정 머리:키 비율을 전 캐릭터에 강제하지 않는다" not in text
