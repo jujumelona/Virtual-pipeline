@@ -70,8 +70,15 @@ def _semantic_family(name: str) -> str:
                  "body.", "arm.", "leg.", "hand.", "foot.", "shoe.", "accessory.",
                  "ornament.", "ear.", "neck.", "nose.", "face.", "head.",
                  "outfit.", "sleeve.")
-    if raw.startswith(canonical) and not {"l", "r"}.intersection(raw.split(".")[1:]):
-        return raw
+    # External image-AI parts use eye_L_iris, arm_R_upper, brow_L, etc.
+    # Dropping the L/R token here turns both eyes into one undirected tag
+    # and makes automatic PSD2Live bindings semantically wrong.
+    if raw.startswith(canonical) or raw.startswith("brow."):
+        tokens = raw.split(".")
+        if tokens[0] == "brow":
+            tokens[0] = "eyebrow"
+        return ".".join("left" if t == "l" else "right" if t == "r"
+                        else t for t in tokens)
     split_aliases = {"hairf": "hair.front", "hairb": "hair.back",
                      "eyel": "eye.left", "eyer": "eye.right",
                      "browl": "eyebrow.left", "browr": "eyebrow.right",
