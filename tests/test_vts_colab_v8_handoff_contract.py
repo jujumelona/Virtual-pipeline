@@ -150,15 +150,47 @@ def test_existing_psd_zip_skips_rebuilding_and_requires_real_native_files(tmp_pa
     assert args["PACKAGE"].is_file()
 
 
-def test_existing_psd_zip_rejects_artwork_only_mode(tmp_path, monkeypatch):
+@pytest.mark.parametrize("omit_mask", [False, True])
+def test_existing_psd_zip_artwork_only_reuses_original_package_without_regeneration(tmp_path, monkeypatch, omit_mask):
+    """Real archive reuse must preserve bytes and reject incomplete artwork contracts."""
     cell = next(c for c in _load_cells() if "#@title ⑧ 실제 Live2D PSD 제작" in c)
     producer = ModuleType("tools.vts_production")
-    producer.make_cubism_handoff = lambda *a, **k: None
+    native = ModuleType("tools.vts_psd2live")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("PSD-only reuse must never start image inference or native rigging")
+
+    producer.make_cubism_handoff = forbidden
+    native.rig_existing_artwork_zip = forbidden
     monkeypatch.setitem(sys.modules, "tools.vts_production", producer)
-    with pytest.raises(ValueError, match="자동 리깅 모드"):
-        exec(compile(cell, "cell-8", "exec"),
-             dict(INPUT_KIND="existing_psd_zip", DO_NATIVE_RIG=False,
-                  WORK=tmp_path, INPUT_FILE=tmp_path / "input.zip"))
+    monkeypatch.setitem(sys.modules, "tools.vts_psd2live", native)
+
+    source = tmp_path / "completed_psd.zip"
+    names = [
+        "avatar.psd", "README_CUBISM.md", "LIVE2D_ARTWORK_GUIDE.md",
+        "QUALITY_REVIEW.md", "preview/composite.png",
+        "preview/input_vs_psd_comparison.png", "metadata/layer_manifest.json",
+        "metadata/integrity_report.json", "layers_png/eye.png",
+        "source_psd/original.psd", "input_reference/master.png",
+    ]
+    if not omit_mask:
+        names.append("alpha_masks/eye.png")
+    with ZipFile(source, "w") as archive:
+        for name in names:
+            archive.writestr(name, b"fixture")
+    original_bytes = source.read_bytes()
+    state = dict(INPUT_KIND="existing_psd_zip", DO_NATIVE_RIG=False,
+                 WORK=tmp_path, INPUT_FILE=source, EDITION="free",
+                 SCOPE="upper", ASSET=None, REFERENCE_FILE=None)
+    if omit_mask:
+        with pytest.raises(RuntimeError, match="alpha_masks/"):
+            exec(compile(cell, "cell-8", "exec"), state)
+    else:
+        exec(compile(cell, "cell-8", "exec"), state)
+        assert state["PACKAGE"] == source
+        assert state["result"]["reused_existing_psd"] is True
+    assert source.read_bytes() == original_bytes
+    assert not (tmp_path / "production").exists()
 
 
 def test_native_rig_rejects_missing_moc3_in_zip(tmp_path, monkeypatch):
