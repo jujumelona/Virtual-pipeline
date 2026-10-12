@@ -174,7 +174,7 @@ def test_all_ten_briefs_distinguish_native_generation_and_model_processing(ident
     assert brief['images'][0]['native_generation_settings_verified'] is False
 
 @pytest.mark.parametrize("edition,asset,expected", [
-    ("free", None, True), ("pro", "body", False),
+    ("free", None, False), ("pro", "body", False),
     ("pro", "hair", True), ("pro", "outfit", False),
     ("pro", "accessory", True),
 ])
@@ -182,7 +182,6 @@ def test_qwen_plans_match_real_mode_gate(identity, edition, asset, expected):
     spec = build_vts_brief(edition, "upper", identity, asset_kind=asset)
     assert spec["models"]["stable_layers"]["enabled_for_planning"] is expected
     assert spec["models"]["qwen_usage"] == (
-        "optional_semantic_refinement" if edition == "free" else
         "optional_detached_asset_only" if expected else "disabled")
     assert ("recursive_layers" in {x["stage"] for x in spec["models"]["stages"]}) is expected
     assert ("official_anime_body_parsing" in {x["stage"] for x in spec["models"]["stages"]}) is (edition == "free" or asset == "body")

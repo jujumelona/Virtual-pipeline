@@ -101,10 +101,14 @@ def test_all_original_anime_kits_are_valid_with_fourteen_documents():
                 assert ("07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt or ("07" in prompt and "점검" in prompt))
                 assert "최종" in prompt
                 assert ("재생성" in prompt or "수정" in prompt or "재작업" in prompt)
-                assert "수정" in repeat and "반복" in repeat
+                if mode == "3d":
+                    assert "재작업" in repeat and "재점검" in repeat
+                else:
+                    assert "수정" in repeat and "반복" in repeat
                 assert "ZIP" in prompt and "ZIP" in repeat
-                assert "최종" in repeat and "반복" in repeat
-                assert "수정" in repeat
+                assert "최종" in repeat
+                assert ("재작업" in repeat and "재점검" in repeat
+                        if mode == "3d" else "수정" in repeat and "반복" in repeat)
                 assert "## 비공식" in practical
                 assert "https://www.reddit.com/" in practical if mode != "3d" else "https://" in practical
                 assert "리깅" in prompt  # downstream work explicitly excluded
@@ -138,7 +142,7 @@ def test_all_original_anime_kits_are_valid_with_fourteen_documents():
                 if mode != "3d":
                     assert "마스킹" in common and "추출" in common
                 else:
-                    assert "정면" in common and "다각도" in common
+                    assert "정면" in common and "4면도" in common
                 assert "리깅" in prompt  # mentioned ONLY as excluded from image AI tasks
                 assert ("07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt or
                         ("07" in prompt and "점검" in prompt))

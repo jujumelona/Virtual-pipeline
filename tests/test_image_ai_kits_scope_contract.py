@@ -63,7 +63,9 @@ def test_drawing_and_reviews_are_genuinely_asset_specific(mode, published):
         scope_doc = docs["03_MODE_RULES.md"]
         assert "참조" in scope_doc and "자산" in scope_doc
         assert "다른" in docs["01_COMMON_RULES.md"]
-        assert "반복" in docs["07_REVIEW_BEFORE_FINAL_ZIP.md"]
+        review = docs["07_REVIEW_BEFORE_FINAL_ZIP.md"]
+        assert ("재작업" in review and "재점검" in review
+                if mode == "3d" else "반복" in review)
         if mode == "live2d_bust_up":
             assert "실무" in docs["08_PRACTICAL_TIPS.md"]
         else:

@@ -207,8 +207,8 @@ def build_vts_brief(
 ) -> dict:
     """Generate inspectable artwork requests and machine-readable runtime PLAN.
 
-    Stable-Layers is optional for FREE semantic refinement or PRO hair/accessory
-    (default OFF). PRO body/outfit do not invoke Qwen. This is a plan.
+    Stable-Layers is opt-in only for independent PRO hair/accessory artwork.
+    FREE and PRO body/outfit do not invoke Qwen. This is a plan.
     """
     if edition not in EDITIONS:
         raise ValueError("VTube Studio edition must be free or pro")
@@ -277,9 +277,8 @@ def build_vts_brief(
         )
         images.append(_prompt(data, asset_frame, filename, task, free=False,
                               detached=asset_kind != "body"))
-    qwen_usage = ("optional_semantic_refinement" if edition == "free" else
-                  "optional_detached_asset_only"
-                  if asset_kind in ("hair", "accessory") else "disabled")
+    allow_qwen = edition == "pro" and asset_kind in ("hair", "accessory")
+    qwen_usage = "optional_detached_asset_only" if allow_qwen else "disabled"
     brief = {
         "schema": "vtuber/vts-artwork-brief-v1",
         "edition": edition,
@@ -313,9 +312,7 @@ def build_vts_brief(
                 "external_generator": "Select its native size in its own UI/API; prompts cannot enforce pixels.",
             },
             "stages": [dict(item) for item in MODEL_STACK
-                       if (item["stage"] != "recursive_layers"
-                           or edition == "free"
-                           or (edition == "pro" and asset_kind in ("hair", "accessory")))
+                       if (item["stage"] != "recursive_layers" or allow_qwen)
                        and (item["stage"] != "official_anime_body_parsing"
                             or edition == "free" or asset_kind == "body")],
             "qwen_usage": qwen_usage,
@@ -323,8 +320,7 @@ def build_vts_brief(
             "see_through_nf4_t4_verified": False,
             "stable_layers": {
                 **STABLE_LAYERS,
-                "enabled_for_planning": edition == "free" or (
-                    edition == "pro" and asset_kind in ("hair", "accessory")),
+                "enabled_for_planning": allow_qwen,
                 "default_for_qwen_stage": True,
                 "adapter_downloaded": False,
                 "adapter_loaded": False,
