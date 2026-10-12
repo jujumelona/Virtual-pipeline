@@ -502,3 +502,44 @@ def test_partial_nunif_setup_fails_explicitly(monkeypatch, tmp_path):
     with pytest.raises(RuntimeError, match="PSD2LIVE_NUNIF_CONFIG_INCOMPLETE"):
         bridge.run_psd2live(psd, tmp_path / "model", edition="free",
                             runner=lambda *a, **k: pytest.fail("unexpected CLI"))
+
+
+def test_resume_existing_artwork_zip_uses_original_psd_bytes(monkeypatch, tmp_path):
+    """Do not run See-through again on an already finished layered PSD ZIP."""
+    from psd_tools import PSDImage
+    from psd_tools.api.layers import PixelLayer
+    art = PSDImage.new("RGB", (256, 384))
+    for index, name in enumerate(("eye_L_iris", "eye_R_iris")):
+        PixelLayer.frompil(
+            Image.new("RGBA", (32, 32), (100, 110, 120, 230)),
+            art, name=name, left=40+index*70, top=60)
+    original = tmp_path / "original.psd"
+    art.save(original)
+    payload = original.read_bytes()
+    uploaded = tmp_path / "Live2D_FREE_upper.zip"
+    with ZipFile(uploaded, "w") as package:
+        package.write(original, "avatar.psd")
+        package.writestr("metadata/manual_rig_reference.json", "{}")
+    calls = []
+    def fake_run(psd, output, *, edition):
+        calls.append((Path(psd).read_bytes(), edition))
+        return {"files": [], "model3_json": "mock_for_routing_test_only"}
+    def fake_package(report, source, target):
+        assert Path(source) == uploaded
+        Path(target).write_bytes(b"simulated-packaging-not-a-native-model")
+        return Path(target)
+    monkeypatch.setattr(bridge, "run_psd2live", fake_run)
+    monkeypatch.setattr(bridge, "package_psd2live", fake_package)
+    result = bridge.rig_existing_artwork_zip(uploaded, tmp_path / "out", edition="pro")
+    assert calls == [(payload, "pro")]
+    assert result["reused_existing_psd"] is True
+    assert result["layer_count"] == 2
+    assert result["runtime_verified_in_app"] is False
+
+
+def test_resume_existing_artwork_zip_requires_actual_layered_psd(tmp_path):
+    uploaded = tmp_path / "image-only.zip"
+    with ZipFile(uploaded, "w") as package:
+        package.writestr("README.md", "No PSD here")
+    with pytest.raises(ValueError, match="ROOT_AVATAR_OR_BODY_PSD"):
+        bridge.rig_existing_artwork_zip(uploaded, tmp_path / "out", edition="pro")
