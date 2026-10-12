@@ -143,3 +143,19 @@ def test_3d_source_does_not_force_body_anatomy_into_other_assets():
     assert "신체 ZIP에서만" in anime
     assert "헤어는 머리 중심" in review
     assert "손발/골반 그림이나 인체 포즈를 강제하지 않는다" in tips
+
+
+def test_bust_up_body_must_be_created_while_other_assets_do_not_redraw_it(published):
+    """The body kit must not inherit the reference-only rule of detachable assets."""
+    bad="자산 하나만 제작할 때는 해당 몸체를 새로 그리지 않는다"
+    for asset in ASSETS:
+        docs=published[("live2d_bust_up",asset)]
+        for name,text in docs.items():
+            assert bad not in text,(asset,name)
+        master=docs["00_MASTER_FIRST.md"]
+        if asset=="body":
+            assert "신체 원화를 직접 새로 그린다" in master
+            assert "납품 대상은 완성 신체 원화" in docs["00_DELIVERY_AND_RECHECK.md"]
+        else:
+            assert "제공된 기준 몸체를 새로 그리지 않고" in master
+            assert "신체만이라는 이유로 PRO를 강제하지 않는다" not in docs["04_OUTPUT_FILES.md"]
