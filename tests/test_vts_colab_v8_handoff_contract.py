@@ -128,8 +128,8 @@ def test_existing_psd_zip_skips_rebuilding_and_requires_real_native_files(tmp_pa
         raise AssertionError("Existing PSD ZIP must not run the artwork builder")
     producer.make_cubism_handoff = forbidden
     calls = []
-    def rig(source, destination, *, edition):
-        calls.append((source, destination, edition))
+    def rig(source, destination, *, edition, scope):
+        calls.append((source, destination, edition, scope))
         destination.mkdir(parents=True, exist_ok=True)
         package = destination / "native.zip"
         with ZipFile(package, "w") as archive:
@@ -146,7 +146,7 @@ def test_existing_psd_zip_skips_rebuilding_and_requires_real_native_files(tmp_pa
                 INPUT_FILE=source, WORK=tmp_path, EDITION="pro",
                 ASSET="body", SCOPE="upper", REFERENCE_FILE=None)
     exec(compile(cell, "cell-8", "exec"), args)
-    assert calls == [(source, tmp_path / "production", "pro")]
+    assert calls == [(source, tmp_path / "production", "pro", "upper")]
     assert args["PACKAGE"].is_file()
 
 
@@ -166,7 +166,7 @@ def test_native_rig_rejects_missing_moc3_in_zip(tmp_path, monkeypatch):
     producer = ModuleType("tools.vts_production")
     native = ModuleType("tools.vts_psd2live")
     producer.make_cubism_handoff = lambda *a, **k: None
-    def rig(source, destination, *, edition):
+    def rig(source, destination, *, edition, scope):
         destination.mkdir(parents=True, exist_ok=True)
         package = destination / "incomplete.zip"
         with ZipFile(package, "w") as archive:
@@ -179,4 +179,4 @@ def test_native_rig_rejects_missing_moc3_in_zip(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="실제 리깅 파일 누락"):
         exec(compile(cell, "cell-8", "exec"),
              dict(INPUT_KIND="existing_psd_zip", DO_NATIVE_RIG=True,
-                  INPUT_FILE=tmp_path / "input.zip", WORK=tmp_path, EDITION="pro"))
+                  INPUT_FILE=tmp_path / "input.zip", WORK=tmp_path, EDITION="pro", SCOPE="upper"))
