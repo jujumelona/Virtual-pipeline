@@ -1,4 +1,4 @@
-"""README for phase-1 UI only. Image prompts will be authored in phase 2."""
+"""README must accurately distinguish selection, Live2D build, and unverified stages."""
 from pathlib import Path
 from tools.colab_mode_ui import TOP_MODE_CHOICES, ASSET_KINDS
 
@@ -13,8 +13,10 @@ def test_readme_explains_all_five_modes_and_four_shared_assets():
         assert label in text
 
 
-def test_readme_does_not_claim_new_artwork_prompts_or_exporters_finished():
+def test_readme_describes_connected_live2d_and_unverified_execution():
     text=README.read_text(encoding="utf-8")
     assert "후속 단계" in text
-    assert "프롬프트" in text
-    assert "아직 연결되지" in text
+    assert "Live2D" in text and "⑤" in text and "⑨" in text
+    assert "ZIP" in text and "PSD" in text
+    assert "실제 Colab GPU" in text
+    assert "Cubism" in text and "미완료" in text
