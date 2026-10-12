@@ -235,7 +235,8 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
             f"--output {shlex.quote(str(output))} "
             f"--atlas {atlas} --atlas-pages {atlas_pages} --lang en "
             f"--mesh-spacing {mesh_spacing} --mesh-wrap 0 "
-            f"--head-strength 1.0 --body-strength 1.0 --upscale {upscale_factor}"
+            f"--head-strength 1.0 --body-strength 1.0 --mouth-outline false "
+            f"--upscale {upscale_factor}"
             f"{upscale_args}")
     cmd = _gradle_bridge(root, "vtsRig") + [f"--args={args}"]
     from tools.vts_subprocess import run_logged
@@ -285,6 +286,8 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
             "head_strength": 1.0, "body_strength": 1.0,
             "upscale_factor": upscale_factor,
             "upscale_backend": "PSD2Live nunif/waifu2x neural SR" if upscale_args else "disabled (upstream default)",
+            "mouth_outline_generated": False,
+            "mouth_outline_reason": "Supplied artwork already contains painted mouth contour; adding synthetic ribbons duplicates the lip.",
             "generate_deformers": True, "generate_motions": True,
             "generate_physics": True, "export_cmo3": True,
             "export_moc3": True,
