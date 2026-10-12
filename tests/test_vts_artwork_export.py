@@ -846,6 +846,7 @@ def test_bilateral_split_preserves_existing_semantic_side(semantic_name):
 
 
 def test_cubism_editor_manual_json_has_parameter_deformer_plan_not_fake_rig():
+    import json
     from tools.vts_artwork_export import _reference_bundle
     layers = [
         {"name": "eye.left.iris.000", "depth": 0,
