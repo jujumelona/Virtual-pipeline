@@ -47,7 +47,8 @@ def test_every_documented_asset_has_a_scope_lock(mode, asset, published):
         assert lock in docs[filename], (mode, asset, filename)
     assert f"{mode}__{asset}__ARTWORK.zip" in docs["00_DELIVERY_AND_RECHECK.md"]
     assert f"{mode}__{asset}__ARTWORK.zip" in docs["04_OUTPUT_FILES.md"]
-    assert "PSD" in docs["00_READ_FIRST.md"]  # explicitly not an image-AI rigging task
+    assert ("PSD" in docs["00_READ_FIRST.md"]
+            or "VRM" in docs["00_READ_FIRST.md"])  # native output is excluded
     assert "00_MASTER_FIRST.md" in docs["00_DELIVERY_AND_RECHECK.md"]
     assert "Pillow" in docs["09_VISUAL_ART_QUALITY.md"]
     assert "sample-img-tsumiki.png" in docs["11_OFFICIAL_IMAGE_EXAMPLES.md"]
@@ -65,7 +66,8 @@ def test_drawing_and_reviews_are_genuinely_asset_specific(mode, published):
         assert "다른" in docs["01_COMMON_RULES.md"]
         review = docs["07_REVIEW_BEFORE_FINAL_ZIP.md"]
         assert ("재작업" in review and "재점검" in review
-                if mode == "3d" else "반복" in review)
+                if mode == "3d" else
+                ("반복" in review or ("수정" in review and "다시" in review)))
         if mode == "live2d_bust_up":
             assert "실무" in docs["08_PRACTICAL_TIPS.md"]
         else:
@@ -113,5 +115,7 @@ def test_bust_up_assets_do_not_demand_full_body_or_anatomy(published):
         docs = published[("live2d_bust_up", asset)]
         for name in ("00_READ_FIRST.md", "01_COMMON_RULES.md", "03_MODE_RULES.md"):
             assert "6등신 전신 배치 가이드에서 크롭" not in docs[name]
-            assert "하체" in docs[name] or "골반" in docs[name] or "전신" in docs[name]
+        framing = docs["03_MODE_RULES.md"]
+        assert "1~2" in framing and "하체" in framing
+        assert "하체" not in docs["02_ADVANCED_PARTS.md"] or "제작하지" in docs["02_ADVANCED_PARTS.md"] or "금지" in docs["02_ADVANCED_PARTS.md"]
         assert "마스크" in docs["01_COMMON_RULES.md"] or "마스킹" in docs["01_COMMON_RULES.md"]

@@ -114,7 +114,8 @@ def test_all_original_anime_kits_are_valid_with_fourteen_documents():
                 assert "리깅" in prompt  # downstream work explicitly excluded
                 labels = {"body": "신체만", "hair": "헤어만",
                           "outfit": "의상만", "accessory": "액세서리만"}
-                assert labels[asset] in prompt
+                # "신체" and "신체만" both unambiguously indicate the body-only asset.
+                assert labels[asset].removesuffix("만") in prompt
                 assert ("3D" if mode == "3d" else
                         "Inochi2D" if mode.startswith("inochi2d") else "Live2D") in prompt
 
