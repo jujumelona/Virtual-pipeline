@@ -80,7 +80,7 @@ def _inspect_image_only_pack(archive: ZipFile, names: list[str], source: Path,
               if line.strip() and not line.lstrip().startswith("#")]
     actual = {name[len(prefix):] for name in names
               if name.startswith(prefix + "isolated_parts/") and name.endswith(".png")}
-    if (not 2 <= len(listed) <= _MAX_FILES
+    if (not (1 if edition == "pro" else 2) <= len(listed) <= _MAX_FILES
             or len(listed) != len(set(listed)) or set(listed) != actual):
         raise ValueError("AI_PACK_LAYER_ORDER_NOT_MATCHING_SPRITES")
     if edition == "free" and len(listed) > 100:
@@ -170,7 +170,7 @@ def inspect_large_ai_pack(source: Path, *, edition: str = "free") -> dict:
         if master.width < 256 or master.height < 256:
             raise ValueError("AI_PACK_MASTER_TOO_SMALL")
         rows = manifest.get("parts")
-        if not isinstance(rows, list) or len(rows) < 2:
+        if not isinstance(rows, list) or len(rows) < (1 if edition == "pro" else 2):
             raise ValueError("AI_PACK_NO_INDEPENDENT_PARTS")
         if edition == "free" and len(rows) > 100:
             raise ValueError("AI_PACK_FREE_ARTMESH_LIMIT")
@@ -259,7 +259,8 @@ def prepare_large_ai_pack(source: Path, destination: Path, *, edition: str = "fr
         "psd": str(psd_file), "part_count": len(layers),
         "canvas": list(result["canvas"]),
         "skipped_see_through": True, "skipped_semantic_sam": True,
-        "mask_only_parts_rejected": True,
+        "mask_only_parts_rejected": False,
+        "authored_underpaint_visually_verified": False,
         "visual_quality_verified": False,
         "rigging_verified": False,
         "method": "direct_authored_png_to_psd",
