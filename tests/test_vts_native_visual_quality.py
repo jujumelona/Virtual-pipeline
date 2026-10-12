@@ -51,5 +51,5 @@ def test_real_source_seam_gap_and_synthetic_lip_lines_are_reported(tmp_path):
 def test_no_real_psd2live_diagnostics_never_claims_anime_quality(tmp_path):
     report = review_psd2live_export(tmp_path)
     assert report["visual_quality_verified"] is False
-    assert report["source_overlap"] if False else True
+    assert "source_overlap" not in report
     assert "PSD2LIVE_DEBUG_JSON_NOT_AVAILABLE" in report["warnings"]
