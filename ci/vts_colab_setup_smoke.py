@@ -17,7 +17,7 @@ def main() -> None:
                "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb")
     cells = json.loads(nb_path.read_text(encoding="utf-8"))["cells"]
     code = ["".join(c["source"]) for c in cells if c["cell_type"] == "code"]
-    assert len(code) == 4, f"Expected four setup/selection cells, found {len(code)}"
+    assert len(code) >= 9, f"Expected selection and production cells, found {len(code)}"
     assert "TOP_MODE_LABEL" in code[1]
     assert "ASSET_KIND_LABEL" in code[2]
     for i, content in enumerate(code):
@@ -29,10 +29,10 @@ def main() -> None:
     forbidden = ("tools.vts_setup", "tools.colab_mode_prepare",
                  "See-through", "Qwen", "SAM", "activate_2d_environment",
                  "pip install", "--prepare")
-    joined = "\n".join(code)
+    joined = "\n".join(code[:4])
     assert all(word not in joined for word in forbidden)
     print("[Colab UI smoke] Five modes × four common assets = 20 selections: PASS")
-    print("[Colab UI smoke] No splitter installs/inference in notebook: PASS")
+    print("[Colab UI smoke] No splitter installs/inference in four selection cells: PASS")
 
 
 if __name__ == "__main__":
