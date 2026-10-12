@@ -312,14 +312,15 @@ def test_pinned_package_versions_agree_with_runtime_surfaces():
 
 
 
-def test_readme_badge_targets_new_four_code_cell_selection_notebook():
+def test_readme_badge_targets_completed_zip_all_modes_not_legacy_selector():
     readme = _read("README.md")
-    notebook_file = "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb"
+    badge_file = "notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb"
     launch_url = ("https://colab.research.google.com/github/"
-                  "jujumelona/Virtual-pipeline/blob/main/" + notebook_file)
+                  "jujumelona/Virtual-pipeline/blob/main/" + badge_file)
     assert "[![Open current Colab]" in readme
     assert launch_url in readme
-    notebook = json.loads(_read(notebook_file))
+    # Independently retain the first-four-cell selector runtime contract.
+    notebook = json.loads(_read("notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb"))
     cells = ["".join(c.get("source", [])) for c in notebook["cells"]
              if c.get("cell_type") == "code"]
     assert len(cells) >= 9  # Live2D production cells follow the four selectors
