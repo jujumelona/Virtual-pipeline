@@ -25,18 +25,22 @@ def test_shared_outfit_and_accessory_assets_across_all_mode_families():
             assert select_mode(mode, kind).asset_kind == kind
 
 
-def test_removed_separate_wardrobe_ui_cannot_install_models_or_build():
+def test_selector_cells_are_side_effect_free_and_production_cells_work():
     cells=code_cells()
-    assert len(cells)==4
+    assert len(cells) >= 9
     for index, code in enumerate(cells):
         ast.parse(code,filename=f"colab_v8_code_{index}")
-    joined="\n".join(cells)
-    assert '["신체만", "헤어만", "액세서리만", "의상만"]' in joined
+    selectors="\n".join(cells[:4])
+    production="\n".join(cells[4:])
+    assert '["신체만", "헤어만", "액세서리만", "의상만"]' in selectors
     for previous in ("ACCESSORY_SUBTYPE_OPTION", "WARDROBE_2D_BASE",
                      "costume.xwear", "prepare_vroid_dressup(",
                      "sheet_prepare_worker.py", "colab_mode_prepare.py",
                      "files.upload", "files.download"):
-        assert previous not in joined
+        assert previous not in selectors
+    assert "files.upload()" in production
+    assert "psd2live=DO_NATIVE_RIG" in production
+    assert "files.download(" in production
 
 
 def test_readme_reserves_wardrobe_generation_for_followup_phase():
