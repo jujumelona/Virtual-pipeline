@@ -53,3 +53,29 @@ def test_no_real_psd2live_diagnostics_never_claims_anime_quality(tmp_path):
     assert report["visual_quality_verified"] is False
     assert "source_overlap" not in report
     assert "PSD2LIVE_DEBUG_JSON_NOT_AVAILABLE" in report["warnings"]
+
+
+def test_preflight_refuses_zero_underpaint_before_native_compile():
+    from tools.vts_native_visual_quality import require_live2d_body_underpaint
+    from PIL import Image
+    import pytest
+    neck = Image.new("RGBA", (256, 384), (0, 0, 0, 0))
+    torso = Image.new("RGBA", (256, 384), (0, 0, 0, 0))
+    for y in range(50, 170):
+        for x in range(90, 140):
+            neck.putpixel((x, y), (160, 120, 100, 255))
+    for y in range(170, 310):
+        for x in range(90, 140):
+            torso.putpixel((x, y), (160, 120, 100, 255))
+    parts = [
+        {"id": "neck", "image": neck, "left": 0, "top": 0},
+        {"id": "torso", "image": torso, "left": 0, "top": 0},
+    ]
+    with pytest.raises(ValueError, match="NECK_BODY_UNDERPAINT_MISSING"):
+        require_live2d_body_underpaint(parts, (256, 384))
+    for y in range(150, 170):
+        for x in range(90, 140):
+            torso.putpixel((x, y), (160, 120, 100, 255))
+    report = require_live2d_body_underpaint(parts, (256, 384))
+    assert report["neck_body_overlap_pixels"] == 20 * 50
+    assert report["editor_review_required"] is True
