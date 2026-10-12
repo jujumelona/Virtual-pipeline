@@ -321,6 +321,19 @@ def package_psd2live(result: dict, artwork_zip: Path, output_zip: Path) -> Path:
                     raise RuntimeError("PSD2LIVE_OUTPUT_RESERVED_PREFIX")
                 z.write(p, name)
             z.write(artwork_zip, "source_artwork/" + artwork_zip.name)
+            z.writestr("README_VTUBE_STUDIO.md", (
+                "# VTube Studio용 모델 파일과 확인 절차\\n\\n"
+                "이 ZIP을 압축 해제합니다. 최종 *.model3.json, *.moc3, 참조된 텍스처/"
+                "physics/expressions/motions 파일의 상대 경로를 유지하세요.\\n\\n"
+                "VTube Studio에서 사용자 모델 폴더를 열고 내보낸 모델 폴더를 넣거나 "
+                "해당 모델을 불러옵니다. 모델 폴더만 이동하고 source_artwork/의 PSD "
+                "참고 ZIP은 작동에 필수는 아닙니다.\\n\\n"
+                "PSD2Live CLI가 실제 파일을 생성했는지와 링크를 검사했습니다. "
+                "단, Cubism Core/VTube Studio 실행, 추적, 눈·입·팔 움직임, 머리/옷 "
+                "흔들림 및 물리 품질은 자동으로 검증하지 못했습니다. "
+                "신체만 그린 입력은 헤어·의상이 없는 신체 모델입니다. "
+                "모델 전체가 자동 완성되었다고 간주하지 마세요.\\n"
+            ).replace("\\\\n", "\\n"))
             public = {key: value for key, value in result.items()
                       if key != "cli_command"}
             z.writestr("metadata/psd2live_bridge.json",
