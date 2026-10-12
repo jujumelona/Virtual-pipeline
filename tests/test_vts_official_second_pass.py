@@ -123,11 +123,11 @@ def test_official_sam_one_inference_for_sixty_layers_without_second_diffusion(
 
 
 @pytest.mark.parametrize("edition,asset", [
-    ("free", None), ("pro", "body"), ("pro", "outfit"),
+    ("pro", "body"), ("pro", "outfit"),
 ])
 def test_direct_artwork_api_rejects_real_qwen_in_disallowed_modes(tmp_path, edition, asset):
     from tools.vts_artwork_export import build_artwork_package
-    with pytest.raises(ValueError, match="only for PRO hair/accessory"):
+    with pytest.raises(ValueError, match="only for FREE or PRO hair/accessory"):
         build_artwork_package(tmp_path / "not_read.zip", tmp_path / "out",
                               edition=edition, scope="upper", asset_kind=asset,
                               qwen=True, max_qwen_passes=1)

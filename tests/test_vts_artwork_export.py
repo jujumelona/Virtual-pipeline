@@ -201,14 +201,39 @@ def test_observed_anatomy_is_eligible_for_refinement(family):
     assert _candidate_score(part) > 0
 
 
-def test_free_never_uses_qwen_even_with_injected_backend(tmp_path):
+def test_free_optional_qwen_adds_real_psd_layers_with_original_pixels(tmp_path):
+    from psd_tools import PSDImage
     archive = make_layers(tmp_path / "in")
-    def must_not_run(*args, **kwargs):
-        pytest.fail("FREE must never execute an injected Qwen backend")
-    with pytest.raises(ValueError, match="only for PRO hair/accessory"):
-        build_artwork_package(archive, tmp_path / "out",
-                              edition="free", scope="upper", qwen=True,
-                              qwen_infer=must_not_run)
+    def fake_infer(source, output, **kwargs):
+        assert kwargs["layer_count"] == 4
+        output.mkdir(parents=True)
+        original = Image.open(source).convert("RGBA")
+        paths = []
+        for i in range(4):
+            mask = Image.new("RGBA", original.size, (0, 0, 0, 0))
+            mask.paste((255, 255, 255, 255),
+                       (original.width * i // 4, 0,
+                        original.width * (i + 1) // 4, original.height))
+            path = output / f"candidate_{i}.png"
+            mask.save(path)
+            paths.append(str(path))
+        return {"layers": paths}
+    result = build_artwork_package(
+        archive, tmp_path / "out", edition="free", scope="upper",
+        qwen=True, max_qwen_passes=1, qwen_infer=fake_infer)
+    assert result["layer_count"] == 5
+    assert result["qwen_splits_accepted"] == ["hair.front.000"]
+    assert len([layer for layer in PSDImage.open(result["art_psd"]).descendants()
+                if not layer.is_group()]) == 5
+    with ZipFile(result["package"]) as package:
+        manifest = __import__("json").loads(package.read("metadata/layer_manifest.json"))
+        assert manifest["drawable_layer_count"] == 5
+        assert len([name for name in package.namelist()
+                    if name.startswith("layers_png/")]) == 5
+        assert len([name for name in package.namelist()
+                    if name.startswith("alpha_masks/")]) == 5
+        assert any(layer["semantic_name"].startswith("hair.front.000.q")
+                   for layer in manifest["layers"])
 
 
 def test_official_four_layer_default_applies_to_eyebrow_parts(tmp_path):

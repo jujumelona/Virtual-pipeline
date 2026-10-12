@@ -30,6 +30,10 @@ def test_colab_live2d_handoff_has_uploaded_inputs_and_real_builder():
         "reference_image=REFERENCE_FILE", "archive.testzip()",
         "preview/pro_body_asset_overlay.png", "rig_existing_artwork_zip(",
         "DO_NATIVE_RIG = RIGGING == \"auto\"",
+        "QWEN_REFINEMENT = False",
+        "DO_QWEN = bool(QWEN_REFINEMENT)",
+        'prepare(qwen=globals().get("DO_QWEN", False)',
+        'qwen=globals().get("DO_QWEN", False)',
     ):
         assert required in combined, required
     assert "실제 시각 품질, 가림 복원, Cubism Editor 동작: 미검증" in combined
