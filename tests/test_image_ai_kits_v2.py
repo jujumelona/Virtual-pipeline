@@ -26,9 +26,25 @@ ZIP_MEMBERS = {
 }
 
 
+# Released ZIPs apply master-first overrides to archived source templates.
+# Check published-document consistency; template snapshots are checked below.
+RELEASE_SHARED_DOCUMENTS = (
+    "01_COMMON_RULES.md",
+    "03_MODE_RULES.md",
+    "05_OFFICIAL_REFERENCES.md",
+    "06_ADVANCED_OFFICIAL_COMMUNITY.md",
+    "07_REVIEW_BEFORE_FINAL_ZIP.md",
+    "08_PRACTICAL_TIPS.md",
+    "09_VISUAL_ART_QUALITY.md",
+    "10_ANIME_STYLE.md",
+    "11_OFFICIAL_IMAGE_EXAMPLES.md",
+)
+
+
 def test_all_twenty_anime_kits_are_valid_with_fourteen_documents():
     existing = sorted((ROOT_KITS / "zips").glob("*.zip"))
     assert len(existing) == 20
+    shared_release_docs = {}
     for mode in MODES:
         for asset in ASSETS:
             path = ROOT_KITS / "zips" / f"{mode}__{asset}.zip"
@@ -50,10 +66,21 @@ def test_all_twenty_anime_kits_are_valid_with_fourteen_documents():
                 quality = archive.read("09_VISUAL_ART_QUALITY.md").decode("utf-8")
                 anime = archive.read("10_ANIME_STYLE.md").decode("utf-8")
                 examples = archive.read("11_OFFICIAL_IMAGE_EXAMPLES.md").decode("utf-8")
-                assert anime == (ROOT_KITS / "source" / (
-                    "ANIME_VTUBER_STYLE_3D.md" if mode == "3d"
-                    else "ANIME_VTUBER_STYLE_2D.md")).read_text(encoding="utf-8")
-                assert examples == (ROOT_KITS / "source" / "OFFICIAL_VISUAL_EXAMPLES.md").read_text(encoding="utf-8")
+                family = "3D" if mode == "3d" else "2D"
+                master = archive.read("00_MASTER_FIRST.md").decode("utf-8")
+                delivery = archive.read("00_DELIVERY_AND_RECHECK.md").decode("utf-8")
+                assert master.startswith(f"# 최우선 제작 계약: {mode} / {asset}")
+                assert "00_DELIVERY_AND_RECHECK.md" in master
+                assert "00_MASTER_FIRST.md" in delivery
+                assert f"{mode}__{asset}__ARTWORK.zip" in delivery
+                assert "00_DELIVERY_AND_RECHECK.md" in prompt
+                for member in (*RELEASE_SHARED_DOCUMENTS, "02_ADVANCED_PARTS.md"):
+                    data = archive.read(member)
+                    assert b"00_MASTER_FIRST.md" in data, (path, member)
+                    key = (family, asset, member) if member == "02_ADVANCED_PARTS.md" else (family, member)
+                    previous = shared_release_docs.setdefault(key, data)
+                    assert data == previous, (path, member)
+                assert "00_MASTER_FIRST.md" in output
                 assert "10_ANIME_STYLE.md" in prompt
                 assert "11_OFFICIAL_IMAGE_EXAMPLES.md" in prompt
                 assert "애니" in prompt and "외곽선" in prompt
@@ -61,9 +88,6 @@ def test_all_twenty_anime_kits_are_valid_with_fourteen_documents():
                 assert "sample-img-tsumiki.png" in examples
                 assert "sample-img-izumi.jpg" in examples
                 assert "![Live2D official" in examples
-                assert quality == (ROOT_KITS / "source" / (
-                    "QUALITY_STANDARD_3D.md" if mode == "3d"
-                    else "QUALITY_STANDARD_2D.md")).read_text(encoding="utf-8")
                 assert ("09_VISUAL_ART_QUALITY.md" in prompt or
                         ("09" in prompt and "품질" in prompt and
                          "10_ANIME_STYLE.md" in prompt))
@@ -85,25 +109,6 @@ def test_all_twenty_anime_kits_are_valid_with_fourteen_documents():
                 assert "## 비공식" in practical
                 assert "https://www.reddit.com/" in practical if mode != "3d" else "https://" in practical
                 assert "리깅" in prompt  # downstream work explicitly excluded
-                assert archive.read("07_REVIEW_BEFORE_FINAL_ZIP.md") == (
-                    ROOT_KITS / "source" / ("REPEAT_REVIEW_3D.md" if mode == "3d"
-                                          else "REPEAT_REVIEW_2D.md")).read_bytes()
-                assert archive.read("08_PRACTICAL_TIPS.md") == (
-                    ROOT_KITS / "source" / ("PRACTICAL_TIPS_3D.md" if mode == "3d"
-                                          else "PRACTICAL_TIPS_2D.md")).read_bytes()
-
-                expected_source = ROOT_KITS / "source" / ("ADVANCED_VERIFIED_3D.md" if mode == "3d" else "ADVANCED_VERIFIED_2D.md")
-                assert archive.read("06_ADVANCED_OFFICIAL_COMMUNITY.md") == expected_source.read_bytes()
-                # Exact per-mode/per-asset source reconciliation prevents a
-                # valid but wrong kit (e.g. hair rules inside the body ZIP).
-                family = "3D" if mode == "3d" else "2D"
-                kind_source = ROOT_KITS / "source" / f"{asset.upper()}_{family}.md"
-                mode_source = ROOT_KITS / "source" / f"MODE_{family}.md"
-                official_source = ROOT_KITS / "source" / f"OFFICIAL_{family}.md"
-                assert archive.read("01_COMMON_RULES.md") == (ROOT_KITS / "source" / "COMMON.md").read_bytes()
-                assert archive.read("02_ADVANCED_PARTS.md") == kind_source.read_bytes()
-                assert archive.read("03_MODE_RULES.md") == mode_source.read_bytes()
-                assert archive.read("05_OFFICIAL_REFERENCES.md") == official_source.read_bytes()
                 labels = {"body": "신체만", "hair": "헤어만",
                           "outfit": "의상만", "accessory": "액세서리만"}
                 assert labels[asset] in prompt
