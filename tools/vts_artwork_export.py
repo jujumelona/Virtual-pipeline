@@ -1133,6 +1133,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
             layers, edition, asset_kind, attempted, scope=scope))
         for filename, content in extras:
             z.writestr(filename, content)
+    from tools.vts_package_integrity import verify_artwork_package
+    archive_verification = verify_artwork_package(package)
     return {
         "status": "artwork_ready_editor_rig_required",
         "package": str(package), "art_psd": str(psd_path),
@@ -1149,5 +1151,6 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         "official_second_pass_attempts": len(official_trace),
         "official_second_pass_accepted": sum(bool(x.get("accepted")) for x in official_trace),
         "quality_status": "requires_manual_cubism_review",
+        "archive_verification": archive_verification,
         "moc3_generated": False, "editor_required": True,
     }
