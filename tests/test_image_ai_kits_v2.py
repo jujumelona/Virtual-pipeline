@@ -9,6 +9,8 @@ ROOT_KITS = ROOT / "docs/image_ai_kits_v2"
 MODES = ("live2d_upper", "live2d_full", "inochi2d_upper", "inochi2d_full", "3d")
 ASSETS = ("body", "hair", "outfit", "accessory")
 ZIP_MEMBERS = {
+    "00_MASTER_FIRST.md",
+    "00_DELIVERY_AND_RECHECK.md",
     "00_READ_FIRST.md",
     "01_COMMON_RULES.md",
     "02_ADVANCED_PARTS.md",
@@ -24,7 +26,7 @@ ZIP_MEMBERS = {
 }
 
 
-def test_all_twenty_anime_kits_are_valid_with_twelve_documents():
+def test_all_twenty_anime_kits_are_valid_with_fourteen_documents():
     existing = sorted((ROOT_KITS / "zips").glob("*.zip"))
     assert len(existing) == 20
     for mode in MODES:
@@ -34,6 +36,10 @@ def test_all_twenty_anime_kits_are_valid_with_twelve_documents():
             with ZipFile(path) as archive:
                 assert archive.testzip() is None, path
                 assert set(archive.namelist()) == ZIP_MEMBERS, path
+                # The master-first and delivery/recheck instructions are now
+                # mandatory parts of every published kit, not optional extras.
+                for required in ("00_MASTER_FIRST.md", "00_DELIVERY_AND_RECHECK.md"):
+                    assert archive.read(required).strip(), (path, required)
                 prompt = archive.read("00_READ_FIRST.md").decode("utf-8")
                 details = archive.read("02_ADVANCED_PARTS.md").decode("utf-8")
                 official = archive.read("05_OFFICIAL_REFERENCES.md").decode("utf-8")

@@ -188,28 +188,28 @@ def test_qwen_plans_match_real_mode_gate(identity, edition, asset, expected):
 
 
 
-def test_github_published_image_ai_kit_zip_is_a_real_self_contained_artwork_brief():
+def test_published_image_ai_kits_replace_retired_single_zip():
+    """Check the actual 20 published briefs, not a removed legacy archive."""
     from pathlib import Path
-    folder = Path(__file__).resolve().parents[1] / "docs" / "live2d_image_ai_kit"
-    package = folder / "Live2D_Image_AI_Instruction_Kit.zip"
-    assert package.is_file()
-    with zipfile.ZipFile(package) as archive:
-        assert archive.testzip() is None
-        names = set(archive.namelist())
-        assert names == {
-            "README.md", "START_HERE.md", "PARTS_ARTWORK.md",
-            "OUTPUT_FILES.md", "OFFICIAL_LINKS.md",
-            "visual_references/sheet_contract.svg",
-            "visual_references/rotation_guide.svg",
-        }
-        for name in ("README.md", "START_HERE.md", "PARTS_ARTWORK.md",
-                     "OUTPUT_FILES.md", "OFFICIAL_LINKS.md"):
-            current = (folder / name).read_bytes()
-            archived = archive.read(name)
-            # The legacy kit is now deprecated in its source README; the
-            # published historical ZIP remains intentionally unchanged.
-            assert current.endswith(archived) if name == "README.md" else archived == current
-        assert "layer_order.txt" in archive.read("START_HERE.md").decode("utf-8")
-        assert "docs.live2d.com" in archive.read("OFFICIAL_LINKS.md").decode("utf-8")
-        assert not any(name.endswith((".psd", ".moc3", ".model3.json", ".gguf"))
-                       for name in names)
+
+    root = Path(__file__).resolve().parents[1]
+    assert not (root / "docs/live2d_image_ai_kit/Live2D_Image_AI_Instruction_Kit.zip").exists()
+    packages = sorted((root / "docs/image_ai_kits_v2/zips").glob("*.zip"))
+    assert len(packages) == 20
+    required = {
+        "00_MASTER_FIRST.md",
+        "00_DELIVERY_AND_RECHECK.md",
+        "00_READ_FIRST.md",
+        "04_OUTPUT_FILES.md",
+        "07_REVIEW_BEFORE_FINAL_ZIP.md",
+    }
+    for package in packages:
+        with zipfile.ZipFile(package) as archive:
+            assert archive.testzip() is None, package
+            names = set(archive.namelist())
+            assert required <= names, (package, required - names)
+            for name in required:
+                assert archive.read(name).strip(), (package, name)
+            assert not any(name.lower().endswith(
+                (".psd", ".moc3", ".model3.json", ".gguf")
+            ) for name in names)

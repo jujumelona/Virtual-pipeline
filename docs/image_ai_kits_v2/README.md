@@ -1,6 +1,6 @@
 # 이미지 AI 제작 지시서 ZIP — 5개 상위 모드 × 4개 자산 = 20종
 
-**각 ZIP 하나에 해당 작업의 실제 제작 문서 12개를 넣었습니다.** 사용자는 아래에서 모드와 자산 종류를 조합해 한 개를 내려받아 실제 이미지 생성·파일 저장 도구를 갖춘 GPT/Gemini에 그대로 첨부하고, 원하는 디자인을 설명하면 됩니다.
+**각 ZIP 하나에 해당 작업의 실제 제작 문서 14개를 넣었습니다.** 사용자는 아래에서 모드와 자산 종류를 조합해 한 개를 내려받아 실제 이미지 생성·파일 저장 도구를 갖춘 GPT/Gemini에 그대로 첨부하고, 원하는 디자인을 설명하면 됩니다.
 
 | 상위 모드 | 신체만 | 헤어만 | 의상만 | 액세서리만 |
 |---|---|---|---|---|
@@ -12,6 +12,8 @@
 
 ## 각 ZIP 내부 구성
 
+- 00_MASTER_FIRST.md — 제작 시작 시 먼저 적용할 마스터 지시서
+- 00_DELIVERY_AND_RECHECK.md — 원화 생성·재점검 후 결과 ZIP을 납품하기 위한 지시서
 - 00_READ_FIRST.md — **해당 모드+자산에만** 적용되는 실제 이미지 생성 AI 지시
 - 01_COMMON_RULES.md — **처음부터 독립 파츠를 생성**하고 마지막에 합성; 신체는 불투명 속옷 기본 베이스
 - 02_ADVANCED_PARTS.md — 해당 자산의 눈·코·입·머리/옷/장식별 **고급 분리** 또는 3D 다각도 그림 명세
@@ -43,7 +45,7 @@
 - **공식 3D:** [VRM Humanoid](https://vrm.dev/en/vrm1/humanoid/), [VRM 기능](https://vrm.dev/en/vrm/vrm_features/), [Blender UV](https://docs.blender.org/manual/en/latest/modeling/meshes/uv/unwrapping/introduction.html). 이미지 AI는 모델이 아닌 4면도와 부분 원화만 만든다.
 - **비공식 실무:** [Live2D 작화/파츠 그룹](https://www.reddit.com/r/Live2D/comments/15lc7ku/), [세밀한 레이어 구분](https://www.reddit.com/r/Live2D/comments/1140xr5/), [숨은 옷감 보완](https://www.reddit.com/r/Live2D/comments/1myir8h), [3D 참조 시트](https://virmii.com/blog/tutorial/how-to-make-vtuber-reference-sheet). 개인 작업 노하우이며 공식 고정 규격이 아니다.
 
-**20개 ZIP 검증:** `tests/test_image_ai_kits_v2.py`에서 ZIP 20개 파일 존재·CRC 무결성·문서 12종(애니풍 선화 + 공식 시각 이미지 링크 포함)·고급 공식/비공식 원문·반복 점검 지시·모드/자산별 파일 계약을 검사한다. **이 검사는 생성된 캐릭터 그림의 실제 시각 품질 검사가 아니다.**
+**20개 ZIP 검증:** `tests/test_image_ai_kits_v2.py`에서 ZIP 20개 파일 존재·CRC 무결성·문서 14종(애니풍 선화 + 공식 시각 이미지 링크 포함)·고급 공식/비공식 원문·반복 점검 지시·모드/자산별 파일 계약을 검사한다. **이 검사는 생성된 캐릭터 그림의 실제 시각 품질 검사가 아니다.**
 
 ## 최종 그림 ZIP 납품 전에 AI가 해야 할 반복 작업
 
