@@ -118,3 +118,15 @@ def test_bust_up_assets_do_not_demand_full_body_or_anatomy(published):
         framing = docs["03_MODE_RULES.md"]
         assert "1~2" in framing and "하체" in framing
         assert "마스크" in docs["01_COMMON_RULES.md"] or "마스킹" in docs["01_COMMON_RULES.md"]
+
+
+def test_builder_templates_prioritize_master_first_and_no_cross_asset_generation():
+    """A future regeneration must not reinstate pre-master part authoring or global body demands."""
+    common=(ROOT / "source/COMMON.md").read_text(encoding="utf-8")
+    practical=(ROOT / "source/PRACTICAL_TIPS_2D.md").read_text(encoding="utf-8")
+    assert "원화가 완성된 후 마스크로 뜯어내지 않는다" not in practical
+    assert "완성 기준 원화 먼저" in practical
+    assert "바스트업에서는 처음부터" in common
+    assert "눈 흰자·홍채·입안·귀·목·관절은 신체" in common
+    assert "3D 참조도에서는" in common
+    assert "다른 자산을 생성하지 않고" in practical
