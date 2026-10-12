@@ -64,14 +64,21 @@ def test_new_colab_defers_prompts_without_running_legacy_splitters():
     readme = (root / "README.md").read_text(encoding="utf-8")
     notebook = json.loads((root / "notebooks" /
                            "VTuber_Commercial_Pipeline_Colab_v8.ipynb").read_text())
-    code = "\n".join("".join(c["source"]) for c in notebook["cells"]
-                     if c["cell_type"] == "code")
-    assert "후속 단계" in readme
+    cells = ["".join(c["source"]) for c in notebook["cells"]
+             if c["cell_type"] == "code"]
+    assert len(cells) >= 9
+    selector_code = "\n".join(cells[:4])
+    production_code = "\n".join(cells[4:])
     assert "신체만" in readme
     for forbidden in ("build_prompts(", "write_prompt_package", "store_uploaded_zip(",
                       "prepare_2d_image_uploads", "sheet_zip_path=",
                       "files.upload()", "sam_body_weights_prefetched"):
-        assert forbidden not in code
+        assert forbidden not in selector_code
+    # The actual ZIP import/production/download path is intentionally live.
+    assert "files.upload()" in production_code
+    assert "prepare_large_ai_pack" in production_code
+    assert "psd2live=DO_NATIVE_RIG" in production_code
+    assert "files.download(" in production_code
 
 
 def test_every_external_2d_layer_name_has_a_valid_rig_semantic():
