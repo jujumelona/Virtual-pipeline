@@ -26,8 +26,8 @@ ZIP_MEMBERS = {
 }
 
 
-# Released ZIPs apply master-first overrides to archived source templates.
-# Check published-document consistency; template snapshots are checked below.
+# Released ZIPs keep a shared FILE contract, not identical art instructions.
+# Cross-asset isolation is checked separately for every published ZIP.
 RELEASE_SHARED_DOCUMENTS = (
     "01_COMMON_RULES.md",
     "03_MODE_RULES.md",
@@ -44,7 +44,6 @@ RELEASE_SHARED_DOCUMENTS = (
 def test_all_original_anime_kits_are_valid_with_fourteen_documents():
     existing = sorted((ROOT_KITS / "zips").glob("*.zip"))
     assert len(existing) == 24  # 20 original kits + 4 dedicated bust-up kits
-    shared_release_docs = {}
     for mode in MODES:
         for asset in ASSETS:
             path = ROOT_KITS / "zips" / f"{mode}__{asset}.zip"
@@ -77,9 +76,10 @@ def test_all_original_anime_kits_are_valid_with_fourteen_documents():
                 for member in (*RELEASE_SHARED_DOCUMENTS, "02_ADVANCED_PARTS.md"):
                     data = archive.read(member)
                     assert b"00_MASTER_FIRST.md" in data, (path, member)
-                    key = (family, asset, member) if member == "02_ADVANCED_PARTS.md" else (family, member)
-                    previous = shared_release_docs.setdefault(key, data)
-                    assert data == previous, (path, member)
+                    # Shared prose across different assets used to hide cross-asset
+                    # generation instructions. Each published ZIP is intentionally
+                    # independently scoped; the structural checks remain shared.
+                    assert data.strip(), (path, member)
                 assert "00_MASTER_FIRST.md" in output
                 assert "10_ANIME_STYLE.md" in prompt
                 assert "11_OFFICIAL_IMAGE_EXAMPLES.md" in prompt
