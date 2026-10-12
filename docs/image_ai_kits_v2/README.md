@@ -52,7 +52,7 @@
 - **공식 3D:** [VRM Humanoid](https://vrm.dev/en/vrm1/humanoid/), [VRM 기능](https://vrm.dev/en/vrm/vrm_features/), [Blender UV](https://docs.blender.org/manual/en/latest/modeling/meshes/uv/unwrapping/introduction.html). 이미지 AI는 모델이 아닌 4면도와 부분 원화만 만든다.
 - **비공식 실무:** [Live2D 작화/파츠 그룹](https://www.reddit.com/r/Live2D/comments/15lc7ku/), [세밀한 레이어 구분](https://www.reddit.com/r/Live2D/comments/1140xr5/), [숨은 옷감 보완](https://www.reddit.com/r/Live2D/comments/1myir8h), [3D 참조 시트](https://virmii.com/blog/tutorial/how-to-make-vtuber-reference-sheet). 개인 작업 노하우이며 공식 고정 규격이 아니다.
 
-**기존 20개 ZIP 검증:** `tests/test_image_ai_kits_v2.py`에서 ZIP 20개 파일 존재·CRC 무결성·문서 14종(애니풍 선화 + 공식 시각 이미지 링크 포함)·고급 공식/비공식 원문·반복 점검 지시·모드/자산별 파일 계약을 검사한다. **이 검사는 생성된 캐릭터 그림의 실제 시각 품질 검사가 아니다.**
+**24개 ZIP 전체 전용 범위 검사:** `tests/test_image_ai_kits_v2.py` 및 `tests/test_image_ai_kits_scope_contract.py`에서 24개 파일 존재·CRC·14종 문서·모드/자산별 범위 잠금·공식/비공식 그림 참고·다른 자산의 제작 지시 유입 방지·반복 시각검수·출력 파일명을 검증한다. 공통 원칙만 공유하고 서로 다른 자산의 본문을 동일하게 강제하지 않는다. **이 검사는 생성된 캐릭터 그림의 실제 시각 품질 검사가 아니다.**
 
 ## 최종 그림 ZIP 납품 전에 AI가 해야 할 반복 작업
 
@@ -107,3 +107,16 @@
 - PRO `hair/outfit/accessory` 지시서는 **이미 있는 기준 몸체의 동일 캔버스·원점·스케일**을 요구하며 몸체를 재생성하지 않습니다.
 - 이 네 ZIP은 **이미지 AI용 그림 제작 지시서**입니다. 실제 PNG·PSD·Cubism Editor 모델 파일이 담긴 결과물이 아니며, 현재 Colab에는 별도의 `bust_up` 런타임 분기가 아직 연결되지 않았습니다.
 - [바스트업 지시 ZIP 검증](../../tests/test_live2d_bust_up_kits.py)은 ZIP 구문·문서 계약만 검사합니다. 실제 애니풍 미술 품질이나 리깅은 인증하지 않습니다.
+
+## 24개 ZIP 자산 독립성 유지 (2026-10-13)
+
+각 ZIP은 **자기 자산 하나의 제작 지시서**다. 다른 ZIP의 필수 파츠를 복사해 넣지 않는다.
+
+- 신체: 얼굴·눈·입·목·상체 및 모드에 실제 필요한 팔/다리만, 불투명 기본 의복·마스크로 노출 방지.
+- 헤어: 지정 헤어스타일 하나만; 얼굴·피부·의상은 부착 위치 참조용이지 새로 제작할 파츠가 아니다.
+- 의상: 사용자가 요청한 의상 한 벌만; 몸/머리/탈착형 액세서리를 새로 제작하지 않는다. 전신일 때 실제 있는 하의만 추가한다.
+- 액세서리: 요청한 소품 한 종류만, 부착 앵커와 연결부만. 예시의 소품을 전부 세트로 만들지 않는다.
+
+2D 결과는 자기 파츠의 RGBA PNG·같은 캔버스/원점·레이어 순서·실제 합성본을 요구한다. 3D 결과는 자기 자산의 실제 전후좌우 시점 원화·turnaround를 요구하며 2D 파츠나 VRM/메시 생성은 요구하지 않는다. Live2D/Inochi2D 공식 기능 설명은 그림에서 필요한 구조를 **참고**할 뿐 이미지 AI가 해당 편집기 기능을 실행하라는 요구가 아니다.
+
+기존에 여러 ZIP에 같은 본문을 복제하던 테스트를 폐기하고, 이제는 각 ZIP의 제작 대상 및 금지 대상이 일치하는지를 검사한다. **이 테스트는 그림 자체의 예술적 완성도를 증명하지 않는다.**
