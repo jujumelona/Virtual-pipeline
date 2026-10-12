@@ -84,6 +84,7 @@ def test_budget_is_supplied_before_official_generation(
     assert result["atlas_quality"] == "severely_downscaled"
     assert result["effective_texture_detail_verified"] is False
     assert result["rig_options"]["upscale_factor"] == 1
+    assert result["rig_options"]["mouth_outline_generated"] is False
     assert result["nunif_model_configured"] is False
     assert psd.read_bytes() == original
 
@@ -543,3 +544,32 @@ def test_resume_existing_artwork_zip_requires_actual_layered_psd(tmp_path):
         package.writestr("README.md", "No PSD here")
     with pytest.raises(ValueError, match="ROOT_AVATAR_OR_BODY_PSD"):
         bridge.rig_existing_artwork_zip(uploaded, tmp_path / "out", edition="pro")
+
+
+def test_authored_mouth_does_not_create_duplicate_painted_lips():
+    """The supplied mouth layers map to exclusive open/close states."""
+    from tools.vts_psd2live_names import normalize_layer_names
+    inputs = [
+        {"name": "mouth.upper.000", "image": object()},
+        {"name": "mouth.lower.001", "image": object()},
+        {"name": "mouth.inside.016", "image": object()},
+        {"name": "mouth.tongue.017", "image": object()},
+    ]
+    result, trace = normalize_layer_names(inputs)
+    assert result[0]["name"].startswith("mouth close_")
+    assert result[1]["name"].startswith("mouth close_")
+    assert result[2]["name"].startswith("mouth open_")
+    assert result[3]["name"].startswith("tongue_")
+    assert [x["semantic_tag"] for x in trace["records"]] == [
+        "mouth close", "mouth close", "mouth open", "tongue"]
+
+
+def test_psd2live_launcher_suppresses_synthetic_lip_ribbons():
+    root = Path(__file__).resolve().parents[1]
+    bridge = (root / "tools/psd2live_bridge/VtsRigMain.kt").read_text(encoding="utf-8")
+    assert '"--mouth-outline"' in bridge
+    assert 'mouthOutlineEnabled = when (value("--mouth-outline"))' in bridge
+    from tools import vts_psd2live
+    script = (root / "tools/vts_psd2live.py").read_text(encoding="utf-8")
+    assert '--mouth-outline false' in script
+    assert vts_psd2live.PSD2LIVE_REF == "v3.3.1"
