@@ -684,10 +684,10 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
                         generated_psd: Path | None = None,
                         third_party: Path | None = None,
                         qwen: bool = False, qwen_layers: int = 4,
-                        qwen_passes: int = 32, psd2live: bool = True,
+                        qwen_passes: int = 32, psd2live: bool = False,
                         preserve_supplied_parts: bool = False,
                         _worker: bool = False) -> dict:
-    """Build real layered PSD, then PSD2Live model bundle for eligible assets.
+    """Build editable layered PSD; optionally run PSD2Live when explicitly requested.
 
     A detachable PRO hair/outfit/accessory is not a full Live2D character.
     """
@@ -941,7 +941,7 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="VTS FREE/PRO PSD + PSD2Live MOC3 auto-rigging")
+    ap = argparse.ArgumentParser(description="VTS FREE/PRO layered PSD creation (optional PSD2Live)")
     ap.add_argument("--edition", required=True, choices=("free", "pro"))
     ap.add_argument("--scope", required=True, choices=("upper", "full"))
     ap.add_argument("--master", type=Path, required=True)
@@ -951,9 +951,9 @@ def main() -> None:
     ap.add_argument("--qwen", dest="qwen", action="store_true", default=False, help="Enable optional Qwen only for PRO hair/accessory (default OFF)")
     ap.add_argument("--no-qwen", dest="qwen", action="store_false", help="Explicitly skip Qwen refinement; output may be insufficient for detailed rigging")
     ap.add_argument("--psd2live", dest="psd2live", action="store_true",
-                    default=True, help="Rig FREE/full character with PSD2Live CLI (default)")
+                    default=False, help="Opt in to third-party PSD2Live CLI; default PSD-only")
     ap.add_argument("--no-psd2live", dest="psd2live", action="store_false",
-                    help="Export PSD-only handoff")
+                    help="Explicitly produce PSD-only handoff (default)")
     ap.add_argument("--qwen-layers", type=int, default=4)
     ap.add_argument("--qwen-passes", type=int, default=32)
     ap.add_argument("--asset", choices=("body", "hair", "outfit", "accessory"), help="Required for PRO")
