@@ -101,3 +101,22 @@ def test_readme_explains_phase_and_not_yet_connected_production():
     assert "Live2D 상반신" in text and "Inochi2D 전신" in text
     assert "신체만" in text and "액세서리만" in text
     assert "구조 개편" in text and "후속 단계" in text
+
+
+def test_v8_live2d_real_native_rigging_is_executed_when_requested():
+    """Regression: a completed image-AI ZIP must not silently stop at a PSD."""
+    cells = code_cells()
+    assert len(cells) >= 9
+    assert 'EDITION = "pro"' in cells[4]
+    assert 'RIGGING = "auto"' in cells[4]
+    assert 'DO_NATIVE_RIG' in cells[4]
+    assert 'prepare_psd2live()' in cells[6]
+    assert 'psd2live=DO_NATIVE_RIG' in cells[7]
+    assert 'psd2live=False' not in cells[7]
+    assert 'result.get("moc3_generated")' in cells[7]
+    for filename in (".moc3", ".model3.json", ".cmo3"):
+        assert filename in cells[7]
+    assert 'metadata/psd2live_bridge.json' in cells[7]
+    assert 'files.download' in cells[8]
+    # The first four cells must remain side-effect-free selectors.
+    assert "prepare_psd2live" not in "\n".join(cells[:4])
