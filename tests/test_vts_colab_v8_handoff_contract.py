@@ -34,6 +34,29 @@ def test_colab_live2d_handoff_has_uploaded_inputs_and_real_builder():
     assert "실제 시각 품질, 가림 복원, Cubism Editor 동작: 미검증" in combined
 
 
+def test_pro_reference_same_filename_preserves_both_uploads(tmp_path, monkeypatch):
+    """A body PNG with the same name must never overwrite the asset PNG."""
+    cell = next(c for c in _load_cells() if "#@title ⑥ 실제 파일 업로드" in c)
+    cell = cell.replace('"/content/live2d_handoff"', repr(str(tmp_path)))
+    google = ModuleType("google")
+    colab = ModuleType("google.colab")
+    files = ModuleType("google.colab.files")
+    received = iter([{"shared.png": b"asset-pixels"}, {"shared.png": b"body-pixels"}])
+    files.upload = lambda: next(received)
+    colab.files = files
+    google.colab = colab
+    monkeypatch.setitem(sys.modules, "google", google)
+    monkeypatch.setitem(sys.modules, "google.colab", colab)
+    monkeypatch.setitem(sys.modules, "google.colab.files", files)
+    state = {"INPUT_KIND": "single_image", "EDITION": "pro", "ASSET": "hair"}
+    exec(compile(cell, "cell-6", "exec"), state)
+    asset, body = state["INPUT_FILE"], state["REFERENCE_FILE"]
+    assert asset != body
+    assert asset.read_bytes() == b"asset-pixels"
+    assert body.read_bytes() == b"body-pixels"
+    assert asset.parent.name == "input" and body.parent.name == "reference"
+
+
 @pytest.mark.parametrize("missing_mask", [False, True])
 def test_colab_live2d_handoff_checks_real_result_zip(tmp_path, monkeypatch, missing_mask):
     cell = next(c for c in _load_cells() if "#@title ⑧ 실제 Live2D PSD 제작" in c)
