@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+import hashlib
 import json
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -176,3 +177,79 @@ def test_image_ai_only_zip_misaligned_canvas_refused(tmp_path):
             z.writestr(name, content)
     with pytest.raises(ValueError, match="AI_PACK_CANVAS_MISMATCH"):
         inspect_large_ai_pack(pack)
+
+
+def _rewrite_artwork_pack(path, modify):
+    with ZipFile(path) as archive:
+        entries = {name: archive.read(name) for name in archive.namelist()}
+    manifest = json.loads(entries["manifest.json"])
+    modify(entries, manifest)
+    entries["manifest.json"] = json.dumps(manifest).encode("utf-8")
+    with ZipFile(path, "w", ZIP_DEFLATED) as archive:
+        for name, data in entries.items():
+            archive.writestr(name, data)
+
+
+@pytest.mark.parametrize("identifier", ["eye.left.iris", "hair.back", "outfit.sleeve.left"])
+def test_hierarchical_part_id_keeps_semantic_identity(tmp_path, identifier):
+    source = make_pack(tmp_path)
+
+    def modify(entries, manifest):
+        manifest["parts"][0]["id"] = identifier
+        manifest["parts"][0]["file"] = f"isolated_parts/{identifier}.png"
+        entries[f"isolated_parts/{identifier}.png"] = entries.pop("isolated_parts/hair_back.png")
+
+    _rewrite_artwork_pack(source, modify)
+    imported = inspect_large_ai_pack(source)
+    assert imported["parts"][0]["id"] == identifier
+
+
+@pytest.mark.parametrize("identifier", ["eye..iris", "hair.", ".hair", "eye/left"])
+def test_hierarchical_part_id_rejects_invalid_segments(tmp_path, identifier):
+    source = make_pack(tmp_path)
+
+    def modify(entries, manifest):
+        manifest["parts"][0]["id"] = identifier
+        manifest["parts"][0]["file"] = f"isolated_parts/{identifier}.png"
+
+    _rewrite_artwork_pack(source, modify)
+    with pytest.raises(ValueError, match="AI_PACK_PART_ID_INVALID"):
+        inspect_large_ai_pack(source)
+
+
+def test_manifest_declared_png_sha256_checks_bytes(tmp_path):
+    source = make_pack(tmp_path)
+
+    def modify(entries, manifest):
+        manifest["master"]["sha256"] = hashlib.sha256(entries["outputs/master.png"]).hexdigest()
+        manifest["parts"][0]["sha256"] = hashlib.sha256(
+            entries["isolated_parts/hair_back.png"]).hexdigest()
+
+    _rewrite_artwork_pack(source, modify)
+    assert len(inspect_large_ai_pack(source)["parts"]) == 3
+
+    def tamper(entries, manifest):
+        entries["isolated_parts/hair_back.png"] = _png(
+            (640, 768), (100, 110, 140, 160), color=(10, 99, 40, 255))
+
+    _rewrite_artwork_pack(source, tamper)
+    with pytest.raises(ValueError, match="AI_PACK_SHA256_MISMATCH"):
+        inspect_large_ai_pack(source)
+
+
+def test_manifest_rejects_wrong_master_hash_and_malformed_digest(tmp_path):
+    source = make_pack(tmp_path)
+
+    def invalid(entries, manifest):
+        manifest["master"]["sha256"] = "not-a-sha256"
+
+    _rewrite_artwork_pack(source, invalid)
+    with pytest.raises(ValueError, match="AI_PACK_SHA256_INVALID"):
+        inspect_large_ai_pack(source)
+
+    def wrong(entries, manifest):
+        manifest["master"]["sha256"] = "0" * 64
+
+    _rewrite_artwork_pack(source, wrong)
+    with pytest.raises(ValueError, match="AI_PACK_SHA256_MISMATCH"):
+        inspect_large_ai_pack(source)
