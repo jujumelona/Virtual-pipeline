@@ -129,3 +129,70 @@ def test_rebuild_inputs_keep_source_snapshots_without_legacy_parts_first():
     practical=(ROOT/"source/PRACTICAL_TIPS_2D.md").read_text(encoding="utf-8")
     assert "원화가 완성된 후 마스크로 뜯어내지 않는다" not in practical
     assert "완성 기준 원화 먼저" in practical
+
+
+PROFESSIONAL_GUIDES = (
+    "02_ADVANCED_PARTS.md", "03_MODE_RULES.md",
+    "06_ADVANCED_OFFICIAL_COMMUNITY.md", "07_REVIEW_BEFORE_FINAL_ZIP.md",
+    "08_PRACTICAL_TIPS.md", "09_VISUAL_ART_QUALITY.md",
+    "10_ANIME_STYLE.md",
+)
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("asset", ASSETS)
+def test_every_kit_has_asset_specific_2026_10_13_craft_guidance(published, mode, asset):
+    """The specialty art guidance must be INSIDE each 14-MD ZIP, not just in README."""
+    docs = published[f"{mode}__{asset}"]
+    for name in PROFESSIONAL_GUIDES:
+        document = docs[name]
+        assert "2026-10-13" in document, (mode, asset, name)
+        assert len(document) >= 260, (mode, asset, name)
+    assert "https://" in docs["06_ADVANCED_OFFICIAL_COMMUNITY.md"]
+    assert "실제" in docs["07_REVIEW_BEFORE_FINAL_ZIP.md"]
+    assert "no " in docs["10_ANIME_STYLE.md"].lower() or "ONLY" in docs["10_ANIME_STYLE.md"]
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_2d_specialty_guides_keep_engine_specific_sources_and_no_3d_contracts(published, mode):
+    if mode == "3d":
+        return
+    for asset in ASSETS:
+        docs = published[f"{mode}__{asset}"]
+        source = docs["06_ADVANCED_OFFICIAL_COMMUNITY.md"]
+        scope = docs["03_MODE_RULES.md"]
+        if mode.startswith("inochi2d"):
+            assert "docs.inochi2d.com" in source
+            assert "그림자" in source and "Sorting" in source
+            assert "Creator" in source
+        else:
+            assert "docs.live2d.com" in source
+        assert "전후좌우를 독립 작화" not in scope
+    assert "1~2" in published["live2d_bust_up__body"]["03_MODE_RULES.md"]
+
+
+def test_3d_specialty_illustrations_never_claim_native_vrm(published):
+    for asset in ASSETS:
+        docs = published[f"3d__{asset}"]
+        assert "vrm.dev" in docs["06_ADVANCED_OFFICIAL_COMMUNITY.md"]
+        assert "3D 참조도 전용" in docs["03_MODE_RULES.md"]
+        assert "3D" in docs["10_ANIME_STYLE.md"]
+        assert "가짜" in docs["07_REVIEW_BEFORE_FINAL_ZIP.md"] or "미러링" in docs["03_MODE_RULES.md"]
+        assert "VRM" in docs["03_MODE_RULES.md"]
+
+
+def test_source_files_no_longer_contradict_master_first_authoring():
+    """Do not reintroduce parts-first rules in the source copied by the ZIP builder."""
+    root = ROOT / "source"
+    sources = ("BODY_2D.md", "HAIR_2D.md", "OUTFIT_2D.md",
+               "ACCESSORY_2D.md", "QUALITY_STANDARD_2D.md",
+               "ANIME_VTUBER_STYLE_2D.md")
+    for name in sources:
+        assert (root / name).read_text(encoding="utf-8").strip(), name
+    hair=(root / "HAIR_2D.md").read_text(encoding="utf-8")
+    outfit=(root / "OUTFIT_2D.md").read_text(encoding="utf-8")
+    quality=(root / "QUALITY_STANDARD_2D.md").read_text(encoding="utf-8")
+    assert "먼저 요청된 헤어스타일 하나의 고품질 완성 원화" in hair
+    assert "완성 원화 우선" in outfit
+    assert "마스터로 먼저 생성" in quality
+    assert "원화가 완성된 후 마스크로 뜯어내지 않는다" not in hair+outfit+quality
