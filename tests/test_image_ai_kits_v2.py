@@ -168,3 +168,18 @@ def test_rebuild_source_snapshots_are_identical_to_sources():
         assert len(bundle) == 10
         for name, body in bundle.items():
             assert body == (ROOT_KITS / "source" / name).read_text(encoding="utf-8")
+
+
+def test_live2d_upper_body_kit_declares_colab_master_file():
+    """An image AI's result ZIP must be readable by the real Colab importer."""
+    path = ROOT_KITS / "zips" / "live2d_upper__body.zip"
+    with ZipFile(path) as archive:
+        assert archive.testzip() is None
+        assert set(archive.namelist()) == ZIP_MEMBERS
+        guide = archive.read("04_OUTPUT_FILES.md").decode("utf-8")
+    assert "outputs/master.png" in guide
+    assert "isolated_parts/" in guide
+    assert "layer_order.txt" in guide
+    assert "previews/composite_preview.png" in guide
+    assert "master_original.png" in guide
+    assert "최신 Colab" in guide
