@@ -148,10 +148,10 @@ def test_all_original_anime_kits_are_valid_with_fourteen_documents():
                 if mode != "3d":
                     assert "RGBA" in output
                     if asset == "body":
-                    assert "눈" in advanced and "입" in advanced
-                else:
-                    assert asset in ("hair", "outfit", "accessory")
-                    assert "원화" in advanced
+                        assert "눈" in advanced and "입" in advanced
+                    else:
+                        assert asset in ("hair", "outfit", "accessory")
+                        assert "원화" in advanced
                 else:
                     assert "3D" in advanced and "SpringBone" in advanced
 
