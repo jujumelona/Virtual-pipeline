@@ -122,3 +122,13 @@ def test_v8_live2d_real_native_rigging_is_executed_when_requested():
     assert 'files.download' in cells[8]
     # The first four cells must remain side-effect-free selectors.
     assert "prepare_psd2live" not in "\n".join(cells[:4])
+
+
+def test_v8_can_resume_existing_live2d_psd_zip_without_resplitting():
+    cells = code_cells()
+    assert '"existing_psd_zip"' in cells[4]
+    assert '"existing_psd_zip"' in cells[5]
+    assert "rig_existing_artwork_zip" in cells[7]
+    assert 'if INPUT_KIND == "existing_psd_zip"' in cells[7]
+    assert "분해·재생성·PSD 재출력 생략" in cells[7]
+    assert "psd2live=DO_NATIVE_RIG" in cells[7]
