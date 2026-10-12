@@ -322,7 +322,7 @@ def test_readme_badge_targets_new_four_code_cell_selection_notebook():
     notebook = json.loads(_read(notebook_file))
     cells = ["".join(c.get("source", [])) for c in notebook["cells"]
              if c.get("cell_type") == "code"]
-    assert len(cells) == 4
+    assert len(cells) >= 9  # Live2D production cells follow the four selectors
     setup, top, assets, summary = cells
     assert '"git", "clone"' in setup and '"main"' in setup
     assert "colab_app.py" not in setup
