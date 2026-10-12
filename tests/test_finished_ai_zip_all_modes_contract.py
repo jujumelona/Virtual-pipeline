@@ -60,3 +60,19 @@ def test_free_body_is_not_forced_to_pro_in_all_modes():
     assert "asset_kind=ASSET if EDITION=='pro' else None" in production
     assert "psd2live=(ASSET=='body')" in production
     assert "EDITION='pro' #@param" not in selection
+
+
+def test_no_global_license_or_accessory_anchor_selector():
+    notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+    cells = ["".join(cell["source"]) for cell in notebook["cells"]
+             if cell["cell_type"] == "code"]
+    selection, validation, production = cells[1], cells[3], cells[4]
+    assert "USAGE" not in "\n".join(cells)
+    assert "ANCHOR" not in "\n".join(cells)
+    assert "#@param ['corporation'" not in selection
+    assert "'HEAD_TOP' #@param" not in selection
+    assert "prepare_selected_mode('3d',prewarm_first_gpu=False)" in production
+    assert "prepare_selected_mode('inochi2d',provided_2d_layers=True)" in production
+    assert "commercial_usage=USAGE" not in production
+    assert "resolve_accessory_placement(SOURCE,views['front'])" in validation
+    assert "str(paths['front']),ATTACHMENT" in production
