@@ -66,10 +66,18 @@ def _alias(original: str, sam_label: str | None) -> tuple[str | None, str]:
         if "front" in tail or "side" in tail or "bang" in tail:
             return "front hair", "explicit_hair_depth"
     if family == "mouth":
+        # Image-AI authored mouth parts need exclusive states rather than
+        # three independent preset MOUTH drawables shown simultaneously.
+        # The actual layer pixels stay untouched and the animation/occlusion
+        # must still be visually checked in Cubism/VTube Studio.
         if "tongue" in tail:
             return "tongue", "explicit_mouth_part"
         if "teeth" in tail or "tooth" in tail:
             return ("tooth-b" if tail & {"bottom", "lower", "b"} else "tooth-t"), "explicit_mouth_part"
+        if tail & {"inside", "inner", "interior", "open", "opened"}:
+            return "mouth open", "explicit_open_mouth_source"
+        if tail & {"upper", "lower", "closed", "close", "lip"}:
+            return "mouth close", "explicit_closed_lip_source"
         if "open" in tail:
             return "mouth open", "explicit_mouth_part"
         if "close" in tail or "closed" in tail:
