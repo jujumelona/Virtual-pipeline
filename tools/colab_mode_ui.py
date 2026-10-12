@@ -52,6 +52,8 @@ class AssetSelection:
 
 def select_mode(top_mode: str, asset_kind: str) -> AssetSelection:
     """Validate UI state; no model or filesystem side effects."""
+    if top_mode == "live2d_bust_up":
+        raise ValueError("Live2D 바스트업은 현재 이미지 AI 제작 지시 ZIP 모드입니다. Colab 실행 모드로 연결되지 않았으므로 Live2D 상반신/전신을 선택하세요.")
     if top_mode not in TOP_MODE_CHOICES:
         raise ValueError("상위 제작 모드는 Live2D 상반신/전신, Inochi2D 상반신/전신, 3D 중 선택하세요.")
     if asset_kind not in ASSET_KINDS:
