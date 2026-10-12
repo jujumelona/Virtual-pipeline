@@ -130,3 +130,16 @@ def test_builder_templates_prioritize_master_first_and_no_cross_asset_generation
     assert "눈 흰자·홍채·입안·귀·목·관절은 신체" in common
     assert "3D 참조도에서는" in common
     assert "다른 자산을 생성하지 않고" in practical
+
+
+def test_3d_source_does_not_force_body_anatomy_into_other_assets():
+    source=ROOT/"source"
+    quality=(source/"QUALITY_STANDARD_3D.md").read_text(encoding="utf-8")
+    anime=(source/"ANIME_VTUBER_STYLE_3D.md").read_text(encoding="utf-8")
+    review=(source/"REPEAT_REVIEW_3D.md").read_text(encoding="utf-8")
+    tips=(source/"PRACTICAL_TIPS_3D.md").read_text(encoding="utf-8")
+    assert "**신체에만**" in quality and "**의상에만**" in quality
+    assert "헤어라면" in anime and "장식이라면" in anime
+    assert "신체 ZIP에서만" in anime
+    assert "헤어는 머리 중심" in review
+    assert "손발/골반 그림이나 인체 포즈를 강제하지 않는다" in tips
