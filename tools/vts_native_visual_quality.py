@@ -114,3 +114,43 @@ def review_psd2live_export(model_dir: Path, artwork_zip: Path | None = None) -> 
         "STYLE_EARS_PROPORTIONS_BODY_SHADING_NEED_VISUAL_REVIEW: "
         "a ZIP/JSON or MOC3 signature check is not artistic verification")
     return report
+
+
+def require_live2d_body_underpaint(parts: list[dict], canvas: tuple[int, int]) -> dict:
+    """Fail before heavy model downloads only on an objectively unpainted seam.
+
+    Applies to a body ZIP with independently authored neck and torso sprites.
+    Source art without separate neck/torso layers uses a different joint and
+    remains review-required rather than being wrongly classified as broken.
+    This necessary source overlap is NOT sufficient proof of no clipping.
+    """
+    def find_family(targets):
+        found = []
+        for part in parts:
+            tokens = str(part.get("id", "")).lower().replace(".", "_").split("_")
+            if tokens and tokens[0] in targets:
+                found.append(part)
+        return found[0] if len(found) == 1 else None
+
+    neck = find_family({"neck"})
+    torso = find_family({"torso", "body", "topwear"})
+    if not neck or not torso:
+        return {"status": "NOT_ASSESSED_ALTERNATE_LAYER_STRUCTURE",
+                "neck_body_overlap_pixels": None, "editor_review_required": True}
+    from PIL import Image
+    import numpy as np
+    def alpha_canvas(part):
+        picture = part["image"].convert("RGBA")
+        left, top = int(part["left"]), int(part["top"])
+        layer = Image.new("L", canvas, 0)
+        layer.paste(picture.getchannel("A"), (left, top))
+        return np.asarray(layer) > 10
+    px = int((alpha_canvas(neck) & alpha_canvas(torso)).sum())
+    if px == 0:
+        raise ValueError(
+            "AI_ARTWORK_NECK_BODY_UNDERPAINT_MISSING: neck/torso painted alpha "
+            "intersection is 0 pixels. Draw the neck underneath the torso "
+            "joint, preserving skin colour/shading, before native rigging; "
+            "otherwise head/body rotation can reveal a transparent cut.")
+    return {"status": "SHARED_PIXELS_PRESENT_VISUAL_ROTATION_STILL_UNVERIFIED",
+            "neck_body_overlap_pixels": px, "editor_review_required": True}
