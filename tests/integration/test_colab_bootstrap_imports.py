@@ -212,7 +212,7 @@ def test_setup_stage_prints_and_persists_exception(tmp_path, capsys):
 def test_readme_canonical_notebook_uses_new_shared_asset_ui():
     path = ROOT / "notebooks" / "VTuber_Commercial_Pipeline_Colab_v8.ipynb"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb" in readme
+    assert "blob/main/notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb" in readme
     cells = ["".join(c["source"]) for c in json.loads(
         path.read_text(encoding="utf-8"))["cells"] if c["cell_type"] == "code"]
     assert len(cells) >= 9
