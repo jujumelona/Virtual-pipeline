@@ -109,7 +109,9 @@ def test_v8_live2d_real_native_rigging_is_executed_when_requested():
     """Regression: a completed image-AI ZIP must not silently stop at a PSD."""
     cells = code_cells()
     assert len(cells) >= 9
-    assert 'EDITION = "pro"' in cells[4]
+    assert 'EDITION = "free"' in cells[4]
+    assert '"FREE도 신체만 모델을 제작할 수 있습니다.' in cells[4]
+    assert '신체만 ZIP은 PRO body를 선택하세요' not in cells[4]
     assert 'RIGGING = "auto"' in cells[4]
     assert 'DO_NATIVE_RIG' in cells[4]
     assert 'prepare_psd2live()' in cells[6]
