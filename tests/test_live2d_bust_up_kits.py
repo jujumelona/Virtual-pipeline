@@ -16,6 +16,11 @@ def test_bust_up_four_published_zips_are_valid_and_distinct():
         with ZipFile(path) as z:
             assert z.testzip() is None
             assert len(z.namelist()) == 14
+            advanced=z.read("06_ADVANCED_OFFICIAL_COMMUNITY.md").decode("utf-8")
+            practical=z.read("08_PRACTICAL_TIPS.md").decode("utf-8")
+            assert "precautions-for-psd-data" in advanced
+            assert "synthesize-corners" in advanced
+            assert "원본 기준 원화" in practical
             assert len(set(z.namelist())) == 14
             master=z.read("00_MASTER_FIRST.md").decode("utf-8")
             mode=z.read("03_MODE_RULES.md").decode("utf-8")
