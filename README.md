@@ -58,6 +58,12 @@ PDF/PSD 편집 자산과 방송용 실제 네이티브 모델은 구분합니다
 
 [현재 Colab v8](notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb)의 **① GitHub main 동기화 → ② 상위 모드 → ③ 자산 → ④ 선택 확인**은 다운로드 없는 UI 선택 셀입니다. **Live2D를 선택한 경우 ⑤ FREE/PRO·입력 유형 → ⑥ 이미지 또는 파츠 ZIP 업로드 → ⑦ 필요한 런타임 준비 → ⑧ 실제 PSD 제작과 결과 ZIP 검사 → ⑨ 다운로드**를 수행합니다. FREE는 완성 이미지 한 장을 입력하며, PRO body/hair/outfit/accessory는 독립 제작합니다. PRO 탈착 자산은 같은 크기 기준 몸체 PNG가 필요합니다.
 
+### 이미 받은 PSD 결과 ZIP을 다시 분해하지 않고 리깅하기
+
+이미 `Live2D_FREE_upper.zip`처럼 `avatar.psd`가 들어 있는 **결과 ZIP**을 가지고 있다면, v8 Live2D 전용 Colab에서 **⑤ EDITION=pro(신체만인 경우), RIGGING=auto, INPUT_KIND=existing_psd_zip**을 선택합니다. **⑥ 결과 ZIP 업로드 → ⑦ PSD2Live CLI 설치/컴파일 → ⑧ 기존 PSD 바이트 재사용 후 네이티브 제작 → ⑨ ZIP 다운로드** 순서입니다. 이 경로는 See-through·Qwen을 다시 실행하거나 이미 저장된 파츠를 재생성하지 않습니다.
+
+완성된 헤어·의상이 없는 신체 전용 PNG/PSD는 FREE **완성 캐릭터**가 아닙니다. 네이티브 MOC3 생성에 성공하더라도 신체만 움직이는 모델이며, 헤어·의상을 추가하려면 결합 작업이 남습니다. 실제 VTube Studio 동작·키폼·물리 자연스러움은 결과 파일 검사만으로 입증되지 않습니다.
+
 ### 사용하지 않는 것
 
 - **앞의 네 선택 셀에서는** See-through/SAM/Qwen 다운로드나 추론이 없습니다. Live2D 후속 제작 셀에서는 FREE 완성 이미지와 PRO 신체 단일 이미지에 한해 See-through NF4 준비·추론 경로를 사용하고, 이미 분리된 이미지 AI ZIP은 중복 추론을 생략합니다.
