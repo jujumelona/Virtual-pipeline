@@ -189,13 +189,13 @@ def test_qwen_plans_match_real_mode_gate(identity, edition, asset, expected):
 
 
 def test_published_image_ai_kits_replace_retired_single_zip():
-    """Check the actual 20 published briefs, not a removed legacy archive."""
+    """Check every published brief, including the four new bust-up ZIPs."""
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
     assert not (root / "docs/live2d_image_ai_kit/Live2D_Image_AI_Instruction_Kit.zip").exists()
     packages = sorted((root / "docs/image_ai_kits_v2/zips").glob("*.zip"))
-    assert len(packages) == 20
+    assert len(packages) == 24  # Includes 4 independent live2d_bust_up kits
     required = {
         "00_MASTER_FIRST.md",
         "00_DELIVERY_AND_RECHECK.md",
