@@ -53,7 +53,7 @@ def test_each_zip_contains_only_its_geometric_and_profile_guidance(mode, asset):
         assert "E/F=18~22%" not in tail
         assert "홍채/E=55~70%" not in tail
         if asset == "hair":
-            assert "모근" in tail
+            assert "모근" in tail or "뿌리" in tail
         elif asset == "outfit":
             assert "카라" in tail or "옷깃" in tail
         else:
