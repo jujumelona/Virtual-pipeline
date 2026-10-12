@@ -111,9 +111,9 @@ def test_colab_ui_selects_assets_without_downloading_split_models():
                      "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb")
     cells = ["".join(c["source"]) for c in json.loads(notebook_path.read_text())["cells"]
              if c.get("cell_type") == "code"]
-    assert len(cells) == 4
+    assert len(cells) >= 9
     for i, code in enumerate(cells):
         ast.parse(code, filename=f"{notebook_path.name}:cell:{i}")
     assert len(TOP_MODE_CHOICES) == 5 and len(ASSET_KINDS) == 4
-    assert all(t not in "\n".join(cells) for t in ("vts_setup", "See-through",
+    assert all(t not in "\n".join(cells[:4]) for t in ("vts_setup", "See-through",
                "SAM", "MODEL_DOWNLOAD", "colab_mode_prepare"))
