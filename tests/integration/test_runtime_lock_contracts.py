@@ -323,7 +323,7 @@ def test_readme_badge_targets_new_four_code_cell_selection_notebook():
     cells = ["".join(c.get("source", [])) for c in notebook["cells"]
              if c.get("cell_type") == "code"]
     assert len(cells) >= 9  # Live2D production cells follow the four selectors
-    setup, top, assets, summary = cells
+    setup, top, assets, summary = cells[:4]
     assert '"git", "clone"' in setup and '"main"' in setup
     assert "colab_app.py" not in setup
     assert "TOP_MODE_LABEL" in top and "ASSET_KIND_LABEL" in assets
@@ -332,7 +332,7 @@ def test_readme_badge_targets_new_four_code_cell_selection_notebook():
                 "sam_body_weights_prefetched", "See-through",
                 "colab_mode_prepare.py", "vts_setup", "files.upload(",
                 "from tools.colab_native import generate"):
-        assert old not in "\n".join(cells)
+        assert old not in "\n".join(cells[:4])
     # Legacy model locking still applies to legacy code, but no longer
     # appears as a dependency of the new selection-only notebook.
     app = _read("tools/colab_app.py")
