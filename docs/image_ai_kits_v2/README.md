@@ -1,9 +1,10 @@
-# 이미지 AI 제작 지시서 ZIP — 5개 상위 모드 × 4개 자산 = 20종
+# 이미지 AI 제작 지시서 ZIP — 6개 지시 모드 × 4개 자산 = 24종
 
 **각 ZIP 하나에 해당 작업의 실제 제작 문서 14개를 넣었습니다.** 사용자는 아래에서 모드와 자산 종류를 조합해 한 개를 내려받아 실제 이미지 생성·파일 저장 도구를 갖춘 GPT/Gemini에 그대로 첨부하고, 원하는 디자인을 설명하면 됩니다.
 
 | 상위 모드 | 신체만 | 헤어만 | 의상만 | 액세서리만 |
 |---|---|---|---|---|
+| **Live2D 바스트업 (방송용)** | [ZIP](zips/live2d_bust_up__body.zip) | [ZIP](zips/live2d_bust_up__hair.zip) | [ZIP](zips/live2d_bust_up__outfit.zip) | [ZIP](zips/live2d_bust_up__accessory.zip) |
 | **Live2D 상반신** | [ZIP](zips/live2d_upper__body.zip) | [ZIP](zips/live2d_upper__hair.zip) | [ZIP](zips/live2d_upper__outfit.zip) | [ZIP](zips/live2d_upper__accessory.zip) |
 | **Live2D 전신** | [ZIP](zips/live2d_full__body.zip) | [ZIP](zips/live2d_full__hair.zip) | [ZIP](zips/live2d_full__outfit.zip) | [ZIP](zips/live2d_full__accessory.zip) |
 | **Inochi2D 상반신** | [ZIP](zips/inochi2d_upper__body.zip) | [ZIP](zips/inochi2d_upper__hair.zip) | [ZIP](zips/inochi2d_upper__outfit.zip) | [ZIP](zips/inochi2d_upper__accessory.zip) |
@@ -40,7 +41,7 @@
 
 **Live2D/Inochi2D:** 먼저 고품질 기준 원화를 완성한 뒤 움직임/가림별 실제 RGBA 파츠를 추출하고 숨은 피부를 추가 작화하여 마지막에 합성. **3D:** 앞/뒤/좌/우·얼굴 눈코입 등의 실제 그림을 각도별로 별도 생성; **VRM 모델을 이미지 AI에 생성시키지 않음**.
 
-**이 20개 ZIP은 제작 지시서이지 실제 완성 그림 ZIP이 아닙니다.** 각 작업의 외부 이미지 AI는 고급 파츠/각도 그림을 만든 후 **07의 적용 가능한 이미지·파일 기준을 반복 점검하고 부족한 그림을 고쳐**, 전부 충족됐을 때만 별도 **결과 원화 ZIP**을 최종 납품하도록 지시받습니다. 실제 리깅/구동 검증을 시키지 않으며 미완성 결과를 거짓으로 완료 처리하지 않습니다.
+**이 24개 ZIP은 제작 지시서이지 실제 완성 그림 ZIP이 아닙니다.** 각 작업의 외부 이미지 AI는 고급 파츠/각도 그림을 만든 후 **07의 적용 가능한 이미지·파일 기준을 반복 점검하고 부족한 그림을 고쳐**, 전부 충족됐을 때만 별도 **결과 원화 ZIP**을 최종 납품하도록 지시받습니다. 실제 리깅/구동 검증을 시키지 않으며 미완성 결과를 거짓으로 완료 처리하지 않습니다.
 
 **Colab v8의 새 모드별 결과 ZIP 업로드·제작 경로는 아직 연결되지 않았습니다.** 지시서 배포/점검과 노트북 제작 엔진의 동작을 혼동하지 마세요.
 
@@ -51,7 +52,7 @@
 - **공식 3D:** [VRM Humanoid](https://vrm.dev/en/vrm1/humanoid/), [VRM 기능](https://vrm.dev/en/vrm/vrm_features/), [Blender UV](https://docs.blender.org/manual/en/latest/modeling/meshes/uv/unwrapping/introduction.html). 이미지 AI는 모델이 아닌 4면도와 부분 원화만 만든다.
 - **비공식 실무:** [Live2D 작화/파츠 그룹](https://www.reddit.com/r/Live2D/comments/15lc7ku/), [세밀한 레이어 구분](https://www.reddit.com/r/Live2D/comments/1140xr5/), [숨은 옷감 보완](https://www.reddit.com/r/Live2D/comments/1myir8h), [3D 참조 시트](https://virmii.com/blog/tutorial/how-to-make-vtuber-reference-sheet). 개인 작업 노하우이며 공식 고정 규격이 아니다.
 
-**20개 ZIP 검증:** `tests/test_image_ai_kits_v2.py`에서 ZIP 20개 파일 존재·CRC 무결성·문서 14종(애니풍 선화 + 공식 시각 이미지 링크 포함)·고급 공식/비공식 원문·반복 점검 지시·모드/자산별 파일 계약을 검사한다. **이 검사는 생성된 캐릭터 그림의 실제 시각 품질 검사가 아니다.**
+**기존 20개 ZIP 검증:** `tests/test_image_ai_kits_v2.py`에서 ZIP 20개 파일 존재·CRC 무결성·문서 14종(애니풍 선화 + 공식 시각 이미지 링크 포함)·고급 공식/비공식 원문·반복 점검 지시·모드/자산별 파일 계약을 검사한다. **이 검사는 생성된 캐릭터 그림의 실제 시각 품질 검사가 아니다.**
 
 ## 최종 그림 ZIP 납품 전에 AI가 해야 할 반복 작업
 
@@ -83,3 +84,13 @@
 **실제 미리보기 링크:** [Tsumiki 공식 이미지](https://www.live2d.com/wp-content/themes/cubism_new/assets/img/sample/sample-img-tsumiki.png), [Izumi 공식 이미지](https://www.live2d.com/wp-content/themes/cubism_new/assets/img/sample/sample-img-izumi.jpg), [공식 샘플 모델](https://www.live2d.com/en/learn/sample/). [전체 시각 참고 설명](source/OFFICIAL_VISUAL_EXAMPLES.md)에도 두 그림이 Markdown 이미지로 링크됩니다.
 
 **주의:** 이미지 파일 자체는 저작권·재배포 규정 때문에 지시서 ZIP에 복사하지 않았습니다. 원격 이미지를 열 수 없는 이미지 AI에는 실제 예시가 시각적으로 전달되지 않을 수 있습니다. ZIP에 링크가 있다는 것과 그림을 실제 보았다는 것은 별개입니다.
+
+## Live2D 바스트업 — 상반신과 독립된 이미지 AI 제작 지시
+
+- 방송용 구도는 **머리 1높이 : 화면에 보이는 목·어깨·상체 약 1~2높이**를 시작점으로 하되, 복장·포즈에 맞게 조정합니다. 전신 6등신 조건을 이 잘린 화면 안에 강제로 적용하지 않습니다.
+- 원화 첫 생성부터 머리~가슴 상부에 집중하며 하체를 생성해 자르는 방식을 기본으로 하지 않습니다. 별도의 `live2d_upper`와 `live2d_full` ZIP은 유지합니다.
+- 큰 애니풍 홍채·눈과 부드러운 얼굴 윤곽, 목 회전 시 보이는 옆목·뒷목 underpaint, 어깨·옷깃 겹침 여유를 우선합니다. 측면 참조는 필요한 만큼만 요청하며 완전 측면/전신 6방향을 의무화하지 않습니다.
+- 신체 기본 베이스는 **불투명 상의나 속옷**으로 안전하게 가리며 노출 가능 부위는 불투명 마스킹합니다. 마스킹 아래 피부 복원·노출 버전 생성을 요구하지 않습니다. 민감한 표현을 피할 수 있도록 구도와 의복도 조정합니다.
+- PRO `hair/outfit/accessory` 지시서는 **이미 있는 기준 몸체의 동일 캔버스·원점·스케일**을 요구하며 몸체를 재생성하지 않습니다.
+- 이 네 ZIP은 **이미지 AI용 그림 제작 지시서**입니다. 실제 PNG·PSD·Cubism Editor 모델 파일이 담긴 결과물이 아니며, 현재 Colab에는 별도의 `bust_up` 런타임 분기가 아직 연결되지 않았습니다.
+- [바스트업 지시 ZIP 검증](../../tests/test_live2d_bust_up_kits.py)은 ZIP 구문·문서 계약만 검사합니다. 실제 애니풍 미술 품질이나 리깅은 인증하지 않습니다.
