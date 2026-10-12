@@ -130,6 +130,14 @@ def test_explicit_opaque_background_is_excluded(tmp_path):
     ("left iris", "eye.left.iris"),
     ("hair.back", "hair.back"),
     ("eye.right.lid", "eye.right.lid"),
+    ("eye_L_white", "eye.left.white"),
+    ("eye_R_iris", "eye.right.iris"),
+    ("eye_L_upper_lash", "eye.left.upper.lash"),
+    ("arm_L_upper", "arm.left.upper"),
+    ("hand_R", "hand.right"),
+    ("ear_L", "ear.left"),
+    ("brow_R", "eyebrow.right"),
+
     ("eyebrow.left", "eyebrow.left"),
     ("accessory pendant", "ornament"),
     ("nose", "nose"),
@@ -742,3 +750,22 @@ def test_pro_outfit_qwen_request_is_disabled_before_any_model_load(tmp_path, mon
         master, tmp_path / "result", edition="pro", scope="upper",
         asset_kind="outfit", reference_image=body, qwen=True)
     assert result["qwen_attempts"] == []
+
+
+def test_registered_ai_png_names_preserve_anatomy_side_and_iris(tmp_path):
+    """External authored L/R layer names must survive PSD registration."""
+    from psd_tools import PSDImage
+    from psd_tools.api.layers import PixelLayer
+    document = PSDImage.new("RGB", (256, 384))
+    for i, name in enumerate(("eye_L_white", "eye_R_iris", "brow_L", "arm_R_upper")):
+        layer = Image.new("RGBA", (32, 32), (120, 80, 90, 220))
+        PixelLayer.frompil(layer, document, name=name, left=40*i, top=20)
+    path = tmp_path / "authored.psd"
+    document.save(path)
+    _, archive, count = psd_to_registered_rgba(path, tmp_path / "registered", artmesh_max=100)
+    assert count == 4
+    with ZipFile(archive) as output:
+        filenames = output.namelist()
+    assert len(filenames) == 4
+    for name in ("eye.left.white", "eye.right.iris", "eyebrow.left", "arm.right.upper"):
+        assert any(filename.startswith(name + ".") for filename in filenames)
