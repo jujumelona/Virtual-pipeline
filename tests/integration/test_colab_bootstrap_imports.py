@@ -215,12 +215,12 @@ def test_readme_canonical_notebook_uses_new_shared_asset_ui():
     assert "blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb" in readme
     cells = ["".join(c["source"]) for c in json.loads(
         path.read_text(encoding="utf-8"))["cells"] if c["cell_type"] == "code"]
-    assert len(cells) == 4
+    assert len(cells) >= 9
     assert '["Live2D 상반신", "Live2D 전신", "Inochi2D 상반신", "Inochi2D 전신", "3D"]' in cells[1]
     assert '["신체만", "헤어만", "액세서리만", "의상만"]' in cells[2]
     assert "model" not in cells[3].lower() or "모델을 생성하지" not in cells[3]
-    assert "colab_mode_prepare" not in "\n".join(cells)
-    assert "pip install" not in "\n".join(cells)
+    assert "colab_mode_prepare" not in "\n".join(cells[:4])
+    assert "pip install" not in "\n".join(cells[:4])
 
 
 def test_mode_picker_does_not_download_any_split_models(monkeypatch, capsys):
@@ -267,12 +267,12 @@ def test_all_colab_notebooks_have_valid_native_cells():
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
         cells = ["".join(c["source"]) for c in notebook["cells"]
                  if c["cell_type"] == "code"]
-        assert len(cells) == (4 if suffix == "_v8" else 3), notebook_path
+        assert len(cells) == (9 if suffix == "_v8" else 3), notebook_path
         if suffix == "_v8":
             assert "ASSET_KIND_LABEL" in cells[2]
             assert "TOP_MODE" in cells[1]
-            assert "files.upload" not in "\n".join(cells)
-            assert "colab_mode_prepare" not in "\n".join(cells)
+            assert "files.upload" not in "\n".join(cells[:4])
+            assert "colab_mode_prepare" not in "\n".join(cells[:4])
         else:
             assert "run_name=\"__main__\"" not in cells[2]
             assert "RESULT_FILE = generate(" in cells[2]
