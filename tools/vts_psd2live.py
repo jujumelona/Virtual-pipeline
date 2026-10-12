@@ -324,6 +324,13 @@ def package_psd2live(result: dict, artwork_zip: Path, output_zip: Path) -> Path:
                     raise RuntimeError("PSD2LIVE_OUTPUT_RESERVED_PREFIX")
                 z.write(p, name)
             z.write(artwork_zip, "source_artwork/" + artwork_zip.name)
+            from tools.vts_native_visual_quality import review_psd2live_export
+            visual_review = review_psd2live_export(model.parent, artwork_zip)
+            z.writestr("metadata/visual_quality_review.json",
+                       json.dumps(visual_review, ensure_ascii=False, indent=2))
+            if visual_review["warnings"]:
+                print("[VTS VISUAL QUALITY NEEDS REVIEW] "
+                      + " | ".join(visual_review["warnings"]), flush=True)
             z.writestr("README_VTUBE_STUDIO.md", (
                 "# VTube Studio용 모델 파일과 확인 절차\\n\\n"
                 "이 ZIP을 압축 해제합니다. 최종 *.model3.json, *.moc3, 참조된 텍스처/"
