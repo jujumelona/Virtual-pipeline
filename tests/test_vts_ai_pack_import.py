@@ -253,3 +253,50 @@ def test_manifest_rejects_wrong_master_hash_and_malformed_digest(tmp_path):
     _rewrite_artwork_pack(source, wrong)
     with pytest.raises(ValueError, match="AI_PACK_SHA256_MISMATCH"):
         inspect_large_ai_pack(source)
+
+
+@pytest.mark.parametrize("master_alias", ["master_original.png", "master.png"])
+def test_image_ai_root_master_alias_imports_without_regenerating(tmp_path, master_alias):
+    """Real artwork kits put the authored master next to layer_order.txt."""
+    source = make_simple_image_ai_pack(tmp_path)
+    with ZipFile(source) as archive:
+        payloads = {
+            (master_alias if name == "outputs/master.png" else name): archive.read(name)
+            for name in archive.namelist()
+        }
+    with ZipFile(source, "w", ZIP_DEFLATED) as archive:
+        for name, payload in payloads.items():
+            archive.writestr(name, payload)
+    inspected = inspect_large_ai_pack(source)
+    assert inspected["canvas"] == (640, 768)
+    assert len(inspected["parts"]) == 2
+    assert inspected["visual_quality_verified"] is False
+
+
+def test_image_ai_rejects_conflicting_master_aliases(tmp_path):
+    """Do not guess which of two different masters establishes the canvas."""
+    source = make_simple_image_ai_pack(tmp_path)
+    with ZipFile(source, "a", ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "master_original.png",
+            _png((640, 768), (100, 100, 140, 160)),
+        )
+    with pytest.raises(ValueError, match="AI_PACK_MASTER_AMBIGUOUS"):
+        inspect_large_ai_pack(source)
+
+
+def test_image_ai_alias_with_parent_folder_reaches_real_psd(tmp_path):
+    pytest.importorskip("psd_tools")
+    from psd_tools import PSDImage
+    source = make_simple_image_ai_pack(tmp_path, parent_prefix="artwork/")
+    with ZipFile(source) as archive:
+        payloads = {
+            ("artwork/master_original.png" if name == "artwork/outputs/master.png"
+             else name): archive.read(name) for name in archive.namelist()
+        }
+    with ZipFile(source, "w", ZIP_DEFLATED) as archive:
+        for name, payload in payloads.items():
+            archive.writestr(name, payload)
+    result = prepare_large_ai_pack(source, tmp_path / "imported")
+    assert len([layer for layer in PSDImage.open(result["psd"]).descendants()
+                if not layer.is_group()]) == 2
