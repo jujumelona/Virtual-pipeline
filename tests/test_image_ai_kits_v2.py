@@ -95,10 +95,9 @@ def test_all_twenty_anime_kits_are_valid_with_fourteen_documents():
                 assert "Pillow" in quality and "실제" in quality
                 assert ("PNG" in quality if mode != "3d" else "그림" in quality)
                 assert "최종" in quality
-                assert "도형" in prompt or "SVG" in prompt or "베지어" in prompt
+                assert any(term in quality for term in ("도형", "SVG", "베지어"))
 
-                assert ("08_PRACTICAL_TIPS.md" in prompt or
-                        (("08" in prompt or "01~09" in prompt) and "비공식" in prompt))
+                assert "00_MASTER_FIRST.md" in practical and "비공식" in practical
                 assert ("07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt or ("07" in prompt and "점검" in prompt))
                 assert "최종" in prompt
                 assert ("재생성" in prompt or "수정" in prompt or "재작업" in prompt)
@@ -136,14 +135,15 @@ def test_all_twenty_anime_kits_are_valid_with_fourteen_documents():
                     assert "turnaround_sheet.png" in output
                     assert "VRM" in official
                 common = archive.read("01_COMMON_RULES.md").decode("utf-8")
-                assert "자동분리" in (prompt + common) or "자동 분리" in (prompt + common)
-                assert "마스크" in common
+                if mode != "3d":
+                    assert "마스킹" in common and "추출" in common
+                else:
+                    assert "정면" in common and "다각도" in common
                 assert "리깅" in prompt  # mentioned ONLY as excluded from image AI tasks
                 assert ("07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt or
                         ("07" in prompt and "점검" in prompt))
-                assert ("08_PRACTICAL_TIPS.md" in prompt or
-                        (("08" in prompt or "01~09" in prompt) and "비공식" in prompt))
-                assert "처음" in (prompt + common)
+                assert "00_MASTER_FIRST.md" in practical and "비공식" in practical
+                assert "먼저" in (prompt + common) or "기준 원화" in common
                 assert "ZIP" in (prompt + output)
                 if mode != "3d":
                     assert "RGBA" in output
