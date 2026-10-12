@@ -43,7 +43,9 @@ def test_selector_cells_are_side_effect_free_and_production_cells_work():
     assert "files.download(" in production
 
 
-def test_readme_reserves_wardrobe_generation_for_followup_phase():
+def test_readme_clearly_distinguishes_attached_psd_and_native_virtual_model():
     r=(ROOT/"README.md").read_text(encoding="utf-8")
     assert "신체만" in r and "의상만" in r
-    assert "후속 단계" in r
+    assert "기존 Cubism 모델" in r
+    assert "PSD2Live" in r and "MOC3" in r
+    assert "미지원" in r
