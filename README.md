@@ -22,16 +22,16 @@
 
 PDF/PSD 편집 자산과 방송용 실제 네이티브 모델은 구분합니다. Cubism Editor, Inochi Session, VTube Studio 및 VRM 방송 프로그램에서의 실제 트래킹·표정·움직임 품질은 Colab의 파일 검증만으로 인증되지 않습니다. 독립 파츠가 모델에 자동으로 결합되었다고 주장하지 않습니다.
 
-**아래 기존 v8 노트북 및 구조 개편 설명은 구형/부분 경로 참고용입니다. 완성 AI ZIP을 처리하려면 위 통합 노트북을 사용하세요.**
+**완성 ZIP 업로드에는 위 통합 노트북을 사용하세요.** 아래 v8 Live2D 전용 노트북의 ⑤~⑨ 셀도 수정하여 PSD2Live 자동 리깅을 기본 실행합니다. 단독 헤어·의상·액세서리는 PSD만 만들며, 실제 앱 구동과 자연스러운 움직임은 미검증입니다.
 
 
 지원 Python 버전: **3.12 또는 3.13** (코드·잠금 버전은 `pyproject.toml` 및 `third_party.lock.json`에 명시).
 
-[![Open current Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb)
+[![Open current Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb)
 
-## 구조 개편 — 1단계: 모드 UI 및 AI 자동 분리 제거
+## Live2D 전용 v8 노트북 (통합 노트북과 별도)
 
-**구조 개편 1단계의 네 선택 셀은 모델을 준비하거나 실행하지 않습니다.** 후속 단계로 Live2D 전용 ⑤~⑨ 입력·업로드·의존성 준비·PSD 제작·ZIP 다운로드 셀을 연결했습니다. Inochi2D/3D 제작 연결 및 실제 GPU·Cubism Editor 검증은 별도 미완료 작업입니다.
+**①~④는 모드 선택 셀입니다.** Live2D 전용 ⑤~⑨에서 입력 업로드, 필요한 SDK 준비, PSD 제작, 신체의 PSD2Live 자동 리깅 및 결과 다운로드를 실행합니다. Inochi2D/3D는 상단 통합 노트북을 사용합니다. 실제 Colab/방송 앱 구동 품질은 별도 확인이 필요합니다.
 
 ### 상위 제작 모드
 
@@ -52,7 +52,7 @@ PDF/PSD 편집 자산과 방송용 실제 네이티브 모델은 구분합니다
 | **액세서리만** | `accessory` | 기존 신체/의상 기준에 추가할 개별 장식 |
 | **의상만** | `outfit` | 기존 기초 신체를 유지하면서 교체할 옷 |
 
-**먼저 신체만 제작 → 나중에 헤어·의상·액세서리 추가/교체** 순으로 계획합니다. 고급 이미지 AI 지시서·파일명은 위 20종 ZIP에 반영했습니다. Live2D 결과 PNG ZIP 가져오기와 PSD 패키징은 **⑤~⑨ 셀에 연결**했지만 실제 Colab GPU에서 품질이 확인된 것은 아닙니다. 예전 FREE/PRO·액세서리 별도 상위 모드·복잡한 이미지 분리 옵션은 새 UI에 없습니다.
+**먼저 신체만 제작 → 나중에 헤어·의상·액세서리 추가/교체** 순으로 계획합니다. 고급 이미지 AI 지시서·파일명은 위 20종 ZIP에 반영했습니다. Live2D 원화 ZIP 가져오기→PSD→신체 자동 리깅 PSD2Live CLI 실행은 **⑤~⑨ 셀에 연결**했지만 실제 Colab GPU 및 방송 앱에서 동작 품질이 확인된 것은 아닙니다. 예전 FREE/PRO·액세서리 별도 상위 모드·복잡한 이미지 분리 옵션은 새 UI에 없습니다.
 
 ### 노트북 사용
 
@@ -78,7 +78,7 @@ PDF/PSD 편집 자산과 방송용 실제 네이티브 모델은 구분합니다
 
 **외부 이미지 AI 지시서에는 제작자 실무 팁 적용과 그림·파일 반복 점검 후에만 최종 결과 ZIP을 납품하도록 명시했습니다.** 이것은 실제 이미지 작업의 자체 점검이며 리깅/회전 테스트나 품질 인증 요구가 아닙니다.
 
-**현재 Colab v8의 Live2D ⑤~⑨ 셀은 이미지 AI 결과 ZIP → 레이어 PSD 가져오기 → 패키징 → 다운로드를 연결합니다.** ZIP 검사로 실제 그림 품질·가려진 면 복원·Cubism 리깅은 판정하지 않습니다. Inochi2D 및 3D/VRM 제작 경로는 이 셀에 포함하지 않습니다.
+**현재 Colab v8의 Live2D ⑤~⑨ 셀은 이미지 AI 결과 ZIP → 실제 레이어 PSD → 신체 선택 시 PSD2Live 네이티브 리깅 시도 → 파일 검증 → 다운로드를 연결합니다.** ZIP 검사로 실제 그림 품질·가려진 면 복원·Cubism 리깅은 판정하지 않습니다. Inochi2D 및 3D/VRM 제작 경로는 이 셀에 포함하지 않습니다.
 
 ### 참고자료 (기존, 이 단계에서는 실행하지 않음)
 
