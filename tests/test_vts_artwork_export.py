@@ -877,3 +877,12 @@ def test_cubism_editor_manual_json_has_parameter_deformer_plan_not_fake_rig():
     assert assignments[0]["parent_deformer"] == "D_IrisL"
     assert assignments[1]["parent_deformer"] == "D_Torso"
     assert plan["free_budget_if_edition_is_free"]["texture_pages"] == 1
+
+
+def test_free_handoff_guide_requires_one_complete_character_not_pro_body_artwork():
+    from tools.vts_artwork_export import _guide_md
+    guide = _guide_md("free", "upper", None, 4, 2, [])
+    assert "완성 캐릭터 이미지 한 장" in guide
+    assert "FREE에서 신체만 제작" not in guide
+    assert "7개" in guide
+    assert ".moc3" in guide and "공식 Cubism Editor" in guide
