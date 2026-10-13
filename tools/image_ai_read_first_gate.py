@@ -69,7 +69,14 @@ def banner(mode: str, asset: str) -> str:
 def references(docs: dict[str, str]) -> list[str]:
     links = set()
     for name, text in docs.items():
-        if name in REFERENCES:
+        # A template is another visual source. It must enter the same
+        # review manifest as the official picture links, rather than being
+        # a decorative suggestion which the generator can silently skip.
+        template_brief = (
+            name in ("00_MASTER_FIRST.md", "00_READ_FIRST.md")
+            and "## [EXISTING_VTUBER_TEMPLATE_SLOTS_V1]" in text
+        )
+        if name in REFERENCES or template_brief:
             links.update(v.rstrip(".,;:!") for v in URL.findall(text))
         links.update(v.rstrip(".,;:!") for v in IMAGE.findall(text))
     return sorted(links)
