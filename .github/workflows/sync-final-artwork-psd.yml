@@ -1,0 +1,37 @@
+name: Publish final PSD handoff wording
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/image_ai_kits_v2/source/ARTWORK_LAYER_ORDER_CONTRACT.md"
+      - "tools/sync_final_artwork_psd_policy.py"
+      - ".github/workflows/sync-final-artwork-psd.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  reconcile-final-psd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Synchronize 20 existing 2D briefs
+        run: |
+          python tools/sync_final_artwork_psd_policy.py --write
+          python tools/sync_final_artwork_psd_policy.py --check
+      - name: Validate actual 2D ZIP source copies and checker
+        run: |
+          python -m pip install --disable-pip-version-check pytest pillow
+          python -m pytest -q tests/test_image_ai_layer_order_delivery.py tests/test_image_ai_kits_cross_contamination.py tests/test_image_ai_kits_v2.py tests/test_live2d_bust_up_kits.py
+      - name: Commit changed ZIPs to main
+        run: |
+          if git diff --quiet -- docs/image_ai_kits_v2/zips/; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/image_ai_kits_v2/zips/*.zip
+          git commit -m "docs(image-ai): require actual PSD and masks in final 2D ZIPs"
+          git pull --rebase origin main
+          git push origin HEAD:main
