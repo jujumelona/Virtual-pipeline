@@ -48,8 +48,8 @@ def test_each_zip_contains_only_its_geometric_and_profile_guidance(mode, asset):
         else:
             assert "입 높이" in docs["08_PRACTICAL_TIPS.md"]
         if mode == "live2d_bust_up":
-            assert "1.65~1.95H" in docs["03_MODE_RULES.md"]
-            assert "52~61%" in docs["03_MODE_RULES.md"]
+            assert "상완" in docs["03_MODE_RULES.md"]
+            assert "양손" in docs["03_MODE_RULES.md"]
     else:
         tail = "\n".join(
             docs[name].split(tag, 1)[1] for name in required
