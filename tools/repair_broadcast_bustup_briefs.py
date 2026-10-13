@@ -36,9 +36,9 @@ BODY_PROMPT = ('High-end hand-drawn Japanese anime VTuber BODY master illustrati
                'clipped torso, duplicated features, detachable hair clothing accessories in BODY-only asset.')
 SCOPES = {
     'body': FRAME + ' ' + BODY_FACE + ' 신체만 제작하며 교체 헤어·의상·소품은 따로 만든다. 안전하게 가린 불투명 중립 베이스도 완성 그림 수준이어야 한다.',
-    'hair': '배까지 보이는 기준 BODY 캔버스와 두상 위치를 참조하여 요청받은 헤어만 작업한다. 얼굴·눈·목·신체를 다시 그리지 않는다.',
-    'outfit': '배까지 보이는 기준 BODY 캔버스와 목·어깨·상복부 위치를 참조하여 요청받은 의상 한 벌만 작업한다. 몸통·얼굴은 다시 그리지 않는다.',
-    'accessory': '배까지 보이는 기준 BODY 캔버스의 위치·좌우·고정부만 참조하여 요청받은 소품 한 종류만 작업한다. 인물 원화를 다시 그리지 않는다.',
+    'hair': '배 바로 위~배까지 보이는 기준 BODY 캔버스와 두상 위치를 참조하여 요청받은 헤어만 작업한다. 얼굴·눈·목·신체를 다시 그리지 않는다.',
+    'outfit': '배 바로 위~배까지 보이는 기준 BODY 캔버스와 목·어깨·상복부 위치를 참조하여 요청받은 의상 한 벌만 작업한다. 몸통·얼굴은 다시 그리지 않는다.',
+    'accessory': '배 바로 위~배까지 보이는 기준 BODY 캔버스의 위치·좌우·고정부만 참조하여 요청받은 소품 한 종류만 작업한다. 인물 원화를 다시 그리지 않는다.',
 }
 ASSET_QA = {
     'hair': '요청한 헤어의 모근·앞옆뒤 가닥·뒷면 숨은 픽셀과 기준 두상 정합을 검수한다. 신체 피부·눈·귀는 새로 그리지 않는다.',
