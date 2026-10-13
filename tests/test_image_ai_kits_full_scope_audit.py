@@ -82,6 +82,28 @@ def test_official_references_are_exactly_own_engine_and_own_asset(kits, mode, as
         assert "vrm.dev" not in refs
 
 
+@pytest.mark.parametrize("mode", ("inochi2d_upper", "inochi2d_full"))
+@pytest.mark.parametrize("asset", ASSETS)
+def test_inochi_expert_guide_does_not_inherit_cubism_steps_or_irrelevant_tips(kits, mode, asset):
+    guide = kits[f"{mode}__{asset}"]["06_ADVANCED_OFFICIAL_COMMUNITY.md"]
+    assert "docs.inochi2d.com" in guide
+    assert "docs.live2d.com" not in guide
+    assert "ArtMesh" not in guide
+    assert "reddit.com/r/Live2D" not in guide
+    assert "Live2D 공식 링크" not in guide
+    if asset in ("outfit", "accessory"):
+        assert "캐릭터 얼굴 비율의 스타일별 조정" not in guide
+        assert "헤어 덩어리 작화" not in guide
+    if asset == "outfit":
+        assert "의상 작가 실무" in guide
+    elif asset == "accessory":
+        assert "소품 작가 실무" in guide
+    elif asset == "hair":
+        assert "모근" in guide
+    else:
+        assert "눈" in guide and "목 피부" in guide
+
+
 @pytest.mark.parametrize("mode", ("live2d_upper", "inochi2d_upper"))
 def test_upper_body_is_created_directly_and_full_body_guide_is_not_required(kits, mode):
     docs = kits[f"{mode}__body"]
