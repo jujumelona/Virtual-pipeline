@@ -20,6 +20,16 @@
 
 정식 24개 ZIP의 00_MASTER_FIRST/00_READ_FIRST/00_DELIVERY_AND_RECHECK/07_REVIEW_BEFORE_FINAL_ZIP/11_OFFICIAL_IMAGE_EXAMPLES 맨 앞에는 동일한 생성 전 게이트가 삽입됩니다. 검사기는 [tools/image_ai_read_first_gate.py](../../tools/image_ai_read_first_gate.py)로, MD 14개의 SHA256 및 참고 URL 목록과 제공된 검토 기록을 대조합니다. **해시와 작성된 검토 기록은 AI가 실제로 픽셀을 관찰했다는 자동 증거가 아닙니다.** 외부 GPT/Gemini 도구 호출을 기술적으로 차단하려면 생성 오케스트레이터가 이 게이트를 호출·준수해야 합니다.
 
+## 기존 버튜버 템플릿 활용 — 24개 모드/자산별 슬롯 채우기
+
+24개 ZIP은 기존 **실제 템플릿**의 출처·다운로드 유형·라이선스·사용할 부위·동일 캔버스 슬롯을 각각 연결합니다. [전체 선택표](source/EXISTING_TEMPLATE_SLOT_REGISTRY.json). 배포 ZIP 14개 MD의 최상위 제작 지시와 각 자산 제작 설명에 들어 있습니다.
+
+- **Live2D:** [공식 Boy/Girl PSD 템플릿](https://docs.live2d.com/en/cubism-editor-tutorials/template/), [Haru 분리 전후 PSD](https://www.live2d.com/en/learn/sample/haru-receptionist/), [Mark-kun FREE 샘플 PSD](https://www.live2d.com/en/learn/sample/mark/), [Haru 팔·의상 교체 예제](https://www.live2d.com/en/learn/sample/haru/). 기존 캐릭터 디자인을 복제하지 말고 파츠 구조만 참고합니다.
+- **Inochi2D:** [Aka 튜토리얼 PSD](https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html), [Aka·Midori 원본 예제](https://github.com/Inochi2D/example-models). Aka 튜토리얼 PSD는 머리 위주이므로 팔·손·복부 템플릿이라고 주장하지 않습니다.
+- **3D:** [VRoid Studio 기본 프리셋](https://vroid.com/en/studio)으로 신체·헤어·의상·부착 액세서리를 각자 선택·조절하고 전후좌우 3D 참고도를 확보합니다. 이 프리셋은 PSD나 VRM 완성품으로 ZIP에 들어 있지 않습니다.
+
+**저작권/실물 파일:** 타사 PSD·프리셋·모델 파일 자체는 이 공개 지침 ZIP에 복제하지 않습니다. 내려받은 템플릿의 파일·라이선스를 확인한 뒤 로컬에 준비해야 하며, 준비가 안 됐다면 생성 보류합니다. BODY는 팔·손·어깨·복부를 포함하고 회색 도형으로 대체할 수 없습니다. 2D PRO는 기준 BODY와 동일 캔버스를 따르며 FREE는 승인된 완성 원화에서 분리합니다. 자동으로 Cubism 리깅을 수행하지 않습니다.
+
 ## 각 ZIP 내부 구성
 
 - 00_MASTER_FIRST.md — 제작 시작 시 먼저 적용할 마스터 지시서

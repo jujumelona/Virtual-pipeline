@@ -1,0 +1,722 @@
+{
+  "schema": "image-ai/existing-template-slots-v1",
+  "distribution_policy": "External art/model files are NOT shipped; creator must download and accept license individually. Referencing structure does not grant permission to clone characters or distribute source assets.",
+  "sources": {
+    "live2d_sd_guide": {
+      "title": "Live2D official Boy/Girl SD guide PSD",
+      "url": "https://docs.live2d.com/en/cubism-editor-tutorials/template/",
+      "asset_format": "PSD",
+      "role": "Editable layer hierarchy and draw-in slots; SD proportions are NOT the user's six-head-body dimensions.",
+      "permission": "Download individually after checking official sample/template terms; original files excluded from repository."
+    },
+    "live2d_haru_split": {
+      "title": "Live2D Haru receptionist before/after material-separation PSD",
+      "url": "https://www.live2d.com/en/learn/sample/haru-receptionist/",
+      "asset_format": "PSD",
+      "role": "Real part separation, torso/neck/collar relationship and editable layers; use structure, not Haru character copy.",
+      "permission": "Live2D sample-data terms govern user download, modification and redistribution. Do not bundle original PSD."
+    },
+    "live2d_mark_free": {
+      "title": "Live2D Mark-kun original example with sample PSD (FREE learning)",
+      "url": "https://www.live2d.com/en/learn/sample/mark/",
+      "asset_format": "PSD",
+      "role": "Small/simple FREE scene topology and rig structure study, not a target face style; preserve its character-specific license.",
+      "permission": "Official sample terms; structural learning only. Do not transform Mark-kun into user's anime character."
+    },
+    "live2d_haru_swaps": {
+      "title": "Live2D Haru arm/outfit swap model",
+      "url": "https://www.live2d.com/en/learn/sample/haru/",
+      "asset_format": "Cubism model",
+      "role": "Reference for alternative sleeves, arms and garment replacement; not an interchangeable PSD automatically.",
+      "permission": "Official sample terms; model-only reference unless a user-owned licensed source PSD is supplied."
+    },
+    "inochi_aka_psd": {
+      "title": "Inochi Creator official Aka tutorial PSD",
+      "url": "https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html",
+      "asset_format": "PSD (tutorial cut to head)",
+      "role": "Concrete editable head layer and eye/mouth example; DOES NOT include complete arms/torso.",
+      "permission": "Tutorial source copyright applies; external download only. For full-body parts use a separately licensed reference or original illustration."
+    },
+    "inochi_aka_midori": {
+      "title": "Inochi2D official Aka / Midori sample models",
+      "url": "https://github.com/Inochi2D/example-models",
+      "asset_format": "INX examples and PSD resources (check each file)",
+      "role": "Rig structure/parts examples; verify exact supplied parts before claiming full-body template.",
+      "permission": "Repository describes Aka/Midori as CC BY 4.0; attribute creators and confirm selected source file provenance."
+    },
+    "vroid_presets": {
+      "title": "VRoid Studio actual customizable body, hair, outfit and accessory presets",
+      "url": "https://vroid.com/en/studio",
+      "asset_format": "Interactive 3D app/preset; not PSD and not automatically present in ZIP",
+      "role": "User opens app, starts preset, adjusts slots, exports reference views for 3D kit.",
+      "permission": "Apply VRoid terms and each preset/outfit license. Do not copy proprietary assets into repository."
+    },
+    "vrm_license": {
+      "title": "VRM per-model reuse and redistribution permissions",
+      "url": "https://vrm.dev/en/vrm/meta/license/",
+      "asset_format": "License reference only",
+      "role": "Verify source avatar customization and reuse permissions before using downloaded VRM as a 3D template.",
+      "permission": "Every VRM may have unique modification and redistributability settings."
+    }
+  },
+  "templates": {
+    "live2d_bust_up__body": {
+      "mode": "live2d_bust_up",
+      "asset": "body",
+      "source_ids": [
+        "live2d_sd_guide",
+        "live2d_haru_split",
+        "live2d_mark_free"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "head",
+        "face",
+        "eyes_L",
+        "eyes_R",
+        "iris_L",
+        "iris_R",
+        "ears_L",
+        "ears_R",
+        "jaw",
+        "neck_underpaint",
+        "shoulder_L",
+        "shoulder_R",
+        "torso",
+        "upper_arm_L",
+        "upper_arm_R",
+        "forearm_L",
+        "forearm_R",
+        "hand_L",
+        "hand_R"
+      ],
+      "frame": "head to upper abdomen/waist with complete shoulders arms and hands",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "live2d_bust_up__hair": {
+      "mode": "live2d_bust_up",
+      "asset": "hair",
+      "source_ids": [
+        "live2d_sd_guide",
+        "live2d_haru_split"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "hair_back",
+        "hair_root",
+        "hair_left",
+        "hair_right",
+        "hair_front",
+        "occlusion_ears",
+        "occlusion_neck"
+      ],
+      "frame": "head to upper abdomen/waist with complete shoulders arms and hands",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "live2d_bust_up__outfit": {
+      "mode": "live2d_bust_up",
+      "asset": "outfit",
+      "source_ids": [
+        "live2d_haru_split",
+        "live2d_haru_swaps"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "collar",
+        "upper_torso_garment",
+        "sleeve_L",
+        "sleeve_R",
+        "cuff_L",
+        "cuff_R",
+        "garment_side_L",
+        "garment_side_R",
+        "front_back_overlap"
+      ],
+      "frame": "head to upper abdomen/waist with complete shoulders arms and hands",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "live2d_bust_up__accessory": {
+      "mode": "live2d_bust_up",
+      "asset": "accessory",
+      "source_ids": [
+        "live2d_sd_guide",
+        "live2d_haru_split"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "one_requested_object",
+        "physical_attachment_anchor",
+        "front_occlusion",
+        "rear_occlusion"
+      ],
+      "frame": "head to upper abdomen/waist with complete shoulders arms and hands",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "live2d_upper__body": {
+      "mode": "live2d_upper",
+      "asset": "body",
+      "source_ids": [
+        "live2d_haru_split",
+        "live2d_sd_guide"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "head",
+        "face",
+        "eyes_L",
+        "eyes_R",
+        "iris_L",
+        "iris_R",
+        "ears_L",
+        "ears_R",
+        "jaw",
+        "neck_underpaint",
+        "shoulder_L",
+        "shoulder_R",
+        "torso",
+        "upper_arm_L",
+        "upper_arm_R",
+        "forearm_L",
+        "forearm_R",
+        "hand_L",
+        "hand_R"
+      ],
+      "frame": "upper body through waist/hips with hands",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "live2d_upper__hair": {
+      "mode": "live2d_upper",
+      "asset": "hair",
+      "source_ids": [
+        "live2d_sd_guide",
+        "live2d_haru_split"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "hair_back",
+        "hair_root",
+        "hair_left",
+        "hair_right",
+        "hair_front",
+        "occlusion_ears",
+        "occlusion_neck"
+      ],
+      "frame": "upper body through waist/hips with hands",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "live2d_upper__outfit": {
+      "mode": "live2d_upper",
+      "asset": "outfit",
+      "source_ids": [
+        "live2d_haru_swaps",
+        "live2d_haru_split"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "collar",
+        "upper_torso_garment",
+        "sleeve_L",
+        "sleeve_R",
+        "cuff_L",
+        "cuff_R",
+        "garment_side_L",
+        "garment_side_R",
+        "front_back_overlap"
+      ],
+      "frame": "upper body through waist/hips with hands",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "live2d_upper__accessory": {
+      "mode": "live2d_upper",
+      "asset": "accessory",
+      "source_ids": [
+        "live2d_haru_split"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "one_requested_object",
+        "physical_attachment_anchor",
+        "front_occlusion",
+        "rear_occlusion"
+      ],
+      "frame": "upper body through waist/hips with hands",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "live2d_full__body": {
+      "mode": "live2d_full",
+      "asset": "body",
+      "source_ids": [
+        "live2d_haru_split",
+        "live2d_sd_guide"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "head",
+        "face",
+        "eyes_L",
+        "eyes_R",
+        "iris_L",
+        "iris_R",
+        "ears_L",
+        "ears_R",
+        "jaw",
+        "neck_underpaint",
+        "shoulder_L",
+        "shoulder_R",
+        "torso",
+        "upper_arm_L",
+        "upper_arm_R",
+        "forearm_L",
+        "forearm_R",
+        "hand_L",
+        "hand_R",
+        "hip",
+        "thigh_L",
+        "thigh_R",
+        "calf_L",
+        "calf_R",
+        "foot_L",
+        "foot_R"
+      ],
+      "frame": "complete six-head design through feet",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "live2d_full__hair": {
+      "mode": "live2d_full",
+      "asset": "hair",
+      "source_ids": [
+        "live2d_sd_guide",
+        "live2d_haru_split"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "hair_back",
+        "hair_root",
+        "hair_left",
+        "hair_right",
+        "hair_front",
+        "occlusion_ears",
+        "occlusion_neck"
+      ],
+      "frame": "complete six-head design through feet",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "live2d_full__outfit": {
+      "mode": "live2d_full",
+      "asset": "outfit",
+      "source_ids": [
+        "live2d_haru_swaps",
+        "live2d_haru_split"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "collar",
+        "upper_torso_garment",
+        "sleeve_L",
+        "sleeve_R",
+        "cuff_L",
+        "cuff_R",
+        "garment_side_L",
+        "garment_side_R",
+        "front_back_overlap",
+        "lower_garment_or_leg_cover_if_requested"
+      ],
+      "frame": "complete six-head design through feet",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "live2d_full__accessory": {
+      "mode": "live2d_full",
+      "asset": "accessory",
+      "source_ids": [
+        "live2d_haru_split"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "one_requested_object",
+        "physical_attachment_anchor",
+        "front_occlusion",
+        "rear_occlusion"
+      ],
+      "frame": "complete six-head design through feet",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "inochi2d_upper__body": {
+      "mode": "inochi2d_upper",
+      "asset": "body",
+      "source_ids": [
+        "inochi_aka_psd",
+        "inochi_aka_midori"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "head",
+        "face",
+        "eyes_L",
+        "eyes_R",
+        "iris_L",
+        "iris_R",
+        "ears_L",
+        "ears_R",
+        "jaw",
+        "neck_underpaint",
+        "shoulder_L",
+        "shoulder_R",
+        "torso",
+        "upper_arm_L",
+        "upper_arm_R",
+        "forearm_L",
+        "forearm_R",
+        "hand_L",
+        "hand_R"
+      ],
+      "frame": "upper body through waist/hips with hands",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "inochi2d_upper__hair": {
+      "mode": "inochi2d_upper",
+      "asset": "hair",
+      "source_ids": [
+        "inochi_aka_psd",
+        "inochi_aka_midori"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "hair_back",
+        "hair_root",
+        "hair_left",
+        "hair_right",
+        "hair_front",
+        "occlusion_ears",
+        "occlusion_neck"
+      ],
+      "frame": "upper body through waist/hips with hands",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "inochi2d_upper__outfit": {
+      "mode": "inochi2d_upper",
+      "asset": "outfit",
+      "source_ids": [
+        "inochi_aka_midori"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "collar",
+        "upper_torso_garment",
+        "sleeve_L",
+        "sleeve_R",
+        "cuff_L",
+        "cuff_R",
+        "garment_side_L",
+        "garment_side_R",
+        "front_back_overlap"
+      ],
+      "frame": "upper body through waist/hips with hands",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "inochi2d_upper__accessory": {
+      "mode": "inochi2d_upper",
+      "asset": "accessory",
+      "source_ids": [
+        "inochi_aka_midori"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "one_requested_object",
+        "physical_attachment_anchor",
+        "front_occlusion",
+        "rear_occlusion"
+      ],
+      "frame": "upper body through waist/hips with hands",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "inochi2d_full__body": {
+      "mode": "inochi2d_full",
+      "asset": "body",
+      "source_ids": [
+        "inochi_aka_midori",
+        "inochi_aka_psd"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "head",
+        "face",
+        "eyes_L",
+        "eyes_R",
+        "iris_L",
+        "iris_R",
+        "ears_L",
+        "ears_R",
+        "jaw",
+        "neck_underpaint",
+        "shoulder_L",
+        "shoulder_R",
+        "torso",
+        "upper_arm_L",
+        "upper_arm_R",
+        "forearm_L",
+        "forearm_R",
+        "hand_L",
+        "hand_R",
+        "hip",
+        "thigh_L",
+        "thigh_R",
+        "calf_L",
+        "calf_R",
+        "foot_L",
+        "foot_R"
+      ],
+      "frame": "complete six-head design through feet",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "inochi2d_full__hair": {
+      "mode": "inochi2d_full",
+      "asset": "hair",
+      "source_ids": [
+        "inochi_aka_midori",
+        "inochi_aka_psd"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "hair_back",
+        "hair_root",
+        "hair_left",
+        "hair_right",
+        "hair_front",
+        "occlusion_ears",
+        "occlusion_neck"
+      ],
+      "frame": "complete six-head design through feet",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "inochi2d_full__outfit": {
+      "mode": "inochi2d_full",
+      "asset": "outfit",
+      "source_ids": [
+        "inochi_aka_midori"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "collar",
+        "upper_torso_garment",
+        "sleeve_L",
+        "sleeve_R",
+        "cuff_L",
+        "cuff_R",
+        "garment_side_L",
+        "garment_side_R",
+        "front_back_overlap",
+        "lower_garment_or_leg_cover_if_requested"
+      ],
+      "frame": "complete six-head design through feet",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "inochi2d_full__accessory": {
+      "mode": "inochi2d_full",
+      "asset": "accessory",
+      "source_ids": [
+        "inochi_aka_midori"
+      ],
+      "type": "editable_PSD_based_art_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_slots": [
+        "one_requested_object",
+        "physical_attachment_anchor",
+        "front_occlusion",
+        "rear_occlusion"
+      ],
+      "frame": "complete six-head design through feet",
+      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "3d__body": {
+      "mode": "3d",
+      "asset": "body",
+      "source_ids": [
+        "vroid_presets",
+        "vrm_license"
+      ],
+      "type": "preset_based_3d_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "verified_access_to_VRoid_preset_or_licensed_model",
+      "required_slots": [
+        "head",
+        "face",
+        "eyes_L",
+        "eyes_R",
+        "iris_L",
+        "iris_R",
+        "ears_L",
+        "ears_R",
+        "jaw",
+        "neck_underpaint",
+        "shoulder_L",
+        "shoulder_R",
+        "torso",
+        "upper_arm_L",
+        "upper_arm_R",
+        "forearm_L",
+        "forearm_R",
+        "hand_L",
+        "hand_R",
+        "hip",
+        "thigh_L",
+        "thigh_R",
+        "calf_L",
+        "calf_R",
+        "foot_L",
+        "foot_R"
+      ],
+      "frame": "full-body four-view turnaround",
+      "reference_canvas_rule": "maintain proportions and materials across front back left right",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "3d__hair": {
+      "mode": "3d",
+      "asset": "hair",
+      "source_ids": [
+        "vroid_presets"
+      ],
+      "type": "preset_based_3d_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "verified_access_to_VRoid_preset_or_licensed_model",
+      "required_slots": [
+        "hair_back",
+        "hair_root",
+        "hair_left",
+        "hair_right",
+        "hair_front",
+        "occlusion_ears",
+        "occlusion_neck"
+      ],
+      "frame": "full-body four-view turnaround",
+      "reference_canvas_rule": "maintain proportions and materials across front back left right",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "3d__outfit": {
+      "mode": "3d",
+      "asset": "outfit",
+      "source_ids": [
+        "vroid_presets"
+      ],
+      "type": "preset_based_3d_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "verified_access_to_VRoid_preset_or_licensed_model",
+      "required_slots": [
+        "collar",
+        "upper_torso_garment",
+        "sleeve_L",
+        "sleeve_R",
+        "cuff_L",
+        "cuff_R",
+        "garment_side_L",
+        "garment_side_R",
+        "front_back_overlap",
+        "lower_garment_or_leg_cover_if_requested"
+      ],
+      "frame": "full-body four-view turnaround",
+      "reference_canvas_rule": "maintain proportions and materials across front back left right",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    },
+    "3d__accessory": {
+      "mode": "3d",
+      "asset": "accessory",
+      "source_ids": [
+        "vroid_presets"
+      ],
+      "type": "preset_based_3d_reference",
+      "guide_only_not_native_rig": true,
+      "required_source_before_generation": "verified_access_to_VRoid_preset_or_licensed_model",
+      "required_slots": [
+        "one_requested_object",
+        "physical_attachment_anchor",
+        "front_occlusion",
+        "rear_occlusion"
+      ],
+      "frame": "full-body four-view turnaround",
+      "reference_canvas_rule": "maintain proportions and materials across front back left right",
+      "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
+      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+    }
+  }
+}
