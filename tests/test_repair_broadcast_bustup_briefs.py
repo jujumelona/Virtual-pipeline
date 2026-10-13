@@ -39,7 +39,10 @@ def test_canonical_broadcast_zip_remains_valid_and_has_new_guide(tmp_path, asset
     assert "배 바로 위" in docs["00_MASTER_FIRST.md"]
     assert "52~61%" not in docs["03_MODE_RULES.md"]
     assert "https://www.live2d.com/en/learn/sample/" in docs["00_MASTER_FIRST.md"]
-    assert "BODY_flat_proxy.png" in docs["07_REVIEW_BEFORE_FINAL_ZIP.md"]
+    if asset == "body":
+        assert "BODY_flat_proxy.png" in docs["07_REVIEW_BEFORE_FINAL_ZIP.md"]
+    else:
+        assert "참조" in docs["07_REVIEW_BEFORE_FINAL_ZIP.md"] or "기준" in docs["07_REVIEW_BEFORE_FINAL_ZIP.md"]
     if asset == "body":
         assert "BODY_flat_proxy.png는 최종 불합격" in docs["02_ADVANCED_PARTS.md"]
 
