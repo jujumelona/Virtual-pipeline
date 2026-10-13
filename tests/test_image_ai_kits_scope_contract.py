@@ -161,7 +161,7 @@ def test_bust_up_body_must_be_created_while_other_assets_do_not_redraw_it(publis
             assert "**실제 제작:** 머리·얼굴·눈" in master and "신체 원화" in master
             assert "납품 대상은 완성 신체 원화" in docs["00_DELIVERY_AND_RECHECK.md"]
         else:
-            assert "제공된 기준 몸체를 새로 그리지 않고" in master
+            assert "이 ZIP에서 머리·몸체 비율을 설계하거나 다시 그리지 않는다" in master
             assert "신체만이라는 이유로 PRO를 강제하지 않는다" not in docs["04_OUTPUT_FILES.md"]
 
 
