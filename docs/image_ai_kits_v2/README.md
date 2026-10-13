@@ -174,3 +174,7 @@ ZIP 재생성 후에는 `python tools/sync_image_ai_geometry_guidance.py --write
 **재생성 누락 방지:** [정식 고급 노하우 원본](source/ADVANCED_ARTWORK_CRAFT_GUIDANCE.json), 기존 [비율/목 원본](source/FACE_NECK_GEOMETRY_GUIDANCE.json), [ZIP 동기화 스크립트](../../tools/sync_image_ai_geometry_guidance.py)를 함께 사용합니다. ZIP을 새로 만들었을 때 명령 python tools/sync_image_ai_geometry_guidance.py --write 는 누락된 섹션만 추가합니다. python tools/sync_image_ai_geometry_guidance.py --check 는 24개 ZIP 내부에 실제 원본 내용이 들어 있는지 확인합니다. 기존 내용을 덮어쓰기보다 변경된 문단을 명시적으로 정리하도록 보호합니다.
 
 [24개 ZIP 고급 노하우 회귀 검사](../../tests/test_image_ai_advanced_craft_guidance.py)는 모든 ZIP의 14개 MD/압축 CRC, 해당 자산의 실제 문단, 재생성 입력 파일과 원본의 일치, 복원 작업의 멱등성을 확인합니다. 이는 이미지 생성 AI의 실제 원화 품질이나 Cubism/Inochi/VRM 리깅 완료의 증명이 아닙니다.
+
+### ZIP 24개 자산·모드 혼입 재점검
+
+[2026-10-13 ZIP별 점검표](AUDIT_ASSET_SCOPE_2026-10-13.md)에 각 ZIP의 잘못 들어간 지시와 고친 문서 번호를 기록했습니다. 2D 상반신의 불필요한 전신 가이드 생성, 비신체 자산의 몸체 재설계, 3D의 타 자산 세부도 강제, Live2D/Inochi2D 공식 자료 혼합을 정정하고 재생성용 원본·CI 검사도 갱신했습니다.
