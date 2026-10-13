@@ -40,6 +40,11 @@ SCOPES = {
     'outfit': '배까지 보이는 기준 BODY 캔버스와 목·어깨·상복부 위치를 참조하여 요청받은 의상 한 벌만 작업한다. 몸통·얼굴은 다시 그리지 않는다.',
     'accessory': '배까지 보이는 기준 BODY 캔버스의 위치·좌우·고정부만 참조하여 요청받은 소품 한 종류만 작업한다. 인물 원화를 다시 그리지 않는다.',
 }
+ASSET_QA = {
+    'hair': '요청한 헤어의 모근·앞옆뒤 가닥·뒷면 숨은 픽셀과 기준 두상 정합을 검수한다. 신체 피부·눈·귀는 새로 그리지 않는다.',
+    'outfit': '요청한 의상 한 벌의 옷깃·소매·상복부 옷감·안감과 기준 몸체 정합을 검수한다. 얼굴·눈·목 피부를 새로 그리지 않는다.',
+    'accessory': '요청 소품 하나의 부착점·좌우/전후 의미·알파와 기준 신체 캔버스 정합을 검수한다. 피부·머리카락·의상을 새로 만들지 않는다.',
+}
 PROMPTS = {
     'hair': 'HAIR ONLY, align requested layered hairstyle to the unchanged waist-up reference canvas, no face or skin repaint.',
     'outfit': 'OUTFIT ONLY, align requested garment collar shoulders sleeves and upper abdomen to reference body, no skin or face.',
@@ -111,7 +116,7 @@ def refresh_doc(value: str, *, asset: str, name: str, replacements: list[tuple[s
     if name == '02_ADVANCED_PARTS.md' and asset == 'body':
         value += '\n' + BODY_FACE + '\nBODY_flat_proxy.png는 최종 불합격이다.\n'
     if name in ('07_REVIEW_BEFORE_FINAL_ZIP.md', '09_VISUAL_ART_QUALITY.md'):
-        value += '\n' + BODY_QA + '\n'
+        value += '\n' + (BODY_QA if asset == 'body' else ASSET_QA[asset]) + '\n'
     if name == '09_VISUAL_ART_QUALITY.md':
         value += '\nPillow 도형의 무결성은 고급 애니 원화 품질 증거가 아니다.\n'
     if name == '10_ANIME_STYLE.md':
