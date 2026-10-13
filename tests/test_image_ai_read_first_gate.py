@@ -146,5 +146,5 @@ def test_template_registry_does_not_force_user_psd():
     assert len(registry["templates"]) == 24
     for record in registry["templates"].values():
         assert record["require_uploaded_user_psd"] is False
-        assert "original_master" in record["no_user_psd_fallback"]
+        assert "create_original_design" in record["no_user_psd_fallback"]
         assert "user_owned_layered_template_file" not in record["required_source_before_generation"]
