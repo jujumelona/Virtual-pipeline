@@ -102,14 +102,14 @@ def inject(document: str, section: str) -> str:
         if end < 0:
             raise ValueError("Existing template section stale/mismatched")
         legacy = document[start:end + 2]
-        legacy_requirements = (
-            "- **입력 요구:**",
-            "실제 원본이 없는 경우 생성 중단 및 소스 제공 요청",
-            "- **슬롯 채우기:**",
-            "- **검증:**",
-            "- **제작 순서:**",
+        required_labels = ("- **슬롯 채우기:**", "- **검증:**", "- **제작 순서:**")
+        known_version = (
+            ("- **입력 요구:**" in legacy and
+             "실제 원본이 없는 경우 생성 중단 및 소스 제공 요청" in legacy)
+            or ("- **입력 해결:**" in legacy and
+                "- **입력이 없는 신규 캐릭터:**" in legacy)
         )
-        if not all(item in legacy for item in legacy_requirements):
+        if not all(label in legacy for label in required_labels) or not known_version:
             raise ValueError("Existing template section stale/mismatched")
         return document[:start] + section + document[end + 2:]
     if MARKER in document:
