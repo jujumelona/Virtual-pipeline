@@ -113,7 +113,8 @@ def test_bust_up_nonbody_never_requires_editing_skin_or_framing(kits, asset):
     assert "중요 부위를 불투명 의복/속옷 또는 불투명 마스크로 가리고" not in docs["01_COMMON_RULES.md"]
     assert "기준 신체의 기존 1~2H 바스트업 구도는 좌표 참조에만 사용" in mode
     assert "머리 한 높이 H에 비해 화면에 보이는 목·어깨·상체를 약 1~2H 범위에서 디자인한다" not in mode
-    assert "신체를 새로 그리지 않고" in master or "신체를 새로 그리지 않고" in docs["01_COMMON_RULES.md"]
+    assert "이 ZIP에서 머리·몸체 비율을 설계하거나 다시 그리지 않는다" in master
+    assert "이 자산에서 피부·속옷·가림용 의복을 새로 생성하지 않는다" in docs["01_COMMON_RULES.md"]
 
 
 @pytest.mark.parametrize("mode", ("live2d_upper", "live2d_full", "inochi2d_upper", "inochi2d_full", "3d"))
