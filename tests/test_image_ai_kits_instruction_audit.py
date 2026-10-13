@@ -82,12 +82,12 @@ def test_rebuild_snapshots_match_all_original_source_documents(family):
         assert included == (ROOT / "source" / filename).read_text(encoding="utf-8")
 
 
-def test_source_quality_rules_allow_body_proxy_not_clothed_skin():
+def test_source_quality_rules_prefer_completed_illustration_not_gray_proxy():
     quality = (ROOT / "source" / "QUALITY_STANDARD_2D.md").read_text(encoding="utf-8")
     body2d = (ROOT / "source" / "BODY_2D.md").read_text(encoding="utf-8")
     body3d = (ROOT / "source" / "BODY_3D.md").read_text(encoding="utf-8")
-    assert "BODY 몸통" in quality and "도형" in quality
-    assert "몸 전체를 이미지 생성 AI에 한 장으로 그리도록 요청하지 않는다" in body2d
+    assert "회색 단색 몸통" in quality and "최종 FAIL" in quality
+    assert "양손" in body2d and "회색 단색 몸통" in body2d
     assert "불투명 중립색 마네킹 실루엣" in body3d
     for source in (quality, body2d, body3d):
         assert "불투명·비선정적 기본 속옷" not in source
