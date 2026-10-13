@@ -688,7 +688,7 @@
       "reference_canvas_rule": "maintain proportions and materials across front back left right",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
       "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
-      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "no_user_psd_fallback": "create_original_turnaround_png_views_without_fake_3d_model",
       "require_uploaded_user_psd": false
     },
     "3d__hair": {
@@ -713,7 +713,7 @@
       "reference_canvas_rule": "maintain proportions and materials across front back left right",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
       "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
-      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "no_user_psd_fallback": "create_original_turnaround_png_views_without_fake_3d_model",
       "require_uploaded_user_psd": false
     },
     "3d__outfit": {
@@ -741,7 +741,7 @@
       "reference_canvas_rule": "maintain proportions and materials across front back left right",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
       "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
-      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "no_user_psd_fallback": "create_original_turnaround_png_views_without_fake_3d_model",
       "require_uploaded_user_psd": false
     },
     "3d__accessory": {
@@ -763,7 +763,7 @@
       "reference_canvas_rule": "maintain proportions and materials across front back left right",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
       "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
-      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "no_user_psd_fallback": "create_original_turnaround_png_views_without_fake_3d_model",
       "require_uploaded_user_psd": false
     }
   },
