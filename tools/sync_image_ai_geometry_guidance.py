@@ -50,9 +50,6 @@ def sections_for(spec: dict, mode: str, asset: str) -> dict[str, str]:
     extra = spec.get("engine_asset_06", {}).get(engine, {}).get(asset)
     if extra is not None:
         sections["06_ADVANCED_OFFICIAL_COMMUNITY.md"] = extra
-    extra = spec.get("engine_asset_06", {}).get(engine, {}).get(asset)
-    if extra is not None:
-        sections["06_ADVANCED_OFFICIAL_COMMUNITY.md"] = extra
     sections["06_ADVANCED_OFFICIAL_COMMUNITY.md"] += (
         "\n" + spec["engine_notes"][engine]
     )
@@ -70,6 +67,9 @@ def craft_sections_for(spec: dict, mode: str, asset: str) -> dict[str, str]:
     sections["03_MODE_RULES.md"] = spec["modes"][mode]
     engine = ("3d" if mode == "3d" else
               "inochi2d" if mode.startswith("inochi2d") else "live2d")
+    extra = spec.get("engine_asset_06", {}).get(engine, {}).get(asset)
+    if extra is not None:
+        sections["06_ADVANCED_OFFICIAL_COMMUNITY.md"] = extra
     sections["06_ADVANCED_OFFICIAL_COMMUNITY.md"] += (
         "\n" + spec["engine_notes"][engine]
     )
