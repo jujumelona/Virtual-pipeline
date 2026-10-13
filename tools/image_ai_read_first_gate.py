@@ -105,7 +105,7 @@ def patch(path: Path, *, write: bool) -> bool:
     if 0 < len(done) < len(PRIORITY):
         raise ValueError("Partially applied read-first gate: " + path.name)
     modified = docs.copy()
-    ending = "**GPT가 이 문서를 읽기 전에 이미지를 생성했다면 그 출력은 납품 실패다.**\\n\\n"
+    ending = "**GPT가 이 문서를 읽기 전에 이미지를 생성했다면 그 출력은 납품 실패다.**\n\n"
     for name in PRIORITY:
         value = docs[name]
         if value.startswith("# " + MARKER):
