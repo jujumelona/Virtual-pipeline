@@ -25,8 +25,8 @@ def test_live2d_body_is_replaced_at_readme_target_not_in_parallel_zip(mode):
         master = z.read("00_MASTER_FIRST.md").decode("utf-8")
         advanced = z.read("02_ADVANCED_PARTS.md").decode("utf-8")
         assert "U형" in master and "겨드랑이" in master
-        assert "BODY_flat_proxy.png" in advanced
-        assert "from PIL import Image, ImageDraw" in advanced
+        assert ("실제 다층 PSD" in advanced if mode == "live2d_bust_up" else "BODY_flat_proxy.png" in advanced)
+        assert ("양손" in advanced if mode == "live2d_bust_up" else "from PIL import Image, ImageDraw" in advanced)
 
 def test_live2d_delivery_remains_one_zip_per_mode_and_asset():
     zips = sorted((KITS / "zips").glob("*.zip"))
