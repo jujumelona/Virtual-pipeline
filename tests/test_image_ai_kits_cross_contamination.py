@@ -194,5 +194,5 @@ def test_source_files_no_longer_contradict_master_first_authoring():
     quality=(root / "QUALITY_STANDARD_2D.md").read_text(encoding="utf-8")
     assert "먼저 요청된 헤어스타일 하나의 고품질 완성 원화" in hair
     assert "완성 원화 우선" in outfit
-    assert "마스터로 먼저 생성" in quality
+    assert "완성 원화" in quality and "실제 다층 PSD" in quality
     assert "원화가 완성된 후 마스크로 뜯어내지 않는다" not in hair+outfit+quality
