@@ -36,3 +36,9 @@
 - 의상: 요청한 옷의 옷깃·솔기·주름/안감.
 - 액세서리: 사용자 주문 하나의 실제 부착·투명/금속 재질.
 타 자산의 피부/표정/팔/손은 합성 위치 참조만 허용하고 PNG 신규 제작을 금지한다.
+
+## [바스트업 FACE-FIRST 애니풍 품질 — 2026-10-13]
+신체 ZIP 한정: F=정면 관자놀이 사이 얼굴폭(귀·모발 제외), E=눈꺼풀 외곽 눈 한쪽 너비(긴 속눈썹 제외). 큰 애니 VTuber 표정을 위한 선택적 시작값 E/F=23~29%, 양눈 간격/E=0.65~0.95, 보이는 홍채 폭/E=62~80%. 단순히 숫자를 채우는 것이 아니라 큰 상안부·도드라진 홍채/상안검 곡선·섬세한 눈꼬리, 작고 단정한 코/입, 좁고 부드러운 애니 턱, 단순화된 귀·목 그림자가 시각적으로 애니풍이어야 한다. 실사 인물 피부·안와 뼈·광대·콧대·넓은 어깨·긴 몸통을 금지. 숫자는 업계 실측 평균/검수용 강제 조건이 아니고 사용자 설정 외형이 우선.
+**이미지 AI의 바스트업 신체 프롬프트 최우선 예시:**
+> Masterpiece 2D hand-drawn Japanese anime VTuber FACE-DOMINANT CLOSE BUST-UP BODY BASE artwork, FRONT VIEW; composition centered on an oversized expressive anime head and face, scalp-to-chin taking approximately 52-61 percent of canvas height, only a short neck, shoulders, collarbone and the very top of safely opaque covered chest visible at the lower edge, absolutely no long torso, no waist and no elbows or hands. Beautiful distinctly ANIME eyes large relative to face width, large multilayer irises and bold tapering upper eyelashes, luminous eye highlights and clean whites; soft anime cheek silhouette tapering toward a smaller chin; tiny stylized nose, small clean mouth, reduced realistic anatomy, smooth controlled cel shading with refined colored inner lineart. Bald/without detachable hair because BODY asset only; no wigs, fashion outfit, jewelry or photo-like texture. Not photorealism, not 3D render, not realistic person, not fashion photography, not realistic small eyes/irises, not human anatomy study, not large torso/shoulder portrait, not a crude mannequin; draw an actual high-end anime VTuber bust-up illustration.
+별도 헤어·패션 의상·장식은 만들지 않는다. 사진형 인물·3D 렌더/인체 모형·긴 몸통·작은 눈을 결과로 내놓지 않는다.
