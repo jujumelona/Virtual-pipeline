@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "principle": "완성 기준 원화 먼저 → 사용자 디자인에 실제 있는 단위만 분리/다각도 작화 → 해당 자산만 숨은 면과 명암 보완 → 실제 합성/시점 그림 재확인. 공식 편집기 기능과 아티스트 경험 기법을 분리하며 외부 앱 실행/리깅 산출을 이미지 생성 AI에 요구하지 않는다.",
+  "modes": {
+    "live2d_bust_up": "방송용 가슴 위 프레임에서 큰 눈·카라·소품의 축소 가독성을 검수하되 화면 바깥 하체 제작을 강제하지 않는다. 스타일·원화가 지정되면 그 디자인을 우선하고, 잘려 있는 부위는 추측해 늘리지 않는다.",
+    "live2d_upper": "어깨·상완·소매·실제 헤어 끝의 화면 안 가시성, 피부·머리·옷 사이 접합을 우선한다. 하체나 프레임 밖 의상/소품은 필요조건이 아니다.",
+    "live2d_full": "전신 신체는 프로젝트의 6등신 설계를 보존한다. 관절·소매·의상 무늬·긴 머리카락의 끝이 실제 있는 구간에서만 연속적인지 확인한다. 타 자산이 신체 전체를 새로 만들지 않는다.",
+    "inochi2d_upper": "2D 상반신 원화만 만든다. Inochi Creator에서 PSD를 가져올 때 그림자 레이어가 겹칠 수 있어 원화의 중복 그림자·알파를 중립 합성으로 비교하되 노드/Sorting 설정을 실행하거나 인증하라는 뜻이 아니다.",
+    "inochi2d_full": "전신 신체의 6등신·파츠 접합을 유지한다. Inochi2D 합성에서 겹친 투명 음영/소재/소품이 원본보다 짙어지는 위험을 원화 단계에서 점검하고 실제 Creator 편집은 후속 사용자 작업으로 둔다.",
+    "3d": "그림으로만 전후좌우 독립된 4면도/세부 참조를 만든다. 2D PNG 레이어·PSD 마스크·Multiply 설정을 요구하지 않고, 재질 하이라이트·선폭·관절 기준선이 같은 물건의 다른 시점에서 일치하는지만 검수한다."
+  },
+  "engine_notes": {
+    "live2d": "[Live2D 공식 문서 — 분리/기술] https://docs.live2d.com/en/cubism-editor-tutorials/psd/ : 필요한 눈/입/머리카락/몸 파츠의 분리와 숨은 부분의 추가 작화. https://docs.live2d.com/en/cubism-editor-manual/reimport-psd/ : 후속 가져오기 PSD는 파츠마다 필요한 선화·채색을 합쳐 준비하고 분리 작업용 원본은 별도로 보관한다. 이 내용은 이미지 AI에 Photoshop 플러그인, Cubism 키폼/Glue/물리를 실행하라는 지시가 아니다.",
+    "inochi2d": "[Inochi2D 공식 예제] https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html : PSD 가져오기 이후 그림자 레이어들이 중첩되어 원본과 다르게 보일 수 있다. 이미지 AI는 원본과 각 자산의 투명 RGBA/중립 합성을 점검하고, Creator Node/Sorting/실제 블렌드 설정은 후속 사용자가 수행한다.",
+    "3d": "[3D 참조 자료와 구현 구분] https://vrm.dev/en/vrm1/humanoid/ 는 실제 3D Humanoid 규격이지 4면도 PNG의 자동 모델화가 아니다. 일관된 투시·그림자·재질·실루엣은 원화 제작자의 작업 규칙이며 실제 VRM 메시/UV/본 산출 지시가 아니다."
+  },
+  "2d": {
+    "body": {
+      "02_ADVANCED_PARTS.md": "**[신체만/선·채색·그림자 소유권]** 완성 기준 신체 원화에서 눈꼬리·윗속눈썹 끝·눈꺼풀은 실제 독립 변화가 필요한 경우에만 분리한다. 작업 중 선화와 밑색을 별도로 다듬더라도 같은 파츠의 최종 RGBA에서는 외곽선·밑색·필요한 자체 음영이 하나의 일관된 픽셀 영역을 이루게 한다. 얼굴 피부 자체의 명암/혈색은 신체가 담당하지만 **헤어가 얼굴에 드리우는 그림자를 신체 기본 피부에 영구적으로 박아 넣지 않는다**. 그런 그림자가 실제 디자인에 있을 때만 헤어 자산의 선택적 독립 그림자/합성 미리보기에서 관리한다. 신체 ZIP이 새 헤어를 생성하지 않는다.",
+      "06_ADVANCED_OFFICIAL_COMMUNITY.md": "**[공식 vs 작업 경험]** Live2D 공식은 눈꼬리 속눈썹의 분리 편의와 숨은 흰자·입안 보완을 설명한다: https://docs.live2d.com/en/cubism-editor-tutorials/psd/ . Live2D 공식 가져오기 PSD 자료는 파츠당 선화/칠을 합치는 제작 단계를 설명한다: https://docs.live2d.com/en/cubism-editor-manual/reimport-psd/ . **피부 고정 그림자와 움직이는 앞머리 그림자의 소유권 분리**는 원화 품질을 위한 선택적 제작자 운영 원칙이며 Cubism에서 의무적으로 생성할 별도 그림자 수가 아니다.",
+      "07_REVIEW_BEFORE_FINAL_ZIP.md": "**[신체 그림자/선화 QA]** 피부 RGBA에 머리카락 실루엣 그림자가 고정돼 움직일 머리와 어긋나지 않는가? 눈꼬리·윗속눈썹이 분리/재합성 뒤 찢기거나 두 겹이 되지 않는가? 피부 셀 그림자와 별도 선택 그림자가 중복되어 검게 되지 않는가? 흰 테두리/검은 잔선/입의 이중 노출을 원본·밝은 배경·어두운 배경·재합성으로 대조한다. 헤어·옷·소품 픽셀이 신체 레이어에 섞이면 해당 신체 파츠만 고친다.",
+      "08_PRACTICAL_TIPS.md": "**[고급 애니풍 신체 원화 작업]** 얼굴 외곽·턱 아래 깊은 겹침은 읽히는 선폭을, 속눈썹 끝·피부색 보조선·입은 필요한 만큼 가는 선을 사용한다. 원본의 검은/채색 선화 취향을 바꾸지 않는다. 분리한 눈·입·목 그림을 단색으로 때우지 말고 원화의 라인·밑색·셀 명암이 파츠 가장자리 안으로 이어지게 새로 그린다. 실제 표정/눈 움직임이 필요한 부위만 선택 분리하며 피부에 머리 모양 그림자를 지워지지 않게 붙이지 않는다.",
+      "09_VISUAL_ART_QUALITY.md": "**[실물 품질]** 눈·입·피부 선폭의 위계, 얼굴 원본의 고유 스타일, 눈꼬리의 끊김/겹침, 경계의 알파 프린지, 이중 그림자 여부를 실제 합성으로 확인한다. 레이어 숫자나 검정 테두리의 절대 굵기로 미술 완성도를 선언하지 않는다.",
+      "10_ANIME_STYLE.md": "Anime VTuber BODY ONLY: preserve the existing eye shape and facial identity, tapered eyelash and mouth linework, delicate colored interior contours and clean skin cel-shadows, no baked-in moving hair-cast shadow on the permanent face skin, no duplicated facial linework, no hairstyle/clothing/accessory generation."
+    },
+    "hair": {
+      "02_ADVANCED_PARTS.md": "**[헤어만/모근·그림자 소유]** 완성 헤어 원화에서 뿌리 위치가 두피 곡면을 따라 앞·옆·뒤로 연결되는지를 먼저 판단하고 실제 독립적으로 흔들리는 가닥만 분리한다. 눈/피부를 새로 만들지 않되, **앞머리가 얼굴에 만드는 그림자가 실제 디자인에서 필요하고 별도로 움직여야 한다면** 피부 베이스에 굽지 않고 **헤어 소유의 선택적 별도 투명 그림자**로 계획한다. 필요 없으면 만들지 않는다. 헤어 자체의 뿌리·가닥·뒷면 명암은 해당 헤어 PNG에만 포함한다.",
+      "06_ADVANCED_OFFICIAL_COMMUNITY.md": "**[공식과 아티스트 경험 구별]** 공식 Live2D 파츠 분리/숨은 머리뿌리 보완: https://docs.live2d.com/en/cubism-editor-tutorials/psd/ . **볼에서 자란 것처럼 보이는 잘못된 옆머리 뿌리, 머리 이동과 따로 노는 앞머리 투사 그림자, 반사광의 흐름·단선 문제**는 실제 작화 품질을 위한 아티스트 검수 항목이지 공식 파츠 개수·그림자 생성 의무가 아니다.",
+      "07_REVIEW_BEFORE_FINAL_ZIP.md": "**[헤어 QC]** 앞·옆·뒤의 실제 모근이 두피 곡면에서 출발하는가, 가닥이 볼/턱 피부에서 시작한 듯 보이지 않는가, 헤어 그림자가 원본 얼굴에 남아 이중으로 어두워지지 않는가? 가닥 끝 테이퍼·안쪽 가닥·광택과 알파가 밝고 어두운 배경에서 이어지는가? 피부·귀·눈·카라의 픽셀을 헤어 PNG에 넣지 않는다.",
+      "08_PRACTICAL_TIPS.md": "**[헤어 뿌리·캐스트 그림자]** 머리뿌리의 출발점→큰 가닥의 표면 굴곡→작은 갈래의 테이퍼를 같은 방향으로 설계한다. 얼굴 위 앞머리 그림자가 필요하면 헤어 자산에만 속하는 별도의 그림자 후보를 원본 좌표에서 제작하되, **움직임/합성 구조에 필요할 때만** 추가한다. 그림자를 원본 피부에도 그리고 독립 그림자에도 그리는 중복을 금지한다. 헤어 하이라이트는 가닥 흐름과 머리 곡면을 따라 가게 하고, 실제 함께 움직이는 고정 명암은 무리하게 독립 레이어로 나누지 않는다.",
+      "09_VISUAL_ART_QUALITY.md": "**[헤어 미술 검토]** 모근의 원래 위치·앞머리 굴곡·귀 앞뒤 깊이·머리 안쪽 음영·가닥 끝 가변 선폭·소재 반사광을 보고, 피부색 잔상/백색 프린지/중복 Multiply 같은 흔적이 없는지 합성한다. 사용자가 요청하지 않은 묶음머리·아호게·핀을 추가해 풍성함을 가장하지 않는다.",
+      "10_ANIME_STYLE.md": "Anime VTuber HAIR ONLY: authentic scalp-rooted silhouette, layered front side and back tufts, tapered fine ink at the strand tips, depth-aware cel shadows and flowing highlights; only if needed provide a hair-owned cast-shadow layer instead of baking hair shadows into face skin, never add eyes, ears, outfit or ornamental hairpins."
+    },
+    "outfit": {
+      "02_ADVANCED_PARTS.md": "**[의상만/재질·패턴·그림자]** 요청된 한 벌의 실제 소매·카라·몸판·하의(존재 시)에만 그림을 배분한다. 천에 고정된 체크무늬/줄무늬/자수는 옷감 자체의 색면이며 필요 없이 별도 파츠로 쪼개지 않는다. **어깨·팔꿈치·옷깃 등 움직임/장력이 생기는 이음**에서 실제 무늬·솔기·천의 앞뒤가 맞도록 이어 그린다. 피부의 자체 그림자는 신체, 옷감 주름/접촉 그림자는 의상이다. 투명/망사 소재는 실제 요청되었을 때만 적용하고, 같은 불투명/반투명 겹침을 두 번 채색해 검게 만들지 않는다.",
+      "06_ADVANCED_OFFICIAL_COMMUNITY.md": "**[출처 구분]** Live2D 공식은 카라/가디건을 필요에 따라 나누거나 묶을 수 있다고 설명한다: https://docs.live2d.com/en/cubism-editor-tutorials/psd/ . **어깨·팔꿈치·허리 등 장력점에서 시작되는 천 주름, 체크무늬/망사의 연결, 반투명 소매 이중 암영 방지**는 전문 일러스트레이터의 미술 설계·검수 기법이며 공식 고정 파츠 구성이나 필수 의상 요소는 아니다.",
+      "07_REVIEW_BEFORE_FINAL_ZIP.md": "**[의상 QC]** 실제 요청 의상에 체크/줄무늬가 있다면 소매·카라·몸판의 무늬가 연결되는가? 반투명/망사 재질이 있을 때 겹침이 예상보다 지나치게 검거나 하얀 프린지가 생기는가? 주름이 봉제/장력 위치와 무관하게 임의로 흩뿌려지지 않는가? 옷깃/소매 경계가 잘리거나 피부 픽셀을 옷 안에 끌어오지 않았는가? 없는 치마·신발/별도 귀걸이 생성 금지.",
+      "08_PRACTICAL_TIPS.md": "**[의상 원화 고급 기법]** 주름은 옷의 무게·두께·관절 움직임과 실제 고정점(어깨·팔꿈치·허리/소매)에서 출발해 장력에 맞춰 퍼진다. 고정 자수/인쇄·체크무늬는 옷감의 위치를 따라 휘고 앞뒤 면·양 소매에서 연결해야 한다. 투명 원단이 실제 있을 때만 서로 겹친 부분의 합성 어두워짐을 점검하고, 내부 안감/아래에 보일 원단 색을 따로 준비한다. 입체감을 이유로 피부·귀·헤어를 의상 ZIP에서 다시 그리지 않는다.",
+      "09_VISUAL_ART_QUALITY.md": "**[소재/선화 미술]** 겹치는 옷깃·주름의 깊은 틈은 명확한 접촉선, 천 내부/고정 문양은 가는 선, 소재의 진짜 주름·두께·명암은 원본 그림체에 맞게 통일한다. 없는 복잡한 자수나 투명 재질을 품질을 이유로 강제하지 않는다.",
+      "10_ANIME_STYLE.md": "Anime VTuber OUTFIT ONLY: user-specified material, tension-driven folds from actual seams and joints, accurate stripe or plaid continuity only if present, believable layered collar and sleeve linings, selective contact lineweight and clean fabric cel shading, check overlaps of optional translucent mesh; no skin, hairstyle, face or separate jewelry."
+    },
+    "accessory": {
+      "02_ADVANCED_PARTS.md": "**[한 종류 소품/형태·장력]** 요청한 물건 하나가 실제로 단단한 머리핀/안경테라면 불필요한 분할을 만들지 않는다. **체인·끈·매달린 리본 등 유연한 부속이 실제로 있고 후속 움직임을 고려할 때만**, 기존 디자인을 유지하면서 과하게 꼬이거나 심하게 접힌 상태 대신 길이·부착점이 읽히는 **중립 형태의 선택적 참조 원화**를 준비한다. 직선화를 강요하거나 다른 소품을 생성하지 않는다. 렌즈·고리·금속은 그 물건에 실제 있을 때만 포함한다.",
+      "06_ADVANCED_OFFICIAL_COMMUNITY.md": "**[공식·실무 구분]** Live2D 공식의 필요한 범위만 분리/숨은 면 보완: https://docs.live2d.com/en/cubism-editor-tutorials/psd/ . **체인·끈의 중립 형태로 과도한 원근 찌그러짐 방지, 얇은 금속·유리/투명 알파 경계 검수**는 아티스트용 조건부 권고다. 공식적으로 모든 액세서리를 직선/고정 개수로 제작하라는 규정은 없다.",
+      "07_REVIEW_BEFORE_FINAL_ZIP.md": "**[단일 소품 QC]** 실제 주문된 한 물건만 존재하는가, 고정부/매달린 체인·끈의 자연스러운 길이가 유지되는가? 얇은 끝선의 백색 프린지·검은 잔선과 금속 반사/유리 알파가 과도하게 보이지 않는가? 중립 레퍼런스를 만든 경우 원래 디자인의 의도된 휘어짐/꼬임을 지워버리지 않았는가? 기준 헤어·의상·피부 픽셀이나 추가 장신구 세트 생성 금지.",
+      "08_PRACTICAL_TIPS.md": "**[소품 소재·선폭·가림]** 원본 디자인의 고정부와 연결점은 읽히는 선폭으로, 체인·안경 프레임 같은 얇은 선은 축소 후 끊기지 않도록 유의한다. 체인/리본처럼 움직일 수 있는 부분은 실제 요청되었고 변형이 예정된 경우에만 중립 자세 참고를 제공한다. 금속은 좁고 대비 큰 반사, 렌즈는 진짜 투명 알파, 다른 재질은 각 소재에 맞춘다. 밝고 어두운 배경에서 알파/두께를 검수하되 눈·귀·신체를 새로 그리지 않는다.",
+      "09_VISUAL_ART_QUALITY.md": "**[소품의 고급 완성도]** 부착점과 얇은 연결의 선폭 위계, 실제 재질의 반사와 투명 경계, 축소 시 인식되는 실루엣을 확인한다. 리본·체인·고리·렌즈는 요청한 물건에 존재할 때만 필요한 품질 항목이다.",
+      "10_ANIME_STYLE.md": "Anime VTuber ONE ACCESSORY ONLY: precise existing mounting anchor, nuanced material-specific lineweight, fine chains or ties in a readable neutral reference pose only when that item actually has flexible parts, crisp metal highlights and transparent glass alpha only if needed; never add a second ornament, face, body, hair or garment."
+    }
+  },
+  "3d": {
+    "body": {
+      "02_ADVANCED_PARTS.md": "**[3D 신체 참조만]** 실제 정면·후면·좌우에서 얼굴·몸/손발의 윤곽과 선폭 위계를 맞추고, 눈·코·턱·귀·관절의 깊이와 동일 조명/색면을 그림으로 설명한다. 입체 그림자·실루엣 정보는 그림 안의 참조이지 독립 Multiply PSD 그림자/Live2D ArtMesh 산출물이 아니다.",
+      "06_ADVANCED_OFFICIAL_COMMUNITY.md": "**[3D/원화 경계]** https://vrm.dev/en/vrm1/humanoid/ 의 Humanoid는 실제 3D 모델 단계다. 정면·후면·좌우의 선화 두께·관절 높이·접촉 그림자 일치는 캐릭터 시트 미술 원칙이며 3D 메시/UV/본을 이미지 AI가 실행할 의무가 아니다.",
+      "07_REVIEW_BEFORE_FINAL_ZIP.md": "**[3D 신체 4시점 QC]** 같은 몸체의 얼굴 비례·눈·코/턱·귀·어깨·관절/손발 기준선이 서로 맞는가? 선폭/셀 음영의 방향이 네 그림에서 동일한 조명 설계로 보이는가? 단순 정면 반전이나 그림자 덧씌운 동일 그림을 측면으로 가장하지 않는가? 의복/헤어/소품 새로 그리기 금지.",
+      "08_PRACTICAL_TIPS.md": "**[다각도 작화]** 한 원화의 전후좌우 기준선을 잡고 움직이지 않는 고정 몸체 형태를 각각 다른 각도에서 새로 그린다. 얼굴 외곽/턱과 관절 깊은 겹침은 읽히는 선폭, 피부 안쪽은 섬세한 색선으로 정리한다. 조명·명암·눈/손 세부 크기를 시점별 일관성 있게 맞추고 이미지 외부 레이어/클리핑/인체 메시를 만들어 냈다고 주장하지 않는다.",
+      "09_VISUAL_ART_QUALITY.md": "**[신체 다각도 품질]** 네 방향의 큰 실루엣·랜드마크·선화 위계와 셀 명암/피부색의 정합을 보며 사진형 과잉 음영이나 가짜 미러링 측면을 허용하지 않는다.",
+      "10_ANIME_STYLE.md": "ANIME BODY TURNAROUND REFERENCE ONLY: independently illustrated accurate front back left right views, coherent six-head silhouette, readable tapered outline hierarchy and consistent cel-shading; no layered shadow PSD, 3D mesh, VRM, fashion hair or ornament."
+    },
+    "hair": {
+      "02_ADVANCED_PARTS.md": "**[3D 헤어 시트]** 정면 모근·옆머리·후면 머리 덩어리를 네 각도에서 같은 두상 곡면에 붙는 하나의 헤어스타일로 그린다. 옆머리가 턱/볼에서 자라 보이지 않도록 실제 모근의 뒤쪽 연결을 보여준다. 헤어의 재질 하이라이트와 앞뒤 깊이는 4면도의 색면/선화로만 표현하고 2D용 그림자 레이어를 요구하지 않는다.",
+      "06_ADVANCED_OFFICIAL_COMMUNITY.md": "**[전용 참조 도면 기법]** https://vrm.dev/en/vrm1/humanoid/ 는 3D 아바타 후속 데이터 참고일 뿐 4면도에 피부·머리카락 메시 생성 의무를 부여하지 않는다. 실제 헤어 뿌리 위치·앞뒤 층·명암/반사광을 네 방향에서 일치시키는 것은 아티스트의 시각적 품질 규칙이다.",
+      "07_REVIEW_BEFORE_FINAL_ZIP.md": "**[3D 헤어 QC]** 네 방향에서 동일한 모근·머리 볼륨·한 가닥 길이/그림자와 가변 선폭을 유지하는가? 정면만 미러링해서 측면이라고 부르지 않는가? 턱에서 머리카락이 자라는 듯 보이지 않는가? 기준 신체 귀/눈/얼굴 픽셀을 별도 헤어 시트에 복제하지 않는가?",
+      "08_PRACTICAL_TIPS.md": "**[전후좌우 머리카락 그림]** 정면 두상의 실제 모근과 머리 덩어리 형태를 기준 삼아 후면/양 측면의 크기·실루엣·굴곡/테이퍼/재질 반사를 독립 작화한다. 가닥 뿌리/속머리 음영을 그리지만 얼굴 위의 이동형 그림자 독립 PSD 레이어를 요구하거나 신체 피부를 생성하지 않는다.",
+      "09_VISUAL_ART_QUALITY.md": "**[헤어 3D 참조 품질]** 뒤통수 볼륨·귀 앞뒤 깊이·모근 위치와 네 방향의 하이라이트가 같은 머리카락 소재/원화로 보이는지 확인한다. 3D 메시/커브 생성 완료로 표시하지 않는다.",
+      "10_ANIME_STYLE.md": "ANIME HAIR TURNAROUND REFERENCE ONLY: four independently illustrated consistent rooted hairstyle views, correct scalp curvature and tapered tufts, flowing highlights, consistent silhouette and depth; no skin, eye, outfit, native geometry or separate PSD shadow layers."
+    },
+    "outfit": {
+      "02_ADVANCED_PARTS.md": "**[3D 의상 시트/재질·문양]** 요청 의상의 실제 카라·소매·몸판/하의(있을 때만) 구조를 앞뒤좌우에서 독립 작화한다. 체크·줄무늬·자수는 실제 있으면 어깨·팔꿈치·허리의 솔기/천 장력에 따라 각 면에서 끊기지 않게 연결한다. 반투명/망사 원단도 요청된 경우에만 실제 겹침/보이는 안감·옷 두께를 그림으로 표현한다. 2D PSD 블렌드/알파 합성 작업은 산출 대상이 아니다.",
+      "06_ADVANCED_OFFICIAL_COMMUNITY.md": "**[3D vs 그림 구분]** https://vrm.dev/en/vrm1/humanoid/ 는 후속 3D 리깅 규격. 천 주름이 봉제점·관절 장력에서 발생하고 체크/스트라이프가 전후좌우에서 연속한다는 그림 작업 원칙은 아티스트 경험이며 공식 VRM 필수 원화 파일 규격이 아니다.",
+      "07_REVIEW_BEFORE_FINAL_ZIP.md": "**[3D 의상 QC]** 실제 요청된 무늬와 솔기·주름 시작점·카라 뒷면/실제 얇은 옷감의 투명도가 좌우 측면/후면에서 이어지는가? 같은 옷의 재질·하이라이트·선폭이 네 방향 일치하는가? 없는 바지·치마·신발/피부/별도 장신구 생성 금지.",
+      "08_PRACTICAL_TIPS.md": "**[의상 턴어라운드]** 정면 봉제점과 어깨·팔꿈치·허리의 장력 축을 기준으로 실제 소매의 주름과 하의·옷자락을 각도별로 새로 그린다. 체크·스트라이프가 있다면 뒤쪽/옆쪽에서 솔기 위치가 연결되는지 비교한다. 망사/반투명 옷감은 실제 있을 때만 아래 안감과 겹침을 같은 원화의 반사/색면으로 설명한다. 3D 메시·UV 전개가 완성됐다고 하지 않는다.",
+      "09_VISUAL_ART_QUALITY.md": "**[3D 의상 미술]** 솔기 교차점에는 선폭을 조금 두고 고정 자수/프린트의 가는 선은 소재에 맞게 유지한다. 각 시점의 동일한 색/천 두께/명암과 요청된 무늬의 연속성을 확인한다.",
+      "10_ANIME_STYLE.md": "ANIME OUTFIT TURNAROUND REFERENCE ONLY: four separately drawn front back left right views, believable fabric tension folds at seams and joints, accurate optional stripes and plaid across views, material-aware shading and refined outline hierarchy; no PSD masks, clothing mesh, UV, skin, hair or extra jewelry."
+    },
+    "accessory": {
+      "02_ADVANCED_PARTS.md": "**[3D 단일 소품 참조]** 요청된 물건 하나의 정면·후면·좌우에서 고정부·두께·표면 재질을 일치시킨다. 유연한 체인·끈·리본이 실제 있고 자세가 필요한 경우에만 원래 디자인을 보존한 **중립 자세 추가 참조 이미지**를 생각한다. 처음부터 휘어진 디자인을 멋대로 직선화하거나 다른 장식 한 벌을 만들지 않는다. 2D 분할/메시·물리·UV 생성 요구 금지.",
+      "06_ADVANCED_OFFICIAL_COMMUNITY.md": "**[참조/3D 규격 구분]** https://vrm.dev/en/vrm1/humanoid/ 는 실제 3D 모델/스켈레톤 단계. 소품의 4시점 두께·길이·유연한 연결의 중립 형태는 제작자 그림 참고이며 VRM의 필수 텍스처/메시 규격이 아니다.",
+      "07_REVIEW_BEFORE_FINAL_ZIP.md": "**[3D 소품 QC]** 네 방향에서 요청 소품의 실제 고정부·두께·길이·표면 하이라이트가 일치하는가? 선택적 중립 포즈 참조를 추가했더라도 원래 휘어짐/디자인·부착점을 바꾸지 않았는가? 눈/귀/피부·헤어/의상 전체가 소품 시트에 복제되거나 새 소품이 추가되지 않았는가?",
+      "08_PRACTICAL_TIPS.md": "**[소품 고급 4면도]** 주문 소품이 체인·끈처럼 유연한 연결을 실제 가지면 고정부/연결 길이·중립 모양의 그림을 추가 참고로 설명할 수 있다. 금속·유리 등 요청 재질에만 적절한 좁은 하이라이트/투명 표현을 사용한다. 정면을 잘라 후면/측면이라 하지 않고 실제 재질·두께를 새 시점마다 맞춘다.",
+      "09_VISUAL_ART_QUALITY.md": "**[3D 단일 소품 미술]** 실제 한 종류 소품의 얇은 연결·고정부 선폭/투명·금속 반사와 네 시점 형상 연속성이 유지되는지 확인한다. 다른 물건/부속을 품질 핑계로 추가하지 않는다.",
+      "10_ANIME_STYLE.md": "ANIME SINGLE ACCESSORY TURNAROUND REFERENCE ONLY: separately drawn four angles of the requested object's actual shape, thin-connection line weight and realistic stylized material highlights, optional neutral hanging form only when genuinely needed; no full character, added ornaments, modeling UV or VRM."
+    }
+  }
+}
