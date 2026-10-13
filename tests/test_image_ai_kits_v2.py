@@ -215,7 +215,12 @@ def test_all_body_kits_require_six_heads_and_large_anime_eyes():
         assert "큰" in detailed and "홍채" in detailed and "눈" in detailed, mode
         assert "실사" in detailed and "입" in detailed and "귀" in detailed, mode
         assert "6등신" in review, mode
-        assert "reference_views/body_six_heads_guide.png" in output, mode
+        if mode.endswith("_upper"):
+            assert "reference_views/upper_body_proportion_guide.png" in output, mode
+            assert "reference_views/body_six_heads_guide.png" not in output, mode
+            assert "전신 이미지를 새로 그리지 않는다" in output, mode
+        else:
+            assert "reference_views/body_six_heads_guide.png" in output, mode
         assert "reference_views/face_large_anime_eyes.png" in output, mode
         assert "애니" in first, mode
         assert "매끈한" in master or "매끈한" in detailed, mode
