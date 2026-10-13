@@ -70,7 +70,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "head",
         "face",
@@ -93,9 +93,11 @@
         "hand_R"
       ],
       "frame": "head to upper abdomen/waist with complete shoulders arms and hands",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "live2d_bust_up__hair": {
       "mode": "live2d_bust_up",
@@ -106,7 +108,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "hair_back",
         "hair_root",
@@ -117,9 +119,11 @@
         "occlusion_neck"
       ],
       "frame": "head to upper abdomen/waist with complete shoulders arms and hands",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "live2d_bust_up__outfit": {
       "mode": "live2d_bust_up",
@@ -130,7 +134,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "collar",
         "upper_torso_garment",
@@ -143,9 +147,11 @@
         "front_back_overlap"
       ],
       "frame": "head to upper abdomen/waist with complete shoulders arms and hands",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "live2d_bust_up__accessory": {
       "mode": "live2d_bust_up",
@@ -156,7 +162,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "one_requested_object",
         "physical_attachment_anchor",
@@ -164,9 +170,11 @@
         "rear_occlusion"
       ],
       "frame": "head to upper abdomen/waist with complete shoulders arms and hands",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "live2d_upper__body": {
       "mode": "live2d_upper",
@@ -177,7 +185,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "head",
         "face",
@@ -200,9 +208,11 @@
         "hand_R"
       ],
       "frame": "upper body through waist/hips with hands",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "live2d_upper__hair": {
       "mode": "live2d_upper",
@@ -213,7 +223,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "hair_back",
         "hair_root",
@@ -224,9 +234,11 @@
         "occlusion_neck"
       ],
       "frame": "upper body through waist/hips with hands",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "live2d_upper__outfit": {
       "mode": "live2d_upper",
@@ -237,7 +249,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "collar",
         "upper_torso_garment",
@@ -250,9 +262,11 @@
         "front_back_overlap"
       ],
       "frame": "upper body through waist/hips with hands",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "live2d_upper__accessory": {
       "mode": "live2d_upper",
@@ -262,7 +276,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "one_requested_object",
         "physical_attachment_anchor",
@@ -270,9 +284,11 @@
         "rear_occlusion"
       ],
       "frame": "upper body through waist/hips with hands",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "live2d_full__body": {
       "mode": "live2d_full",
@@ -283,7 +299,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "head",
         "face",
@@ -313,9 +329,11 @@
         "foot_R"
       ],
       "frame": "complete six-head design through feet",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "live2d_full__hair": {
       "mode": "live2d_full",
@@ -326,7 +344,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "hair_back",
         "hair_root",
@@ -337,9 +355,11 @@
         "occlusion_neck"
       ],
       "frame": "complete six-head design through feet",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "live2d_full__outfit": {
       "mode": "live2d_full",
@@ -350,7 +370,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "collar",
         "upper_torso_garment",
@@ -364,9 +384,11 @@
         "lower_garment_or_leg_cover_if_requested"
       ],
       "frame": "complete six-head design through feet",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "live2d_full__accessory": {
       "mode": "live2d_full",
@@ -376,7 +398,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "one_requested_object",
         "physical_attachment_anchor",
@@ -384,9 +406,11 @@
         "rear_occlusion"
       ],
       "frame": "complete six-head design through feet",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "inochi2d_upper__body": {
       "mode": "inochi2d_upper",
@@ -397,7 +421,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "head",
         "face",
@@ -420,9 +444,11 @@
         "hand_R"
       ],
       "frame": "upper body through waist/hips with hands",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "inochi2d_upper__hair": {
       "mode": "inochi2d_upper",
@@ -433,7 +459,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "hair_back",
         "hair_root",
@@ -444,9 +470,11 @@
         "occlusion_neck"
       ],
       "frame": "upper body through waist/hips with hands",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "inochi2d_upper__outfit": {
       "mode": "inochi2d_upper",
@@ -456,7 +484,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "collar",
         "upper_torso_garment",
@@ -469,9 +497,11 @@
         "front_back_overlap"
       ],
       "frame": "upper body through waist/hips with hands",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "inochi2d_upper__accessory": {
       "mode": "inochi2d_upper",
@@ -481,7 +511,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "one_requested_object",
         "physical_attachment_anchor",
@@ -489,9 +519,11 @@
         "rear_occlusion"
       ],
       "frame": "upper body through waist/hips with hands",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "inochi2d_full__body": {
       "mode": "inochi2d_full",
@@ -502,7 +534,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "head",
         "face",
@@ -532,9 +564,11 @@
         "foot_R"
       ],
       "frame": "complete six-head design through feet",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "inochi2d_full__hair": {
       "mode": "inochi2d_full",
@@ -545,7 +579,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "hair_back",
         "hair_root",
@@ -556,9 +590,11 @@
         "occlusion_neck"
       ],
       "frame": "complete six-head design through feet",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "inochi2d_full__outfit": {
       "mode": "inochi2d_full",
@@ -568,7 +604,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "collar",
         "upper_torso_garment",
@@ -582,9 +618,11 @@
         "lower_garment_or_leg_cover_if_requested"
       ],
       "frame": "complete six-head design through feet",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "inochi2d_full__accessory": {
       "mode": "inochi2d_full",
@@ -594,7 +632,7 @@
       ],
       "type": "editable_PSD_based_art_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "real_PSD_or_user_owned_layered_template_file",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "one_requested_object",
         "physical_attachment_anchor",
@@ -602,9 +640,11 @@
         "rear_occlusion"
       ],
       "frame": "complete six-head design through feet",
-      "reference_canvas_rule": "PRO parts match exactly the supplied approved base BODY canvas, coordinates and scale; FREE complete character uses one approved master source.",
+      "reference_canvas_rule": "FREE: create one original completed master, then split. PRO: keep fixed agreed common BODY canvas+anchors; if no existing BODY, define a new original BODY canvas and mark dependent-asset alignment pending until visual verification.",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "3d__body": {
       "mode": "3d",
@@ -615,7 +655,7 @@
       ],
       "type": "preset_based_3d_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "verified_access_to_VRoid_preset_or_licensed_model",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "head",
         "face",
@@ -647,7 +687,9 @@
       "frame": "full-body four-view turnaround",
       "reference_canvas_rule": "maintain proportions and materials across front back left right",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "3d__hair": {
       "mode": "3d",
@@ -657,7 +699,7 @@
       ],
       "type": "preset_based_3d_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "verified_access_to_VRoid_preset_or_licensed_model",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "hair_back",
         "hair_root",
@@ -670,7 +712,9 @@
       "frame": "full-body four-view turnaround",
       "reference_canvas_rule": "maintain proportions and materials across front back left right",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "3d__outfit": {
       "mode": "3d",
@@ -680,7 +724,7 @@
       ],
       "type": "preset_based_3d_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "verified_access_to_VRoid_preset_or_licensed_model",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "collar",
         "upper_torso_garment",
@@ -696,7 +740,9 @@
       "frame": "full-body four-view turnaround",
       "reference_canvas_rule": "maintain proportions and materials across front back left right",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     },
     "3d__accessory": {
       "mode": "3d",
@@ -706,7 +752,7 @@
       ],
       "type": "preset_based_3d_reference",
       "guide_only_not_native_rig": true,
-      "required_source_before_generation": "verified_access_to_VRoid_preset_or_licensed_model",
+      "required_source_before_generation": "user_design_reference_if_recreating_existing_character_else_original_master_from_visual_references",
       "required_slots": [
         "one_requested_object",
         "physical_attachment_anchor",
@@ -716,7 +762,17 @@
       "frame": "full-body four-view turnaround",
       "reference_canvas_rule": "maintain proportions and materials across front back left right",
       "mandatory_visual_gate": "Reject flat gray mannequin, disconnected neck, missing required hands/arms, abruptly cropped torso and unrelated face. Never certify via shape or hashes alone.",
-      "missing_slot_policy": "Request source/reference or artist creation for missing slots. Never fill missing body slots with a one-color polygon or invent a fake native rig."
+      "missing_slot_policy": "Fill genuinely missing slots with ORIGINAL anime artwork after reviewing visuals and checking anatomy/anchor consistency. Request user input only if exact identity/PRO existing BODY alignment is required; never fake PSD/rig or use gray polygons.",
+      "no_user_psd_fallback": "create_original_design_then_actual_layered_PSD_no_external_sample_pixels",
+      "require_uploaded_user_psd": false
     }
+  },
+  "source_resolution_contract": {
+    "case_new_character": "User-owned PSD/image optional; inspect available lawful layered references and visible examples, then create an ORIGINAL approved master illustration using project framing/slot rules. Do not reuse or redistribute third-party character pixels.",
+    "case_existing_character": "Obtain a character image or distinctive design reference to preserve identity; it need not be PSD. Only insist on an actual prior approved BODY when the user requires matching their EXISTING BODY exactly.",
+    "case_independent_asset": "For PRO hair/outfit/accessory when no approved BODY exists, produce an original design anchored to the documented common canvas with explicit PRO_ALIGNS_TO_FUTURE_BODY_NOT_VERIFIED; do not fabricate BODY artwork or mark alignment confirmed.",
+    "external_reference_failure": "Log unavailable URL, reason, alternate reachable imagery. Missing optional third-party PSD does not force a user upload. Require actual visual observation of enough valid images; do not claim absent asset inspected.",
+    "license": "Third-party source design/pixels cannot be presumed cleared because publicly downloadable. Reference learning is not file reuse; license/attribution must be verified before any derivative/reuse. No source PSD copied into public ZIP.",
+    "no_art_tools": "If generator lacks raster or PSD writing capability report tool limitation specifically, never blame absent user supplied PSD and never forge final outputs."
   }
 }
