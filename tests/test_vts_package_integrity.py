@@ -100,3 +100,63 @@ def test_package_integrity_verifies_real_psd_layers_for_pro(tmp_path):
     report = verify_artwork_package(result["package"])
     assert report["psd_layers_verified"] == 2
     assert report["editor_import_verified"] is False
+
+
+
+def test_package_integrity_detects_modified_composite_same_canvas(tmp_path):
+    result = _sample(tmp_path)
+    replacement = BytesIO()
+    Image.new("RGBA", (256, 384), (1, 2, 3, 255)).save(replacement, "PNG")
+    tampered = tmp_path / "modified_composite.zip"
+    _tamper(result["package"], "preview/composite.png",
+            replacement.getvalue(), tampered)
+    with pytest.raises(ValueError, match="preview composite RGBA mismatch"):
+        verify_artwork_package(tampered)
+
+
+def test_final_handoff_requires_input_psd_and_comparison(tmp_path):
+    result = _sample(tmp_path)
+    with pytest.raises(ValueError, match="final handoff missing"):
+        verify_artwork_package(result["package"], require_final_handoff=True)
+
+
+def test_final_handoff_checks_appended_pro_reference(tmp_path):
+    result = _sample(tmp_path, edition="pro", asset_kind="hair")
+    with ZipFile(result["package"], "a") as archive:
+        psd = archive.read("hair.psd")
+        preview = archive.read("preview/composite.png")
+        archive.writestr("source_psd/see_through_layers.psd", psd)
+        archive.writestr("input_reference/source_avatar.png", preview)
+        archive.writestr("input_reference/body_base.png", preview)
+        archive.writestr("preview/input_vs_psd_comparison.png", preview)
+        archive.writestr("preview/pro_body_asset_overlay.png", preview)
+        archive.writestr("metadata/input_vs_psd_geometry.json",
+                         json.dumps({"output_psd_canvas": [256, 384]}))
+        archive.writestr("metadata/pro_reference_alignment.json",
+                         json.dumps({"output_psd_canvas": [256, 384]}))
+        archive.writestr("logs/psd_runtime/runtime.json", "{}")
+    report = verify_artwork_package(
+        result["package"], require_final_handoff=True, require_pro_reference=True)
+    assert report["composite_pixels_verified"] is True
+    assert report["final_handoff_verified"] is True
+    assert report["pro_reference_files_verified"] is True
+
+
+def test_final_handoff_rejects_misaligned_pro_reference_json(tmp_path):
+    result = _sample(tmp_path, edition="pro", asset_kind="hair")
+    with ZipFile(result["package"], "a") as archive:
+        psd = archive.read("hair.psd")
+        preview = archive.read("preview/composite.png")
+        archive.writestr("source_psd/see_through_layers.psd", psd)
+        archive.writestr("input_reference/source_avatar.png", preview)
+        archive.writestr("input_reference/body_base.png", preview)
+        archive.writestr("preview/input_vs_psd_comparison.png", preview)
+        archive.writestr("preview/pro_body_asset_overlay.png", preview)
+        archive.writestr("metadata/input_vs_psd_geometry.json",
+                         json.dumps({"output_psd_canvas": [256, 384]}))
+        archive.writestr("metadata/pro_reference_alignment.json",
+                         json.dumps({"output_psd_canvas": [512, 384]}))
+        archive.writestr("logs/psd_runtime/runtime.json", "{}")
+    with pytest.raises(ValueError, match="PRO body alignment canvas mismatch"):
+        verify_artwork_package(
+            result["package"], require_final_handoff=True, require_pro_reference=True)

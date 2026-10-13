@@ -14,7 +14,8 @@ from zipfile import ZipFile
 from PIL import Image
 
 
-def verify_artwork_package(package: Path) -> dict:
+def verify_artwork_package(package: Path, *, require_final_handoff: bool = False,
+                           require_pro_reference: bool = False) -> dict:
     with ZipFile(package, "r") as archive:
         names = archive.namelist()
         if len(names) != len(set(names)):
@@ -43,8 +44,10 @@ def verify_artwork_package(package: Path) -> dict:
         if len(leaves) != len(records):
             raise ValueError("Artwork ZIP PSD drawable layer count mismatch")
         with Image.open(BytesIO(archive.read("preview/composite.png"))) as preview:
+            preview.load()
             if preview.size != canvas:
                 raise ValueError("Artwork ZIP preview canvas mismatch")
+            delivered_preview = preview.convert("RGBA").tobytes()
         rgba_paths = [r["rgba_png"] for r in records]
         mask_paths = [r["alpha_mask_png"] for r in records]
         if (len(set(rgba_paths)) != len(records) or len(set(mask_paths)) != len(records)
@@ -99,7 +102,61 @@ def verify_artwork_package(package: Path) -> dict:
                     if (mask.mode != "L" or mask.size != canvas
                             or mask.tobytes() != alpha.tobytes()):
                         raise ValueError("Artwork ZIP alpha mask differs from layer")
+        # The preview must be an actual alpha composite of the delivered
+        # raster layers in their manifest order, not just a same-sized PNG.
+        # Re-read one layer at a time to avoid holding all 100 FREE candidates
+        # in Colab RAM simultaneously.
+        assembled = Image.new("RGBA", canvas, (0, 0, 0, 0))
+        for record in reversed(records):
+            with Image.open(BytesIO(archive.read(record["rgba_png"]))) as part:
+                assembled.alpha_composite(part.convert("RGBA"))
+        if assembled.tobytes() != delivered_preview:
+            raise ValueError("Artwork ZIP preview composite RGBA mismatch")
+
+        if require_pro_reference and not require_final_handoff:
+            raise ValueError("PRO reference check requires final handoff validation")
+        if require_final_handoff:
+            required = {
+                "preview/input_vs_psd_comparison.png",
+                "metadata/input_vs_psd_geometry.json",
+                "logs/psd_runtime/runtime.json",
+                "README_CUBISM.md",
+                "LIVE2D_ARTWORK_GUIDE.md",
+                "QUALITY_REVIEW.md",
+            }
+            missing = required.difference(names)
+            if missing:
+                raise ValueError("Artwork ZIP final handoff missing: " + ", ".join(sorted(missing)))
+            original_images = [n for n in names if n.startswith("input_reference/source_")]
+            source_psds = [n for n in names if n.startswith("source_psd/") and n.endswith(".psd")]
+            if len(original_images) != 1 or len(source_psds) != 1:
+                raise ValueError("Artwork ZIP final source input/PSD missing or ambiguous")
+            with Image.open(BytesIO(archive.read(original_images[0]))) as original:
+                original.verify()
+            with Image.open(BytesIO(archive.read("preview/input_vs_psd_comparison.png"))) as panel:
+                panel.verify()
+            source_psd_bytes = archive.read(source_psds[0])
+            if len(source_psd_bytes) < 26 or source_psd_bytes[:4] != b"8BPS":
+                raise ValueError("Artwork ZIP original source PSD missing or invalid")
+            geometry = json.loads(archive.read("metadata/input_vs_psd_geometry.json"))
+            if geometry.get("output_psd_canvas") != list(canvas):
+                raise ValueError("Artwork ZIP comparison geometry differs from PSD canvas")
+            if require_pro_reference:
+                reference_images = [n for n in names if n.startswith("input_reference/body_")]
+                required_pro = {"preview/pro_body_asset_overlay.png",
+                                "metadata/pro_reference_alignment.json"}
+                if len(reference_images) != 1 or not required_pro.issubset(names):
+                    raise ValueError("Artwork ZIP PRO body reference/overlay missing")
+                with Image.open(BytesIO(archive.read(reference_images[0]))) as reference:
+                    reference.verify()
+                with Image.open(BytesIO(archive.read("preview/pro_body_asset_overlay.png"))) as overlay:
+                    overlay.verify()
+                alignment = json.loads(archive.read("metadata/pro_reference_alignment.json"))
+                if alignment.get("output_psd_canvas") != list(canvas):
+                    raise ValueError("Artwork ZIP PRO body alignment canvas mismatch")
     return {"status": "PASS", "verified_rgba_mask_pairs": len(records),
             "psd_header_checked": True, "psd_layers_verified": len(records),
+            "composite_pixels_verified": True, "final_handoff_verified": require_final_handoff,
+            "pro_reference_files_verified": require_pro_reference,
             "editor_import_verified": False,
             "visual_quality_verified": False}

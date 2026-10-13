@@ -881,6 +881,14 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
             produced["supporting_files"] = [
                 name for name in archive.namelist()
                 if name != Path(produced["art_psd"]).name]
+        # The exporter already checked the base ZIP, but the production
+        # stage appends the real original input, source PSD and comparison
+        # evidence afterwards. Validate the *final artwork handoff* too.
+        from tools.vts_package_integrity import verify_artwork_package
+        produced["archive_verification"] = verify_artwork_package(
+            Path(produced["package"]), require_final_handoff=True,
+            require_pro_reference=reference_image is not None,
+        )
         rig_result = None
         # PSD2Live runs only after the final SAM-partitioned PSD is saved and
         # byte-exact round-trip checked. Never re-run LayerDiff on 60 parts.
