@@ -53,7 +53,7 @@ def guidance(registry: dict, key: str) -> str:
     slots = ", ".join(f"`{slot}`" for slot in t["required_slots"])
     return f"""{MARKER}
 
-**가장 먼저 '이미 존재하는 실제 템플릿/프리셋'을 구한다. 빈 종이에서 캐릭터를 새로 그리거나 회색 신체 도형을 만들지 않는다.**
+**실제 참고 이미지·레이어 구조를 먼저 확인한 다음 제작한다. 사용자 PSD가 없는 신규 캐릭터라면 기존 샘플을 복제하지 말고 독창적인 완성 원화를 처음부터 제작한다. 회색 신체 도형 프록시는 금지한다.**
 이 ZIP은 **{t["mode"]} / {t["asset"]}** 전용이다. 아래 원본 파일은 이 ZIP에 동봉되지 않은 제3자 자료다.
 출처·이용 약관·파일 유형·다운로드/로컬 열림을 확인해야 실제 템플릿 사용 완료다.
 
@@ -63,15 +63,18 @@ def guidance(registry: dict, key: str) -> str:
 ### 채울 슬롯
 {slots}
 
-- **템플릿 원본 열람 필수:** PSD라면 실제 레이어 패널과 그림을 열어 눈/머리·목/팔/손/의상 가림을 확인한다. 3D는 VRoid Studio에서 실제 해당 프리셋을 열어 형태와 텍스처를 확인한다. 페이지 URL만 확인하고 실제 PSD/프리셋 열람 완료라 하지 않는다.
+- **실제 자료 열람:** PSD나 3D 프리셋을 실제 확보했다면 파일·레이어·형태를 열람한다. 공개 PSD에 접근할 수 없으면 확인한 그림 예제와 공개 레이어 제작 지침으로 새 원화를 제작한다. 열람하지 않은 파일을 열었다고 주장하지 않는다.
 - **구도:** {t["frame"]}
-- **입력 요구:** {t["required_source_before_generation"]}. 실제 원본이 없는 경우 생성 중단 및 소스 제공 요청.
+- **입력 해결:** {t["required_source_before_generation"]}. 신규 캐릭터는 사용자 원본 PSD·승인 원화가 없어도 기본 설정과 실제 관찰 가능한 참고 이미지로 진행한다. 이미 존재하는 특정 캐릭터를 그대로 보존해야 할 때만 식별 가능한 기존 이미지/설정을 요청하며 PSD 확장자는 강제하지 않는다.
 - **슬롯 채우기:** 템플릿에 있는 부위와 사용자 원화부터 선택·매핑하고, 빈 슬롯은 동일 정합을 유지하며 독립적으로 작화한다. 색상·눈·얼굴 윤곽·목·어깨는 사용자 캐릭터와 실제 원화가 우선이며 예제 캐릭터 외형을 복제하지 않는다.
 - **동일 좌표:** {t["reference_canvas_rule"]}
 - **절대 불합격:** {t["mandatory_visual_gate"]}
 - **없는 부위:** {t["missing_slot_policy"]}
-- **검증:** 슬롯별 source/template-id, 외부 파일 로컬 접근 여부, 원본 파일 종류, 실제 레이어/프리셋 시각 관찰 여부, 기준 캔버스 앵커, 라이선스 확인과 사용자 승인 기록을 남긴다.
-- **제작 순서:** 14개 MD 전체 읽기 → 실제 참고 이미지·위 템플릿 전부 열람 → 요구사항 충돌 해결 → 승인된 템플릿과 슬롯 매핑 → 빈 부위만 원화 제작 → 실제 원화 검수 → 분할 PSD·마스크·완성 ZIP.
+- **검증:** 슬롯별 출처·파일 실제 열람 여부·참고 그림 실제 관찰·외부 불가 URL/사유·저작권 구분·기준 캔버스 앵커·새 원화/기존 캐릭터 선택·시각 검수 기록을 남긴다. 명시적 사용자 승인이 없는 새로운 디자인은 자동 승인됐다고 쓰지 않는다.
+- **제작 순서:** 14개 MD 전체 읽기 → 접근 가능한 복수의 실제 이미지 시각 확인 및 실패 출처 기록 → 저작권·계약 정리 → (사용자 기존 디자인이 있으면 그 이미지 참조, 없으면 원본 캐릭터 완성 원화 생성) → 슬롯 매핑 → 실제 원화 검수 → 투명 레이어 분리·숨은 픽셀 보완 → 실물 PSD·PNG·마스크·검증 JSON·완성 ZIP.
+- **입력이 없는 신규 캐릭터:** 참조 PSD의 존재는 작화 학습에 도움을 주지만 납품 필수 사용자 첨부물이 아니다. 공개 샘플의 실제 픽셀을 재사용하지 않고 원본 캐릭터를 직접 디자인하며, 완성 마스터에서 편집 가능한 PSD를 만든다. 일러스트 생성/PSD 쓰기 도구가 없으면 그 도구의 한계를 보고한다.
+- **독립 PRO 모드:** 기존 BODY가 없으면 새 캐릭터용 공통 캔버스·앵커 명세를 먼저 고정한다. 기존 BODY와의 합성 정합을 통과했다고 가장하지 않는다.
+- **공식 샘플 권리:** 공개 다운로드가 개작/재배포 허락은 아니다. 공식 샘플의 개별 이용약관을 확인하고 원본 파츠/디자인을 사용자 원화로 복제하지 않는다.
 - **중요:** 기존 템플릿 PSD는 자동 Cubism 리깅이 아니다. Inochi2D PSD도 Live2D 네이티브 모션 파일이 아니다. VRoid 프리셋은 2D PSD가 아니다. 이를 혼동하거나 가짜 CMO3/MOC3/VRM을 생성했다고 주장하지 않는다.
 
 """
@@ -79,9 +82,27 @@ def guidance(registry: dict, key: str) -> str:
 
 def inject(document: str, section: str) -> str:
     if document.count(MARKER) == 1:
-        if section not in document:
+        if section in document:
+            return document
+        start = document.index(MARKER)
+        terminal = "- **중요:** 기존 템플릿 PSD는 자동 Cubism 리깅이 아니다."
+        end = document.find(terminal, start)
+        if end < 0:
             raise ValueError("Existing template section stale/mismatched")
-        return document
+        end = document.find("\n\n", end)
+        if end < 0:
+            raise ValueError("Existing template section stale/mismatched")
+        legacy = document[start:end + 2]
+        legacy_requirements = (
+            "- **입력 요구:**",
+            "실제 원본이 없는 경우 생성 중단 및 소스 제공 요청",
+            "- **슬롯 채우기:**",
+            "- **검증:**",
+            "- **제작 순서:**",
+        )
+        if not all(item in legacy for item in legacy_requirements):
+            raise ValueError("Existing template section stale/mismatched")
+        return document[:start] + section + document[end + 2:]
     if MARKER in document:
         raise ValueError("Duplicate template marker")
     if document.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]"):
