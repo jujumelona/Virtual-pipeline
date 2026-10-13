@@ -44,6 +44,7 @@ jobs:
             tests/test_image_ai_kits_scope_contract.py \
             tests/test_image_ai_kits_cross_contamination.py \
             tests/test_image_ai_geometry_guidance.py \
+            tests/test_image_ai_bustup_face_first.py \
             tests/test_image_ai_advanced_craft_guidance.py \
             tests/test_image_ai_kits_full_scope_audit.py \
             tests/test_live2d_bust_up_kits.py \

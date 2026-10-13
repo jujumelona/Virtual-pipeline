@@ -36,16 +36,20 @@ def test_each_zip_contains_only_its_geometric_and_profile_guidance(mode, asset):
     for name in required:
         assert tag in docs[name], (mode, asset, name)
     if asset == "body":
-        assert "18~22%" in docs["02_ADVANCED_PARTS.md"]
-        assert "55~70%" in docs["02_ADVANCED_PARTS.md"]
+        if mode == "live2d_bust_up":
+            assert "23~29%" in docs["02_ADVANCED_PARTS.md"]
+            assert "62~80%" in docs["02_ADVANCED_PARTS.md"]
+        else:
+            assert "18~22%" in docs["02_ADVANCED_PARTS.md"]
+            assert "55~70%" in docs["02_ADVANCED_PARTS.md"]
         if mode == "3d":
             assert "앞목" in docs["08_PRACTICAL_TIPS.md"]
             assert "후면" in docs["08_PRACTICAL_TIPS.md"]
         else:
             assert "입 높이" in docs["08_PRACTICAL_TIPS.md"]
         if mode == "live2d_bust_up":
-            assert "2.2~2.8H" in docs["03_MODE_RULES.md"]
-            assert "40~50%" in docs["03_MODE_RULES.md"]
+            assert "1.65~1.95H" in docs["03_MODE_RULES.md"]
+            assert "52~61%" in docs["03_MODE_RULES.md"]
     else:
         tail = "\n".join(
             docs[name].split(tag, 1)[1] for name in required

@@ -99,7 +99,7 @@ def test_bust_up_body_is_drawn_while_other_assets_are_reference_only(published):
         docs = published[f"live2d_bust_up__{asset}"]
         assert "제공된 기준 몸체를 새로 그리지 않고" in docs["00_MASTER_FIRST.md"]
         assert "신체만이라는 이유로 PRO를 강제하지 않는다" not in docs["04_OUTPUT_FILES.md"]
-    assert "1~2" in body["03_MODE_RULES.md"]
+    assert "52~61%" in body["03_MODE_RULES.md"]
     assert "6등신 전신 이미지나 하체 파츠를 납품 조건으로 두지 않는다" in body["00_DELIVERY_AND_RECHECK.md"]
 
 
@@ -168,7 +168,7 @@ def test_2d_specialty_guides_keep_engine_specific_sources_and_no_3d_contracts(pu
         else:
             assert "docs.live2d.com" in source
         assert "전후좌우를 독립 작화" not in scope
-    assert "1~2" in published["live2d_bust_up__body"]["03_MODE_RULES.md"]
+    assert "52~61%" in published["live2d_bust_up__body"]["03_MODE_RULES.md"]
 
 
 def test_3d_specialty_illustrations_never_claim_native_vrm(published):
