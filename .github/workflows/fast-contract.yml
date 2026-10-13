@@ -41,6 +41,7 @@ jobs:
             tests/test_visual_alignment.py \
             tests/test_cubism_export_validation.py \
             tests/test_image_ai_kits_v2.py \
+            tests/test_image_ai_layer_order_delivery.py \
             tests/test_image_ai_kits_scope_contract.py \
             tests/test_image_ai_kits_cross_contamination.py \
             tests/test_image_ai_geometry_guidance.py \
