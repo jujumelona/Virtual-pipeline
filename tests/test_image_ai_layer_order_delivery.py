@@ -109,3 +109,19 @@ def test_invalid_isolated_member_cannot_bypass_layer_order(tmp_path, unexpected)
     source = _archive(tmp_path, "isolated_parts/part_one.png\n", {unexpected: payload})
     with pytest.raises(ValueError, match="Invalid isolated sprite paths"):
         validate(source, "pro")
+
+
+@pytest.mark.parametrize("mode", MODES_2D)
+@pytest.mark.parametrize("asset", ASSETS)
+def test_embedded_validator_compiles_and_preserves_final_handoff_gate(mode, asset):
+    """The actual code users copy from each ZIP must compile and keep final-art checks."""
+    path = KITS / "zips" / f"{mode}__{asset}.zip"
+    with ZipFile(path) as archive:
+        document = archive.read("04_OUTPUT_FILES.md").decode("utf-8")
+    marker = "\n```python\n"
+    assert document.count(marker) == 1
+    embedded = document.split(marker, 1)[1].split("\n```", 1)[0]
+    compile(embedded, f"{mode}__{asset}/validate_artwork_zip.py", "exec")
+    assert "if final_live2d_body:" in embedded
+    assert "--final-live2d-body" in embedded
+    assert "final_live2d_body=production" in embedded
