@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1] / "docs" / "image_ai_kits_v2"
 SPEC = ROOT / "source" / "FACE_NECK_GEOMETRY_GUIDANCE.json"
 CRAFT_SPEC = ROOT / "source" / "ADVANCED_ARTWORK_CRAFT_GUIDANCE.json"
 OFFICIAL_SPEC = ROOT / "source" / "ASSET_SCOPED_OFFICIAL_REFERENCES.json"
+BUSTUP_SPEC = ROOT / "source" / "BUST_UP_FACE_FIRST_CONTRACT.json"
 ZIP_ROOT = ROOT / "zips"
 MODES = ("live2d_bust_up", "live2d_upper", "live2d_full",
          "inochi2d_upper", "inochi2d_full", "3d")
@@ -78,6 +79,49 @@ def craft_sections_for(spec: dict, mode: str, asset: str) -> dict[str, str]:
 
 
 
+
+def bustup_marker(asset: str) -> str:
+    return f"## [2026-10-13 FACE-FIRST 애니 바스트업 긴급 교정 | {asset}]"
+
+
+def bustup_sections_for(spec: dict, asset: str) -> dict[str, str]:
+    base = spec["short_scope"][asset]
+    sections = {
+        "00_MASTER_FIRST.md": base,
+        "00_READ_FIRST.md": base,
+        "03_MODE_RULES.md": base,
+        "07_REVIEW_BEFORE_FINAL_ZIP.md": (
+            spec["body_visual_qa"] if asset == "body" else ""
+        ),
+        "09_VISUAL_ART_QUALITY.md": (
+            spec["body_visual_qa"] if asset == "body" else ""
+        ),
+        "10_ANIME_STYLE.md": (
+            spec["image_prompt_body"] if asset == "body"
+            else spec["image_prompt_other"][asset]
+        ),
+    }
+    if asset == "body":
+        sections["02_ADVANCED_PARTS.md"] = spec["body_face"]
+    return sections
+
+
+def check_bustup_legacy(archive_name: str, documents: dict[str, str]) -> None:
+    import re
+
+    forbidden = re.compile(
+        r"2\.2~2\.8H|40~50%|1~2H|1~2높이|"
+        r"목·어깨·상체 약 1~2|18~22%|55~70%"
+    )
+    offenders = [name for name, value in documents.items()
+                 if forbidden.search(value)]
+    if offenders:
+        raise ValueError(
+            f"{archive_name}: torso-heavy/weak-eyes old rules persist: "
+            + ", ".join(offenders)
+        )
+
+
 def official_reference_text(spec: dict, mode: str, asset: str) -> str:
     """Only the selected engine and selected asset appear as actionable references."""
     engine = ("3d" if mode == "3d" else
@@ -115,13 +159,16 @@ def official_reference_text(spec: dict, mode: str, asset: str) -> str:
 
 def inspect_and_patch(
     zip_path: Path, spec: dict, craft_spec: dict | None = None,
-    official_spec: dict | None = None, *, write: bool
+    official_spec: dict | None = None, bustup_spec: dict | None = None, *, write: bool
 ) -> tuple[bool, list[str]]:
     mode, asset = zip_path.stem.rsplit("__", 1)
     targets = [(marker(mode, asset), sections_for(spec, mode, asset))]
     if craft_spec is not None:
         targets.append((craft_marker(mode, asset),
                         craft_sections_for(craft_spec, mode, asset)))
+    if mode == "live2d_bust_up" and bustup_spec is not None:
+        targets.append((bustup_marker(asset),
+                        bustup_sections_for(bustup_spec, asset)))
     with zipfile.ZipFile(zip_path) as archive:
         infos = archive.infolist()
         names = [info.filename for info in infos]
@@ -141,7 +188,8 @@ def inspect_and_patch(
                 missing.append(f"{name} ({tag})")
                 if write:
                     updated[name] += "\n\n" + tag + "\n" + added + "\n"
-            elif tag.startswith("## [고급 그림자") and added not in updated[name]:
+            elif (tag.startswith("## [고급 그림자")
+                  or tag.startswith("## [2026-10-13 FACE-FIRST")) and added and added not in updated[name]:
                 # Do not silently overwrite hand-edited ZIPs or append duplicate markers.
                 raise ValueError(
                     f"{zip_path.name}: stale advanced-craft guidance in {name}; "
@@ -154,6 +202,10 @@ def inspect_and_patch(
             missing.append("05_OFFICIAL_REFERENCES.md (engine/asset scope)")
             if write:
                 updated["05_OFFICIAL_REFERENCES.md"] = expected_official
+
+    if mode == "live2d_bust_up":
+        # Fail closed even in --write: do not mix new framing with old, torso-heavy prose.
+        check_bustup_legacy(zip_path.name, updated)
 
     if not write or not missing:
         return False, missing
@@ -188,6 +240,7 @@ def main() -> int:
     spec = json.loads(SPEC.read_text(encoding="utf-8"))
     craft_spec = json.loads(CRAFT_SPEC.read_text(encoding="utf-8"))
     official_spec = json.loads(OFFICIAL_SPEC.read_text(encoding="utf-8"))
+    bustup_spec = json.loads(BUSTUP_SPEC.read_text(encoding="utf-8"))
     found = {p.name for p in ZIP_ROOT.glob("*.zip")}
     expected = {f"{m}__{a}.zip" for m in MODES for a in ASSETS}
     if found != expected:
@@ -199,7 +252,7 @@ def main() -> int:
         for asset in ASSETS:
             path = ZIP_ROOT / f"{mode}__{asset}.zip"
             modified, missing = inspect_and_patch(
-                path, spec, craft_spec, official_spec, write=args.write
+                path, spec, craft_spec, official_spec, bustup_spec, write=args.write
             )
             patched += int(modified)
             if missing and not args.write:
