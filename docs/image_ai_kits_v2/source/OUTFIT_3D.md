@@ -23,3 +23,24 @@
 [원화/모델링 단계 구분] https://tips.clip-studio.com/en-us/articles/8014 — 옆얼굴·목의 두께를 **의상 부착 위치 참조**로만 사용. 옷감의 4방향 두께와 카라 안감을 원화로 그리는 것이지 신체 목/3D 메쉬를 생성하는 일이 아니다.
 
 **재배치 규칙:** 실제 정면/후면/좌측/우측을 따로 그리고 해당 outfit 참조 원화만 그린다. `source/FACE_NECK_GEOMETRY_GUIDANCE.json`의 3D 모드 계약을 따르며 2D PSD/VRM 제작 요구를 추가하지 않는다.
+
+## [2026-10-13 고급 4면도 선화·재질·형태 전문 기법 | outfit/3D]
+### 02_ADVANCED_PARTS.md에 반영할 outfit 전용 4면도 지침
+**[3D 의상 시트/재질·문양]** 요청 의상의 실제 카라·소매·몸판/하의(있을 때만) 구조를 앞뒤좌우에서 독립 작화한다. 체크·줄무늬·자수는 실제 있으면 어깨·팔꿈치·허리의 솔기/천 장력에 따라 각 면에서 끊기지 않게 연결한다. 반투명/망사 원단도 요청된 경우에만 실제 겹침/보이는 안감·옷 두께를 그림으로 표현한다. 2D PSD 블렌드/알파 합성 작업은 산출 대상이 아니다.
+
+### 06_ADVANCED_OFFICIAL_COMMUNITY.md에 반영할 outfit 전용 4면도 지침
+**[3D vs 그림 구분]** https://vrm.dev/en/vrm1/humanoid/ 는 후속 3D 리깅 규격. 천 주름이 봉제점·관절 장력에서 발생하고 체크/스트라이프가 전후좌우에서 연속한다는 그림 작업 원칙은 아티스트 경험이며 공식 VRM 필수 원화 파일 규격이 아니다.
+
+### 07_REVIEW_BEFORE_FINAL_ZIP.md에 반영할 outfit 전용 4면도 지침
+**[3D 의상 QC]** 실제 요청된 무늬와 솔기·주름 시작점·카라 뒷면/실제 얇은 옷감의 투명도가 좌우 측면/후면에서 이어지는가? 같은 옷의 재질·하이라이트·선폭이 네 방향 일치하는가? 없는 바지·치마·신발/피부/별도 장신구 생성 금지.
+
+### 08_PRACTICAL_TIPS.md에 반영할 outfit 전용 4면도 지침
+**[의상 턴어라운드]** 정면 봉제점과 어깨·팔꿈치·허리의 장력 축을 기준으로 실제 소매의 주름과 하의·옷자락을 각도별로 새로 그린다. 체크·스트라이프가 있다면 뒤쪽/옆쪽에서 솔기 위치가 연결되는지 비교한다. 망사/반투명 옷감은 실제 있을 때만 아래 안감과 겹침을 같은 원화의 반사/색면으로 설명한다. 3D 메시·UV 전개가 완성됐다고 하지 않는다.
+
+### 09_VISUAL_ART_QUALITY.md에 반영할 outfit 전용 4면도 지침
+**[3D 의상 미술]** 솔기 교차점에는 선폭을 조금 두고 고정 자수/프린트의 가는 선은 소재에 맞게 유지한다. 각 시점의 동일한 색/천 두께/명암과 요청된 무늬의 연속성을 확인한다.
+
+### 10_ANIME_STYLE.md에 반영할 outfit 전용 4면도 지침
+ANIME OUTFIT TURNAROUND REFERENCE ONLY: four separately drawn front back left right views, believable fabric tension folds at seams and joints, accurate optional stripes and plaid across views, material-aware shading and refined outline hierarchy; no PSD masks, clothing mesh, UV, skin, hair or extra jewelry.
+
+**중요:** 이 문서에서는 요청된 자산 하나의 전후좌우 참조 원화만 만든다. 2D 그림자 레이어·PSD 분리/인체 전체의 재생성·3D 메시/본/UV 산출은 추가하지 않는다.

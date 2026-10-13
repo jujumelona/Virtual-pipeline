@@ -47,3 +47,24 @@
 [개인 작가 측면 원화] https://tips.clip-studio.com/en-us/articles/8014 , https://tips.clip-studio.com/ko-kr/articles/11807 — 정면/측면의 눈·코·턱·귀 위치와 애니풍 변형. [Live2D 공식은 2D용 참고일 뿐] https://docs.live2d.com/ko/cubism-editor-tutorials/psd/ — 2D에서 목 hidden underpaint가 필요한 이유. **3D 참조 원화에서는 목의 정면·측면·후면 실루엣을 직접 그려야 하며 2D 목 레이어를 산출할 필요가 없다.**
 
 **재배치 규칙:** 실제 정면/후면/좌측/우측을 따로 그리고 해당 body 참조 원화만 그린다. `source/FACE_NECK_GEOMETRY_GUIDANCE.json`의 3D 모드 계약을 따르며 2D PSD/VRM 제작 요구를 추가하지 않는다.
+
+## [2026-10-13 고급 4면도 선화·재질·형태 전문 기법 | body/3D]
+### 02_ADVANCED_PARTS.md에 반영할 body 전용 4면도 지침
+**[3D 신체 참조만]** 실제 정면·후면·좌우에서 얼굴·몸/손발의 윤곽과 선폭 위계를 맞추고, 눈·코·턱·귀·관절의 깊이와 동일 조명/색면을 그림으로 설명한다. 입체 그림자·실루엣 정보는 그림 안의 참조이지 독립 Multiply PSD 그림자/Live2D ArtMesh 산출물이 아니다.
+
+### 06_ADVANCED_OFFICIAL_COMMUNITY.md에 반영할 body 전용 4면도 지침
+**[3D/원화 경계]** https://vrm.dev/en/vrm1/humanoid/ 의 Humanoid는 실제 3D 모델 단계다. 정면·후면·좌우의 선화 두께·관절 높이·접촉 그림자 일치는 캐릭터 시트 미술 원칙이며 3D 메시/UV/본을 이미지 AI가 실행할 의무가 아니다.
+
+### 07_REVIEW_BEFORE_FINAL_ZIP.md에 반영할 body 전용 4면도 지침
+**[3D 신체 4시점 QC]** 같은 몸체의 얼굴 비례·눈·코/턱·귀·어깨·관절/손발 기준선이 서로 맞는가? 선폭/셀 음영의 방향이 네 그림에서 동일한 조명 설계로 보이는가? 단순 정면 반전이나 그림자 덧씌운 동일 그림을 측면으로 가장하지 않는가? 의복/헤어/소품 새로 그리기 금지.
+
+### 08_PRACTICAL_TIPS.md에 반영할 body 전용 4면도 지침
+**[다각도 작화]** 한 원화의 전후좌우 기준선을 잡고 움직이지 않는 고정 몸체 형태를 각각 다른 각도에서 새로 그린다. 얼굴 외곽/턱과 관절 깊은 겹침은 읽히는 선폭, 피부 안쪽은 섬세한 색선으로 정리한다. 조명·명암·눈/손 세부 크기를 시점별 일관성 있게 맞추고 이미지 외부 레이어/클리핑/인체 메시를 만들어 냈다고 주장하지 않는다.
+
+### 09_VISUAL_ART_QUALITY.md에 반영할 body 전용 4면도 지침
+**[신체 다각도 품질]** 네 방향의 큰 실루엣·랜드마크·선화 위계와 셀 명암/피부색의 정합을 보며 사진형 과잉 음영이나 가짜 미러링 측면을 허용하지 않는다.
+
+### 10_ANIME_STYLE.md에 반영할 body 전용 4면도 지침
+ANIME BODY TURNAROUND REFERENCE ONLY: independently illustrated accurate front back left right views, coherent six-head silhouette, readable tapered outline hierarchy and consistent cel-shading; no layered shadow PSD, 3D mesh, VRM, fashion hair or ornament.
+
+**중요:** 이 문서에서는 요청된 자산 하나의 전후좌우 참조 원화만 만든다. 2D 그림자 레이어·PSD 분리/인체 전체의 재생성·3D 메시/본/UV 산출은 추가하지 않는다.
