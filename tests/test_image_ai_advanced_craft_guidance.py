@@ -57,7 +57,7 @@ def test_shadow_ownership_stays_in_its_intended_asset():
     assert "헤어 소유의 선택적 별도 투명 그림자" in hair
     assert "피부의 자체 그림자는 신체, 옷감 주름/접촉 그림자는 의상" in outfit
     assert "체인·끈·매달린 리본" in accessory
-    assert "원래 디자인을 유지" in accessory
+    assert "기존 디자인을 유지" in accessory
     for asset in ("hair", "outfit", "accessory"):
         assert "E/F=" not in SPEC["2d"][asset]["02_ADVANCED_PARTS.md"]
         assert "홍채 폭/E" not in SPEC["2d"][asset]["02_ADVANCED_PARTS.md"]
