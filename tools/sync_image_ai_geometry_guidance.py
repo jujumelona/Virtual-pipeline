@@ -2,7 +2,8 @@
 
 The source of truth is docs/image_ai_kits_v2/source/FACE_NECK_GEOMETRY_GUIDANCE.json.
 --check does not change anything; --write only fills MISSING sections.
-Existing asset-specific art instructions are never overwritten or removed.
+Existing asset-specific art guidance is retained. The selected 05_OFFICIAL_REFERENCES.md
+is repaired as an engine-and-asset-specific canonical text when it is stale.
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1] / "docs" / "image_ai_kits_v2"
 SPEC = ROOT / "source" / "FACE_NECK_GEOMETRY_GUIDANCE.json"
 CRAFT_SPEC = ROOT / "source" / "ADVANCED_ARTWORK_CRAFT_GUIDANCE.json"
+OFFICIAL_SPEC = ROOT / "source" / "ASSET_SCOPED_OFFICIAL_REFERENCES.json"
 ZIP_ROOT = ROOT / "zips"
 MODES = ("live2d_bust_up", "live2d_upper", "live2d_full",
          "inochi2d_upper", "inochi2d_full", "3d")
@@ -73,8 +75,45 @@ def craft_sections_for(spec: dict, mode: str, asset: str) -> dict[str, str]:
     return sections
 
 
+
+def official_reference_text(spec: dict, mode: str, asset: str) -> str:
+    """Only the selected engine and selected asset appear as actionable references."""
+    engine = ("3d" if mode == "3d" else
+              "inochi2d" if mode.startswith("inochi2d") else "live2d")
+    if engine == "3d":
+        title = f"# {mode} / {asset} — 해당 3D 참조 자산의 공식 배경"
+        intro = (
+            "> 00_MASTER_FIRST.md의 정면 마스터 먼저 완성 → 후면·좌우 시점 "
+            "독립 원화 순서를 따른다. VRM/Blender/모델링 도구는 실행하지 않는다."
+        )
+    elif engine == "inochi2d":
+        title = f"# {mode} / {asset} — Inochi2D 해당 자산 공식 근거"
+        intro = (
+            "> 00_MASTER_FIRST.md의 완성 원화 우선 계약을 따른다. "
+            "Inochi Creator 실행/노드/리깅은 이 ZIP의 출력물이 아니다."
+        )
+    elif mode == "live2d_bust_up":
+        title = f"# {mode} / {asset} — 해당 엔진·자산 공식 근거"
+        intro = (
+            "> 00_MASTER_FIRST.md의 원화 먼저 제작 계약을 우선한다. "
+            "외부 엔진의 구현 단계는 실행하지 않는다."
+        )
+    else:
+        title = f"# {mode} / {asset} — 해당 엔진·자산 공식 근거"
+        intro = (
+            "> 00_MASTER_FIRST.md의 완성 원화 우선 계약을 따른다. "
+            "Cubism Editor 실행/리깅은 이 ZIP의 출력물이 아니다."
+        )
+    return (
+        title + "\n\n" + intro + "\n\n"
+        + spec["references"][engine][asset] + "\n\n"
+        + spec["footer"] + "\n"
+    )
+
+
 def inspect_and_patch(
-    zip_path: Path, spec: dict, craft_spec: dict | None = None, *, write: bool
+    zip_path: Path, spec: dict, craft_spec: dict | None = None,
+    official_spec: dict | None = None, *, write: bool
 ) -> tuple[bool, list[str]]:
     mode, asset = zip_path.stem.rsplit("__", 1)
     targets = [(marker(mode, asset), sections_for(spec, mode, asset))]
@@ -106,6 +145,13 @@ def inspect_and_patch(
                     f"{zip_path.name}: stale advanced-craft guidance in {name}; "
                     "manually reconcile the source and regenerate this section"
                 )
+
+    if official_spec is not None:
+        expected_official = official_reference_text(official_spec, mode, asset)
+        if updated["05_OFFICIAL_REFERENCES.md"] != expected_official:
+            missing.append("05_OFFICIAL_REFERENCES.md (engine/asset scope)")
+            if write:
+                updated["05_OFFICIAL_REFERENCES.md"] = expected_official
 
     if not write or not missing:
         return False, missing
@@ -139,6 +185,7 @@ def main() -> int:
     args = parser.parse_args()
     spec = json.loads(SPEC.read_text(encoding="utf-8"))
     craft_spec = json.loads(CRAFT_SPEC.read_text(encoding="utf-8"))
+    official_spec = json.loads(OFFICIAL_SPEC.read_text(encoding="utf-8"))
     found = {p.name for p in ZIP_ROOT.glob("*.zip")}
     expected = {f"{m}__{a}.zip" for m in MODES for a in ASSETS}
     if found != expected:
@@ -150,7 +197,7 @@ def main() -> int:
         for asset in ASSETS:
             path = ZIP_ROOT / f"{mode}__{asset}.zip"
             modified, missing = inspect_and_patch(
-                path, spec, craft_spec, write=args.write
+                path, spec, craft_spec, official_spec, write=args.write
             )
             patched += int(modified)
             if missing and not args.write:
