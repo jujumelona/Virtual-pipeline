@@ -1,0 +1,93 @@
+"""Read-first gate contract tests; no image inference or image generation."""
+from pathlib import Path
+from zipfile import ZipFile
+import importlib.util
+import pytest
+
+FILE = Path(__file__).resolve().parents[1] / "tools/image_ai_read_first_gate.py"
+spec = importlib.util.spec_from_file_location("image_ai_gate", FILE)
+assert spec and spec.loader
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+
+
+def example(tmp_path):
+    path = tmp_path / "live2d_bust_up__body.zip"
+    with ZipFile(path, "w") as z:
+        for name in m.DOC_NAMES:
+            text = "# " + name + "\n"
+            if name == "05_OFFICIAL_REFERENCES.md":
+                text += "[guide](https://example.com/guide)\n"
+            if name == "11_OFFICIAL_IMAGE_EXAMPLES.md":
+                text += "![picture](https://example.com/art.png)\n"
+            z.writestr(name, text)
+    return path
+
+
+def test_no_generation_before_all_documents_have_gate(tmp_path):
+    path = example(tmp_path)
+    before = path.read_bytes()
+    with pytest.raises(ValueError, match="Missing read-first gate"):
+        m.patch(path, write=False)
+    assert before == path.read_bytes()
+
+
+def test_gate_in_all_priority_docs_and_idempotent(tmp_path):
+    path = example(tmp_path)
+    assert m.patch(path, write=True)
+    data = path.read_bytes()
+    assert not m.patch(path, write=True)
+    assert path.read_bytes() == data
+    with ZipFile(path) as z:
+        assert z.testzip() is None
+        assert len(z.namelist()) == 14
+        for name in m.PRIORITY:
+            content = z.read(name).decode("utf-8")
+            assert content.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]")
+            assert "이미지 생성·수정 도구를 호출하지 않는다" in content
+
+
+def test_reference_manifest_and_document_hashes(tmp_path):
+    path = example(tmp_path)
+    m.patch(path, write=True)
+    result = m.manifest(path)
+    assert len(result["documents"]) == 14
+    assert result["reference_urls"] == [
+        "https://example.com/art.png", "https://example.com/guide"]
+
+
+def test_missing_image_observations_fail_closed(tmp_path):
+    path = example(tmp_path)
+    m.patch(path, write=True)
+    expected = m.manifest(path)
+    evidence = {**expected, "references": {}, "conflicts_resolved": True,
+                "art_direction": "approved"}
+    with pytest.raises(ValueError, match="observations incomplete"):
+        m.verify_evidence(path, evidence)
+    evidence["references"] = {url: {"status": "unavailable"}
+                              for url in expected["reference_urls"]}
+    with pytest.raises(ValueError, match="unreviewed"):
+        m.verify_evidence(path, evidence)
+
+
+def test_approved_record_not_misrepresented_as_image_proof(tmp_path):
+    path = example(tmp_path)
+    m.patch(path, write=True)
+    info = m.manifest(path)
+    evidence = {**info, "references": {
+        u: {"status": "visually_reviewed",
+            "observed_details": "visible stylized anime eyes with soft face and complete neck"}
+        for u in info["reference_urls"]},
+        "conflicts_resolved": True, "art_direction": "broadcast waist-up"}
+    assert m.verify_evidence(path, evidence)["status"] == "EVIDENCE_RECORD_COMPLETE_NOT_PIXEL_PROOF"
+    evidence["documents"]["00_MASTER_FIRST.md"] = "0" * 64
+    with pytest.raises(ValueError, match="14 MD"):
+        m.verify_evidence(path, evidence)
+
+
+def test_invalid_missing_members_is_rejected_without_output(tmp_path):
+    path = tmp_path / "live2d_bust_up__body.zip"
+    with ZipFile(path, "w") as z:
+        z.writestr("00_MASTER_FIRST.md", "text")
+    with pytest.raises(ValueError, match="14-MD"):
+        m.patch(path, write=True)
