@@ -116,7 +116,11 @@ def test_bust_up_assets_do_not_demand_full_body_or_anatomy(published):
         for name in ("00_READ_FIRST.md", "01_COMMON_RULES.md", "03_MODE_RULES.md"):
             assert "6등신 전신 배치 가이드에서 크롭" not in docs[name]
         framing = docs["03_MODE_RULES.md"]
-        assert "52~61%" in framing and "하체" in framing
+        assert "하체" in framing
+        if asset == "body":
+            assert "52~61%" in framing
+        else:
+            assert "다시 설계하지 않는다" in framing or "참조" in framing
         assert "마스크" in docs["01_COMMON_RULES.md"] or "마스킹" in docs["01_COMMON_RULES.md"]
 
 
@@ -154,7 +158,7 @@ def test_bust_up_body_must_be_created_while_other_assets_do_not_redraw_it(publis
             assert bad not in text,(asset,name)
         master=docs["00_MASTER_FIRST.md"]
         if asset=="body":
-            assert "신체 원화를 직접 새로 그린다" in master
+            assert "신체 원화에서 실제 얼굴을 그리며" in master
             assert "납품 대상은 완성 신체 원화" in docs["00_DELIVERY_AND_RECHECK.md"]
         else:
             assert "제공된 기준 몸체를 새로 그리지 않고" in master

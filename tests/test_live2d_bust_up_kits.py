@@ -27,7 +27,11 @@ def test_bust_up_four_published_zips_are_valid_and_distinct():
             safety=z.read("01_COMMON_RULES.md").decode("utf-8")
             output=z.read("04_OUTPUT_FILES.md").decode("utf-8")
             assert "live2d_bust_up" in master
-            assert "52~61%" in mode and "하체" in mode
+            assert "하체" in mode
+            if asset == "body":
+                assert "52~61%" in mode
+            else:
+                assert "참조" in mode and "기준 신체" in mode
             assert "불투명" in safety and "마스크" in safety
             assert "isolated_parts/" in output
             assert f"live2d_bust_up__{asset}__ARTWORK.zip" in output
