@@ -29,11 +29,15 @@ def rewrite_zip(asset,spec,geo,craft,write):
         original={i.filename:archive.read(i.filename).decode("utf-8") for i in infos}
     changed={}
     for name,content in original.items():
+        if name=="05_OFFICIAL_REFERENCES.md":
+            changed[name]=content  # exact engine-specific official reference; never append to it
+            continue
         required=spec["short_scope"][asset]+"\n"+DELIVERY
         if asset=="body":required+="\n"+spec["body_visual_qa"]
         if name=="02_ADVANCED_PARTS.md" and asset=="body":
             required+="\n"+spec["body_face"]
         if name=="03_MODE_RULES.md":
+            if asset!="body":required+="\n기준 신체 참조 — 해당 자산만 독립 제작한다."
             required+="\n"+geo["modes"]["live2d_bust_up"]+"\n"+craft["modes"]["live2d_bust_up"]
         if name=="10_ANIME_STYLE.md":
             required+="\n"+(spec["image_prompt_body"] if asset=="body" else spec["image_prompt_other"][asset])
@@ -78,7 +82,8 @@ def rewrite_sources(spec,geo,write):
         if changed!=original:
             if not write:raise ValueError("Unreconciled source "+name)
             path.write_text(changed,encoding="utf-8")
-        values[name]=changed
+        if name in values:
+            values[name]=changed
     data=json.dumps(values,ensure_ascii=False,indent=2)+"\n"
     if snap.read_text(encoding="utf-8")!=data:
         if not write:raise ValueError("Unreconciled builder snapshot")
