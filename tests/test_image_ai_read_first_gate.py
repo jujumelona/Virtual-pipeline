@@ -66,7 +66,7 @@ def test_missing_image_observations_fail_closed(tmp_path):
         m.verify_evidence(path, evidence)
     evidence["references"] = {url: {"status": "unavailable"}
                               for url in expected["reference_urls"]}
-    with pytest.raises(ValueError, match="unreviewed"):
+    with pytest.raises(ValueError, match="actionable reason"):
         m.verify_evidence(path, evidence)
 
 
@@ -114,3 +114,37 @@ def test_existing_psd_template_urls_are_mandatory_visual_references():
         "https://example.com/templates/boy.psd",
         "https://example.com/templates/outfit.psd",
     ]
+
+
+
+def test_optional_public_reference_outage_with_alternative_visual_observations(tmp_path):
+    path = example(tmp_path)
+    m.patch(path, write=True)
+    info = m.manifest(path)
+    first, second = info["reference_urls"]
+    evidence = {
+        **info,
+        "references": {
+            first: {"status": "visually_reviewed", "observed_details": "Actual anime eyes, nose, neck and shoulders visibly inspected."},
+            second: {"status": "unavailable", "reason": "Download server refused request and file could not be inspected."},
+        },
+        "conflicts_resolved": True,
+        "art_direction": "new original six-head anime vtuber with existing public references",
+    }
+    with pytest.raises(ValueError, match="fewer than required"):
+        m.verify_evidence(path, evidence)
+    evidence["references"][second] = {
+        "status": "visually_reviewed",
+        "observed_details": "Actually observed anime body proportions and independent eye layer chart.",
+    }
+    assert m.verify_evidence(path, evidence)["visually_reviewed"] == 2
+
+
+def test_template_registry_does_not_force_user_psd():
+    from tools import apply_existing_vtuber_template_slots as slots
+    registry = slots.load_registry()
+    assert len(registry["templates"]) == 24
+    for record in registry["templates"].values():
+        assert record["require_uploaded_user_psd"] is False
+        assert "original_master" in record["no_user_psd_fallback"]
+        assert "user_owned_layered_template_file" not in record["required_source_before_generation"]
