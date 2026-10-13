@@ -26,7 +26,7 @@ EXPECTED_MD = {
 # These are outdated *positive production instructions*, not names of
 # things that a negative QA checklist may legitimately prohibit.
 DEPRECATED = (
-    re.compile(r"불투명\\s*기본\\s*(?:속옷|상의|의복)"),
+    re.compile(r"불투명\s*기본\s*(?:속옷|상의|의복)"),
     re.compile(r"선정적이지 않은 불투명 기본 속옷"),
     re.compile(r"기본 속옷 착용 상태"),
     re.compile(r"목·가슴·배는 매끈한 2~3단 셀"),
