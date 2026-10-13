@@ -160,3 +160,42 @@ def test_final_handoff_rejects_misaligned_pro_reference_json(tmp_path):
     with pytest.raises(ValueError, match="PRO body alignment canvas mismatch"):
         verify_artwork_package(
             result["package"], require_final_handoff=True, require_pro_reference=True)
+
+
+def test_final_handoff_rejects_pro_reference_image_with_different_canvas(tmp_path):
+    """Actual PNG dimensions must match PSD canvas, not just claimed metadata."""
+    result = _sample(tmp_path, edition="pro", asset_kind="hair")
+    with ZipFile(result["package"], "a") as archive:
+        psd = archive.read("hair.psd")
+        preview = archive.read("preview/composite.png")
+        archive.writestr("source_psd/see_through_layers.psd", psd)
+        archive.writestr("input_reference/source_avatar.png", preview)
+        archive.writestr("input_reference/body_base.png", preview)
+        archive.writestr("preview/input_vs_psd_comparison.png", preview)
+        archive.writestr("preview/pro_body_asset_overlay.png", preview)
+        archive.writestr("metadata/input_vs_psd_geometry.json",
+                         json.dumps({"source_canvas": [256, 384],
+                                     "output_psd_canvas": [256, 384]}))
+        archive.writestr("metadata/pro_reference_alignment.json",
+                         json.dumps({"output_psd_canvas": [256, 384],
+                                     "input_size": [256, 384]}))
+        archive.writestr("logs/psd_runtime/runtime.json", "{}")
+    assert verify_artwork_package(result["package"], require_final_handoff=True,
+                                  require_pro_reference=True)["status"] == "PASS"
+
+    incorrect = BytesIO()
+    Image.new("RGBA", (320, 384), (20, 40, 60, 255)).save(incorrect, "PNG")
+    changed = tmp_path / "wrong_body_canvas.zip"
+    _tamper(result["package"], "input_reference/body_base.png",
+            incorrect.getvalue(), changed)
+    with pytest.raises(ValueError, match="PRO body reference image canvas mismatch"):
+        verify_artwork_package(changed, require_final_handoff=True,
+                               require_pro_reference=True)
+
+    changed_geometry = tmp_path / "wrong_source_geometry.zip"
+    _tamper(result["package"], "metadata/input_vs_psd_geometry.json",
+            json.dumps({"source_canvas": [320, 384],
+                        "output_psd_canvas": [256, 384]}).encode(), changed_geometry)
+    with pytest.raises(ValueError, match="source image canvas differs"):
+        verify_artwork_package(changed_geometry, require_final_handoff=True,
+                               require_pro_reference=True)

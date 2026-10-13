@@ -132,6 +132,7 @@ def verify_artwork_package(package: Path, *, require_final_handoff: bool = False
             if len(original_images) != 1 or len(source_psds) != 1:
                 raise ValueError("Artwork ZIP final source input/PSD missing or ambiguous")
             with Image.open(BytesIO(archive.read(original_images[0]))) as original:
+                source_image_size = original.size
                 original.verify()
             with Image.open(BytesIO(archive.read("preview/input_vs_psd_comparison.png"))) as panel:
                 panel.verify()
@@ -141,6 +142,9 @@ def verify_artwork_package(package: Path, *, require_final_handoff: bool = False
             geometry = json.loads(archive.read("metadata/input_vs_psd_geometry.json"))
             if geometry.get("output_psd_canvas") != list(canvas):
                 raise ValueError("Artwork ZIP comparison geometry differs from PSD canvas")
+            if ("source_canvas" in geometry and
+                    geometry["source_canvas"] != list(source_image_size)):
+                raise ValueError("Artwork ZIP source image canvas differs from comparison geometry")
             if require_pro_reference:
                 reference_images = [n for n in names if n.startswith("input_reference/body_")]
                 required_pro = {"preview/pro_body_asset_overlay.png",
@@ -148,12 +152,18 @@ def verify_artwork_package(package: Path, *, require_final_handoff: bool = False
                 if len(reference_images) != 1 or not required_pro.issubset(names):
                     raise ValueError("Artwork ZIP PRO body reference/overlay missing")
                 with Image.open(BytesIO(archive.read(reference_images[0]))) as reference:
+                    reference_size = reference.size
                     reference.verify()
+                if reference_size != canvas:
+                    raise ValueError("Artwork ZIP PRO body reference image canvas mismatch")
                 with Image.open(BytesIO(archive.read("preview/pro_body_asset_overlay.png"))) as overlay:
                     overlay.verify()
                 alignment = json.loads(archive.read("metadata/pro_reference_alignment.json"))
                 if alignment.get("output_psd_canvas") != list(canvas):
                     raise ValueError("Artwork ZIP PRO body alignment canvas mismatch")
+                if ("input_size" in alignment and
+                        alignment["input_size"] != list(reference_size)):
+                    raise ValueError("Artwork ZIP PRO body alignment input size mismatch")
     return {"status": "PASS", "verified_rgba_mask_pairs": len(records),
             "psd_header_checked": True, "psd_layers_verified": len(records),
             "composite_pixels_verified": True, "final_handoff_verified": require_final_handoff,
