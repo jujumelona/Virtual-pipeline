@@ -92,11 +92,40 @@ def _inspect_image_only_pack(archive: ZipFile, names: list[str], source: Path,
               if line.strip() and not line.lstrip().startswith("#")]
     actual = {name[len(prefix):] for name in names
               if name.startswith(prefix + "isolated_parts/") and name.endswith(".png")}
-    if (not (1 if edition == "pro" else 2) <= len(listed) <= _MAX_FILES
-            or len(listed) != len(set(listed)) or set(listed) != actual):
-        raise ValueError("AI_PACK_LAYER_ORDER_NOT_MATCHING_SPRITES")
+    # Do not infer draw order from ZIP enumeration or silently drop extra parts:
+    # a missing sprite is a content defect, whereas an unlisted sprite could
+    # have a different front/back position than any automatically chosen one.
+    for filename in listed:
+        if not filename.startswith("isolated_parts/") or not filename.endswith(".png"):
+            raise ValueError(
+                f"AI_PACK_LAYER_ORDER_INVALID_PATH: {filename!r}; "
+                "expected isolated_parts/<part_id>.png"
+            )
     if edition == "free" and len(listed) > 100:
         raise ValueError("AI_PACK_FREE_ARTMESH_LIMIT")
+    seen, duplicates = set(), set()
+    for filename in listed:
+        if filename in seen:
+            duplicates.add(filename)
+        seen.add(filename)
+    missing = sorted(seen - actual)
+    unlisted = sorted(actual - seen)
+    min_parts = 1 if edition == "pro" else 2
+    if not min_parts <= len(listed) <= _MAX_FILES or duplicates or missing or unlisted:
+        def _sample(paths: list[str]) -> str:
+            preview = repr(paths[:12])
+            return preview + (f" (+{len(paths) - 12} more)" if len(paths) > 12 else "")
+
+        details = [f"listed={len(listed)} actual_pngs={len(actual)}"]
+        if not min_parts <= len(listed) <= _MAX_FILES:
+            details.append(f"layer_count_out_of_range={min_parts}..{_MAX_FILES}")
+        if duplicates:
+            details.append("duplicate_entries=" + _sample(sorted(duplicates)))
+        if missing:
+            details.append("listed_but_missing_png=" + _sample(missing))
+        if unlisted:
+            details.append("png_not_in_layer_order=" + _sample(unlisted))
+        raise ValueError("AI_PACK_LAYER_ORDER_NOT_MATCHING_SPRITES: " + "; ".join(details))
     parts = []
     for z, filename in enumerate(listed):
         if not filename.startswith("isolated_parts/") or not filename.endswith(".png"):
