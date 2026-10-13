@@ -300,3 +300,60 @@ def test_image_ai_alias_with_parent_folder_reaches_real_psd(tmp_path):
     result = prepare_large_ai_pack(source, tmp_path / "imported")
     assert len([layer for layer in PSDImage.open(result["psd"]).descendants()
                 if not layer.is_group()]) == 2
+
+
+@pytest.mark.parametrize(
+    ("order", "expected_text"),
+    [
+        (
+            "isolated_parts/hair_back.png\n",
+            "png_not_in_layer_order=['isolated_parts/face_skin.png']",
+        ),
+        (
+            "isolated_parts/hair_back.png\nisolated_parts/not_generated.png\n",
+            "listed_but_missing_png=['isolated_parts/not_generated.png']",
+        ),
+        (
+            "isolated_parts/hair_back.png\nisolated_parts/face_skin.png\n"
+            "isolated_parts/hair_back.png\n",
+            "duplicate_entries=['isolated_parts/hair_back.png']",
+        ),
+        (
+            "hair_back.png\nisolated_parts/face_skin.png\n",
+            "AI_PACK_LAYER_ORDER_INVALID_PATH: 'hair_back.png'",
+        ),
+    ],
+)
+def test_simple_artwork_zip_reports_specific_layer_order_defect(
+    tmp_path, order, expected_text,
+):
+    source = make_simple_image_ai_pack(tmp_path)
+    with ZipFile(source) as archive:
+        entries = {name: archive.read(name) for name in archive.namelist()}
+    entries["layer_order.txt"] = order.encode("utf-8")
+    with ZipFile(source, "w", ZIP_DEFLATED) as archive:
+        for name, data in entries.items():
+            archive.writestr(name, data)
+    with pytest.raises(ValueError) as error:
+        inspect_large_ai_pack(source)
+    assert expected_text in str(error.value)
+
+
+def test_simple_artwork_zip_reports_all_missing_and_unlisted_sprites(tmp_path):
+    source = make_simple_image_ai_pack(tmp_path)
+    with ZipFile(source) as archive:
+        entries = {name: archive.read(name) for name in archive.namelist()}
+    entries["layer_order.txt"] = (
+        b"isolated_parts/hair_back.png\n"
+        b"isolated_parts/face_skin.png\n"
+        b"isolated_parts/ghost.png\n"
+    )
+    entries["isolated_parts/extra.png"] = entries["isolated_parts/hair_back.png"]
+    with ZipFile(source, "w", ZIP_DEFLATED) as archive:
+        for name, data in entries.items():
+            archive.writestr(name, data)
+    with pytest.raises(ValueError) as error:
+        inspect_large_ai_pack(source)
+    message = str(error.value)
+    assert "listed_but_missing_png=['isolated_parts/ghost.png']" in message
+    assert "png_not_in_layer_order=['isolated_parts/extra.png']" in message
