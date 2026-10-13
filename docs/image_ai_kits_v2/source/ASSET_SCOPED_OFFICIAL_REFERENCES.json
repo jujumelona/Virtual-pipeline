@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "principle": "05_OFFICIAL_REFERENCES.md는 이 ZIP의 엔진·자산에 적용 가능한 공식 기술 근거만 담는다. 다른 제작 엔진/자산의 예제나 작업 요구는 제거한다. 11_OFFICIAL_IMAGE_EXAMPLES.md의 Live2D 시각 샘플은 모든 모드에서 화풍 참고로만 허용하며 해당 엔진의 구현 지시는 아니다.",
+  "references": {
+    "live2d": {
+      "body": "## 적용 대상: 신체 원화만\n[Live2D 공식 일러스트 가공](https://docs.live2d.com/en/cubism-editor-tutorials/psd/)은 눈 흰자·속눈썹·입 내부·귀·목과 가려지는 피부를 해당 움직임에 맞게 나누고 보완하는 기법을 설명한다. [PSD 작업 주의사항](https://docs.live2d.com/en/cubism-editor-manual/precautions-for-psd-data/)은 후속 Cubism 가져오기 참고사항이다.\n실제 납품은 선택된 화면 범위의 **신체 원화·신체 PNG·재합성 미리보기만**이다. 헤어·탈착 의상·독립 소품 제작이나 Cubism Editor 실행·키폼/리깅·MOC3는 요구하지 않는다.",
+      "hair": "## 적용 대상: 요청받은 헤어스타일 한 종류\n[Live2D 공식 일러스트 가공](https://docs.live2d.com/en/cubism-editor-tutorials/psd/)은 앞·옆·뒤 헤어가 가려지는 영역을 보완하고 필요한 움직임 단위로 분리할 수 있음을 설명한다. [Skinning 기능](https://docs.live2d.com/en/cubism-editor-manual/skinning/)은 후속 모델링에서 긴 가닥을 다루는 방법이며 이미지 AI가 실행하지 않는다.\n실제 납품은 **해당 헤어 원화·모근과 실제 필요한 헤어 파츠·재합성 미리보기**만이다. 피부·눈·귀·의상·소품을 새로 생성하지 않는다.",
+      "outfit": "## 적용 대상: 요청받은 의상 한 벌\n[Live2D 공식 일러스트 가공](https://docs.live2d.com/en/cubism-editor-tutorials/psd/)은 옷깃·소매·가디건 등 실제로 따로 움직일 영역만 분리하고 가려진 천을 보완하는 참고자료다. [Clipping 기능](https://docs.live2d.com/en/cubism-editor-manual/clipping-mask/)은 이후 Editor 참고사항이며 이미지 AI가 실행하지 않는다.\n실제 납품은 **그 의상의 옷감·카라·소매·실제로 있는 고정 장식/안감**만이다. 얼굴·목 피부·헤어·별도 귀걸이/안경을 그리지 않는다.",
+      "accessory": "## 적용 대상: 실제 주문된 액세서리 한 종류\n[Live2D 공식 일러스트 가공](https://docs.live2d.com/en/cubism-editor-tutorials/psd/)의 필요한 부위만 분리하고 가린 부분을 보완하는 일반 원칙을 해당 소품에만 적용한다. [Parts 기능](https://docs.live2d.com/en/cubism-editor-manual/edit-parts/)은 후속 정리 참고사항이고 이미지 AI에 Editor 작업을 요구하지 않는다.\n실제 납품은 **요청한 물건 하나의 본체·부착 고정부·그 물건에 실제 있는 움직이는 부속**만이다. 안경·귀걸이·헤드셋 예시는 자동 생성 목록이 아니며 인물의 눈·귀·얼굴·헤어를 다시 그리지 않는다."
+    },
+    "inochi2d": {
+      "body": "## 적용 대상: Inochi2D용 신체 원화만\n[Inochi Creator 공식 첫 모델](https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html)은 가져온 그림의 파츠 계층과 그림자 중첩 문제를 설명한다. [공식 Node 문서](https://docs.inochi2d.com/en/latest/creator/nodes/node.html)는 후속 상대 정렬의 참고자료다.\n이미지 AI는 **선택된 화면 범위 신체 원화, 눈·입·목의 실제 필요한 RGBA 파츠와 합성 미리보기**만 준비한다. Inochi Creator 노드/Sorting/메시/리깅을 수행했다고 주장하지 않는다. 신체 이외의 헤어·패션 의상·소품을 만들지 않는다.",
+      "hair": "## 적용 대상: Inochi2D용 헤어 한 종류\n[Inochi Creator 공식 첫 모델](https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html)은 가져올 PSD 일러스트 파츠와 그림자 합성의 주의점을 안내한다. [공식 Node 문서](https://docs.inochi2d.com/en/latest/creator/nodes/node.html)는 모델링 후 노드와 앞뒤 정렬의 참고다.\n이미지 AI는 **실제 헤어 원화와 모근·앞·옆·뒤 헤어 RGBA**만 출력한다. 얼굴·눈·귀·목 피부·의상 제작과 Creator Node/메시/리깅 작업은 이 ZIP의 대상이 아니다.",
+      "outfit": "## 적용 대상: Inochi2D용 의상 한 벌\n[Inochi Creator 공식 첫 모델](https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html)은 PSD에 포함된 그림자/레이어가 불러오기 후 중첩될 수 있음을 보여준다. [공식 Node 자료](https://docs.inochi2d.com/en/latest/creator/nodes/node.html)는 후속 정렬 참고다.\n이미지 AI는 **옷깃·소매·안감·실제 있는 하의/고정 장식 등 의상 원화 RGBA**만 출력하며 겹친 투명 명암을 중립 합성으로 확인한다. 신체 피부·얼굴·헤어·독립 소품, Creator 네이티브 파일/리깅은 생성하지 않는다.",
+      "accessory": "## 적용 대상: Inochi2D용 단일 액세서리\n[Inochi Creator 공식 첫 모델](https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html)은 독립된 원화 파츠와 그림자 합성을 참고할 수 있다. [공식 Node](https://docs.inochi2d.com/en/latest/creator/nodes/node.html)는 후속 파츠 부착/순서 작업에만 사용된다.\n이미지 AI는 **요청받은 한 소품의 본체·고정부·실제로 필요한 움직이는 부속 RGBA**만 출력한다. 소품의 앵커는 기존 몸체에서 위치만 참조하고 피부·귀·눈·헤어·의상을 새로 그리지 않는다. Creator 노드/메시를 구현했다고 주장하지 않는다."
+    },
+    "3d": {
+      "body": "## 적용 대상: 신체의 4방향 원화만\n[VRM 공식 Humanoid](https://vrm.dev/en/vrm1/humanoid/)는 후속 3D 본 구조의 기술적 배경이며 이 ZIP에서 본을 만들라는 뜻이 아니다. 신체 정면·후면·좌우 측면의 **정수리/턱·눈·귀·코·목·어깨·손·발 등 신체 고유 기준선**을 실제 그림으로 일치시킨다.\n헤어스타일·교체 의상·액세서리의 4면도를 새로 그리지 않는다. 실제 메시·VRM·FBX·UV·리깅은 납품하지 않는다.",
+      "hair": "## 적용 대상: 헤어스타일 한 종류의 4방향 원화만\n[VRM 공식 SpringBone](https://vrm.dev/en/vrm1/springbone/)은 **실제 유연한 머리 가닥을 3D로 움직이게 하는 후속 단계의 선택적 참고자료**다. 이번 작업에서는 사용자 디자인에 존재하는 모근·가닥·뒤통수 부피·끝선이 정면/후면/좌우에서 연속되는 그림만 준비한다.\n눈·코·입·손·신체 또는 액세서리의 상세도를 새로 만들지 않는다. 메시·Curve·SpringBone·VRM 파일을 그렸다고 주장하지 않는다.",
+      "outfit": "## 적용 대상: 요청 의상 한 벌의 4방향 원화만\n[VRM 공식 기능](https://vrm.dev/en/vrm/vrm_features/)은 후속 3D 아바타 재질과 모델링의 배경자료다. 4면도에서는 **실제 의상의 옷깃·소매·솔기·무늬/안감·요청된 하의**만 정면·후면·좌우에서 자연스럽게 이어 그린다.\n신체의 눈·코·입·손·헤어·독립 액세서리 상세도를 새로 생성하지 않는다. 실제 의상 메시·UV·VRM 내보내기를 수행했다고 주장하지 않는다.",
+      "accessory": "## 적용 대상: 사용자 요청 소품 하나의 4방향 원화만\n[VRM 공식 SpringBone](https://vrm.dev/en/vrm1/springbone/)은 **요청한 소품이 매달린 체인·끈처럼 유연할 때만** 후속 3D 단계에서 관련된다. 이번 그림에는 실제 고정부·연결 길이·소품의 두께와 뒷면을 전후좌우 독립된 원화로 보여준다.\n눈·코·입·손·피부·헤어·옷을 다시 그리지 않으며 요청되지 않은 장신구 세트를 만들지 않는다. 메시·UV·VRM·SpringBone 제작 요구가 아니다."
+    }
+  },
+  "footer": "각 ZIP은 `00_MASTER_FIRST.md`의 자산·모드 범위를 우선한다. 이 문서에 열거된 파일명/예제는 이 프로젝트 산출 기준이지 공식 엔진의 고정 파츠/이미지 개수 규정이 아니다. 링크는 기법의 출처이며 모델링·PSD 처리 도구 실행 및 외부 다운로드/라이선스 확보를 이미지 생성 AI의 필수 단계로 만들지 않는다."
+}
