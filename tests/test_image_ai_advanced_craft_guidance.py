@@ -23,12 +23,11 @@ def guidance(mode, asset):
     entries = dict(SPEC["3d" if mode == "3d" else "2d"][asset])
     entries["03_MODE_RULES.md"] = SPEC["modes"][mode]
     engine = "3d" if mode == "3d" else ("inochi2d" if mode.startswith("inochi2d") else "live2d")
+    replacement = SPEC.get("engine_asset_06", {}).get(engine, {}).get(asset)
+    if replacement is not None:
+        entries["06_ADVANCED_OFFICIAL_COMMUNITY.md"] = replacement
     entries["06_ADVANCED_OFFICIAL_COMMUNITY.md"] += "\n" + SPEC["engine_notes"][engine]
-    if engine == "inochi2d":
-        entries["06_ADVANCED_OFFICIAL_COMMUNITY.md"] += (
-            "\nLive2D 공식 링크는 그림을 부위별로 보완하는 참고일 뿐 "
-            "Cubism의 편집/리깅 절차를 Inochi Creator에서 수행하라는 지시가 아니다."
-        )
+
     return entries
 
 

@@ -47,6 +47,12 @@ def sections_for(spec: dict, mode: str, asset: str) -> dict[str, str]:
         )
     engine = ("3d" if mode == "3d" else
               "inochi2d" if mode.startswith("inochi2d") else "live2d")
+    extra = spec.get("engine_asset_06", {}).get(engine, {}).get(asset)
+    if extra is not None:
+        sections["06_ADVANCED_OFFICIAL_COMMUNITY.md"] = extra
+    extra = spec.get("engine_asset_06", {}).get(engine, {}).get(asset)
+    if extra is not None:
+        sections["06_ADVANCED_OFFICIAL_COMMUNITY.md"] = extra
     sections["06_ADVANCED_OFFICIAL_COMMUNITY.md"] += (
         "\n" + spec["engine_notes"][engine]
     )
@@ -67,11 +73,7 @@ def craft_sections_for(spec: dict, mode: str, asset: str) -> dict[str, str]:
     sections["06_ADVANCED_OFFICIAL_COMMUNITY.md"] += (
         "\n" + spec["engine_notes"][engine]
     )
-    if engine == "inochi2d":
-        sections["06_ADVANCED_OFFICIAL_COMMUNITY.md"] += (
-            "\nLive2D 공식 링크는 그림을 부위별로 보완하는 참고일 뿐 "
-            "Cubism의 편집/리깅 절차를 Inochi Creator에서 수행하라는 지시가 아니다."
-        )
+
     return sections
 
 

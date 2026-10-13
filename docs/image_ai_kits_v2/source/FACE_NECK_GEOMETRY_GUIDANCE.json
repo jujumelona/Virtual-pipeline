@@ -59,5 +59,13 @@
     "live2d": "Live2D/Cubism의 원화 처리 원칙을 참고하되 실제 Cubism 모델·물리·키폼을 이미지 AI에 강제하지 않는다.",
     "inochi2d": "공식 Inochi Creator PSD 가져오기에서는 그림자 레이어가 중복 합성될 수 있음: https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html . Node 정렬·블렌드·리깅은 후속 Creator 사용자 작업이다.",
     "3d": "3D는 정면·후면·좌측·우측의 실제 그림, 측면 복붙 금지. https://tips.clip-studio.com/en-us/articles/8014 는 비공식 개인 작가 참고."
+  },
+  "engine_asset_06": {
+    "inochi2d": {
+      "body": "[Inochi2D 공식 PSD 가이드] https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html — 이미지 원화의 독립 파츠와 그림자 겹침에 관한 후속 가져오기 참고. **눈·입·목 피부를 턱·머리에 가리지 않는 범위까지 여유롭게 보완하는 것**은 원화 작가의 작업 원칙이며 Inochi Creator의 고정 규격은 아니다. [개인 작가 CLIP STUDIO TIPS] https://tips.clip-studio.com/ko-kr/articles/11807 , https://tips.clip-studio.com/ko-kr/articles/6599 , https://tips.clip-studio.com/en-us/articles/8014 — 애니 눈·측면 코·귀의 작화 참고. 눈 수치는 실측 업계 평균이 아닌 프로젝트 추천값이다.",
+      "hair": "[Inochi2D 공식 PSD 예제] https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html — 독립된 원화 그림 요소와 합성 상태 참고. **헤어 앞·옆·뒤 모근/숨은 가닥을 보완하는 방법**은 캐릭터 원화 작업 원칙이다. [개인 작가] https://tips.clip-studio.com/en-us/articles/8014 — 측면 머리 실루엣 참고. 눈 크기·목 피부 원화는 신체 ZIP에서만 제작한다.",
+      "outfit": "[Inochi2D 공식 PSD 예제] https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html — 의상 파츠의 투명 합성·겹침을 위한 참고. [작가 실무] 목 회전이 가능한 신체 참조를 기준으로 카라 안쪽·뒤옷깃·어깨 아래의 숨은 옷감을 실제 해당 의상에만 추가 작화한다. 신체 목 피부는 의상 ZIP에서 그리지 않는다.",
+      "accessory": "[Inochi2D 공식 PSD 예제] https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html — 개별 소품 원화의 배치와 투명 그림 겹침 참고. [개인 작가] https://tips.clip-studio.com/en-us/articles/8014 — 귀·코·관자놀이의 측면 관계를 **요청한 소품 한 종류의 고정점** 확인에만 사용한다. 피부/눈/목 파츠를 생성하지 않는다."
+    }
   }
 }

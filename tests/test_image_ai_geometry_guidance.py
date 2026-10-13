@@ -59,7 +59,9 @@ def test_each_zip_contains_only_its_geometric_and_profile_guidance(mode, asset):
         else:
             assert "부착" in tail
     if mode != "live2d_bust_up":
-        reference = SPEC["3d" if mode == "3d" else "2d"][asset]
+        reference = dict(SPEC["3d" if mode == "3d" else "2d"][asset])
+        if mode.startswith("inochi2d_"):
+            reference["06_ADVANCED_OFFICIAL_COMMUNITY.md"] = SPEC["engine_asset_06"]["inochi2d"][asset]
         for name, guidance in reference.items():
             assert guidance in docs[name], (mode, asset, name)
 

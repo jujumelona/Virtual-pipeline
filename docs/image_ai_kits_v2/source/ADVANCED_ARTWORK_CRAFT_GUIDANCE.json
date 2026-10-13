@@ -81,5 +81,13 @@
       "09_VISUAL_ART_QUALITY.md": "**[3D 단일 소품 미술]** 실제 한 종류 소품의 얇은 연결·고정부 선폭/투명·금속 반사와 네 시점 형상 연속성이 유지되는지 확인한다. 다른 물건/부속을 품질 핑계로 추가하지 않는다.",
       "10_ANIME_STYLE.md": "ANIME SINGLE ACCESSORY TURNAROUND REFERENCE ONLY: separately drawn four angles of the requested object's actual shape, thin-connection line weight and realistic stylized material highlights, optional neutral hanging form only when genuinely needed; no full character, added ornaments, modeling UV or VRM."
     }
+  },
+  "engine_asset_06": {
+    "inochi2d": {
+      "body": "**[Inochi2D 공식과 작업 경험 구분]** https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html 은 PSD 파츠·중복 음영의 후속 가져오기 참고다. 눈꼬리 속눈썹·흰자·입안의 숨은 픽셀을 보완하는 것은 애니 원화의 작업 원칙이다. 피부 고정 그림자와 별도로 이동해야 할 헤어 투사 그림자 소유권 분리는 **선택적 미술 설계**이지 Inochi의 고정 노드/파츠 수 규정이 아니다.",
+      "hair": "**[Inochi2D 공식과 아티스트 작업 구분]** https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html 은 PSD 이미지 합성 시 그림자 겹침의 참고다. 볼에서 자라는 것처럼 보이는 모근 오류, 움직이는 헤어와 어긋나는 앞머리 투사 그림자, 뿌리부터 가닥 끝까지 이어지는 하이라이트는 **원화 미술 검수**이며 Inochi에서 강제하는 그림자/노드 수가 아니다.",
+      "outfit": "**[Inochi2D 공식과 아티스트 작업 구분]** https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html 은 가져온 PSD의 그림자 중첩을 설명하는 후속 참고다. 봉제선·장력점의 천 주름, 무늬/망사 연속성, 실제 반투명 소매의 이중 음영 방지는 **요청된 의상의 그림 품질을 위한 조건부 작가 노하우**이지 Creator의 필수 원단/노드/파트 수가 아니다.",
+      "accessory": "**[Inochi2D 공식과 작가 작업 구분]** https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html 은 독립 원화 파츠 합성의 참고다. 실제 요청한 체인·끈의 선택적 중립 자세, 가는 금속 윤곽/렌즈 투명 알파 경계 검수는 아티스트용 권고이며 모든 액세서리의 직선화·고정 파츠 수를 요구하지 않는다."
+    }
   }
 }
