@@ -36,7 +36,9 @@ def test_artwork_instruction_zip_includes_real_preflight_code(mode, asset):
     assert script.strip() in text["04_OUTPUT_FILES.md"]
     assert f"validate_artwork_zip.py {mode}__{asset}__ARTWORK.zip" in text["04_OUTPUT_FILES.md"]
     assert "layer_order.txt" in text["00_MASTER_FIRST.md"]
-    assert "PASS" in text["00_DELIVERY_AND_RECHECK.md"]
+    delivery = text["00_DELIVERY_AND_RECHECK.md"]
+    assert "검사 실행 불가 또는 FAIL 상태면 완료라고 선언하지 않는다" in delivery
+    assert "구조 통과와 별도로 원화·합성 미술 검수를 계속한다" in delivery
 
 
 def _image_bytes(mode, size=(320, 320)):
