@@ -118,7 +118,7 @@ def test_bust_up_assets_do_not_demand_full_body_or_anatomy(published):
         framing = docs["03_MODE_RULES.md"]
         assert "하체" in framing
         if asset == "body":
-            assert "52~61%" in framing
+            assert "양손" in framing
         else:
             assert "다시 설계하지 않는다" in framing or "참조" in framing
         assert "마스크" in docs["01_COMMON_RULES.md"] or "마스킹" in docs["01_COMMON_RULES.md"]
@@ -158,7 +158,7 @@ def test_bust_up_body_must_be_created_while_other_assets_do_not_redraw_it(publis
             assert bad not in text,(asset,name)
         master=docs["00_MASTER_FIRST.md"]
         if asset=="body":
-            assert "**실제 제작:** 고품질 애니 얼굴·눈·입·귀 원화" in master and "단색 중립 BODY 실루엣" in master
+            assert "양손" in master and "완성" in master
             assert "납품 대상은 완성 신체 원화" in docs["00_DELIVERY_AND_RECHECK.md"]
         else:
             assert "이 ZIP에서 머리·몸체 비율을 설계하거나 다시 그리지 않는다" in master
