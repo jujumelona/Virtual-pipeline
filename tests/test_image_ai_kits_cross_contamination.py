@@ -93,7 +93,7 @@ def test_accessory_is_not_fixed_to_headpiece_or_full_accessory_set(published, mo
 
 def test_bust_up_body_is_drawn_while_other_assets_are_reference_only(published):
     body = published["live2d_bust_up__body"]
-    assert "**실제 제작:** 머리·얼굴·눈" in body["00_MASTER_FIRST.md"] and "신체 원화" in body["00_MASTER_FIRST.md"]
+    assert "**실제 제작:** 고품질 애니 얼굴·눈·입·귀 원화" in body["00_MASTER_FIRST.md"] and "단색 중립 BODY 실루엣" in body["00_MASTER_FIRST.md"]
     assert "납품 대상은 완성 신체 원화" in body["00_DELIVERY_AND_RECHECK.md"]
     for asset in ("hair", "outfit", "accessory"):
         docs = published[f"live2d_bust_up__{asset}"]
