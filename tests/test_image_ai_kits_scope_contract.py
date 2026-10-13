@@ -158,7 +158,7 @@ def test_bust_up_body_must_be_created_while_other_assets_do_not_redraw_it(publis
             assert bad not in text,(asset,name)
         master=docs["00_MASTER_FIRST.md"]
         if asset=="body":
-            assert "신체 원화에서 실제 얼굴을 그리며" in master
+            assert "**실제 제작:** 머리·얼굴·눈" in master and "신체 원화" in master
             assert "납품 대상은 완성 신체 원화" in docs["00_DELIVERY_AND_RECHECK.md"]
         else:
             assert "제공된 기준 몸체를 새로 그리지 않고" in master
