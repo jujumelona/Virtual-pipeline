@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]
 KIT=ROOT/"docs/image_ai_kits_v2"
 ASSETS=("body","hair","outfit","accessory")
 MARK="## [BUSTUP_COMPLETE_BODY_FINAL_PSD_V4]"
-BAD=re.compile(r"52\s*[~–-]\s*61\s*%|1[.]65\s*[~–-]\s*1[.]95\s*H|FACE-DOMINANT CLOSE BUST-UP|no elbows or hands|no waist and no elbows|허리·긴 몸통·팔꿈치·손은 그리지|팔꿈치·손은 그리지|단색 중립 BODY 실루엣|프록시 제작 코드 실행|프록시 윗부분만|코드로 만든.*단색|도형.*프록시로 조립|얼굴 중심 근접 바스트업",re.I)
+BAD=re.compile(r"52\s*[~–-]\s*61\s*%|1[.]65\s*[~–-]\s*1[.]95\s*H|FACE-DOMINANT CLOSE BUST-UP|no elbows or hands|no waist and no elbows|허리·긴 몸통·팔꿈치·손은 그리지|팔꿈치·손은 그리지|단색 중립 BODY 실루엣|프록시 제작 코드 실행|프록시 윗부분만|코드로 만든.*단색|도형.*프록시로 조립|얼굴 중심 근접 바스트업|불투명 단색 실루엣|중립색 몸통 도형|도형 생성 코드를 정상 사용|도형.*정식 생성|목 아래.*도형 생성|회색.*마네킹.*정상",re.I)
 DELIVERY=("실제 다층 PSD, 같은 캔버스 투명 RGBA PNG와 파츠별 알파 마스크, 원본 입력과 원본 PSD(있다면), "
           "원본-결과 및 PRO BODY 정합 미리보기, 레이어 좌표/순서·검증·분할 JSON, 사용자 제작·시각검수·Cubism 안내 MD는 최종 필수. "
           "PSD와 마스크가 없으면 중간 PNG 검사 PASS여도 최종 납품 불가. "
@@ -29,6 +29,9 @@ def rewrite_zip(asset,spec,geo,craft,write):
         original={i.filename:archive.read(i.filename).decode("utf-8") for i in infos}
     changed={}
     for name,content in original.items():
+        if asset=="body" and name=="02_ADVANCED_PARTS.md" and MARK not in content:
+            content=re.sub(r"### 중립 몸체 프록시 실행 예시.*?(?=\n(?:##|###) |\Z)","",content,flags=re.S)
+            content=re.sub(r"\x60\x60\x60python[^\x60]*from PIL import Image, ImageDraw[^\x60]*\x60\x60\x60","",content,flags=re.S)
         if name=="05_OFFICIAL_REFERENCES.md":
             changed[name]=content  # exact engine-specific official reference; never append to it
             continue
