@@ -91,3 +91,26 @@ def test_invalid_missing_members_is_rejected_without_output(tmp_path):
         z.writestr("00_MASTER_FIRST.md", "text")
     with pytest.raises(ValueError, match="14-MD"):
         m.patch(path, write=True)
+
+
+
+def test_existing_psd_template_urls_are_mandatory_visual_references():
+    docs = {
+        "00_MASTER_FIRST.md": (
+            "## [EXISTING_VTUBER_TEMPLATE_SLOTS_V1]\n"
+            "[official Boy PSD](https://example.com/templates/boy.psd)\n"
+        ),
+        "00_READ_FIRST.md": (
+            "## [EXISTING_VTUBER_TEMPLATE_SLOTS_V1]\n"
+            "[outfit sample](https://example.com/templates/outfit.psd)\n"
+        ),
+        "05_OFFICIAL_REFERENCES.md": (
+            "[official guidance](https://example.com/how-to)\n"
+        ),
+    }
+    urls = m.references(docs)
+    assert urls == [
+        "https://example.com/how-to",
+        "https://example.com/templates/boy.psd",
+        "https://example.com/templates/outfit.psd",
+    ]
