@@ -5,6 +5,8 @@ on:
     paths:
       - "docs/image_ai_kits_v2/source/EXISTING_TEMPLATE_SLOT_REGISTRY.json"
       - "tools/apply_existing_vtuber_template_slots.py"
+      - "tools/image_ai_read_first_gate.py"
+      - "tests/test_image_ai_read_first_gate.py"
       - "tests/test_existing_vtuber_template_slots.py"
       - ".github/workflows/publish-vtuber-template-slots.yml"
   workflow_dispatch:
@@ -21,12 +23,14 @@ jobs:
           python-version: "3.12"
       - name: Apply 24 mapped existing templates to published instructions
         run: |
+          python tools/image_ai_read_first_gate.py --write
           python tools/apply_existing_vtuber_template_slots.py --write
+          python tools/image_ai_read_first_gate.py --check
           python tools/apply_existing_vtuber_template_slots.py --check
       - name: Confirm mapping and do not break existing 14 MD releases
         run: |
           python -m pip install --disable-pip-version-check pytest
-          python -m pytest -q tests/test_existing_vtuber_template_slots.py tests/test_image_ai_kits_cross_contamination.py tests/test_repair_broadcast_bustup_briefs.py
+          python -m pytest -q tests/test_existing_vtuber_template_slots.py tests/test_image_ai_read_first_gate.py tests/test_image_ai_kits_cross_contamination.py tests/test_repair_broadcast_bustup_briefs.py
       - name: Publish only changed canonical ZIPs to main
         run: |
           if git diff --quiet -- docs/image_ai_kits_v2/zips; then
