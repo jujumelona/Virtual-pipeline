@@ -52,6 +52,15 @@ def rewrite_zip(asset,spec,geo,craft,write):
             raise ValueError("Duplicate v4 marker")
         else:
             changed[name]=scrub(content,name).rstrip()+"\n\n"+MARK+"\n"+required+"\n"
+        if asset=="body":
+            clarifications={
+                "00_MASTER_FIRST.md":"가슴 아래 상복부까지 실제 완성 원화를 그린다. 회색 도형 몸체는 금지한다.",
+                "01_COMMON_RULES.md":"불투명 안전 이너와 파츠별 알파 마스크를 실제 완성 일러스트/파일로 제공한다.",
+                "09_VISUAL_ART_QUALITY.md":"Pillow는 이미지/알파 검사에 사용할 수 있지만 회색 도형 몸통의 최종 제작 방법이 아니다.",
+            }
+            clarification=clarifications.get(name)
+            if clarification and clarification not in changed[name]:
+                changed[name]=changed[name].rstrip()+"\n"+clarification+"\n"
         if "no elbows or hands" in changed[name]:raise ValueError("Old hand omission instruction")
     if changed==original:return False
     if not write:raise ValueError("Unreconciled "+path.name)
