@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - "tools/reconcile_bustup_complete_body.py"
+      - "tests/test_image_ai_kits_cross_contamination.py"
+      - "tests/test_image_ai_bustup_face_first.py"
+      - "tests/test_image_ai_canonical_body_packaging.py"
       - ".github/workflows/reconcile-bustup-complete-body.yml"
   workflow_dispatch:
 permissions:
