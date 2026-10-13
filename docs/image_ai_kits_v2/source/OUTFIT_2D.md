@@ -28,3 +28,24 @@
 [Live2D 공식 참고] https://docs.live2d.com/ko/cubism-editor-tutorials/psd/ — 카라·가디건의 움직일 부분은 필요에 따라 분리; 목 자체는 신체 원화. [아티스트 작업 팁] 얼굴과 목 3/4 회전을 참조해 카라 안쪽·뒤칼라와 좌우 목깃에 가려진 옷감을 추가 작화한다.
 
 **재배치 규칙:** 위 기술은 자산 outfit 원화에만 적용한다. 모드별 상세 차이는 `source/FACE_NECK_GEOMETRY_GUIDANCE.json`으로 관리하고 실제 납품 ZIP에 각각 적용한다.
+
+## [2026-10-13 고급 원화·그림자·소재 전문 기법 | outfit/2D]
+### 02_ADVANCED_PARTS.md에 반영할 outfit 전용 지침
+**[의상만/재질·패턴·그림자]** 요청된 한 벌의 실제 소매·카라·몸판·하의(존재 시)에만 그림을 배분한다. 천에 고정된 체크무늬/줄무늬/자수는 옷감 자체의 색면이며 필요 없이 별도 파츠로 쪼개지 않는다. **어깨·팔꿈치·옷깃 등 움직임/장력이 생기는 이음**에서 실제 무늬·솔기·천의 앞뒤가 맞도록 이어 그린다. 피부의 자체 그림자는 신체, 옷감 주름/접촉 그림자는 의상이다. 투명/망사 소재는 실제 요청되었을 때만 적용하고, 같은 불투명/반투명 겹침을 두 번 채색해 검게 만들지 않는다.
+
+### 06_ADVANCED_OFFICIAL_COMMUNITY.md에 반영할 outfit 전용 지침
+**[출처 구분]** Live2D 공식은 카라/가디건을 필요에 따라 나누거나 묶을 수 있다고 설명한다: https://docs.live2d.com/en/cubism-editor-tutorials/psd/ . **어깨·팔꿈치·허리 등 장력점에서 시작되는 천 주름, 체크무늬/망사의 연결, 반투명 소매 이중 암영 방지**는 전문 일러스트레이터의 미술 설계·검수 기법이며 공식 고정 파츠 구성이나 필수 의상 요소는 아니다.
+
+### 07_REVIEW_BEFORE_FINAL_ZIP.md에 반영할 outfit 전용 지침
+**[의상 QC]** 실제 요청 의상에 체크/줄무늬가 있다면 소매·카라·몸판의 무늬가 연결되는가? 반투명/망사 재질이 있을 때 겹침이 예상보다 지나치게 검거나 하얀 프린지가 생기는가? 주름이 봉제/장력 위치와 무관하게 임의로 흩뿌려지지 않는가? 옷깃/소매 경계가 잘리거나 피부 픽셀을 옷 안에 끌어오지 않았는가? 없는 치마·신발/별도 귀걸이 생성 금지.
+
+### 08_PRACTICAL_TIPS.md에 반영할 outfit 전용 지침
+**[의상 원화 고급 기법]** 주름은 옷의 무게·두께·관절 움직임과 실제 고정점(어깨·팔꿈치·허리/소매)에서 출발해 장력에 맞춰 퍼진다. 고정 자수/인쇄·체크무늬는 옷감의 위치를 따라 휘고 앞뒤 면·양 소매에서 연결해야 한다. 투명 원단이 실제 있을 때만 서로 겹친 부분의 합성 어두워짐을 점검하고, 내부 안감/아래에 보일 원단 색을 따로 준비한다. 입체감을 이유로 피부·귀·헤어를 의상 ZIP에서 다시 그리지 않는다.
+
+### 09_VISUAL_ART_QUALITY.md에 반영할 outfit 전용 지침
+**[소재/선화 미술]** 겹치는 옷깃·주름의 깊은 틈은 명확한 접촉선, 천 내부/고정 문양은 가는 선, 소재의 진짜 주름·두께·명암은 원본 그림체에 맞게 통일한다. 없는 복잡한 자수나 투명 재질을 품질을 이유로 강제하지 않는다.
+
+### 10_ANIME_STYLE.md에 반영할 outfit 전용 지침
+Anime VTuber OUTFIT ONLY: user-specified material, tension-driven folds from actual seams and joints, accurate stripe or plaid continuity only if present, believable layered collar and sleeve linings, selective contact lineweight and clean fabric cel shading, check overlaps of optional translucent mesh; no skin, hairstyle, face or separate jewelry.
+
+**중요:** 위 조건은 이 자산에만 적용한다. Live2D/Inochi2D에 공통인 원화 작법만 공유하고, 다른 자산·Editor 작업·없는 소품 제작을 요구하지 않는다.

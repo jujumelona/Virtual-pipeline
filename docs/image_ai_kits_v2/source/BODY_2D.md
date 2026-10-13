@@ -93,3 +93,24 @@
 [공식 Live2D 원화 가공] https://docs.live2d.com/ko/cubism-editor-tutorials/psd/ — 가려진 흰자·입안·모발을 보완하고 얼굴 이동 시 목이 잘리지 않게 목 피부를 **입 높이 근처까지** 숨겨 그리도록 권장. [개인 작가 CLIP STUDIO TIPS] https://tips.clip-studio.com/ko-kr/articles/11807 , https://tips.clip-studio.com/ko-kr/articles/6599 , https://tips.clip-studio.com/en-us/articles/8014 — 눈 배치·측면의 코 뒤 눈·3/4 먼 눈 축소 참고. 추천 숫자는 이 출처들이 실측한 '흔한 버튜버 평균'이 아니라 프로젝트 제안값이다. Inochi2D에 Cubism 편집 기능 수행을 요구하지 않는다.
 
 **재배치 규칙:** 위 기술은 자산 body 원화에만 적용한다. 모드별 상세 차이는 `source/FACE_NECK_GEOMETRY_GUIDANCE.json`으로 관리하고 실제 납품 ZIP에 각각 적용한다.
+
+## [2026-10-13 고급 원화·그림자·소재 전문 기법 | body/2D]
+### 02_ADVANCED_PARTS.md에 반영할 body 전용 지침
+**[신체만/선·채색·그림자 소유권]** 완성 기준 신체 원화에서 눈꼬리·윗속눈썹 끝·눈꺼풀은 실제 독립 변화가 필요한 경우에만 분리한다. 작업 중 선화와 밑색을 별도로 다듬더라도 같은 파츠의 최종 RGBA에서는 외곽선·밑색·필요한 자체 음영이 하나의 일관된 픽셀 영역을 이루게 한다. 얼굴 피부 자체의 명암/혈색은 신체가 담당하지만 **헤어가 얼굴에 드리우는 그림자를 신체 기본 피부에 영구적으로 박아 넣지 않는다**. 그런 그림자가 실제 디자인에 있을 때만 헤어 자산의 선택적 독립 그림자/합성 미리보기에서 관리한다. 신체 ZIP이 새 헤어를 생성하지 않는다.
+
+### 06_ADVANCED_OFFICIAL_COMMUNITY.md에 반영할 body 전용 지침
+**[공식 vs 작업 경험]** Live2D 공식은 눈꼬리 속눈썹의 분리 편의와 숨은 흰자·입안 보완을 설명한다: https://docs.live2d.com/en/cubism-editor-tutorials/psd/ . Live2D 공식 가져오기 PSD 자료는 파츠당 선화/칠을 합치는 제작 단계를 설명한다: https://docs.live2d.com/en/cubism-editor-manual/reimport-psd/ . **피부 고정 그림자와 움직이는 앞머리 그림자의 소유권 분리**는 원화 품질을 위한 선택적 제작자 운영 원칙이며 Cubism에서 의무적으로 생성할 별도 그림자 수가 아니다.
+
+### 07_REVIEW_BEFORE_FINAL_ZIP.md에 반영할 body 전용 지침
+**[신체 그림자/선화 QA]** 피부 RGBA에 머리카락 실루엣 그림자가 고정돼 움직일 머리와 어긋나지 않는가? 눈꼬리·윗속눈썹이 분리/재합성 뒤 찢기거나 두 겹이 되지 않는가? 피부 셀 그림자와 별도 선택 그림자가 중복되어 검게 되지 않는가? 흰 테두리/검은 잔선/입의 이중 노출을 원본·밝은 배경·어두운 배경·재합성으로 대조한다. 헤어·옷·소품 픽셀이 신체 레이어에 섞이면 해당 신체 파츠만 고친다.
+
+### 08_PRACTICAL_TIPS.md에 반영할 body 전용 지침
+**[고급 애니풍 신체 원화 작업]** 얼굴 외곽·턱 아래 깊은 겹침은 읽히는 선폭을, 속눈썹 끝·피부색 보조선·입은 필요한 만큼 가는 선을 사용한다. 원본의 검은/채색 선화 취향을 바꾸지 않는다. 분리한 눈·입·목 그림을 단색으로 때우지 말고 원화의 라인·밑색·셀 명암이 파츠 가장자리 안으로 이어지게 새로 그린다. 실제 표정/눈 움직임이 필요한 부위만 선택 분리하며 피부에 머리 모양 그림자를 지워지지 않게 붙이지 않는다.
+
+### 09_VISUAL_ART_QUALITY.md에 반영할 body 전용 지침
+**[실물 품질]** 눈·입·피부 선폭의 위계, 얼굴 원본의 고유 스타일, 눈꼬리의 끊김/겹침, 경계의 알파 프린지, 이중 그림자 여부를 실제 합성으로 확인한다. 레이어 숫자나 검정 테두리의 절대 굵기로 미술 완성도를 선언하지 않는다.
+
+### 10_ANIME_STYLE.md에 반영할 body 전용 지침
+Anime VTuber BODY ONLY: preserve the existing eye shape and facial identity, tapered eyelash and mouth linework, delicate colored interior contours and clean skin cel-shadows, no baked-in moving hair-cast shadow on the permanent face skin, no duplicated facial linework, no hairstyle/clothing/accessory generation.
+
+**중요:** 위 조건은 이 자산에만 적용한다. Live2D/Inochi2D에 공통인 원화 작법만 공유하고, 다른 자산·Editor 작업·없는 소품 제작을 요구하지 않는다.

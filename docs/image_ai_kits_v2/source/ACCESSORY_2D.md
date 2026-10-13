@@ -25,3 +25,24 @@
 [Live2D 공식 일반 원칙] https://docs.live2d.com/ko/cubism-editor-tutorials/psd/ — 가려진 파츠/필요한 움직임 분리. [개인 작가] https://tips.clip-studio.com/en-us/articles/8014 — 귀·코·관자놀이의 측면 관계. 눈 크기·목 피부 생성 의무는 소품 ZIP에 속하지 않는다.
 
 **재배치 규칙:** 위 기술은 자산 accessory 원화에만 적용한다. 모드별 상세 차이는 `source/FACE_NECK_GEOMETRY_GUIDANCE.json`으로 관리하고 실제 납품 ZIP에 각각 적용한다.
+
+## [2026-10-13 고급 원화·그림자·소재 전문 기법 | accessory/2D]
+### 02_ADVANCED_PARTS.md에 반영할 accessory 전용 지침
+**[한 종류 소품/형태·장력]** 요청한 물건 하나가 실제로 단단한 머리핀/안경테라면 불필요한 분할을 만들지 않는다. **체인·끈·매달린 리본 등 유연한 부속이 실제로 있고 후속 움직임을 고려할 때만**, 기존 디자인을 유지하면서 과하게 꼬이거나 심하게 접힌 상태 대신 길이·부착점이 읽히는 **중립 형태의 선택적 참조 원화**를 준비한다. 직선화를 강요하거나 다른 소품을 생성하지 않는다. 렌즈·고리·금속은 그 물건에 실제 있을 때만 포함한다.
+
+### 06_ADVANCED_OFFICIAL_COMMUNITY.md에 반영할 accessory 전용 지침
+**[공식·실무 구분]** Live2D 공식의 필요한 범위만 분리/숨은 면 보완: https://docs.live2d.com/en/cubism-editor-tutorials/psd/ . **체인·끈의 중립 형태로 과도한 원근 찌그러짐 방지, 얇은 금속·유리/투명 알파 경계 검수**는 아티스트용 조건부 권고다. 공식적으로 모든 액세서리를 직선/고정 개수로 제작하라는 규정은 없다.
+
+### 07_REVIEW_BEFORE_FINAL_ZIP.md에 반영할 accessory 전용 지침
+**[단일 소품 QC]** 실제 주문된 한 물건만 존재하는가, 고정부/매달린 체인·끈의 자연스러운 길이가 유지되는가? 얇은 끝선의 백색 프린지·검은 잔선과 금속 반사/유리 알파가 과도하게 보이지 않는가? 중립 레퍼런스를 만든 경우 원래 디자인의 의도된 휘어짐/꼬임을 지워버리지 않았는가? 기준 헤어·의상·피부 픽셀이나 추가 장신구 세트 생성 금지.
+
+### 08_PRACTICAL_TIPS.md에 반영할 accessory 전용 지침
+**[소품 소재·선폭·가림]** 원본 디자인의 고정부와 연결점은 읽히는 선폭으로, 체인·안경 프레임 같은 얇은 선은 축소 후 끊기지 않도록 유의한다. 체인/리본처럼 움직일 수 있는 부분은 실제 요청되었고 변형이 예정된 경우에만 중립 자세 참고를 제공한다. 금속은 좁고 대비 큰 반사, 렌즈는 진짜 투명 알파, 다른 재질은 각 소재에 맞춘다. 밝고 어두운 배경에서 알파/두께를 검수하되 눈·귀·신체를 새로 그리지 않는다.
+
+### 09_VISUAL_ART_QUALITY.md에 반영할 accessory 전용 지침
+**[소품의 고급 완성도]** 부착점과 얇은 연결의 선폭 위계, 실제 재질의 반사와 투명 경계, 축소 시 인식되는 실루엣을 확인한다. 리본·체인·고리·렌즈는 요청한 물건에 존재할 때만 필요한 품질 항목이다.
+
+### 10_ANIME_STYLE.md에 반영할 accessory 전용 지침
+Anime VTuber ONE ACCESSORY ONLY: precise existing mounting anchor, nuanced material-specific lineweight, fine chains or ties in a readable neutral reference pose only when that item actually has flexible parts, crisp metal highlights and transparent glass alpha only if needed; never add a second ornament, face, body, hair or garment.
+
+**중요:** 위 조건은 이 자산에만 적용한다. Live2D/Inochi2D에 공통인 원화 작법만 공유하고, 다른 자산·Editor 작업·없는 소품 제작을 요구하지 않는다.

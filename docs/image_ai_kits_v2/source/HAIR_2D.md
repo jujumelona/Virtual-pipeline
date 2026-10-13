@@ -27,3 +27,24 @@
 [공식 Live2D 참고] https://docs.live2d.com/ko/cubism-editor-tutorials/psd/ — 앞머리/옆머리/뒷머리의 파츠 분리, 가려진 뿌리 추가 작화. [개인 작가] https://tips.clip-studio.com/en-us/articles/8014 — 측면 두상 실루엣 참고. 목 피부와 눈의 크기·그리기 비율은 신체 ZIP의 계약이고 헤어의 필수 제작 규격이 아니다.
 
 **재배치 규칙:** 위 기술은 자산 hair 원화에만 적용한다. 모드별 상세 차이는 `source/FACE_NECK_GEOMETRY_GUIDANCE.json`으로 관리하고 실제 납품 ZIP에 각각 적용한다.
+
+## [2026-10-13 고급 원화·그림자·소재 전문 기법 | hair/2D]
+### 02_ADVANCED_PARTS.md에 반영할 hair 전용 지침
+**[헤어만/모근·그림자 소유]** 완성 헤어 원화에서 뿌리 위치가 두피 곡면을 따라 앞·옆·뒤로 연결되는지를 먼저 판단하고 실제 독립적으로 흔들리는 가닥만 분리한다. 눈/피부를 새로 만들지 않되, **앞머리가 얼굴에 만드는 그림자가 실제 디자인에서 필요하고 별도로 움직여야 한다면** 피부 베이스에 굽지 않고 **헤어 소유의 선택적 별도 투명 그림자**로 계획한다. 필요 없으면 만들지 않는다. 헤어 자체의 뿌리·가닥·뒷면 명암은 해당 헤어 PNG에만 포함한다.
+
+### 06_ADVANCED_OFFICIAL_COMMUNITY.md에 반영할 hair 전용 지침
+**[공식과 아티스트 경험 구별]** 공식 Live2D 파츠 분리/숨은 머리뿌리 보완: https://docs.live2d.com/en/cubism-editor-tutorials/psd/ . **볼에서 자란 것처럼 보이는 잘못된 옆머리 뿌리, 머리 이동과 따로 노는 앞머리 투사 그림자, 반사광의 흐름·단선 문제**는 실제 작화 품질을 위한 아티스트 검수 항목이지 공식 파츠 개수·그림자 생성 의무가 아니다.
+
+### 07_REVIEW_BEFORE_FINAL_ZIP.md에 반영할 hair 전용 지침
+**[헤어 QC]** 앞·옆·뒤의 실제 모근이 두피 곡면에서 출발하는가, 가닥이 볼/턱 피부에서 시작한 듯 보이지 않는가, 헤어 그림자가 원본 얼굴에 남아 이중으로 어두워지지 않는가? 가닥 끝 테이퍼·안쪽 가닥·광택과 알파가 밝고 어두운 배경에서 이어지는가? 피부·귀·눈·카라의 픽셀을 헤어 PNG에 넣지 않는다.
+
+### 08_PRACTICAL_TIPS.md에 반영할 hair 전용 지침
+**[헤어 뿌리·캐스트 그림자]** 머리뿌리의 출발점→큰 가닥의 표면 굴곡→작은 갈래의 테이퍼를 같은 방향으로 설계한다. 얼굴 위 앞머리 그림자가 필요하면 헤어 자산에만 속하는 별도의 그림자 후보를 원본 좌표에서 제작하되, **움직임/합성 구조에 필요할 때만** 추가한다. 그림자를 원본 피부에도 그리고 독립 그림자에도 그리는 중복을 금지한다. 헤어 하이라이트는 가닥 흐름과 머리 곡면을 따라 가게 하고, 실제 함께 움직이는 고정 명암은 무리하게 독립 레이어로 나누지 않는다.
+
+### 09_VISUAL_ART_QUALITY.md에 반영할 hair 전용 지침
+**[헤어 미술 검토]** 모근의 원래 위치·앞머리 굴곡·귀 앞뒤 깊이·머리 안쪽 음영·가닥 끝 가변 선폭·소재 반사광을 보고, 피부색 잔상/백색 프린지/중복 Multiply 같은 흔적이 없는지 합성한다. 사용자가 요청하지 않은 묶음머리·아호게·핀을 추가해 풍성함을 가장하지 않는다.
+
+### 10_ANIME_STYLE.md에 반영할 hair 전용 지침
+Anime VTuber HAIR ONLY: authentic scalp-rooted silhouette, layered front side and back tufts, tapered fine ink at the strand tips, depth-aware cel shadows and flowing highlights; only if needed provide a hair-owned cast-shadow layer instead of baking hair shadows into face skin, never add eyes, ears, outfit or ornamental hairpins.
+
+**중요:** 위 조건은 이 자산에만 적용한다. Live2D/Inochi2D에 공통인 원화 작법만 공유하고, 다른 자산·Editor 작업·없는 소품 제작을 요구하지 않는다.
