@@ -40,5 +40,10 @@
 ## [바스트업 FACE-FIRST 애니풍 품질 — 2026-10-13]
 신체 ZIP 한정: F=정면 관자놀이 사이 얼굴폭(귀·모발 제외), E=눈꺼풀 외곽 눈 한쪽 너비(긴 속눈썹 제외). 큰 애니 VTuber 표정을 위한 선택적 시작값 E/F=23~29%, 양눈 간격/E=0.65~0.95, 보이는 홍채 폭/E=62~80%. 단순히 숫자를 채우는 것이 아니라 큰 상안부·도드라진 홍채/상안검 곡선·섬세한 눈꼬리, 작고 단정한 코/입, 짧고 둥근 U형 애니 턱, 단순화된 귀·목 그림자가 시각적으로 애니풍이어야 한다. 실사 인물 피부·안와 뼈·광대·콧대·넓은 어깨·긴 몸통을 금지. 숫자는 업계 실측 평균/검수용 강제 조건이 아니고 사용자 설정 외형이 우선.
 **이미지 AI의 바스트업 신체 프롬프트 최우선 예시:**
-> Masterpiece 2D hand-drawn Japanese anime VTuber FACE-DOMINANT CLOSE BUST-UP BODY BASE artwork, FRONT VIEW; composition centered on an oversized expressive anime head and face, scalp-to-chin taking approximately 52-61 percent of canvas height, only a short neck, shoulders, collarbone and the very top of safely opaque covered chest visible at the lower edge, absolutely no long torso, no waist and no elbows or hands. Beautiful distinctly ANIME eyes large relative to face width, large multilayer irises and bold tapering upper eyelashes, luminous eye highlights and clean whites; soft anime cheek silhouette tapering toward a smaller chin; tiny stylized nose, small clean mouth, reduced realistic anatomy, smooth controlled cel shading with refined colored inner lineart. Bald/without detachable hair because BODY asset only; no wigs, fashion outfit, jewelry or photo-like texture. Not photorealism, not 3D render, not realistic person, not fashion photography, not realistic small eyes/irises, not human anatomy study, not large torso/shoulder portrait, not a crude mannequin; draw an actual high-end anime VTuber bust-up illustration.
 별도 헤어·패션 의상·장식은 만들지 않는다. 사진형 인물·3D 렌더/인체 모형·긴 몸통·작은 눈을 결과로 내놓지 않는다.
+
+## [BUSTUP_COMPLETE_BODY_FINAL_PSD_V4]
+완성된 방송용 상반신은 배 위~허리 위까지, 양쪽 어깨·상완·전완·손을 포함한다. 사용자가 요청하지 않은 고정된 얼굴 초근접 구도와 회색 프록시는 금지.
+사용자가 요구한 고유 애니풍 얼굴형과 큰 눈·좌우 홍채 정합을 유지한다. 턱 뒤 목 언더페인트, 양어깨·상완·전완·양손·복부를 실제 일러스트로 그린다. 귀·입·코는 간결한 애니풍으로 유지하고 하나의 U형 턱으로 고정하지 않는다.
+회색 단색 몸통, 프록시 도형, 끊긴 목, 누락된 팔/손, 짧은 상체는 최종 FAIL. 완성 원화→파츠 분리 순서. 최종 ZIP은 실제 다층 PSD·투명 파츠 PNG·알파 마스크·원본 입력·미리보기·레이어 좌표·분리/검증 JSON·Cubism 안내 필수. 중간 PNG 검사 통과만으로 납품 성공 주장 금지.
+High quality finished anime VTuber upper-body BODY illustration down to the abdomen with natural neck, both shoulders, upper arms, forearms and hands, individual face and aligned irises, beautifully illustrated opaque base garment. No gray polygon torso, no missing hands, no head-only crop, no fake PSD.
