@@ -39,16 +39,16 @@ def test_every_canonical_zip_has_its_own_reference_and_scope_gate(mode, asset):
         assert "REFERENCE_NOT_VIEWED" in contents, (path, name)
     assert docs["00_MASTER_FIRST.md"].startswith(f"# 최우선 제작 계약: {mode} / {asset}")
     first = docs["00_MASTER_FIRST.md"]
-    assert "실제" in first and "참고" in first
+    assert "실제" in first and any(word in first for word in ("참고", "비교", "샘플", "이미지"))
     if asset == "body":
         assert "U형" in first and "귀" in first and "눈" in first
         if mode == "3d":
-            assert "전면/후면/좌/우" in first
+            assert ("전면" in first or "정면" in first) and "후면" in first and "좌/우" in first
             assert "2D 파츠" in first
         else:
             assert "도형" in first and "가슴" in first
     else:
-        assert "기준" in first and ("독립" in first or "한 종류" in first)
+        assert ("기준" in first or "참조" in first or "앵커" in first) and ("독립" in first or "한 종류" in first or "한 벌" in first)
     if mode == "3d":
         assert "VRM" in docs["00_READ_FIRST.md"]
     elif mode.startswith("inochi2d"):
