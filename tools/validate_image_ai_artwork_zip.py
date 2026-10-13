@@ -46,8 +46,15 @@ def validate(path: str | Path, edition: str = "pro") -> None:
                  if n.strip() and not n.lstrip().startswith("#")]
         counts = Counter(names)
         dupes = sorted(n for n, count in counts.items() if count != 1)
-        actual = {n[len(prefix):] for n in filenames
-                  if n.startswith(prefix + "isolated_parts/") and n.endswith(".png")}
+        isolated = [n[len(prefix):] for n in filenames
+                    if n.startswith(prefix + "isolated_parts/")]
+        invalid = sorted(n for n in isolated
+                         if not n.startswith("isolated_parts/")
+                         or not n.endswith(".png")
+                         or not _PART_ID.fullmatch(n[len("isolated_parts/"):-4]))
+        if invalid:
+            raise ValueError(f"Invalid isolated sprite paths: {invalid}")
+        actual = set(isolated)
         listed = set(names)
         missing = sorted(listed - actual)
         unlisted = sorted(actual - listed)

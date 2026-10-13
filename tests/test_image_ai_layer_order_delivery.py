@@ -98,3 +98,14 @@ def test_same_canvas_is_required(tmp_path):
     )
     with pytest.raises(ValueError, match="mode/canvas mismatch"):
         validate(source, "pro")
+
+@pytest.mark.parametrize("unexpected", (
+    "isolated_parts/hidden.PNG",
+    "isolated_parts/notes.txt",
+    "isolated_parts/nested/hidden.png",
+))
+def test_invalid_isolated_member_cannot_bypass_layer_order(tmp_path, unexpected):
+    payload = _image_bytes("RGBA") if unexpected.lower().endswith(".png") else b"extra"
+    source = _archive(tmp_path, "isolated_parts/part_one.png\n", {unexpected: payload})
+    with pytest.raises(ValueError, match="Invalid isolated sprite paths"):
+        validate(source, "pro")
