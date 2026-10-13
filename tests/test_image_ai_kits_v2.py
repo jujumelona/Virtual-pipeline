@@ -68,7 +68,11 @@ def test_all_original_anime_kits_are_valid_with_fourteen_documents():
                 family = "3D" if mode == "3d" else "2D"
                 master = archive.read("00_MASTER_FIRST.md").decode("utf-8")
                 delivery = archive.read("00_DELIVERY_AND_RECHECK.md").decode("utf-8")
-                assert master.startswith(f"# 최우선 제작 계약: {mode} / {asset}")
+                # The read-before-generation gate takes precedence over the
+                # historic master heading; both contracts must remain present.
+                assert master.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]")
+                assert f"# 최우선 제작 계약: {mode} / {asset}" in master
+                assert "## [EXISTING_VTUBER_TEMPLATE_SLOTS_V1]" in master
                 assert "00_DELIVERY_AND_RECHECK.md" in master
                 assert "00_MASTER_FIRST.md" in delivery
                 assert f"{mode}__{asset}__ARTWORK.zip" in delivery
