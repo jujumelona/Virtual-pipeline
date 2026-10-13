@@ -79,7 +79,7 @@ def test_valid_artwork_result_passes(tmp_path):
         ("isolated_parts/part_one.png\n",
          {"isolated_parts/extra.png": _image_bytes("RGBA")},
          "png_not_in_layer_order"),
-        ("part_one.png\n", None, "Invalid sprite path"),
+        ("part_one.png\n", None, "layer_order mismatch"),
     ],
 )
 def test_incorrect_layer_order_is_never_accepted(tmp_path, lines, extra, expected):
