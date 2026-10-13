@@ -29,7 +29,7 @@ def test_bust_up_four_published_zips_are_valid_and_distinct():
             assert "live2d_bust_up" in master
             assert "하체" in mode
             if asset == "body":
-                assert "52~61%" in mode
+                assert "양손" in mode
             else:
                 assert "참조" in mode and "기준 신체" in mode
             assert "불투명" in safety and "마스크" in safety
