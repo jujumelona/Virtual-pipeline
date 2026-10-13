@@ -156,3 +156,21 @@
 - **옆모습:** [CLIP STUDIO TIPS 개인 작가](https://tips.clip-studio.com/en-us/articles/8014)와 [애니 눈 작화](https://tips.clip-studio.com/ko-kr/articles/11807)는 측면 코·턱·귀·눈의 형태 및 3/4 원근의 참고입니다. 3D는 실제 4방향 독립 참조 원화가 필요하지만 2D ZIP에 측면 리깅/키폼 완료를 강제하지 않습니다.
 
 ZIP 재생성 후에는 `python tools/sync_image_ai_geometry_guidance.py --write`로 해당 고급 노하우의 **누락된 문단만 보완**하고 `--check`로 24개 ZIP의 문서/CRC를 읽기 전용 검사합니다. 기존 문구를 덮어쓰지 않습니다. [정합 테스트](../../tests/test_image_ai_geometry_guidance.py)는 24개 ZIP 내부에 실제로 반영되어 있는지 검사합니다. 이미지 AI의 실제 생성 품질·에디터 리깅은 별도 실물 검증이 필요합니다.
+
+## 고급 그림자·모근·소재·선폭 실무 가이드 (2026-10-13)
+
+기존 24개 이미지 생성 AI용 ZIP **전부**에 해당 자산만의 고급 제작/검수 내용을 반영했습니다. 각 ZIP의 **02 고급 파츠, 03 모드 범위, 06 공식/개인 기법 근거, 07 시각검수, 08 실전 노하우, 09 미술 완성도, 10 애니풍** 총 7개 MD에 직접 들어 있습니다.
+
+| 자산 | 실제 적용된 고급 노하우 |
+|---|---|
+| **신체** | 피부 자체 음영과 움직이는 앞머리의 투사 그림자 소유권 구분; 눈꼬리·윗속눈썹 분리 조건; 원화/재합성의 선화·알파 중복 검사 |
+| **헤어** | 모근이 두피 곡면에서 자연스럽게 출발하는지, 귀 앞/뒤 가닥의 깊이, 끝선 테이퍼·광택, 움직임이 실제 필요한 경우에만 헤어 소유의 선택적 투사 그림자 |
+| **의상** | 어깨·팔꿈치·허리의 장력점에서 시작하는 주름, 실제 요청된 체크·줄무늬의 연속성, 반투명 소재가 있을 때만 안감·겹침·이중 그림자 검사 |
+| **액세서리** | 요청된 한 물건의 실제 고정부, 얇은 체인·끈·렌즈의 알파/선폭, 유연한 부속에 후속 움직임이 필요한 경우에만 중립 형태의 참고 원화 |
+| **3D** | 각 자산의 정면·후면·좌우 실루엣·재질·문양·반사광·선폭 일치, 독립 4방향 원화만. 2D 그림자 레이어/리깅 지시 없음 |
+
+**자료 근거:** [Live2D 공식 원화 가공](https://docs.live2d.com/en/cubism-editor-tutorials/psd/)은 실제 필요한 파츠의 분리와 가려진 영역 보완을 설명합니다. [공식 Cubism 가져오기 PSD 제작](https://docs.live2d.com/en/cubism-editor-manual/reimport-psd/)은 후속 PSD 가져오기에서 파츠별 선화·채색을 합쳐 준비하도록 안내합니다. [Inochi2D 공식 PSD 튜토리얼](https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html)은 그림자 레이어가 합쳐질 때 이중 음영 문제가 발생할 수 있음을 보여 줍니다. 선폭 위계, 주름 장력, 체인의 중립 원화 등은 특정 프로그램의 기술 규격이 아닌 **조건부 작가 노하우**입니다.
+
+**재생성 누락 방지:** [정식 고급 노하우 원본](source/ADVANCED_ARTWORK_CRAFT_GUIDANCE.json), 기존 [비율/목 원본](source/FACE_NECK_GEOMETRY_GUIDANCE.json), [ZIP 동기화 스크립트](../../tools/sync_image_ai_geometry_guidance.py)를 함께 사용합니다. ZIP을 새로 만들었을 때 명령 python tools/sync_image_ai_geometry_guidance.py --write 는 누락된 섹션만 추가합니다. python tools/sync_image_ai_geometry_guidance.py --check 는 24개 ZIP 내부에 실제 원본 내용이 들어 있는지 확인합니다. 기존 내용을 덮어쓰기보다 변경된 문단을 명시적으로 정리하도록 보호합니다.
+
+[24개 ZIP 고급 노하우 회귀 검사](../../tests/test_image_ai_advanced_craft_guidance.py)는 모든 ZIP의 14개 MD/압축 CRC, 해당 자산의 실제 문단, 재생성 입력 파일과 원본의 일치, 복원 작업의 멱등성을 확인합니다. 이는 이미지 생성 AI의 실제 원화 품질이나 Cubism/Inochi/VRM 리깅 완료의 증명이 아닙니다.
