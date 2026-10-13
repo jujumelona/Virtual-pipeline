@@ -15,7 +15,7 @@ from PIL import Image
 _PART_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)*\Z")
 
 
-def validate(path: str | Path, edition: str = "pro") -> None:
+def validate(path: str | Path, edition: str = "pro", *, final_live2d_body: bool = False) -> None:
     if edition not in ("free", "pro"):
         raise ValueError("edition must be free or pro")
     with ZipFile(path) as archive:
@@ -39,6 +39,24 @@ def validate(path: str | Path, edition: str = "pro") -> None:
             raise ValueError("Mixed root and wrapped folders: choose one layout")
         if prefix + "manifest.json" in filenames:
             raise ValueError("Do not include manifest.json in simple image-only ZIP")
+        if final_live2d_body:
+            # This stricter gate is for actual hand-off, not intermediate PNG sprite packs.
+            # Do not mistake a correctly composited flat proxy for finished VTuber art.
+            if any(n.rsplit("/", 1)[-1].lower() == "body_flat_proxy.png"
+                   for n in filenames):
+                raise ValueError("FINAL_ARTWORK_REJECTED: flat BODY proxy is not completed torso art")
+            if not any(n.lower().endswith(".psd") for n in filenames):
+                raise ValueError("FINAL_ARTWORK_REJECTED: layered PSD is missing")
+            if not any(n.startswith(prefix + "alpha_masks/") and n.endswith(".png")
+                       for n in filenames):
+                raise ValueError("FINAL_ARTWORK_REJECTED: per-part alpha masks are missing")
+            if not any(n.startswith(prefix + "inputs/") for n in filenames):
+                raise ValueError("FINAL_ARTWORK_REJECTED: original input is missing")
+            if not any(n.endswith(".json") for n in filenames):
+                raise ValueError("FINAL_ARTWORK_REJECTED: layer/validation JSON is missing")
+            if not any(n.startswith(prefix + "previews/") for n in filenames):
+                raise ValueError("FINAL_ARTWORK_REJECTED: visual comparison previews missing")
+            # Art quality remains subject to visual review; this code cannot certify it.
         master_name = prefix + "outputs/master.png"
         if master_name not in filenames:
             raise ValueError("Missing outputs/master.png")
@@ -87,6 +105,9 @@ def validate(path: str | Path, edition: str = "pro") -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) not in (2, 3):
-        raise SystemExit("Usage: python validate_artwork_zip.py ARTWORK.zip [free|pro]")
-    validate(sys.argv[1], sys.argv[2] if len(sys.argv) == 3 else "pro")
+    args = sys.argv[1:]
+    production = "--final-live2d-body" in args
+    args = [arg for arg in args if arg != "--final-live2d-body"]
+    if len(args) not in (1, 2):
+        raise SystemExit("Usage: python validate_artwork_zip.py ARTWORK.zip [free|pro] [--final-live2d-body]")
+    validate(args[0], args[1] if len(args) == 2 else "pro", final_live2d_body=production)
