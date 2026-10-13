@@ -50,8 +50,8 @@ def guidance(registry: dict, key: str) -> str:
         f'   - 권리 확인: {registry["sources"][source_id]["permission"]}'
         for i, source_id in enumerate(t["source_ids"])
     )
-    slots = ", ".join(f"\`{slot}\`" for slot in t["required_slots"])
-    return f"""MARKER
+    slots = ", ".join(f"`{slot}`" for slot in t["required_slots"])
+    return f"""{MARKER}
 
 **가장 먼저 '이미 존재하는 실제 템플릿/프리셋'을 구한다. 빈 종이에서 캐릭터를 새로 그리거나 회색 신체 도형을 만들지 않는다.**
 이 ZIP은 **{t["mode"]} / {t["asset"]}** 전용이다. 아래 원본 파일은 이 ZIP에 동봉되지 않은 제3자 자료다.
