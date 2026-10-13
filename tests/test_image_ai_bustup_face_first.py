@@ -89,6 +89,6 @@ def test_original_2d_source_prioritizes_bustup_face_over_full_body():
     style = (ROOT / "source/ANIME_VTUBER_STYLE_2D.md").read_text(encoding="utf-8")
     quality = (ROOT / "source/QUALITY_STANDARD_2D.md").read_text(encoding="utf-8")
     assert "바스트업은 전신 스케치 없이" in master
-    assert "얼굴 우선" in mode
+    assert "양손" in mode
     assert SPEC["image_prompt_body"] in style
     assert SPEC["body_visual_qa"] in quality
