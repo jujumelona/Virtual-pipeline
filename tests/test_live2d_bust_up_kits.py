@@ -62,3 +62,33 @@ def test_bust_up_zips_keep_distinct_asset_specific_workmanship():
             assert "불투명" in review
             distinct.add(tips)
     assert len(distinct) == 4
+
+
+
+def test_bust_up_body_never_contains_actionable_gray_proxy_or_missing_hands():
+    from zipfile import ZipFile
+    path = KIT / "zips" / "live2d_bust_up__body.zip"
+    marker = "## [BUSTUP_COMPLETE_BODY_FINAL_PSD_V4]"
+    forbidden = (
+        "중립색 불투명 2D 도형 프록시",
+        "단색 BODY 도형 생성",
+        "목 아래 몸통은 불투명 중립색 프록시/마스크로만",
+        "no elbows or hands",
+        "52~61%",
+        "1.65~1.95H",
+        "팔꿈치·손은 그리지",
+    )
+    with ZipFile(path) as archive:
+        assert archive.testzip() is None
+        for name in archive.namelist():
+            content = archive.read(name).decode("utf-8")
+            if name not in ("04_OUTPUT_FILES.md", "05_OFFICIAL_REFERENCES.md"):
+                assert marker in content
+                original_instructions = content.split(marker, 1)[0]
+                for legacy in forbidden:
+                    assert legacy not in original_instructions, (name, legacy)
+        delivery = archive.read("04_OUTPUT_FILES.md").decode("utf-8")
+        assert "최종 결과 원화 ZIP에는 실제 편집 가능한 다층 PSD" in delivery
+        assert "각 파츠의 알파 마스크" in delivery
+        body = archive.read("00_MASTER_FIRST.md").decode("utf-8")
+        assert "양손" in body and "배 위" in body
