@@ -43,7 +43,7 @@ def banner(mode: str, asset: str) -> str:
 
 1. ZIP을 전부 열어 **14개 MD를 파일명만이 아니라 본문 마지막 줄까지 전부 읽는다.**
    00/01/02/03/04/05/06/07/08/09/10/11의 우선순위·금지사항·자산 범위를 대조한다.
-2. 사용자 첨부 원화·BODY 기준 이미지·예시와 참고 이미지를 **모두 실제 비전으로 연다.**
+2. 사용자 첨부 원화·BODY 기준 이미지가 **제공된 경우** 실제 이미지를 확인한다. 신규 캐릭터의 경우 사용자 PSD·원화가 없어도 정상이며, 실제 접근 가능한 공개 원화 및 파츠 구조 자료를 참고한다.
    05_OFFICIAL_REFERENCES.md, 06_ADVANCED_OFFICIAL_COMMUNITY.md,
    11_OFFICIAL_IMAGE_EXAMPLES.md 및 다른 MD에 링크된 그림·작품 페이지도 확인한다.
    작품 페이지는 제목/HTML을 읽는 데서 멈추지 말고 **보이는 이미지까지 열어** 확인한다.
@@ -54,10 +54,9 @@ def banner(mode: str, asset: str) -> str:
 5. **생성 이전 첫 응답은 이미지가 아니라** 14개 MD 확인 내역,
    참고 이미지 전체 열람 내역, 실제 관찰과 충돌 해결 기록·제작 계획으로 작성한다.
    전부 확인 전에는 image_gen, OpenArt, Adobe, Canva 등 **모든 생성/수정 호출 금지**.
-6. 자료 접근이 안 되거나 참고 그림이 보이지 않으면 **생성 중단** 후
-   확인할 수 없는 항목을 구체적으로 보고하고 원본 이미지 첨부를 요청한다.
-   허위 열람 완료나 임의 참고 그림 대체 금지.
-7. 모든 자료가 실제 확인되고 충돌이 해결된 뒤에만 완성 원화 한 장 제작.
+6. 접근 불가능한 외부 참고 링크는 `unavailable` 상태·원인으로 기록하고 실제 열 수 있는 적절한 다른 공개 그림을 조사해 대체한다. 참고용 외부 PSD 하나를 못 열었다는 이유로 사용자에게 BODY PSD 첨부를 요구하거나 신규 캐릭터 제작을 중단하지 않는다.
+   단, 특정 기존 캐릭터·BODY와 동일성을 보존해야 하는데 필수 사용자 참조가 없거나, 실제 시각 참고 이미지를 전혀 볼 수 없다면 사유를 정확하게 보고하고 해당 단계만 보류한다. 허위 열람 완료 금지.
+7. 제공된 필수 사용자 자료와 실제 열람 가능한 충분한 참고 이미지의 검토·누락 기록 및 충돌 해결을 마친 뒤 새 캐릭터 원화 한 장 제작. 공개 예제의 캐릭터 픽셀·모양을 그대로 복제하지 않는다. 실제 PSD는 완성 원화에서 파츠 분리·레이어 작성하여 최종 납품한다.
    그 원화의 품질 확인 후 파츠 분리/PSD 제작/합성·최종 ZIP 검수로 진행한다.
 
 **기존 문서의 '즉시/먼저 원화 생성'은 이 열람 게이트 완료 이후만 뜻한다.**
@@ -99,14 +98,23 @@ def patch(path: Path, *, write: bool) -> bool:
         raise ValueError("Unknown mode/asset: " + path.name)
     header = banner(mode, asset)
     done = [n for n in PRIORITY if docs[n].startswith(header)]
-    if 0 < len(done) < len(PRIORITY):
-        raise ValueError("Partially applied read-first gate: " + path.name)
     if len(done) == len(PRIORITY):
         return False
     if not write:
         raise ValueError("Missing read-first gate: " + path.name)
-    modified = {n: (header + value if n in PRIORITY else value)
-                for n, value in docs.items()}
+    if 0 < len(done) < len(PRIORITY):
+        raise ValueError("Partially applied read-first gate: " + path.name)
+    modified = docs.copy()
+    ending = "**GPT가 이 문서를 읽기 전에 이미지를 생성했다면 그 출력은 납품 실패다.**\\n\\n"
+    for name in PRIORITY:
+        value = docs[name]
+        if value.startswith("# " + MARKER):
+            end = value.find(ending)
+            if end < 0:
+                raise ValueError("Existing read-first header cannot be migrated safely: " + name)
+            modified[name] = header + value[end + len(ending):]
+        else:
+            modified[name] = header + value
     tmp = None
     try:
         with tempfile.NamedTemporaryFile(prefix="image-ai-read-first-", suffix=".zip",
@@ -146,17 +154,31 @@ def verify_evidence(path: Path, evidence: dict) -> dict:
     observations = evidence.get("references")
     if not isinstance(observations, dict) or set(observations) != set(expected["reference_urls"]):
         raise ValueError("Reference observations incomplete")
+    reviewed = 0
     for url, observation in observations.items():
-        if (not isinstance(observation, dict) or
-                observation.get("status") != "visually_reviewed" or
-                len(str(observation.get("observed_details", "")).strip()) < 30):
+        if not isinstance(observation, dict):
             raise ValueError("Reference image unreviewed: " + url)
+        if observation.get("status") == "visually_reviewed":
+            if len(str(observation.get("observed_details", "")).strip()) < 30:
+                raise ValueError("Reference image unreviewed: " + url)
+            reviewed += 1
+        elif observation.get("status") == "unavailable":
+            if len(str(observation.get("reason", "")).strip()) < 12:
+                raise ValueError("Unavailability must include an actionable reason: " + url)
+        else:
+            raise ValueError("Reference image unreviewed: " + url)
+    # Multiple genuine visual observations are still mandatory; optional
+    # external link failures alone must not force an unrelated user PSD upload.
+    needed = min(2, len(expected["reference_urls"]))
+    if reviewed < needed:
+        raise ValueError("Reference image unreviewed: fewer than required visual observations")
     if evidence.get("conflicts_resolved") is not True:
         raise ValueError("Instruction conflicts unresolved")
     if not str(evidence.get("art_direction", "")).strip():
         raise ValueError("Art direction not recorded")
     return {"status": "EVIDENCE_RECORD_COMPLETE_NOT_PIXEL_PROOF",
-            "documents": 14, "reference_urls": len(observations)}
+            "documents": 14, "reference_urls": len(observations),
+            "visually_reviewed": reviewed, "unavailable": len(observations) - reviewed}
 
 
 def main() -> int:
