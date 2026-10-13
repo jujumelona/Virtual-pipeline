@@ -10,12 +10,13 @@ from tools.vts_artwork_export import build_artwork_package
 from tools.vts_package_integrity import verify_artwork_package
 
 
-def _sample(tmp_path, edition="free", asset_kind=None):
+def _sample(tmp_path, edition="free", asset_kind=None, color=(150, 100, 200)):
+    tmp_path.mkdir(parents=True, exist_ok=True)
     source = tmp_path / "source.zip"
     with ZipFile(source, "w") as archive:
         for index in range(2):
             rgba = Image.new("RGBA", (256, 384), (0, 0, 0, 0))
-            rgba.paste((150, 100, 200, 255), (20 + index * 30, 30, 140, 200))
+            rgba.paste((*color, 255), (20 + index * 30, 30, 140, 200))
             buffer = BytesIO()
             rgba.save(buffer, "PNG")
             archive.writestr(f"hair.front.{index:03d}.png", buffer.getvalue())
@@ -71,3 +72,31 @@ def test_package_integrity_pro_independent_asset(tmp_path):
     with ZipFile(result["package"]) as archive:
         assert "hair.psd" in archive.namelist()
         assert "avatar.psd" not in archive.namelist()
+
+
+def test_package_integrity_rejects_header_only_psd(tmp_path):
+    result = _sample(tmp_path)
+    with ZipFile(result["package"]) as archive:
+        header = archive.read("avatar.psd")[:26]
+    tampered = tmp_path / "header_only.zip"
+    _tamper(result["package"], "avatar.psd", header, tampered)
+    with pytest.raises(ValueError, match="PSD cannot be parsed"):
+        verify_artwork_package(tampered)
+
+
+def test_package_integrity_rejects_different_valid_psd_same_canvas(tmp_path):
+    original = _sample(tmp_path / "original")
+    different = _sample(tmp_path / "different", color=(12, 208, 63))
+    with ZipFile(different["package"]) as archive:
+        replacement = archive.read("avatar.psd")
+    tampered = tmp_path / "swapped_psd.zip"
+    _tamper(original["package"], "avatar.psd", replacement, tampered)
+    with pytest.raises(ValueError, match="PSD layer RGBA mismatch"):
+        verify_artwork_package(tampered)
+
+
+def test_package_integrity_verifies_real_psd_layers_for_pro(tmp_path):
+    result = _sample(tmp_path, edition="pro", asset_kind="hair")
+    report = verify_artwork_package(result["package"])
+    assert report["psd_layers_verified"] == 2
+    assert report["editor_import_verified"] is False
