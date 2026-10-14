@@ -73,3 +73,19 @@ def test_bustup_nonbody_guides_do_not_require_repainting_body(asset):
         mode_rules = archive.read("03_MODE_RULES.md").decode("utf-8")
     assert "이 ZIP은 " + asset.upper() in mode_rules
     assert "BODY 얼굴·손·피부를 새 납품 파츠로 포함하지 않는다" in mode_rules
+
+
+def test_published_3d_mode_scope_matches_authoritative_geometry_json():
+    """Avoid invisible mismatch between the named geometry section and the source spec."""
+    import json
+    from tools.sync_image_ai_geometry_guidance import marker
+    spec = json.loads(
+        (ROOT.parent / "source" / "FACE_NECK_GEOMETRY_GUIDANCE.json")
+        .read_text(encoding="utf-8"))
+    expected = spec["modes"]["3d"]
+    for asset in ASSETS:
+        with ZipFile(ROOT / f"3d__{asset}.zip") as z:
+            rule = z.read("03_MODE_RULES.md").decode("utf-8")
+        segment = rule.split(marker("3d", asset), 1)[1]
+        assert expected in segment, f"3d/{asset}: geometry source/ZIP drift"
+        assert "가림 세부 1장" in expected
