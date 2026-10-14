@@ -41,7 +41,7 @@ jobs:
       - name: Confirm mapping and do not break existing 14 MD releases
         run: |
           python -m pip install --disable-pip-version-check pytest
-          python -m pytest -q tests/test_existing_vtuber_template_slots.py tests/test_image_ai_read_first_gate.py tests/test_image_ai_kits_cross_contamination.py tests/test_repair_broadcast_bustup_briefs.py tests/test_image_ai_quality_first_gate.py
+          python -m pytest -q tests/test_existing_vtuber_template_slots.py tests/test_image_ai_read_first_gate.py tests/test_image_ai_kits_cross_contamination.py tests/test_repair_broadcast_bustup_briefs.py tests/test_image_ai_quality_first_gate.py tests/test_image_ai_legacy_conflict_audit.py
       - name: Publish only changed canonical ZIPs to main
         run: |
           if git diff --quiet -- docs/image_ai_kits_v2/zips; then
