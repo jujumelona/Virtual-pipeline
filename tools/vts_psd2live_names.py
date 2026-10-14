@@ -51,6 +51,10 @@ def _alias(original: str, sam_label: str | None) -> tuple[str | None, str]:
         return "face", "specific_body_source"
     if family == "face" and tail & {"detail", "blush", "cheek"}:
         return "facedetail", "specific_face_source"
+    # A generated second-pass face.*.pass2.* layer is intentionally SAM-partitioned.
+    # Unlike authored face_skin, its class comes from the observed SAM mask.
+    if family == "face" and "pass2" in tail and sam_label in SAM_ALIASES:
+        return SAM_ALIASES[sam_label], "sam_second_pass_partition"
 
     # Explicit anatomy has higher confidence than global visible-only SAM
     # masks when the original source part is hidden by hair or clothing.
