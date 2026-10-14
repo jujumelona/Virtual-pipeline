@@ -74,7 +74,6 @@ def test_bust_up_body_never_contains_actionable_gray_proxy_or_missing_hands():
         "단색 BODY 도형 생성",
         "목 아래 몸통은 불투명 중립색 프록시/마스크로만",
         "no elbows or hands",
-        "52~61%",
         "1.65~1.95H",
         "팔꿈치·손은 그리지",
     )
@@ -87,6 +86,12 @@ def test_bust_up_body_never_contains_actionable_gray_proxy_or_missing_hands():
                 original_instructions = content.split(marker, 1)[0]
                 for legacy in forbidden:
                     assert legacy not in original_instructions, (name, legacy)
+                # A statement prohibiting fixed framing percentages is not
+                # itself an instruction to use that percentage.
+                for line in original_instructions.splitlines():
+                    if "52~61%" in line:
+                        assert "머리의 화면 점유율" in line
+                        assert "고정하지 않는다" in line, (name, line)
         delivery = archive.read("04_OUTPUT_FILES.md").decode("utf-8")
         assert "최종 결과 원화 ZIP에는 실제 편집 가능한 다층 PSD" in delivery
         assert "각 파츠의 알파 마스크" in delivery
