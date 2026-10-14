@@ -61,7 +61,7 @@ def main() -> int:
             original = frame.copy()
         delta = None
         if original is not None and label != "neutral":
-            delta = ImageChops.difference(frame, original).getbbox()
+            delta = ImageChops.difference(frame.convert("RGB"), original.convert("RGB")).getbbox()
             if not actual:
                 report["errors"].append({"pose": label, "code": "DRIVER_PARAMETERS_ABSENT",
                                          "missing": skipped})
