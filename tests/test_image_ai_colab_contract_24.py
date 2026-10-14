@@ -30,9 +30,15 @@ def test_shipped_ai_zip_produces_exact_view_paths_colab_accepts(mode, asset):
         assert len(archive.namelist()) == 14
         assert all(name.endswith(".md") for name in archive.namelist())
         instructions = archive.read("04_OUTPUT_FILES.md").decode("utf-8")
+        assert "필수 참조 시점 PNG" in instructions
+        assert "Colab 입력 파츠·경로 계약" in instructions
+        assert "24개" not in archive.namelist()
         assert "outputs/master.png" in instructions if mode != "3d" else True
         if mode != "3d":
             assert "isolated_parts/" in instructions and "layer_order.txt" in instructions
+            assert "reference_views/ — 회전 보조(필요한 경우만)" not in instructions
+        else:
+            assert "isolated_parts/" not in instructions
         lines = [line for line in instructions.splitlines()
                  if line.startswith("- 최소 참고 파일 후보: ")]
         assert len(lines) == 1, f"{zip_path}: missing canonical view list"
