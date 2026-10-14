@@ -29,11 +29,11 @@ jobs:
           python tools/image_ai_read_first_gate.py --write
           python tools/apply_existing_vtuber_template_slots.py --write
           python tools/apply_image_ai_multiview_briefs.py --write
-          python tools/image_ai_quality_first_gate.py --write
+          python -m tools.image_ai_quality_first_gate --write
           python tools/image_ai_read_first_gate.py --check
           python tools/apply_existing_vtuber_template_slots.py --check
           python tools/apply_image_ai_multiview_briefs.py --check
-          python tools/image_ai_quality_first_gate.py --check
+          python -m tools.image_ai_quality_first_gate --check
       - name: Confirm mapping and do not break existing 14 MD releases
         run: |
           python -m pip install --disable-pip-version-check pytest
