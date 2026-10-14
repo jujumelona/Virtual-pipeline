@@ -280,7 +280,7 @@ def test_colab_ui_has_no_preparation_or_rig_export_step_yet():
     assert len(sources) >= 9
     for source in sources:
         ast.parse(source)
-    assert 'TOP_MODE_LABEL = "Live2D 상반신" #@param' in sources[1]
+    assert 'TOP_MODE_LABEL = "Live2D 바스트업" #@param' in sources[1]
     assert 'ASSET_KIND_LABEL = "신체만" #@param' in sources[2]
     assert "psd2live" not in "\n".join(sources[:4]).lower()
     assert "make_cubism_handoff(" not in "\n".join(sources[:4])
