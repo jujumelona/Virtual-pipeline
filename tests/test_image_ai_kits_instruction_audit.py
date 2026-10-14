@@ -88,7 +88,7 @@ def test_source_quality_rules_prefer_completed_illustration_not_gray_proxy():
     body3d = (ROOT / "source" / "BODY_3D.md").read_text(encoding="utf-8")
     assert "회색 단색 몸통" in quality and "최종 FAIL" in quality
     assert "양손" in body2d and "회색 단색 몸통" in body2d
-    assert "불투명 중립색 마네킹 실루엣" in body3d
+    assert "애니풍" in body3d and ("도형 프록시" in body3d or "매끈한 신체" in body3d)
     for source in (quality, body2d, body3d):
         assert "불투명·비선정적 기본 속옷" not in source
         assert "선정적이지 않은 불투명 기본 속옷" not in source
