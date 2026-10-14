@@ -41,7 +41,7 @@ COVER_INSTRUCTIONS = """## [BODY_DEFAULT_OPAQUE_SWIMWEAR_V1]
 - **성인(20세 이상)**의 귀여운 애니풍 VTuber 캐릭터를 작업한다. 짧고 둥근 얼굴, 큰 눈, 6등신 디자인은 유지하되 미성년으로 묘사하지 않는다.
 - **정면·3/4·측면·후면·상하 시점, 표정 시트, 최종 마스터, 합성 미리보기 전체에** 불투명한 **비키니형 스포츠 수영복**을 입힌다. 기본 디자인은 **노출을 줄인 운동용 상의 + 하이웨이스트 쇼츠형 하의**이며, 단색 무지 원단에 비침·절개·노출 강조가 없다.
 - **단독 신체 원화, 투명 원화 파츠, PSD, 최종 결과 어디에도 복장 없는 신체 이미지를 만들거나 제공하지 않는다.** 수영복 안쪽은 사실적인 피부나 신체 세부가 아닌 단색 비표현적 밑색으로 처리한다. 복장 없이 보이는 숨은 시점·보조 이미지도 제작하지 않는다.
-- 2D에서 수영복 상·하의는 BODY 납품의 **기본 안전 가림 파츠**이다. fashion OUTFIT이 아니다. 안전 복장 파츠는 \`removable_neutral_modesty_band_upper\`, \`removable_neutral_modesty_band_lower\`처럼 각각 독립 RGBA를 만들되 **완성본에서는 두 파츠가 항상 켜져 있어야 한다**. 상·하의 없이 기본 마스터/미리보기를 만들지 않는다. 기존 단일 \`removable_neutral_modesty_band\` 이름도 하위 호환으로만 허용한다.
+- 2D에서 수영복 상·하의는 BODY 납품의 **기본 안전 가림 파츠**이다. fashion OUTFIT이 아니다. 안전 복장 파츠는 `removable_neutral_modesty_band_upper`, `removable_neutral_modesty_band_lower`처럼 각각 독립 RGBA를 만들되 **완성본에서는 두 파츠가 항상 켜져 있어야 한다**. 상·하의 없이 기본 마스터/미리보기를 만들지 않는다. 기존 단일 `removable_neutral_modesty_band` 이름도 하위 호환으로만 허용한다.
 - 3D에서는 동일한 수영복을 **모든 필수 9방향 턴어라운드에** 동일하게 착용시킨다. 3D ZIP은 PSD 분리나 스킨·리깅 실행을 요구하지 않는다.
 - 수영복은 눈·얼굴·목·어깨·양팔·양손·관절·발의 위치를 가리지 않는다. 턱 뒤 목, 어깨/팔꿈치/손목 등 회전용 숨은 면과 눈/입 레이어는 충분히 그리되, 수영복 아래의 자세한 신체를 만들 필요는 없다.
 - **충돌 해결:** 옛 지침의 '의상 금지', '상의를 그리지 않기', '최소 면적의 밴드만', '맨몸처럼 보이는 베이스'보다 이 기본 수영복 규칙이 우선한다. 헤어·디자인 의상·액세서리는 여전히 다른 ZIP의 소유이고 기본 안전 수영복만 BODY가 소유한다.
@@ -87,7 +87,17 @@ def normalize_body_swimwear(text: str, *, mode: str, name: str) -> str:
     # The references may contain old negative examples. Keep the visual data
     # unchanged but explicitly scope wardrobe priority for every generation doc.
     if name in COVER_PRIORITIES:
-        text = COVER_INSTRUCTIONS + "\n\n" + text.lstrip()
+        # The read-first banner MUST stay at byte zero. Insert the wardrobe
+        # brief immediately after that validated banner, never before it.
+        if text.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]"):
+            boundary = "**GPT가 이 문서를 읽기 전에 이미지를 생성했다면 그 출력은 납품 실패다.**\\n\\n"
+            idx = text.find(boundary)
+            if idx < 0:
+                raise ValueError("Read-first boundary missing: " + name)
+            idx += len(boundary)
+            text = text[:idx] + COVER_INSTRUCTIONS + "\n\n" + text[idx:]
+        else:
+            text = COVER_INSTRUCTIONS + "\n\n" + text.lstrip()
     return text
 
 EXPECTED = (
