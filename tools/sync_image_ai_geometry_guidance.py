@@ -203,6 +203,8 @@ def inspect_and_patch(
             if write:
                 updated["05_OFFICIAL_REFERENCES.md"] = expected_official
 
+    check_asset_scope_conflicts(zip_path.name, updated, asset)
+
     if mode == "live2d_bust_up":
         # Fail closed even in --write: do not mix new framing with old, torso-heavy prose.
         check_bustup_legacy(zip_path.name, updated)
@@ -231,6 +233,43 @@ def inspect_and_patch(
             tmp_path.unlink(missing_ok=True)
 
 
+def check_asset_scope_conflicts(archive_name: str, documents: dict[str, str], asset: str) -> None:
+    """Reject contradictory positive generation orders, even if a newer heading overrides them."""
+    import re
+
+    body_legacy = (
+        r"중립색 기하학적 프록시|중립색 불투명 2D 도형|"
+        r"불투명 중립색 도형|불투명 중립색 마네킹 프록시|"
+        r"도형 프록시를 프로그램으로|몸통은 회색·베이지|"
+        r"신체 도형은 완성 캐릭터 일러스트가 아니라"
+    )
+    other_legacy = (
+        r"BODY 최종 납품|BODY 최종 ZIP|"
+        r"isolated_parts/eye_L_iris\.png 같은|"
+        r"독창적인 완성 원화를 처음부터 제작한다"
+    )
+    errors: list[str] = []
+    for name, content in documents.items():
+        for line_no, line in enumerate(content.splitlines(), 1):
+            if asset == "body" and re.search(body_legacy, line):
+                errors.append(f"{name}:{line_no}: geometric-proxy generation conflict")
+            if asset != "body" and re.search(other_legacy, line):
+                errors.append(f"{name}:{line_no}: foreign BODY/eye delivery or generation instruction")
+    if errors:
+        raise ValueError(f"{archive_name}: conflicting instructions remain: " + "; ".join(errors[:12]))
+
+
+def check_builder_input_snapshots() -> None:
+    """Prevent repack/build inputs from resurrecting removed proxy guidance."""
+    root = ROOT / "builder_inputs"
+    for family in ("2D", "3D"):
+        snapshot = json.loads((root / f"{family}.json").read_text(encoding="utf-8"))
+        for filename in ("COMMON.md", f"BODY_{family}.md"):
+            original = (ROOT / "source" / filename).read_text(encoding="utf-8")
+            if snapshot.get(filename) != original:
+                raise ValueError(f"{family}.json: stale {filename} source snapshot")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group()
@@ -241,6 +280,7 @@ def main() -> int:
     craft_spec = json.loads(CRAFT_SPEC.read_text(encoding="utf-8"))
     official_spec = json.loads(OFFICIAL_SPEC.read_text(encoding="utf-8"))
     bustup_spec = json.loads(BUSTUP_SPEC.read_text(encoding="utf-8"))
+    check_builder_input_snapshots()
     found = {p.name for p in ZIP_ROOT.glob("*.zip")}
     expected = {f"{m}__{a}.zip" for m in MODES for a in ASSETS}
     if found != expected:
