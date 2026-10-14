@@ -239,7 +239,8 @@ def check_asset_scope_conflicts(archive_name: str, documents: dict[str, str], as
 
     body_legacy = (
         r"중립색 기하학적 프록시|중립색 불투명 2D 도형|"
-        r"불투명 중립색 도형|불투명 중립색 2D 프록시|"\n        r"불투명 중립색 마네킹 프록시|"
+        r"불투명 중립색 도형|불투명 중립색 2D 프록시|"
+        r"불투명 중립색 마네킹 프록시|"
         r"도형 프록시를 프로그램으로|몸통은 회색·베이지|"
         r"신체 도형은 완성 캐릭터 일러스트가 아니라"
     )
