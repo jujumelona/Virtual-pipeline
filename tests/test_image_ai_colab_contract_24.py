@@ -86,7 +86,7 @@ def test_shipped_body_zip_has_opaque_swimsuit_default_and_preserves_readfirst_ga
     assert not any("가려야 할 부분은 가장 작은 단색 무지 밴드형" in t
                    for t in texts.values())
     if mode == "3d":
-        assert "9방향 턴어라운드" in texts["00_MASTER_FIRST.md"]
+        assert "8방향 턴어라운드 및 가림 세부 1장" in texts["00_MASTER_FIRST.md"]
     else:
         assert "removable_neutral_modesty_band_upper" in texts["00_MASTER_FIRST.md"]
         assert "removable_neutral_modesty_band_lower" in texts["00_MASTER_FIRST.md"]
