@@ -44,7 +44,7 @@ COVER_INSTRUCTIONS = """## [BODY_DEFAULT_OPAQUE_SWIMWEAR_V1]
 - 2D에서 수영복 상·하의는 BODY 납품의 **기본 안전 가림 파츠**이다. fashion OUTFIT이 아니다. 안전 복장 파츠는 `removable_neutral_modesty_band_upper`, `removable_neutral_modesty_band_lower`처럼 각각 독립 RGBA를 만들되 **완성본에서는 두 파츠가 항상 켜져 있어야 한다**. 상·하의 없이 기본 마스터/미리보기를 만들지 않는다. 기존 단일 `removable_neutral_modesty_band` 이름도 하위 호환으로만 허용한다.
 - 3D에서는 동일한 수영복을 **모든 필수 9방향 턴어라운드에** 동일하게 착용시킨다. 3D ZIP은 PSD 분리나 스킨·리깅 실행을 요구하지 않는다.
 - 수영복은 눈·얼굴·목·어깨·양팔·양손·관절·발의 위치를 가리지 않는다. 턱 뒤 목, 어깨/팔꿈치/손목 등 회전용 숨은 면과 눈/입 레이어는 충분히 그리되, 수영복 아래의 자세한 신체를 만들 필요는 없다.
-- **충돌 해결:** 옛 지침의 '의상 금지', '상의를 그리지 않기', '최소 면적의 밴드만', '맨몸처럼 보이는 베이스'보다 이 기본 수영복 규칙이 우선한다. 헤어·디자인 의상·액세서리는 여전히 다른 ZIP의 소유이고 기본 안전 수영복만 BODY가 소유한다.
+- **충돌 해결:** BODY에서는 위의 불투명 기본 수영복 착용을 항상 유지한다. 다른 디자인 의상·헤어·소품만 각각 OUTFIT·HAIR·ACCESSORY ZIP에서 제작한다.
 
 ## [/BODY_DEFAULT_OPAQUE_SWIMWEAR_V1]"""
 
