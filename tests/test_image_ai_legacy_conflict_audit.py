@@ -113,3 +113,40 @@ def test_bustup_geometry_sections_are_not_empty_and_match_source():
         assert md.count(tag) == 1
         assert expected in md.split(tag, 1)[1].split("\n## [", 1)[0]
         assert "양팔" in expected and "손" in expected
+
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("asset", ASSETS)
+def test_semantic_wardrobe_input_paths_and_work_sequence_are_consistent(mode, asset):
+    """Every one of the 336 released MDs must agree about source art, not only markers."""
+    source = ROOT / f"{mode}__{asset}.zip"
+    with ZipFile(source) as archive:
+        documents = {name: archive.read(name).decode("utf-8") for name in archive.namelist()}
+    for name, doc in documents.items():
+        for forbidden in (
+            "중요한 부위의 최소 가림은 별도 단색 커버 파츠만 사용한다",
+            "신체만 만든다. 선정적이지 않은 실제 애니풍으로 채색된 매끈한 BODY 피부 베이스",
+            "신체 베이스의 중요 부위는 안전한 실제 애니풍으로 채색된 매끈한 BODY 피부 베이스",
+            "기준 BODY의 기존 애니풍 피부와 최소 가림 파츠를 그대로 유지",
+            "고급 세부 그림은 확정된 정면 기준 원화의 디자인을 참조해 필요한 경우만 추가 제작한다",
+            "원화 한 장을 먼저 만든 후, 실제 필요한 부분을 마스크로 추출하고 숨은 면만 보완한다",
+        ):
+            assert forbidden not in doc, (mode, asset, name, forbidden)
+        if mode == "3d":
+            assert "- 기존 MD에서 reference_views/를" not in doc, (mode, asset, name)
+            assert "사용자 PSD가 없는 신규 캐릭터에서도" not in doc, (mode, asset, name)
+        if asset == "body":
+            assert "불투명" in documents["00_MASTER_FIRST.md"]
+            assert "수영복" in documents["00_MASTER_FIRST.md"]
+        if asset != "body":
+            assert "BODY_DEFAULT_OPAQUE_SWIMWEAR_V1" not in doc
+    master = documents["00_MASTER_FIRST.md"]
+    assert "이미지 생성 AI" in master
+    assert "NATIVE_ART_FIRST_QUALITY_V1" in master
+    if mode == "3d":
+        assert "8방향" in master and "가림 세부" in master
+        assert "views/" in documents["04_OUTPUT_FILES.md"]
+    else:
+        assert "reference_views/" in documents["04_OUTPUT_FILES.md"]
+        assert "isolated_parts/" in documents["04_OUTPUT_FILES.md"]
