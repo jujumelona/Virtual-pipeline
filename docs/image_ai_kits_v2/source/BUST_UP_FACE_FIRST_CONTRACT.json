@@ -21,12 +21,12 @@
     "exclusions": "gray one-color polygons, missing arms and hands, photographic face, cropped torso"
   },
   "short_scope": {
-    "body": "방송용 바스트업: 머리부터 배 위~허리 위까지 완성된 캐릭터 신체 원화. 양쪽 어깨·상완·전완·손과 자연스러운 목 연결을 포함하며 손을 가린 포즈도 숨은 파츠를 준비한다. 고정된 얼굴 초근접 구도와 단색 몸통 프록시를 금지한다. 사용자가 요구한 고유 애니풍 얼굴형과 큰 눈·좌우 홍채 정합을 유지한다. 턱 뒤 목 언더페인트, 양어깨·상완·전완·양손·복부를 실제 일러스트로 그린다. 귀·입·코는 간결한 애니풍으로 유지하고 하나의 U형 턱으로 고정하지 않는다. 교체 헤어·의상·액세서리는 독립 자산으로 남긴다.",
+    "body": "방송용 바스트업: 머리부터 배 위~허리 위까지 완성된 캐릭터 신체 원화. 양쪽 어깨·상완·전완·손과 자연스러운 목 연결을 포함하며 손을 가린 포즈도 숨은 파츠를 준비한다. 얼굴만 잘린 과도한 크롭과 단색 몸통 프록시를 금지하며 큰 얼굴·눈 중심으로 어깨·양팔·손까지 자연스럽게 그린다. 사용자가 요구한 큰 눈·좌우 홍채와 짧고 넓은 부드러운 U형 턱의 귀여운 얼굴 인상을 유지한다. 각도별로 턱의 투영 실루엣은 자연스럽게 변화시킨다. 턱 뒤 목 언더페인트, 양어깨·상완·전완·양손·복부를 실제 애니 일러스트로 그린다. 교체 헤어·의상·액세서리는 독립 자산으로 남긴다.",
     "hair": "배 위까지 이어진 BODY의 원점·스케일을 참조하여 헤어만 제작하고 얼굴/신체는 재작화하지 않는다.",
     "outfit": "완성 BODY의 목·어깨·팔·손·상복부 기준 동일 캔버스에 실제 의상만 제작하며 신체는 재작화하지 않는다.",
     "accessory": "기준 BODY와 동일 캔버스의 실제 부착점에 요청한 소품만 제작한다."
   },
-  "body_face": "사용자가 요구한 고유 애니풍 얼굴형과 큰 눈·좌우 홍채 정합을 유지한다. 턱 뒤 목 언더페인트, 양어깨·상완·전완·양손·복부를 실제 일러스트로 그린다. 귀·입·코는 간결한 애니풍으로 유지하고 하나의 U형 턱으로 고정하지 않는다.",
+  "body_face": "사용자가 요구한 큰 눈·좌우 홍채와 짧고 넓은 부드러운 U형 턱의 귀여운 얼굴 인상을 유지한다. 각도별로 턱의 투영 실루엣은 자연스럽게 변화시킨다. 턱 뒤 목 언더페인트, 양어깨·상완·전완·양손·복부를 실제 애니 일러스트로 그린다.",
   "body_visual_qa": "회색 단색 몸통, 프록시 도형, 끊긴 목, 누락된 팔/손, 짧은 상체는 최종 FAIL. 완성 원화→파츠 분리 순서. 최종 ZIP은 실제 다층 PSD·투명 파츠 PNG·알파 마스크·원본 입력·미리보기·레이어 좌표·분리/검증 JSON·Cubism 안내 필수. 중간 PNG 검사 통과만으로 납품 성공 주장 금지.",
   "image_prompt_body": "High quality finished anime VTuber upper-body BODY illustration down to the abdomen with natural neck, both shoulders, upper arms, forearms and hands, individual face and aligned irises, separate minimal neutral modesty-cover overlay, NO attached clothing. No gray polygon torso, no missing hands, no head-only crop, no fake PSD.",
   "image_prompt_other": {
