@@ -106,6 +106,21 @@ def rewrite(text: str, *, mode: str, asset: str, name: str) -> str:
     if mode != "3d" and asset == "body":
         for old, new in BODY_2D_REPLACEMENTS:
             text = text.replace(old, new)
+    if mode == "live2d_bust_up" and name == "03_MODE_RULES.md":
+        from tools.sync_image_ai_geometry_guidance import sections_for, marker
+        import json
+        spec = json.loads(
+            (ROOT.parent / "source" / "FACE_NECK_GEOMETRY_GUIDANCE.json")
+            .read_text(encoding="utf-8"))
+        section = sections_for(spec, mode, asset)["03_MODE_RULES.md"]
+        heading = marker(mode, asset)
+        if heading not in text:
+            raise ValueError("BUSTUP_GEOMETRY_HEADING_MISSING")
+        # Existing four ZIPs had an empty heading immediately followed by
+        # another section; the old test checked the heading only.
+        if section not in text:
+            text = text.replace(heading + "\n",
+                                heading + "\n" + section + "\n", 1)
     if mode == "3d" and name == "03_MODE_RULES.md":
         # Canonical geometry 3D mode scope and its published tagged paragraph
         # must agree, otherwise old four-angle instructions reappear silently.
