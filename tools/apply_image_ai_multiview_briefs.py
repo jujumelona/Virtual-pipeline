@@ -199,7 +199,10 @@ def guidance(mode: str, asset: str) -> str:
                     "removable_neutral_modesty_band_upper 및 "
                     "removable_neutral_modesty_band_lower로 각각 분리하고 "
                     "실제 화면에 보이는 상·하의 레이어를 켠 채 마스터와 미리보기를 만든다. "
-                    "isolated_parts/*.png와 layer_order.txt는 모두 실제 파일로 맞춘다.")
+                    "isolated_parts/*.png와 layer_order.txt는 모두 실제 파일로 맞춘다. "
+                    "눈 감김·반감김·입 벌림은 expression_refs/ 참조 PNG로 따로 보관한다. "
+                    "중립 합성 layer_order.txt에 배타적 표정 파츠를 동시에 넣어 "
+                    "두 눈·두 입이 중복되는 결과를 만들지 않는다.")
     else:
         part_ids = (
             f"{asset.upper()}의 isolated_parts/ 파츠 ID는 "
