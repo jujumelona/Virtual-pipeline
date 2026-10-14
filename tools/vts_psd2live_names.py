@@ -49,6 +49,10 @@ def _alias(original: str, sam_label: str | None) -> tuple[str | None, str]:
     # clothing; visible SAM may be absent for imported/external PSDs.
     if family == "body" and tail & {"head", "face"}:
         return "face", "specific_body_source"
+    # A removable plain privacy cover is a legitimate BODY-only display
+    # overlay, not another face or an unrelated character outfit.
+    if family == "removable" and tail >= {"neutral", "modesty", "band"}:
+        return "topwear", "explicit_privacy_cover"
     if family == "face" and tail & {"detail", "blush", "cheek"}:
         return "facedetail", "specific_face_source"
     # A generated second-pass face.*.pass2.* layer is intentionally SAM-partitioned.
