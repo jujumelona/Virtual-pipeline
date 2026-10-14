@@ -106,6 +106,19 @@ def rewrite(text: str, *, mode: str, asset: str, name: str) -> str:
     if mode != "3d" and asset == "body":
         for old, new in BODY_2D_REPLACEMENTS:
             text = text.replace(old, new)
+    if mode == "3d" and name == "03_MODE_RULES.md":
+        # Canonical geometry 3D mode scope and its published tagged paragraph
+        # must agree, otherwise old four-angle instructions reappear silently.
+        import json
+        canonical = json.loads(
+            (ROOT.parent / "source" / "FACE_NECK_GEOMETRY_GUIDANCE.json")
+            .read_text(encoding="utf-8"))["modes"]["3d"]
+        legacy = (
+            "3D용은 8방향의 실제 별개 참조 그림. 신체만 6H 디자인을 "
+            "적용하고 눈·귀·코·목의 전후좌우 형태를 일치시킨다. "
+            "메시/UV/VRM은 이미지 AI 산출물이 아니다."
+        )
+        text = text.replace(legacy, canonical)
     if mode == "3d":
         for old, new in REPLACE_3D:
             text = text.replace(old, new)
