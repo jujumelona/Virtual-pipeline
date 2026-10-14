@@ -87,7 +87,14 @@ def test_published_3d_mode_scope_matches_authoritative_geometry_json():
         with ZipFile(ROOT / f"3d__{asset}.zip") as z:
             rule = z.read("03_MODE_RULES.md").decode("utf-8")
         segment = rule.split(marker("3d", asset), 1)[1]
-        assert expected in segment, f"3d/{asset}: geometry source/ZIP drift"
+        if asset == "body":
+            assert expected in segment, "3d/body: geometry source/ZIP drift"
+        else:
+            # Detached assets intentionally replace the general BODY anatomy
+            # sentence with an asset-only 8-angle reference instruction.
+            assert f"3D용은 실제 다른 8방향의 {asset} 참조 그림만 생성" in segment
+            assert "새로 그리지 않는다" in segment
+            assert expected not in segment
         assert "가림 세부 1장" in expected
 
 
