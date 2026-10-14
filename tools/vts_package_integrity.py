@@ -139,6 +139,16 @@ def verify_artwork_package(package: Path, *, require_final_handoff: bool = False
             source_psd_bytes = archive.read(source_psds[0])
             if len(source_psd_bytes) < 26 or source_psd_bytes[:4] != b"8BPS":
                 raise ValueError("Artwork ZIP original source PSD missing or invalid")
+            # The source PSD is not required to match the final output canvas,
+            # but its image data and real editable layers must be parseable.
+            try:
+                source_psd = PSDImage.open(BytesIO(source_psd_bytes))
+                if not any(not layer.is_group() for layer in source_psd.descendants()):
+                    raise ValueError("original source PSD has no raster layers")
+            except Exception as exc:
+                raise ValueError(
+                    "Artwork ZIP original source PSD cannot be parsed into layers"
+                ) from exc
             geometry = json.loads(archive.read("metadata/input_vs_psd_geometry.json"))
             if geometry.get("output_psd_canvas") != list(canvas):
                 raise ValueError("Artwork ZIP comparison geometry differs from PSD canvas")
@@ -157,7 +167,13 @@ def verify_artwork_package(package: Path, *, require_final_handoff: bool = False
                 if reference_size != canvas:
                     raise ValueError("Artwork ZIP PRO body reference image canvas mismatch")
                 with Image.open(BytesIO(archive.read("preview/pro_body_asset_overlay.png"))) as overlay:
+                    overlay_size = overlay.size
                     overlay.verify()
+                scale = min(1.0, 1400 / max(reference_size))
+                expected_size = tuple(max(1, round(dimension * scale))
+                                      for dimension in reference_size)
+                if overlay_size != expected_size:
+                    raise ValueError("Artwork ZIP PRO body overlay preview size mismatch")
                 alignment = json.loads(archive.read("metadata/pro_reference_alignment.json"))
                 if alignment.get("output_psd_canvas") != list(canvas):
                     raise ValueError("Artwork ZIP PRO body alignment canvas mismatch")
