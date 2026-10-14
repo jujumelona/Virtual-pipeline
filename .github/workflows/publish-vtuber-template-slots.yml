@@ -5,6 +5,7 @@ on:
     paths:
       - "docs/image_ai_kits_v2/source/EXISTING_TEMPLATE_SLOT_REGISTRY.json"
       - "tools/apply_existing_vtuber_template_slots.py"
+      - "tools/apply_image_ai_multiview_briefs.py"
       - "tools/image_ai_read_first_gate.py"
       - "tests/test_image_ai_read_first_gate.py"
       - "tests/test_existing_vtuber_template_slots.py"
@@ -25,8 +26,10 @@ jobs:
         run: |
           python tools/image_ai_read_first_gate.py --write
           python tools/apply_existing_vtuber_template_slots.py --write
+          python tools/apply_image_ai_multiview_briefs.py --write
           python tools/image_ai_read_first_gate.py --check
           python tools/apply_existing_vtuber_template_slots.py --check
+          python tools/apply_image_ai_multiview_briefs.py --check
       - name: Confirm mapping and do not break existing 14 MD releases
         run: |
           python -m pip install --disable-pip-version-check pytest
@@ -40,5 +43,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/image_ai_kits_v2/zips/*.zip
-          git commit -m "docs(image-ai): bind 24 ZIPs to verified external templates and fillable slots"
+          git commit -m "docs(image-ai): publish asset-specific multiview image briefs in 24 ZIPs"
           git push origin HEAD:main
