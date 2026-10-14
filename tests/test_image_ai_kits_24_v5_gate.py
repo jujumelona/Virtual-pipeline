@@ -38,13 +38,13 @@ def _read_all_gate_is_valid(master: str) -> bool:
 def test_read_all_gate_allows_priority_preamble_but_rejects_invalid_headings():
     gate = "# [READ_ALL_BEFORE_IMAGE_GENERATION_V1] — 먼저 참고를 읽는다"
     slots = "## [EXISTING_VTUBER_TEMPLATE_SLOTS_V1]"
-    assert _read_all_gate_is_valid("# 새로운 최우선 계약\\n" + gate + "\\n" + slots)
-    assert _read_all_gate_is_valid(gate + "\\n" + slots)
-    assert not _read_all_gate_is_valid(slots + "\\n" + gate)
-    assert not _read_all_gate_is_valid("# 다른 계약\\n" + slots)
-    assert not _read_all_gate_is_valid(gate + "\\n" + gate + "\\n" + slots)
-    assert not _read_all_gate_is_valid("인용: " + gate + "\\n" + slots)
-    assert not _read_all_gate_is_valid(gate + "\\n" + slots + "\\n" + slots)
+    assert _read_all_gate_is_valid("# 새로운 최우선 계약\n" + gate + "\n" + slots)
+    assert _read_all_gate_is_valid(gate + "\n" + slots)
+    assert not _read_all_gate_is_valid(slots + "\n" + gate)
+    assert not _read_all_gate_is_valid("# 다른 계약\n" + slots)
+    assert not _read_all_gate_is_valid(gate + "\n" + gate + "\n" + slots)
+    assert not _read_all_gate_is_valid("인용: " + gate + "\n" + slots)
+    assert not _read_all_gate_is_valid(gate + "\n" + slots + "\n" + slots)
 
 
 @pytest.mark.parametrize("mode", MODES)
