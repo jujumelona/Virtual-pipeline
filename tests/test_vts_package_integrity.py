@@ -199,3 +199,53 @@ def test_final_handoff_rejects_pro_reference_image_with_different_canvas(tmp_pat
     with pytest.raises(ValueError, match="source image canvas differs"):
         verify_artwork_package(changed_geometry, require_final_handoff=True,
                                require_pro_reference=True)
+
+
+def _append_final_handoff_for_regression(package, *, pro=False):
+    with ZipFile(package, "a") as archive:
+        psd_name = "hair.psd" if pro else "avatar.psd"
+        source_psd = archive.read(psd_name)
+        preview = archive.read("preview/composite.png")
+        archive.writestr("source_psd/see_through_layers.psd", source_psd)
+        archive.writestr("input_reference/source_avatar.png", preview)
+        archive.writestr("preview/input_vs_psd_comparison.png", preview)
+        archive.writestr("metadata/input_vs_psd_geometry.json",
+                         json.dumps({"source_canvas": [256, 384],
+                                     "output_psd_canvas": [256, 384]}))
+        archive.writestr("logs/psd_runtime/runtime.json", "{}")
+        if pro:
+            archive.writestr("input_reference/body_base.png", preview)
+            archive.writestr("preview/pro_body_asset_overlay.png", preview)
+            archive.writestr("metadata/pro_reference_alignment.json",
+                             json.dumps({"output_psd_canvas": [256, 384],
+                                         "input_size": [256, 384]}))
+
+
+def test_final_handoff_rejects_header_only_source_psd(tmp_path):
+    result = _sample(tmp_path)
+    _append_final_handoff_for_regression(result["package"])
+    assert verify_artwork_package(
+        result["package"], require_final_handoff=True)["status"] == "PASS"
+    invalid = tmp_path / "invalid_source_psd.zip"
+    with ZipFile(result["package"]) as archive:
+        header = archive.read("source_psd/see_through_layers.psd")[:26]
+    _tamper(result["package"], "source_psd/see_through_layers.psd",
+            header, invalid)
+    with pytest.raises(ValueError, match="source PSD cannot be parsed"):
+        verify_artwork_package(invalid, require_final_handoff=True)
+
+
+def test_final_handoff_rejects_wrong_pro_overlay_dimensions(tmp_path):
+    result = _sample(tmp_path, edition="pro", asset_kind="hair")
+    _append_final_handoff_for_regression(result["package"], pro=True)
+    assert verify_artwork_package(
+        result["package"], require_final_handoff=True,
+        require_pro_reference=True)["status"] == "PASS"
+    wrong = BytesIO()
+    Image.new("RGBA", (320, 384), (50, 80, 90, 255)).save(wrong, "PNG")
+    changed = tmp_path / "wrong_overlay_dimensions.zip"
+    _tamper(result["package"], "preview/pro_body_asset_overlay.png",
+            wrong.getvalue(), changed)
+    with pytest.raises(ValueError, match="overlay preview size mismatch"):
+        verify_artwork_package(
+            changed, require_final_handoff=True, require_pro_reference=True)
