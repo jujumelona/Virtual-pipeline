@@ -289,3 +289,111 @@ def write_handoff_verdict(output: Path, *, source_report: dict,
     }
     _write_json(output / "quality_verdict.json", report)
     return report
+
+
+def build_review_contact_sheet(reference_report: dict, pose_report: dict | None,
+                               output: Path) -> Path:
+    """Visually pair source views with secondary pose renders for review.
+
+    Image2Live2D previews are explicitly NOT PSD2Live MOC3 pose screenshots.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    observed = reference_report["observed"]
+    frame_by_pose = {x["pose"]: x["image"] for x in
+                     (pose_report or {}).get("frames", [])}
+    pairs = [
+        ("head_three_quarter_L", "yaw_left"),
+        ("head_three_quarter_R", "yaw_right"),
+        ("head_pitch_up", "pitch_up"),
+        ("head_pitch_down", "pitch_down"),
+        ("neck_underpaint", "neutral"),
+    ]
+    width, boxh = 1100, 370
+    canvas = Image.new("RGB", (width, boxh * len(pairs)), "#e6e7eb")
+    draw = ImageDraw.Draw(canvas)
+    for i, (ref_name, rig_pose) in enumerate(pairs):
+        left = observed.get(ref_name, {}).get("file")
+        right = frame_by_pose.get(rig_pose)
+        for column, source in enumerate((left, right)):
+            start_x, start_y = column * 550, i * boxh
+            draw.rectangle((start_x + 4, start_y + 4, start_x + 546,
+                            start_y + boxh - 4), fill="#ffffff")
+            draw.text((start_x + 12, start_y + 10),
+                      ("AI ART " + ref_name if column == 0 else
+                       "SECONDARY RIG (NOT CUBISM) " + rig_pose), fill="#242424")
+            if source and Path(source).is_file():
+                with Image.open(source) as picture:
+                    image = picture.convert("RGBA")
+                    image.thumbnail((520, 316))
+                    base = Image.new("RGBA", image.size, (255, 255, 255, 255))
+                    base.alpha_composite(image)
+                    canvas.paste(base.convert("RGB"),
+                                 (start_x + (550-image.width)//2, start_y+45))
+            else:
+                draw.text((start_x+20, start_y+80), "No image", fill="#b02020")
+    canvas.save(output)
+    return output
+
+def process_completed_ai_2d_zip(source: Path, output: Path, *,
+                                edition: str, scope: str, asset: str,
+                                reference_image: Path | None = None,
+                                require_views: bool = True) -> dict:
+    """Single Colab entry: QA art, import PSD, reuse existing converter, review poses.
+
+    All execution stays in Python. The original image-AI instructions are data,
+    not executable backends. Actual MOC3 runtime proof still requires the app.
+    """
+    if edition not in ("free", "pro") or scope not in ("upper", "full"):
+        raise ValueError("INVALID_2D_MODE")
+    if asset not in VIEW_SETS:
+        raise ValueError("INVALID_2D_ASSET")
+    source = Path(source).resolve(strict=True)
+    output = Path(output).resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    preflight = prepare_multiview_input(
+        source, output / "source_qa", asset=asset, edition=edition,
+        require_views=require_views)
+    from tools.vts_ai_pack_import import prepare_large_ai_pack
+    imported = prepare_large_ai_pack(source, output / "imported", edition=edition)
+    # Authored RGBA/PSD takes precedence over See-through guesses. See-through
+    # remains available in the image-only path in vts_production.
+    from tools.vts_production import make_cubism_handoff
+    native = make_cubism_handoff(
+        imported["master"], output / "native",
+        edition=edition, scope=scope,
+        asset_kind=asset if edition == "pro" else None,
+        reference_image=reference_image,
+        external_psd=Path(imported["psd"]),
+        qwen=False, preserve_supplied_parts=True,
+        psd2live=(asset == "body"))
+    if not Path(native["package"]).is_file():
+        raise RuntimeError("NATIVE_HANDOFF_PACKAGE_MISSING")
+    evidence = {"schema": "vtuber/ai-2d-open-source-pipeline-v1",
+                "source_zip": str(source), "edition": edition,
+                "scope": scope, "asset": asset,
+                "source_artwork": str(imported["psd"]),
+                "stage": "complete" if asset == "body" else "attachment_ready",
+                "native": native, "source_qa": preflight,
+                "pose_qa": None,
+                "moc3_application_verified": False}
+    if asset == "body":
+        if native.get("state") != "psd2live_rigged_unverified":
+            raise RuntimeError("PSD2LIVE_REAL_MODEL_NOT_CREATED")
+        try:
+            pose = render_independent_pose_preview(
+                Path(imported["psd"]), output / "independent_pose")
+            evidence["pose_qa"] = pose
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+            evidence["pose_qa_error"] = str(exc)
+            evidence["pose_qa"] = None
+        verdict = write_handoff_verdict(
+            output / "quality", source_report=preflight,
+            rig_result=native, pose_report=evidence["pose_qa"])
+        evidence["quality"] = verdict
+        evidence["contact_sheet"] = str(build_review_contact_sheet(
+            preflight["views"], evidence["pose_qa"],
+            output / "quality" / "multiview_pose_reference_comparison.png"))
+    _write_json(output / "pipeline_result.json", evidence)
+    return evidence
