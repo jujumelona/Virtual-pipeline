@@ -36,6 +36,53 @@ BODY_2D_REPLACEMENTS = (
      "**고품질 애니풍 2D 버추얼 캐릭터 원화**"),
 )
 
+# Unlike marker priority, these edit the contradictory actionable sentences.
+# Context-gated so HAIR, OUTFIT and ACCESSORY never inherit BODY clothing orders.
+BODY_ART_REPLACEMENTS = (
+    ("중요한 부위의 최소 가림은 별도 단색 커버 파츠만 사용한다.",
+     "BODY에는 기본 불투명 스포츠 수영복 상의를 착용하고, 하체가 보이는 구도에서는 쇼츠형 하의를 착용한다. 복장은 파츠로 분리하되 완성 이미지에서는 항상 보이게 한다."),
+    ("신체만 만든다. 선정적이지 않은 실제 애니풍으로 채색된 매끈한 BODY 피부 베이스을 유지한다.",
+     "신체만 제작하되 불투명 스포츠 수영복을 착용한 성인 애니풍 신체 원화로 완성한다."),
+    ("신체만 만든다. 의복·실사 신체 표현 없는 실제 애니풍으로 채색된 매끈한 BODY 피부 베이스를 유지한다.",
+     "신체만 제작하되 기본 불투명 스포츠 수영복을 착용한 성인 애니풍 신체 원화를 유지한다."),
+    ("신체 베이스의 중요 부위는 안전한 실제 애니풍으로 채색된 매끈한 BODY 피부 베이스/마스크로 가린다.",
+     "BODY는 불투명 스포츠 수영복을 착용하고, 수영복 아래의 신체는 세부 묘사하지 않는다."),
+    ("신체 베이스의 중요 부위는 불투명 스포츠 수영복로 가린다.",
+     "BODY의 노출이 우려되는 부위는 실제로 착용한 불투명 스포츠 수영복으로 가린다."),
+    ("일체형 상의는 불합격이며 최소 가림 커버만 별도 파츠로 둔다.",
+     "의상을 몸통에 합친 일체형 이미지는 불합격이며, 불투명 스포츠 수영복 상의는 별도 레이어로 제작한다."),
+    ("신체는 실제 애니풍으로 채색된 매끈한 BODY 피부 베이스·마스킹으로 가리고",
+     "신체는 불투명 스포츠 수영복을 착용한 고품질 애니 원화로 그리고"),
+    ("안전한 실제 애니풍으로 채색된 매끈한 BODY 피부 베이스을 착용한",
+     "불투명 스포츠 수영복을 착용한"),
+    ("실제 애니풍으로 채색된 매끈한 BODY 피부 베이스·마스킹",
+     "불투명 스포츠 수영복을 착용한 애니풍 신체 원화"),
+    ("실제 애니풍으로 채색된 매끈한 BODY 피부 베이스/마스크",
+     "불투명 스포츠 수영복을 착용한 애니풍 신체 원화"),
+    ("선정적이지 않은 실제 애니풍으로 채색된 매끈한 BODY 피부 베이스",
+     "기본 불투명 스포츠 수영복을 착용한 성인 애니풍 BODY 원화"),
+    ("필요한 최소 면적의 무지 가림만",
+     "기본 불투명 스포츠 수영복을 별도 파츠로"),
+)
+
+DETACHED_ART_REPLACEMENTS = (
+    ("기준 BODY의 기존 애니풍 피부와 최소 가림 파츠를 그대로 유지하며 새로 생성하지 않는다.",
+     "기준 BODY의 불투명 스포츠 수영복 착용 상태를 참조하되 BODY 피부·기본 수영복을 새 원화 파츠로 생성하거나 납품하지 않는다."),
+    ("기본 몸체의 기존 애니풍 피부와 최소 가림 파츠를 그대로 유지하며 새로 생성하지 않는다.",
+     "기준 BODY의 불투명 스포츠 수영복 착용 상태와 좌표를 참조하되 신체 원화는 새로 만들지 않는다."),
+    ("기준 BODY의 기존 애니풍 피부와 최소 가림 파츠를 그대로 유지",
+     "기준 BODY의 기존 불투명 스포츠 수영복 착용 상태를 참조"),
+)
+
+ART_SEQUENCE_REPLACEMENTS = (
+    ("완성 원화 한 장을 먼저 만든 후, 실제 필요한 부분을 마스크로 추출하고 숨은 면만 보완한다.",
+     "고품질 기준 마스터 원화를 실제 이미지 모델로 만든 다음 필수 다각도·표정·가림 영역을 추가 작화하고 모두 검수한 후 실제 원화 파츠를 분리·보완한다."),
+    ("완성 원화 한 장을 먼저 만든 후, 실제 필요한 부분을 마스크로 추출하고 숨은 면만 보완한다.",
+     "기준 원화의 시각 품질을 먼저 검증한 다음 모든 필수 각도와 가림 영역을 실제로 작화하고, 이후 파츠를 분리한다."),
+    ("고급 세부 그림은 확정된 정면 기준 원화의 디자인을 참조해 필요한 경우만 추가 제작한다.",
+     "필수 참조 시점 원화는 빠짐없이 모두 제작하고, 선택적 클로즈업/추가 세부 그림만 필요에 따라 제작한다."),
+)
+
 BODY_3D_REPLACEMENTS = (
     ("신체만 만든다. 의복·실사 신체 표현 없는 실제 애니풍으로 채색된 매끈한 BODY 피부 베이스를 유지한다.",
      "신체만 만든다. 디자인 의상이나 실사 골격은 제외하고 기본 불투명 스포츠 수영복을 입은 성인 애니풍 캐릭터를 유지한다."),
@@ -103,6 +150,14 @@ def rewrite(text: str, *, mode: str, asset: str, name: str) -> str:
                 "프록시 도형과 부적절한 얼굴 크롭으로 자산 품질을 대신하지 않는다."
             )
         text = text.replace(BUSTUP_OLD_ORDER, new)
+    for old, new in ART_SEQUENCE_REPLACEMENTS:
+        text = text.replace(old, new)
+    if asset == "body":
+        for old, new in BODY_ART_REPLACEMENTS:
+            text = text.replace(old, new)
+    else:
+        for old, new in DETACHED_ART_REPLACEMENTS:
+            text = text.replace(old, new)
     if mode != "3d" and asset == "body":
         for old, new in BODY_2D_REPLACEMENTS:
             text = text.replace(old, new)
@@ -135,6 +190,10 @@ def rewrite(text: str, *, mode: str, asset: str, name: str) -> str:
         )
         text = text.replace(legacy, canonical)
     if mode == "3d":
+        text = text.replace(
+            "사용자 PSD가 없는 신규 캐릭터에서도",
+            "사용자 3D 기준 원화가 없는 신규 캐릭터에서도",
+        )
         for old, new in REPLACE_3D:
             text = text.replace(old, new)
         if asset == "body":
