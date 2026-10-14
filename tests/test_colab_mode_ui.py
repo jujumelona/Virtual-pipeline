@@ -138,3 +138,14 @@ def test_v8_can_resume_existing_live2d_psd_zip_without_resplitting():
     assert '"package": str(INPUT_FILE)' in cells[7]
     assert '재사용' in cells[7]
     assert "psd2live=DO_NATIVE_RIG" in cells[7]
+
+
+def test_readme_live2d_production_matches_default_artwork_only():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    cells = code_cells()
+    assert 'RIGGING = "artwork_only"' in cells[4]
+    assert "RIGGING=auto" in readme
+    assert "자동 리깅을 기본 실행" not in readme
+    assert "프로그램으로 만든 중립색 도형 베이스" not in readme
+    assert "단색 마네킹 실루엣을 조립" not in readme
+    assert "공식 Cubism Editor" in readme
