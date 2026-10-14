@@ -73,7 +73,7 @@ DETAIL = {
         "작은 코·하나의 정확한 입, 입안·혈색, 단순하지만 매력적인 애니 귀를 완성한다. "
         "눈·얼굴·목·손은 필요 수만큼 나누고 24개 파츠로 강제 축소하지 않는다. "
         "좌우 각각의 눈 뜸/반감김/감김 및 말하는 입/입 다묾/입 벌림의 "
-        "실제 별도 애니 그림을 생성한다. 2D 표정 전환 대체안은 expression_refs/ 폴더에 참조 PNG로 보관하고, 기본 합성용 isolated_parts/ 및 layer_order.txt에는 현재 보이는 중립 눈·입 파츠만 포함한다. "
+        "실제 별도 애니 그림을 생성한다. "
         "똑같거나 겹쳐 두 입이 보이면 불합격. "
         "눈/입을 도형 몇 개로 대신하거나 목을 단색 막대처럼 그리지 않는다. "
         "정면·좌우 3/4·좌우 프로필·상하 시점을 새로운 원화로 그려 "
@@ -105,6 +105,14 @@ DETAIL = {
 def quality_text(mode: str, asset: str) -> str:
     mode_brief = MODALITY[mode]
     details = DETAIL[asset]
+    if asset == "body" and mode != "3d":
+        details += (" 2D의 서로 배타적인 감은 눈·반감김·입 벌림 원화는 "
+                    "expression_refs/에 별도 PNG로 보관한다. 기본 합성용 "
+                    "isolated_parts/와 layer_order.txt에는 현재 보이는 중립 눈·입 "
+                    "파츠만 넣고 대체 표정을 동시에 켜지 않는다.")
+    elif asset == "body" and mode == "3d":
+        details += (" 3D 표정은 필요시 각도 참고에 묘사하되 2D 레이어·표정 교체 "
+                    "PNG·PSD·layer_order.txt를 제작하거나 요구하지 않는다.")
     mode_output = (
         "지정한 8방향의 실제 원화 PNG 및 가림 세부 1장과 일관성 검토표를 납품한다. "
         "2D PNG 레이어·PSD·VRM이 이 단계의 납품 필수는 아니다."
