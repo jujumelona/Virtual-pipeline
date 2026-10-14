@@ -26,7 +26,7 @@ POSES = (
 def run(model3: Path, output: Path, *, size: int = 768) -> dict:
     import pygame
     from pygame.locals import DOUBLEBUF, OPENGL
-    import live2d.v3 as live2d
+    import live2d  # live2d-py 1.x exports Model and Cubism APIs at package root
     from OpenGL.GL import glReadPixels, glFinish, GL_RGBA, GL_UNSIGNED_BYTE
     from PIL import Image, ImageChops, ImageStat
 
@@ -36,7 +36,7 @@ def run(model3: Path, output: Path, *, size: int = 768) -> dict:
     pygame.display.set_mode((size, size), DOUBLEBUF | OPENGL)
     live2d.init()
     live2d.glInit()
-    model = live2d.LAppModel()
+    model = live2d.Model()
     try:
         model.LoadModelJson(str(model3))
         model.Resize(size, size)
