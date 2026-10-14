@@ -20,7 +20,8 @@ SAM_ALIASES = {
     "wings": "wings", "objects": "objects",
 }
 FAMILY_ALIASES = {
-    "face": "face", "head": "face", "body": "topwear",
+    "face": "face", "head": "face", "body": "topwear", "torso": "topwear",
+    "pelvis": "bottomwear", "thigh": "legwear", "shin": "legwear",
     "hair": "front hair", "eyebrow": "eyebrow", "brow": "eyebrow",
     "eye": "irides", "eyes": "irides", "mouth": "mouth",
     "nose": "nose", "ear": "ears", "ears": "ears",
@@ -46,7 +47,7 @@ def _alias(original: str, sam_label: str | None) -> tuple[str | None, str]:
     # Some first-pass names nest face/skin under a generic BODY panel.
     # Preserve the more specific anatomy when the parent isn't proof of
     # clothing; visible SAM may be absent for imported/external PSDs.
-    if family == "body" and tail & {"head", "face", "skin"}:
+    if family == "body" and tail & {"head", "face"}:
         return "face", "specific_body_source"
     if family == "face" and tail & {"detail", "blush", "cheek"}:
         return "facedetail", "specific_face_source"
@@ -56,6 +57,8 @@ def _alias(original: str, sam_label: str | None) -> tuple[str | None, str]:
     if family in ("eye", "eyes", "eyewhite", "eyelash", "irides"):
         if family == "eyewhite" or tail & {"sclera", "white", "eyewhite"}:
             return "eyewhite", "fine_eye_source"
+        if tail & {"closed", "close", "shut"}:
+            return "eye close", "fine_closed_eye_source"
         if family == "eyelash" or tail & {"lash", "lashes", "eyelash", "lid", "eyelid"}:
             return "eyelash", "fine_eye_source"
         if family == "irides" or tail & {"iris", "irides", "pupil", "highlight"}:
@@ -100,10 +103,14 @@ def _alias(original: str, sam_label: str | None) -> tuple[str | None, str]:
             return "headwear", "explicit_accessory"
     # Body/face source layers can contain several independently labelled SAM
     # regions. Otherwise prefer the original source's semantic identity.
-    if sam_label in SAM_ALIASES and family in {"face", "body", "head", "unknown", "mystery", "raw"}:
+    # Authored anatomy is authoritative. A visible-only See-through SAM
+    # prediction must NEVER turn "body" into FACE or "arm" into TOPWEAR.
+    # PSD2Live v3.3.1 calls torso skin TOPWEAR and arms HANDWEAR: those are
+    # its internal tags, not evidence that the artist drew clothing.
+    if family in FAMILY_ALIASES and family not in {"unknown", "mystery", "raw"}:
+        return FAMILY_ALIASES[family], "author_declared_anatomy_or_asset"
+    if sam_label in SAM_ALIASES:
         return SAM_ALIASES[sam_label], "sam_observed_class"
-    if family in FAMILY_ALIASES:
-        return FAMILY_ALIASES[family], "source_semantic_family"
     if sam_label in SAM_ALIASES:
         return SAM_ALIASES[sam_label], "sam_observed_class"
     return None, "unclassified_preserved"
