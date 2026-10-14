@@ -153,7 +153,7 @@ def test_all_original_anime_kits_are_valid_with_fourteen_documents():
                 if mode != "3d":
                     assert "마스킹" in common and "추출" in common
                 else:
-                    assert "정면" in common and "4면도" in common
+                    assert "정면" in common and "8방향" in common
                 assert "리깅" in prompt  # mentioned ONLY as excluded from image AI tasks
                 assert ("07_REVIEW_BEFORE_FINAL_ZIP.md" in prompt or
                         ("07" in prompt and "점검" in prompt))
