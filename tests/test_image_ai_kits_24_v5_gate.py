@@ -25,6 +25,28 @@ def test_only_24_readme_linked_zips_are_published():
         assert f"zips/{filename}" in index
 
 
+def _read_all_gate_is_valid(master: str) -> bool:
+    """A real unique read-all heading must precede legacy template slots."""
+    lines = master.splitlines()
+    gates = [i for i, line in enumerate(lines)
+             if line.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]")]
+    slots = [i for i, line in enumerate(lines)
+             if line.startswith("## [EXISTING_VTUBER_TEMPLATE_SLOTS_V1]")]
+    return len(gates) == len(slots) == 1 and gates[0] < slots[0]
+
+
+def test_read_all_gate_allows_priority_preamble_but_rejects_invalid_headings():
+    gate = "# [READ_ALL_BEFORE_IMAGE_GENERATION_V1] — 먼저 참고를 읽는다"
+    slots = "## [EXISTING_VTUBER_TEMPLATE_SLOTS_V1]"
+    assert _read_all_gate_is_valid("# 새로운 최우선 계약\\n" + gate + "\\n" + slots)
+    assert _read_all_gate_is_valid(gate + "\\n" + slots)
+    assert not _read_all_gate_is_valid(slots + "\\n" + gate)
+    assert not _read_all_gate_is_valid("# 다른 계약\\n" + slots)
+    assert not _read_all_gate_is_valid(gate + "\\n" + gate + "\\n" + slots)
+    assert not _read_all_gate_is_valid("인용: " + gate + "\\n" + slots)
+    assert not _read_all_gate_is_valid(gate + "\\n" + slots + "\\n" + slots)
+
+
 @pytest.mark.parametrize("mode", MODES)
 @pytest.mark.parametrize("asset", ASSETS)
 def test_every_canonical_zip_has_its_own_reference_and_scope_gate(mode, asset):
@@ -38,15 +60,8 @@ def test_every_canonical_zip_has_its_own_reference_and_scope_gate(mode, asset):
         assert marker in contents, (path, name)
         assert "REFERENCE_NOT_VIEWED" in contents, (path, name)
     # A mode-specific priority heading may precede the mandatory read-all gate.
-    # The gate must remain a real, unique heading before legacy template slots.
-    master = docs["00_MASTER_FIRST.md"]
-    lines = master.splitlines()
-    gates = [i for i, line in enumerate(lines)
-             if line.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]")]
-    slots = [i for i, line in enumerate(lines)
-             if line.startswith("## [EXISTING_VTUBER_TEMPLATE_SLOTS_V1]")]
-    assert len(gates) == len(slots) == 1, (path, gates, slots)
-    assert gates[0] < slots[0], (path, gates, slots)
+    # Fail closed on missing, duplicate, or reordered heading markers.
+    assert _read_all_gate_is_valid(docs["00_MASTER_FIRST.md"]), path
     assert f"# 최우선 제작 계약: {mode} / {asset}" in docs["00_MASTER_FIRST.md"]
     first = docs["00_MASTER_FIRST.md"]
     assert "실제" in first and any(word in first for word in ("참고", "비교", "샘플", "이미지"))
