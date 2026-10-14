@@ -102,8 +102,8 @@ def patch(path: Path, *, write: bool) -> bool:
         return False
     if not write:
         raise ValueError("Missing read-first gate: " + path.name)
-    if 0 < len(done) < len(PRIORITY):
-        raise ValueError("Partially applied read-first gate: " + path.name)
+    # Partial gate deployment is recoverable: normalize every priority document,
+    # preserving its original body; reject only stray/ambiguous nested markers.
     modified = docs.copy()
     ending = "**GPT가 이 문서를 읽기 전에 이미지를 생성했다면 그 출력은 납품 실패다.**\n\n"
     for name in PRIORITY:
@@ -113,6 +113,8 @@ def patch(path: Path, *, write: bool) -> bool:
             if end < 0:
                 raise ValueError("Existing read-first header cannot be migrated safely: " + name)
             modified[name] = header + value[end + len(ending):]
+        elif MARKER in value:
+            raise ValueError("Nested/misaligned read-first marker: " + path.name + ":" + name)
         else:
             modified[name] = header + value
     tmp = None
