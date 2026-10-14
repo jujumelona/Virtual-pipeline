@@ -84,7 +84,17 @@ def frame(mode: str) -> str:
 
 def guidance(mode: str, asset: str) -> str:
     a = ASSET[asset]
-    views = ", ".join("reference_views/" + name for name in a["views"])
+    if mode == "3d":
+        names = (
+            f"{asset}_front.png", f"{asset}_front_three_quarter_L.png",
+            f"{asset}_left.png", f"{asset}_back_three_quarter_L.png",
+            f"{asset}_back.png", f"{asset}_back_three_quarter_R.png",
+            f"{asset}_right.png", f"{asset}_front_three_quarter_R.png",
+            f"{asset}_detail_occlusion.png",
+        )
+        views = ", ".join("views/" + name for name in names)
+    else:
+        views = ", ".join("reference_views/" + name for name in a["views"])
     details = a["internal"]
     if mode == "3d" and asset == "body":
         details = ("두상·눈·코·입·귀·목·어깨·팔·손과 전신인 경우 다리·발을 "
