@@ -249,3 +249,101 @@ def test_final_handoff_rejects_wrong_pro_overlay_dimensions(tmp_path):
     with pytest.raises(ValueError, match="overlay preview size mismatch"):
         verify_artwork_package(
             changed, require_final_handoff=True, require_pro_reference=True)
+
+
+def _rewrite_archive_member(source, target, value, destination):
+    with ZipFile(source) as original, ZipFile(destination, "w") as altered:
+        for member in original.namelist():
+            if member == target and value is None:
+                continue
+            altered.writestr(
+                member,
+                json.dumps(value).encode("utf-8") if member == target
+                else original.read(member))
+
+
+@pytest.mark.parametrize("invalid", ["", "duplicate"])
+def test_integrity_rejects_ambiguous_semantic_layers(tmp_path, invalid):
+    result = _sample(tmp_path)
+    with ZipFile(result["package"]) as z:
+        manifest = json.loads(z.read("metadata/layer_manifest.json"))
+    manifest["layers"][1]["semantic_name"] = (
+        "" if invalid == "" else manifest["layers"][0]["semantic_name"])
+    changed = tmp_path / "bad_semantic_names.zip"
+    _rewrite_archive_member(result["package"], "metadata/layer_manifest.json",
+                            manifest, changed)
+    with pytest.raises(ValueError, match="duplicate or empty semantic"):
+        verify_artwork_package(changed)
+
+
+def test_handoff_rejects_mismatched_qwen_trace(tmp_path):
+    result = _sample(tmp_path)
+    _append_final_handoff_for_regression(result["package"])
+    with ZipFile(result["package"]) as z:
+        trace = json.loads(z.read("metadata/segmentation_trace.json"))
+    trace.update({
+        "attempts": [{"source_layer": "hair.front.000",
+                      "accepted": True, "requested_count": 4}],
+        "accepted_source_names": ["unrelated_layer"],
+        "qwen_attempt_count": 1,
+        "qwen_accepted_count": 1,
+    })
+    changed = tmp_path / "mismatched_qwen_trace.zip"
+    _rewrite_archive_member(result["package"], "metadata/segmentation_trace.json",
+                            trace, changed)
+    with pytest.raises(ValueError, match="segmentation trace is inconsistent"):
+        verify_artwork_package(changed, require_final_handoff=True)
+
+
+@pytest.mark.parametrize("member,field,value,error", [
+    ("metadata/integrity_report.json", "moc3_exported", True,
+     "integrity report contradicts"),
+    ("metadata/manual_rig_reference.json", "auto_rigged", True,
+     "manual Editor reference contradicts"),
+    ("metadata/texture_budget.json", "editor_packing_verified", True,
+     "texture budget claims native packing"),
+])
+def test_handoff_rejects_unverified_editor_claims(tmp_path, member, field, value, error):
+    result = _sample(tmp_path)
+    _append_final_handoff_for_regression(result["package"])
+    with ZipFile(result["package"]) as z:
+        metadata = json.loads(z.read(member))
+    metadata[field] = value
+    altered = tmp_path / "fake_native_completion.zip"
+    _rewrite_archive_member(result["package"], member, metadata, altered)
+    with pytest.raises(ValueError, match=error):
+        verify_artwork_package(altered, require_final_handoff=True)
+
+
+def test_handoff_rejects_manual_reference_different_from_actual_psd(tmp_path):
+    result = _sample(tmp_path)
+    _append_final_handoff_for_regression(result["package"])
+    with ZipFile(result["package"]) as z:
+        manual = json.loads(z.read("metadata/manual_rig_reference.json"))
+    manual["suggested_layer_entries"][0]["observed_bounds_xyxy"] = [1, 2, 3, 4]
+    altered = tmp_path / "wrong_manual_coordinates.zip"
+    _rewrite_archive_member(result["package"], "metadata/manual_rig_reference.json",
+                            manual, altered)
+    with pytest.raises(ValueError, match="manual Editor reference contradicts"):
+        verify_artwork_package(altered, require_final_handoff=True)
+
+
+@pytest.mark.parametrize("member", ["metadata/segmentation_trace.json",
+                                    "metadata/manual_rig_reference.json",
+                                    "OFFICIAL_EDITOR_SETTINGS.md"])
+def test_final_handoff_requires_editor_evidence(tmp_path, member):
+    result = _sample(tmp_path)
+    _append_final_handoff_for_regression(result["package"])
+    altered = tmp_path / "missing_handoff_evidence.zip"
+    _rewrite_archive_member(result["package"], member, None, altered)
+    with pytest.raises(ValueError, match="final handoff missing"):
+        verify_artwork_package(altered, require_final_handoff=True)
+
+
+def test_final_handoff_rejects_native_cubism_file_in_artwork_zip(tmp_path):
+    result = _sample(tmp_path)
+    _append_final_handoff_for_regression(result["package"])
+    with ZipFile(result["package"], "a") as z:
+        z.writestr("rig/claimed_model.MOC3", b"not a real model")
+    with pytest.raises(ValueError, match="cannot claim native Cubism artifacts"):
+        verify_artwork_package(result["package"], require_final_handoff=True)
