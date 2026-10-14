@@ -216,7 +216,7 @@ def test_readme_canonical_notebook_uses_new_shared_asset_ui():
     cells = ["".join(c["source"]) for c in json.loads(
         path.read_text(encoding="utf-8"))["cells"] if c["cell_type"] == "code"]
     assert len(cells) >= 9
-    assert '["Live2D 상반신", "Live2D 전신", "Inochi2D 상반신", "Inochi2D 전신", "3D"]' in cells[1]
+    assert '["Live2D 바스트업", "Live2D 상반신", "Live2D 전신", "Inochi2D 상반신", "Inochi2D 전신", "3D"]' in cells[1]
     assert '["신체만", "헤어만", "액세서리만", "의상만"]' in cells[2]
     assert "model" not in cells[3].lower() or "모델을 생성하지" not in cells[3]
     assert "colab_mode_prepare" not in "\n".join(cells[:4])
