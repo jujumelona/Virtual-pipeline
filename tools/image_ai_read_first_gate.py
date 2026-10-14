@@ -113,8 +113,20 @@ def patch(path: Path, *, write: bool) -> bool:
             if end < 0:
                 raise ValueError("Existing read-first header cannot be migrated safely: " + name)
             modified[name] = header + value[end + len(ending):]
+        elif "# " + MARKER in value:
+            # Earlier publishers inserted a newer asset-specific preamble before
+            # this otherwise valid gate. Move the one complete gate back to the
+            # first byte, preserving all asset-specific prose in original order.
+            start = value.index("# " + MARKER)
+            if value.count("# " + MARKER) != 1:
+                raise ValueError("Duplicate read-first gate: " + path.name + ":" + name)
+            end = value.find(ending, start)
+            if end < 0:
+                raise ValueError("Malformed read-first gate: " + path.name + ":" + name)
+            end += len(ending)
+            modified[name] = header + value[:start] + value[end:]
         elif MARKER in value:
-            raise ValueError("Nested/misaligned read-first marker: " + path.name + ":" + name)
+            raise ValueError("Unrecognized read-first marker: " + path.name + ":" + name)
         else:
             modified[name] = header + value
     tmp = None
