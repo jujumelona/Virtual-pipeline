@@ -150,7 +150,7 @@ def test_nonbody_scope_excludes_anatomy_creation(kits, mode, asset):
         assert basename not in output, (mode, asset, basename)
     if mode == "3d":
         assert "눈·코·입·손·옷/헤어/장식 세부 확대 그림을 각각 직접 그리는" not in docs["05_OFFICIAL_REFERENCES.md"]
-        assert "3D용은 실제 다른 네 방향의 " + asset + " 참조 그림만 생성" in scope
+        assert "3D용은 실제 다른 8방향의 " + asset + " 참조 그림만 생성" in scope
         assert "신체만 6H 디자인을 적용하고 눈·귀·코·목의 전후좌우 형태를 일치시킨다" not in scope
     elif mode == "live2d_upper":
         assert f"**{asset} 자산 원화만 처음부터 제작**" in scope
