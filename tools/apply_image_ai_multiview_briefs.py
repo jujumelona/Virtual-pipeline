@@ -26,6 +26,70 @@ DOCS = (
 )
 MARKER = "## [IMAGE_ART_MULTIVIEW_SOURCE_ONLY_V1]"
 MARKER_END = "## [/IMAGE_ART_MULTIVIEW_SOURCE_ONLY_V1]"
+
+
+COVER_MARKER = "## [BODY_DEFAULT_OPAQUE_SWIMWEAR_V1]"
+COVER_MARKER_END = "## [/BODY_DEFAULT_OPAQUE_SWIMWEAR_V1]"
+COVER_PRIORITIES = frozenset((
+    "00_MASTER_FIRST.md", "00_READ_FIRST.md", "03_MODE_RULES.md",
+    "07_REVIEW_BEFORE_FINAL_ZIP.md", "09_VISUAL_ART_QUALITY.md",
+    "10_ANIME_STYLE.md",
+))
+COVER_INSTRUCTIONS = """## [BODY_DEFAULT_OPAQUE_SWIMWEAR_V1]
+
+### BODY 전용 기본 복장 — 모든 결과 이미지에 적용 (우선 규칙)
+- **성인(20세 이상)**의 귀여운 애니풍 VTuber 캐릭터를 작업한다. 짧고 둥근 얼굴, 큰 눈, 6등신 디자인은 유지하되 미성년으로 묘사하지 않는다.
+- **정면·3/4·측면·후면·상하 시점, 표정 시트, 최종 마스터, 합성 미리보기 전체에** 불투명한 **비키니형 스포츠 수영복**을 입힌다. 기본 디자인은 **노출을 줄인 운동용 상의 + 하이웨이스트 쇼츠형 하의**이며, 단색 무지 원단에 비침·절개·노출 강조가 없다.
+- **단독 신체 원화, 투명 원화 파츠, PSD, 최종 결과 어디에도 복장 없는 신체 이미지를 만들거나 제공하지 않는다.** 수영복 안쪽은 사실적인 피부나 신체 세부가 아닌 단색 비표현적 밑색으로 처리한다. 복장 없이 보이는 숨은 시점·보조 이미지도 제작하지 않는다.
+- 2D에서 수영복 상·하의는 BODY 납품의 **기본 안전 가림 파츠**이다. fashion OUTFIT이 아니다. 안전 복장 파츠는 \`removable_neutral_modesty_band_upper\`, \`removable_neutral_modesty_band_lower\`처럼 각각 독립 RGBA를 만들되 **완성본에서는 두 파츠가 항상 켜져 있어야 한다**. 상·하의 없이 기본 마스터/미리보기를 만들지 않는다. 기존 단일 \`removable_neutral_modesty_band\` 이름도 하위 호환으로만 허용한다.
+- 3D에서는 동일한 수영복을 **모든 필수 9방향 턴어라운드에** 동일하게 착용시킨다. 3D ZIP은 PSD 분리나 스킨·리깅 실행을 요구하지 않는다.
+- 수영복은 눈·얼굴·목·어깨·양팔·양손·관절·발의 위치를 가리지 않는다. 턱 뒤 목, 어깨/팔꿈치/손목 등 회전용 숨은 면과 눈/입 레이어는 충분히 그리되, 수영복 아래의 자세한 신체를 만들 필요는 없다.
+- **충돌 해결:** 옛 지침의 '의상 금지', '상의를 그리지 않기', '최소 면적의 밴드만', '맨몸처럼 보이는 베이스'보다 이 기본 수영복 규칙이 우선한다. 헤어·디자인 의상·액세서리는 여전히 다른 ZIP의 소유이고 기본 안전 수영복만 BODY가 소유한다.
+
+## [/BODY_DEFAULT_OPAQUE_SWIMWEAR_V1]"""
+
+BODY_UNSAFE_REPLACEMENTS = (
+    ("터틀넥·민소매 상의·보디슈트·드레스 금지. 가려야 할 부분은 가장 작은 단색 무지 밴드형 이너만 별도 교체 가능한 가림 레이어로 사용한다.",
+     "디자인 의상은 OUTFIT 전용이며 BODY에는 위 기본 불투명 스포츠 수영복을 착용한다."),
+    ("터틀넥·민소매 상의·보디슈트·드레스 금지. 가려야 할 부분은 가장 작은 단색 무지 밴드형 이너만 별도 교체 가림 레이어로 사용한다.",
+     "디자인 의상은 OUTFIT 전용이며 BODY에는 위 기본 불투명 스포츠 수영복을 착용한다."),
+    ("목 덮는 상의·터틀넥·보디슈트 금지. 최소 면적 무지 가림만 별도 파츠.",
+     "목 회전을 방해하는 패션 의상은 제외하며, 기본 불투명 스포츠 수영복을 안전한 독립 파츠로."),
+    ("가림은 별도 최소 무지 파츠이며 상의는 OUTFIT에서만 제작한다.",
+     "BODY의 불투명 스포츠 수영복 상의·하의는 안전 가림 파츠이며 교체용 패션 의상은 OUTFIT만 제작한다."),
+    ("몸통에 속옷·튜브탑·상의 선·겨드랑이 살접힘·가슴/쇄골 해부학 음영을 추가하지 않는다.",
+     "몸통에 위 기본 스포츠 수영복 상의·하의를 입히고 해부학적 굴곡은 강조하지 않는다."),
+    ("필요 최소 가림은 독립 파츠로 분리하고 다른 의상은 만들지 않는다.",
+     "기본 스포츠 수영복 상·하의만 안전 복장으로 제작하며 다른 디자인 의상은 만들지 않는다."),
+    ("최소 단색 가림 커버/마스크", "불투명 스포츠 수영복"),
+    ("불투명 중립색 실루엣/마스킹", "불투명 스포츠 수영복"),
+    ("최소 면적 무지 가림", "불투명 스포츠 수영복"),
+    ("최소 무지 가림", "불투명 스포츠 수영복"),
+    ("속옷·후드·리본·안경 등 다른 카테고리",
+     "후드·리본·안경 등 다른 카테고리"),
+    ("복장 없는 상태를 먼저", "수영복을 착용한 상태를 먼저"),
+    ("젖꼭지", "과도한 해부학 표현"),
+)
+
+
+def normalize_body_swimwear(text: str, *, mode: str, name: str) -> str:
+    """Normalize old contradictory undressed-body instructions, source-only."""
+    if text.count(COVER_MARKER) > 1 or text.count(COVER_MARKER_END) > 1:
+        raise ValueError("Duplicate safety wardrobe marker")
+    if text.count(COVER_MARKER) != text.count(COVER_MARKER_END):
+        raise ValueError("Partial safety wardrobe marker")
+    if COVER_MARKER in text:
+        start = text.index(COVER_MARKER)
+        end = text.index(COVER_MARKER_END, start) + len(COVER_MARKER_END)
+        text = text[:start] + text[end:]
+    for old, new in BODY_UNSAFE_REPLACEMENTS:
+        text = text.replace(old, new)
+    # The references may contain old negative examples. Keep the visual data
+    # unchanged but explicitly scope wardrobe priority for every generation doc.
+    if name in COVER_PRIORITIES:
+        text = COVER_INSTRUCTIONS + "\n\n" + text.lstrip()
+    return text
+
 EXPECTED = (
     "00_MASTER_FIRST.md", "00_DELIVERY_AND_RECHECK.md", "00_READ_FIRST.md",
     "01_COMMON_RULES.md", "02_ADVANCED_PARTS.md", "03_MODE_RULES.md",
@@ -121,8 +185,10 @@ def guidance(mode: str, asset: str) -> str:
     elif asset == "body":
         part_ids = ("2D 독립 파츠 이름은 계층/해부학 기준으로 face 또는 head, neck, "
                     "torso 또는 body, eye_L/eye_R, arm_L/arm_R, hand_L/hand_R "
-                    "등을 실제 부위별로 부여한다. 개인정보 가림층을 쓰면 "
-                    "removable_neutral_modesty_band로 분리한다. "
+                    "등을 실제 부위별로 부여한다. 기본 수영복의 상·하의는 "
+                    "removable_neutral_modesty_band_upper 및 "
+                    "removable_neutral_modesty_band_lower로 각각 분리하고 "
+                    "두 레이어를 켠 상태로 마스터와 미리보기를 만든다. "
                     "isolated_parts/*.png와 layer_order.txt는 모두 실제 파일로 맞춘다.")
     else:
         part_ids = (
@@ -177,18 +243,24 @@ def apply(path: Path, *, write: bool) -> bool:
         old = {name: archive.read(name).decode("utf-8") for name in names}
     new = old.copy()
     section = guidance(mode, asset)
-    for name in DOCS:
+    for name in EXPECTED:
         source_text = old[name]
-        if name == "04_OUTPUT_FILES.md" and mode != "3d":
-            source_text = source_text.replace(
-                "reference_views/ — 회전 보조(필요한 경우만)",
-                "reference_views/ — 위에 나열한 해당 자산별 필수 다각도 PNG 납품")
-        new[name] = updated_text(source_text, section)
+        if asset == "body":
+            source_text = normalize_body_swimwear(
+                source_text, mode=mode, name=name)
+        if name in DOCS:
+            if name == "04_OUTPUT_FILES.md" and mode != "3d":
+                source_text = source_text.replace(
+                    "reference_views/ — 회전 보조(필요한 경우만)",
+                    "reference_views/ — 위에 나열한 해당 자산별 필수 다각도 PNG 납품")
+            new[name] = updated_text(source_text, section)
+        else:
+            new[name] = source_text
     for name in EXPECTED:
         if name in DOCS:
             if new[name].count(MARKER) != 1 or new[name].count(MARKER_END) != 1:
                 raise ValueError("Missing multi-view guidance: " + path.name + ":" + name)
-        elif new[name] != old[name]:
+        elif asset != "body" and new[name] != old[name]:
             raise ValueError("Out-of-scope reference changed: " + name)
     if new == old:
         return False
