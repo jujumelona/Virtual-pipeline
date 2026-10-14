@@ -220,6 +220,40 @@ def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
     return {"status": "SEMANTIC_SOURCE_PREFLIGHT_PASS",
             "parts": len(ids), "neck": neck, "visual_quality_verified": False}
 
+def _write_artwork_regeneration_request(output: Path, *, asset: str,
+                                       source: Path, error: Exception) -> Path:
+    """Actionable handoff back to the external image-generating AI.
+
+    Colab cannot silently launch ChatGPT/Gemini. Preserve the original
+    failed artwork and request only the missing asset-specific art.
+    """
+    destination = output / "ARTWORK_REGENERATION_REQUEST.md"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# 대형 이미지 AI용 재작화 요청",
+        "",
+        f"- 자산: {asset}",
+        f"- 제출 원화 ZIP: {source.name}",
+        f"- 실제 검증 실패: {str(error)}",
+        "",
+        "이 문서는 Colab의 오픈소스 실행 코드가 아니라 외부 이미지 생성 AI에 전달할 오류 보고서다.",
+        "해당 ZIP의 자산·모드 지침을 다시 모두 읽은 후 기존 캐릭터 정체성·캔버스·"
+        "다른 정상 파츠를 보존하고 문제 영역만 실제로 재작화한다.",
+        "투명색으로 덧칠하거나 누락 파츠를 기계적으로 늘려 실패를 숨기지 않는다.",
+        "고친 원화·숨은 면·다각도 참고·독립 RGBA와 일관된 layer_order 및 master를 새 ZIP으로 제출한다.",
+        "See-through/PSD2Live 프로그램을 이미지 생성 AI에서 실행하지 않는다.",
+        "",
+        "코드 확인: 이 오류가 해소되기 전에는 PSD2Live/Cubism 성공 판정 금지.",
+    ]
+    destination.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _write_json(output / "regeneration_issue.json", {
+        "schema": "vtuber/artwork-regeneration-request-v1",
+        "source": str(source), "asset": asset, "issue": str(error),
+        "artifact": str(destination), "state": "AWAITING_EXTERNAL_IMAGE_REGENERATION",
+    })
+    return destination
+
+
 def prepare_multiview_input(source: Path, output: Path, *, asset: str, edition: str,
                             require_views: bool = True) -> dict:
     """Entry point for Colab before launching See-through or an auto-rigger."""
@@ -228,9 +262,15 @@ def prepare_multiview_input(source: Path, output: Path, *, asset: str, edition: 
     info = inspect_large_ai_pack(source, edition=edition)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    view = _check_view_members(source, asset=asset, output=output / "reference_views",
-                               required=require_views)
-    part = validate_artwork_parts(info["parts"], info["canvas"], asset=asset)
+    try:
+        view = _check_view_members(source, asset=asset,
+                                   output=output / "reference_views",
+                                   required=require_views)
+        part = validate_artwork_parts(info["parts"], info["canvas"], asset=asset)
+    except (ValueError, RuntimeError) as error:
+        request = _write_artwork_regeneration_request(
+            output, asset=asset, source=source, error=error)
+        raise RuntimeError(f"ARTWORK_REGENERATION_REQUIRED: {request}") from error
     # Compare authored visible composite against the AI's nominated master.
     # Extra hidden underpaint should disappear under correct draw order.
     import numpy as np
@@ -253,9 +293,12 @@ def prepare_multiview_input(source: Path, output: Path, *, asset: str, edition: 
                 "display_state_transitions_verified": False}
     _write_json(output / "neutral_composite_fidelity.json", fidelity)
     if visible_rgb_mae > 12.0 or alpha_mae > 4.0:
-        raise RuntimeError("NEUTRAL_ARTWORK_PARTS_DONT_REBUILD_MASTER: "
-                           + json.dumps(fidelity, ensure_ascii=False)
-                           + "; redraw misplaced/duplicate layers")
+        cause = RuntimeError("NEUTRAL_ARTWORK_PARTS_DONT_REBUILD_MASTER: "
+                             + json.dumps(fidelity, ensure_ascii=False)
+                             + "; redraw misplaced/duplicate layers")
+        request = _write_artwork_regeneration_request(
+            output, asset=asset, source=source, error=cause)
+        raise RuntimeError(f"ARTWORK_REGENERATION_REQUIRED: {request}") from cause
     report = {"schema": "vtuber/colab-art-to-rig-preflight-v1",
               "source": str(source), "asset": asset, "edition": edition,
               "views": view, "parts": part, "neutral_composite": fidelity,
