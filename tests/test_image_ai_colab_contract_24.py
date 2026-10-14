@@ -59,3 +59,43 @@ def test_shipped_ai_zip_produces_exact_view_paths_colab_accepts(mode, asset):
     assert selected.asset_kind == asset
     assert selected.family == ("3d" if mode == "3d" else
                                "inochi2d" if mode.startswith("inochi") else "live2d")
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_shipped_body_zip_has_opaque_swimsuit_default_and_preserves_readfirst_gate(mode):
+    """The six adult BODY image instructions must not revert to minimal coverage."""
+    from tools.image_ai_read_first_gate import banner
+    from tools.apply_image_ai_multiview_briefs import (
+        COVER_MARKER, normalize_body_swimwear,
+    )
+    with ZipFile(ZIPS / f"{mode}__body.zip") as archive:
+        texts = {name: archive.read(name).decode("utf-8") for name in archive.namelist()}
+    for name in ("00_MASTER_FIRST.md", "00_READ_FIRST.md",
+                 "03_MODE_RULES.md", "07_REVIEW_BEFORE_FINAL_ZIP.md",
+                 "09_VISUAL_ART_QUALITY.md", "10_ANIME_STYLE.md"):
+        assert texts[name].count(COVER_MARKER) == 1
+        assert "성인(20세 이상)" in texts[name]
+        assert "비키니형 스포츠 수영복" in texts[name]
+        assert "하이웨이스트 쇼츠형 하의" in texts[name]
+        assert normalize_body_swimwear(
+            texts[name], mode=mode, name=name) == texts[name]
+    for name in ("00_MASTER_FIRST.md", "00_READ_FIRST.md",
+                 "00_DELIVERY_AND_RECHECK.md", "07_REVIEW_BEFORE_FINAL_ZIP.md",
+                 "11_OFFICIAL_IMAGE_EXAMPLES.md"):
+        assert texts[name].startswith(banner(mode, "body"))
+    assert not any("가려야 할 부분은 가장 작은 단색 무지 밴드형" in t
+                   for t in texts.values())
+    if mode == "3d":
+        assert "9방향 턴어라운드" in texts["00_MASTER_FIRST.md"]
+    else:
+        assert "removable_neutral_modesty_band_upper" in texts["00_MASTER_FIRST.md"]
+        assert "removable_neutral_modesty_band_lower" in texts["00_MASTER_FIRST.md"]
+
+
+def test_swimwear_is_not_imposed_on_hair_outfit_accessory_briefs():
+    """BODY-safe coverage must not contaminate independent image asset scopes."""
+    for mode in MODES:
+        for asset in ("hair", "outfit", "accessory"):
+            with ZipFile(ZIPS / f"{mode}__{asset}.zip") as archive:
+                assert all("BODY_DEFAULT_OPAQUE_SWIMWEAR_V1" not in archive.read(name).decode("utf-8")
+                           for name in archive.namelist())
