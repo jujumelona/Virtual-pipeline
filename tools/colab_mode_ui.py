@@ -1,4 +1,4 @@
-"""Five fixed production modes and a shared independent-asset selector.
+"""Six fixed production modes and a shared independent-asset selector.
 
 Phase 1 deliberately has NO model downloads, decomposition, artwork generation
 or exporter action. Later pipeline stages consume this contract directly.
@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 TOP_MODE_CHOICES = {
+    "live2d_bust_up": ("Live2D 바스트업", "live2d", "upper"),
     "live2d_upper": ("Live2D 상반신", "live2d", "upper"),
     "live2d_full": ("Live2D 전신", "live2d", "full"),
     "inochi2d_upper": ("Inochi2D 상반신", "inochi2d", "upper"),
@@ -52,10 +53,8 @@ class AssetSelection:
 
 def select_mode(top_mode: str, asset_kind: str) -> AssetSelection:
     """Validate UI state; no model or filesystem side effects."""
-    if top_mode == "live2d_bust_up":
-        raise ValueError("Live2D 바스트업은 현재 이미지 AI 제작 지시 ZIP 모드입니다. Colab 실행 모드로 연결되지 않았으므로 Live2D 상반신/전신을 선택하세요.")
     if top_mode not in TOP_MODE_CHOICES:
-        raise ValueError("상위 제작 모드는 Live2D 상반신/전신, Inochi2D 상반신/전신, 3D 중 선택하세요.")
+        raise ValueError("상위 제작 모드는 Live2D 바스트업/상반신/전신, Inochi2D 상반신/전신, 3D 중 선택하세요.")
     if asset_kind not in ASSET_KINDS:
         raise ValueError("하위 자산은 신체/헤어/액세서리/의상 중 하나를 선택하세요.")
     _, family, framing = TOP_MODE_CHOICES[top_mode]
@@ -79,7 +78,7 @@ def begin_mode_selection(values: dict) -> None:
 
 
 def apply_submode(values: dict, selected: str, updates: dict) -> bool:
-    """One shared subtype UI for *all* five parent modes."""
+    """One shared subtype UI for *all* six parent modes."""
     if values.get("TOP_MODE") != selected:
         return False
     values.update(updates)
