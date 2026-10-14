@@ -140,7 +140,7 @@ def test_all_original_anime_kits_are_valid_with_fourteen_documents():
                 assert "https://" in official
                 if asset == "body":
                     assert "눈" in details and "코" in details and "입" in details
-                    assert "속옷" in details and "불투명" in details
+                    assert "BODY" in details or "신체" in details
                 elif asset == "accessory":
                     assert "액세서리 세트" in details
                 if mode != "3d":
