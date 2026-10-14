@@ -78,3 +78,28 @@ def test_partial_stale_sections_are_rejected(tmp_path):
             z.writestr(info, values[info.filename])
     with pytest.raises(ValueError, match="stale/mismatched"):
         m.apply(path, reg, write=True)
+
+
+@pytest.mark.parametrize("asset", ("hair", "outfit", "accessory"))
+def test_independent_asset_does_not_inherit_body_pose_or_missing_hands_gate(asset):
+    registry = m.load_registry()
+    for mode in m.MODES:
+        generated = m.guidance(registry, f"{mode}__{asset}")
+        assert "신체 전체를 새로 생성하지 않는다" in generated
+        assert "신체·눈 제작을 요구하지 않는다" in generated
+        assert "신체·눈·얼굴은 참조만 한다" in generated
+        assert "missing required hands/arms" not in generated
+        assert "Reject flat gray mannequin" not in generated
+        assert "원본 캐릭터 완성 원화 생성" not in generated
+        assert "정합 미검증" in generated
+        if mode == "3d":
+            assert "네이티브 VRM 완성은 약속하지 않는다" in generated
+        else:
+            assert "독립 PSD·PNG·마스크" in generated
+
+
+def test_body_template_retains_anatomy_and_hand_validation():
+    registry = m.load_registry()
+    body = m.guidance(registry, "live2d_bust_up__body")
+    assert "missing required hands/arms" in body
+    assert "head to upper abdomen/waist" in body
