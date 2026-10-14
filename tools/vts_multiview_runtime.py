@@ -22,16 +22,21 @@ REPO_URL = "https://github.com/Wzhang3912/image2live2d.git"
 REPO_COMMIT = "714e7cc9191f1ef6c9a1732c80e8b566ec127d6b"
 
 VIEW_SETS = {
-    "body": ("head_three_quarter_L", "head_three_quarter_R",
-             "head_profile_L", "head_profile_R", "neck_underpaint"),
-    "hair": ("hair_three_quarter_L", "hair_three_quarter_R",
-             "hair_profile_L", "hair_profile_R", "hair_back", "hair_underlayers"),
-    "outfit": ("outfit_three_quarter_L", "outfit_three_quarter_R",
+    # Exact image-AI source contracts authored by
+    # tools/apply_image_ai_multiview_briefs.py (all 20 2D ZIPs).
+    "body": ("body_front", "head_three_quarter_L", "head_three_quarter_R",
+             "head_profile_L", "head_profile_R", "head_pitch_up",
+             "head_pitch_down", "neck_underpaint", "body_joint_overlaps"),
+    "hair": ("hair_front", "hair_three_quarter_L", "hair_three_quarter_R",
+             "hair_profile_L", "hair_profile_R", "hair_back",
+             "hair_underlayers", "hair_motion_clearance"),
+    "outfit": ("outfit_front", "outfit_three_quarter_L", "outfit_three_quarter_R",
                "outfit_profile_L", "outfit_profile_R", "outfit_back",
-               "outfit_inside_seams"),
-    "accessory": ("accessory_three_quarter_L", "accessory_three_quarter_R",
-                  "accessory_profile_L", "accessory_profile_R",
-                  "accessory_back", "accessory_attachment_anchor"),
+               "outfit_inside_seams", "outfit_joint_clearance"),
+    "accessory": ("accessory_front", "accessory_three_quarter_L",
+                  "accessory_three_quarter_R", "accessory_profile_L",
+                  "accessory_profile_R", "accessory_back",
+                  "accessory_attachment_anchor", "accessory_occlusion"),
 }
 VIEWS_FOR_3D = ("front", "front_three_quarter_L", "left", "back_three_quarter_L",
                 "back", "back_three_quarter_R", "right", "front_three_quarter_R")
@@ -169,8 +174,12 @@ def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
     if len(ids) != len(set(ids)):
         raise ValueError("PART_IDS_NOT_UNIQUE")
     families = [re.split(r"[._ -]+", name)[0] for name in ids]
+    # BODY can legitimately include a removable non-anatomical privacy
+    # overlay. Do not accept arbitrary unrelated costumes or accessories.
+    permitted_body_overlay = {"removable_neutral_modesty_band"}
     unexpected = [name for name, family in zip(ids, families)
-                  if family not in allowed]
+                  if family not in allowed and not (
+                      asset == "body" and name in permitted_body_overlay)]
     if unexpected:
         raise RuntimeError("ARTWORK_PART_CROSS_ASSET_CONTAMINATION: " + str(unexpected[:16]))
     if asset == "body":
