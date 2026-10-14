@@ -653,7 +653,8 @@ def prepare_3d_turnaround_input(source: Path, output: Path, *, asset: str) -> di
     source = Path(source).resolve(strict=True)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    expected = tuple(f"{asset}_{direction}" for direction in VIEWS_FOR_3D)
+    expected = tuple(f"{asset}_{direction}" for direction in VIEWS_FOR_3D) + (
+        f"{asset}_detail_occlusion",)
     found: dict[str, str] = {}
     contents: dict[str, str] = {}
     with ZipFile(source) as archive:
