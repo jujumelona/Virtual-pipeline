@@ -24,8 +24,13 @@ BODY = [
     ("hand_canvas_right", (207, 249, 270, 304)),
     ("neck_underpaint", (145, 114, 185, 181)),
     ("head_skin_and_jaw", (102, 36, 220, 159)),
+    ("eye_canvas_left_sclera_skin", (122, 91, 152, 116)),
+    ("eye_canvas_right_sclera_skin", (170, 91, 200, 116)),
     ("eye_canvas_left_iris", (129, 95, 145, 111)),
     ("eye_canvas_right_iris", (177, 95, 193, 111)),
+    ("eye_canvas_left_upper_lower_lashes", (122, 89, 152, 96)),
+    ("eye_canvas_right_upper_lower_lashes", (170, 89, 200, 96)),
+    ("mouth_line", (150, 129, 174, 134)),
     ("removable_neutral_modesty_band", (118, 171, 204, 200)),
 ]
 OTHERS = {
