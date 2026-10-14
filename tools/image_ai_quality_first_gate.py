@@ -112,7 +112,7 @@ def quality_text(mode: str, asset: str) -> str:
                     "파츠만 넣고 대체 표정을 동시에 켜지 않는다.")
     elif asset == "body" and mode == "3d":
         details += (" 3D 표정은 필요시 각도 참고에 묘사하되 2D 레이어·표정 교체 "
-                    "PNG·PSD·layer_order.txt를 제작하거나 요구하지 않는다.")
+                    "PNG·PSD·2D 전용 레이어 순서표를 제작하거나 요구하지 않는다.")
     mode_output = (
         "지정한 8방향의 실제 원화 PNG 및 가림 세부 1장과 일관성 검토표를 납품한다. "
         "2D PNG 레이어·PSD·VRM이 이 단계의 납품 필수는 아니다."
