@@ -116,7 +116,7 @@ def guidance(mode: str, asset: str) -> str:
     angle = ("3D 턴어라운드의 실제 형태를 새로 묘사하며," if mode == "3d"
              else "정면 PNG의 단순 확대/축소/미러링/기하 왜곡으로 측면을 대신하지 않고,")
     if mode == "3d":
-        part_ids = ("3D ZIP은 2D isolated_parts/ 및 layer_order.txt를 요구하지 않는다. "
+        part_ids = ("3D ZIP은 2D용 개별 PNG 파츠 명세나 2D 전용 레이어 순서표를 요구하지 않는다. "
                     "views/ 폴더에 명시한 9개 필수 실제 PNG를 저장한다.")
     elif asset == "body":
         part_ids = ("2D 독립 파츠 이름은 계층/해부학 기준으로 face 또는 head, neck, "
