@@ -115,6 +115,23 @@ def guidance(mode: str, asset: str) -> str:
         )
     angle = ("3D 턴어라운드의 실제 형태를 새로 묘사하며," if mode == "3d"
              else "정면 PNG의 단순 확대/축소/미러링/기하 왜곡으로 측면을 대신하지 않고,")
+    if mode == "3d":
+        part_ids = ("3D ZIP은 2D isolated_parts/ 및 layer_order.txt를 요구하지 않는다. "
+                    "views/ 폴더에 명시한 9개 필수 실제 PNG를 저장한다.")
+    elif asset == "body":
+        part_ids = ("2D 독립 파츠 이름은 계층/해부학 기준으로 face 또는 head, neck, "
+                    "torso 또는 body, eye_L/eye_R, arm_L/arm_R, hand_L/hand_R "
+                    "등을 실제 부위별로 부여한다. 개인정보 가림층을 쓰면 "
+                    "removable_neutral_modesty_band로 분리한다. "
+                    "isolated_parts/*.png와 layer_order.txt는 모두 실제 파일로 맞춘다.")
+    else:
+        part_ids = (
+            f"{asset.upper()}의 isolated_parts/ 파츠 ID는 "
+            + {"hair": "hair", "outfit": "outfit/cloth", "accessory": "accessory/ornament"}[asset]
+            + " 계열로 시작하도록 적고, 한 파츠의 좌우·깊이 정보를 이름에 명확히 표시한다. "
+              "다른 자산의 이름이나 픽셀은 독립 파츠로 포함하지 않는다. "
+              "layer_order.txt의 경로는 실제 isolated_parts/ PNG와 1:1 매칭한다."
+        )
     return f"""{MARKER}
 
 **이 ZIP의 유일한 역할은 이미지 AI가 완성 원화와 참고도 및 필요한 원화 레이어를 충분히 생성하는 것이다.** Colab/노트북의 See-through·PSD2Live·image2live2d 설치, 실행, 명령어, 스크립트, 모델 변환 및 리깅은 이 ZIP에 넣지 않는다. 포토샵/PRO 유료 라이선스를 전제하지 않는다.
@@ -122,12 +139,13 @@ def guidance(mode: str, asset: str) -> str:
 
 ### 해당 ZIP에서 생성할 다각도·세부 원화
 - 모드 구도: {frame(mode)}
-- 최소 참고 파일 후보: {views}.
-- 위 목록은 **최소 작업 기준 후보**이지 파츠 개수 상한이 아니다. 실제 가림·회전·변형의 불일치가 발견되면 필요한 시점·표정·파츠 그림을 추가 생성한다. 반대로 의미 없는 정면 복제본으로 장수만 늘리지 않는다. 같은 캐릭터·같은 소재·같은 색과 조명·같은 앵커를 유지한다.
+- 최종 결과 ZIP에 **반드시 포함할 필수 참조 시점 PNG** (동일 이미지 재사용/미러링 금지): {views}.\n- 최소 참고 파일 후보: {views}.
+- 위 PNG 목록은 **납품 필수**이고 파츠 개수 상한이 아니다. 실제 가림·회전·변형의 불일치가 발견되면 필요한 시점·표정·파츠 그림을 추가 생성한다. 반대로 의미 없는 정면 복제본으로 장수만 늘리지 않는다. 같은 캐릭터·같은 소재·같은 색과 조명·같은 앵커를 유지한다.
 - {angle} 3/4/프로필의 앞뒤 관계·실루엣·두께·그림자 방향을 실제로 다르게 그린다.
-- 자산별 상세: {details}
+- 자산별 상세: {details}\n- Colab 입력 파츠·경로 계약: {part_ids}
 - 자산 소유권 금지: {a["forbidden"]}
 - {output}
+- 기존 MD에서 reference_views/를 '필요한 경우만' 또는 선택 사항으로 표현했더라도 위 지정 시점 파일은 최종 ZIP에서 필수다. 파일명 대소문자/확장자/경로를 변경하지 않는다.
 - 기존 문서의 '완성 원화 한 장을 먼저 만든다'는 **첫 번째 기준 마스터 제작 순서**이지 '한 장만 생성해 납품한다'는 뜻이 아니다. 기준 마스터가 합격한 다음 다각도 원화·숨은 면·표정/가동 참고를 더 생성하고 동일성 검수 후 부위 분리를 진행한다. 자료가 부족하면 파츠를 기계적으로 잘라서 채우지 않고 부족한 원화를 다시 그린다.
 - **최종 이미지 품질 게이트:** 각 참고 시점의 식별 가능한 실제 시각 차이, 해당 자산의 비율·선화·그림자 통일, 움직일 가림 부위의 완성 픽셀, 올바른 깊이·레イヤ 소유권, 정면/측면 교차대조를 확인한다. 틀리면 이미지를 수정/재생성한다. PSD 레이어 수·ZIP CRC 통과만으로 시각 품질 PASS 금지.
 - **후속 단계 구분:** See-through는 노트북에서 분리 후보를 내는 도구일 뿐이다. PSD2Live/image2live2d 등은 노트북의 후속 리깅 후보일 뿐이다. 이 ZIP의 이미지 AI는 그 프로그램을 설치/실행/인증하거나 실제 Cubism/Inochi/VRM 동작 결과가 있다고 주장하지 않는다.
@@ -160,7 +178,12 @@ def apply(path: Path, *, write: bool) -> bool:
     new = old.copy()
     section = guidance(mode, asset)
     for name in DOCS:
-        new[name] = updated_text(old[name], section)
+        source_text = old[name]
+        if name == "04_OUTPUT_FILES.md" and mode != "3d":
+            source_text = source_text.replace(
+                "reference_views/ — 회전 보조(필요한 경우만)",
+                "reference_views/ — 위에 나열한 해당 자산별 필수 다각도 PNG 납품")
+        new[name] = updated_text(source_text, section)
     for name in EXPECTED:
         if name in DOCS:
             if new[name].count(MARKER) != 1 or new[name].count(MARKER_END) != 1:
