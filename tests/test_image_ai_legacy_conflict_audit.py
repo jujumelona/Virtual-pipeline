@@ -89,3 +89,20 @@ def test_published_3d_mode_scope_matches_authoritative_geometry_json():
         segment = rule.split(marker("3d", asset), 1)[1]
         assert expected in segment, f"3d/{asset}: geometry source/ZIP drift"
         assert "가림 세부 1장" in expected
+
+
+def test_bustup_geometry_sections_are_not_empty_and_match_source():
+    import json
+    from tools.sync_image_ai_geometry_guidance import marker, sections_for
+    spec = json.loads(
+        (ROOT.parent / "source" / "FACE_NECK_GEOMETRY_GUIDANCE.json")
+        .read_text(encoding="utf-8"))
+    for asset in ASSETS:
+        with ZipFile(ROOT / f"live2d_bust_up__{asset}.zip") as z:
+            md = z.read("03_MODE_RULES.md").decode("utf-8")
+        tag = marker("live2d_bust_up", asset)
+        expected = sections_for(spec, "live2d_bust_up", asset)["03_MODE_RULES.md"]
+        assert tag in md
+        assert md.count(tag) == 1
+        assert expected in md.split(tag, 1)[1].split("\n## [", 1)[0]
+        assert "양팔" in expected and "손" in expected
