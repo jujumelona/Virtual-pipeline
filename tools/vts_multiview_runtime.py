@@ -42,6 +42,7 @@ VIEWS_FOR_3D = ("front", "front_three_quarter_L", "left", "back_three_quarter_L"
                 "back", "back_three_quarter_R", "right", "front_three_quarter_R")
 PART_FAMILIES = {
     "body": {"face", "head", "eyes", "eye", "brow", "eyebrow", "nose", "mouth",
+             "eyewhite", "eyelash", "irides", "pupil", "blush",
              "neck", "torso", "body", "arm", "hand", "ear", "pelvis", "leg", "foot"},
     "hair": {"hair"},
     "outfit": {"outfit", "cloth", "sleeve", "clothing", "garment"},
@@ -183,11 +184,10 @@ def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
     if unexpected:
         raise RuntimeError("ARTWORK_PART_CROSS_ASSET_CONTAMINATION: " + str(unexpected[:16]))
     if asset == "body":
-        must = {"neck", "face"}
-        missing = sorted(f for f in must if not any(x == f or x.startswith(f + "_")
-                                                    or x.startswith(f + ".") for x in ids))
-        if missing:
-            raise RuntimeError("BODY_MISSING_ANATOMICAL_PARTS: " + str(missing))
+        if "neck" not in families or not ({"face", "head"} & set(families)):
+            raise RuntimeError("BODY_MISSING_ANATOMICAL_PARTS: need neck and face/head")
+        if "mouth" not in families:
+            raise RuntimeError("BODY_MISSING_MOUTH_PART")
         if not any(f in {"torso", "body"} for f in families):
             raise RuntimeError("BODY_MISSING_TORSO_PART")
         for family in ("eye", "arm", "hand"):
@@ -217,13 +217,25 @@ def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
             raise RuntimeError("ARTWORK_JAW_NECK_UNDERPAINT_MISSING: no face-neck alpha overlap")
         neck["face_neck_overlap_pixels"] = overlap
         for component in ("eye", "hand"):
-            members = [x for x in ids if x.startswith(component + "_")
-                       or x.startswith(component + ".")]
+            related = {"eye", "eyes", "eyewhite", "eyelash", "irides", "pupil"} if component == "eye" else {"hand"}
+            members = [x for x, family in zip(ids, families) if family in related]
             side_tokens = [set(re.split(r"[._ -]+", x)) for x in members]
             for side, accepted in (("left", {"l", "left"}), ("right", {"r", "right"})):
-                if not any(tokens & accepted for tokens in side_tokens):
+                side_parts = [tokens for tokens in side_tokens if tokens & accepted]
+                if not side_parts:
                     raise RuntimeError("ARTWORK_BILATERAL_PART_MISSING: "
                                        + component + "_" + side)
+                if component == "eye":
+                    # Separate moving eye strata prevent a flat iris blob from
+                    # being stretched as an entire eye during yaw/blink.
+                    for kind, aliases in (
+                        ("iris", {"iris", "irides", "pupil"}),
+                        ("white", {"white", "sclera", "eyewhite"}),
+                        ("lash", {"lash", "lashes", "eyelash", "eyelid", "lid"}),
+                    ):
+                        if not any(tokens & aliases for tokens in side_parts):
+                            raise RuntimeError("ARTWORK_EYE_STRATA_MISSING: "
+                                               + side + "_" + kind)
     else:
         neck = {"status": "NOT_BODY"}
     return {"status": "SEMANTIC_SOURCE_PREFLIGHT_PASS",
