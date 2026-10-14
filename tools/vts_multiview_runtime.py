@@ -177,13 +177,23 @@ def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
     families = [re.split(r"[._ -]+", name)[0] for name in ids]
     # BODY can legitimately include a removable non-anatomical privacy
     # overlay. Do not accept arbitrary unrelated costumes or accessories.
-    permitted_body_overlay = {"removable_neutral_modesty_band"}
+    permitted_body_overlay = {
+        "removable_neutral_modesty_band",  # Legacy single nontransparent cover.
+        "removable_neutral_modesty_band_upper",
+        "removable_neutral_modesty_band_lower",
+    }
     unexpected = [name for name, family in zip(ids, families)
                   if family not in allowed and not (
                       asset == "body" and name in permitted_body_overlay)]
     if unexpected:
         raise RuntimeError("ARTWORK_PART_CROSS_ASSET_CONTAMINATION: " + str(unexpected[:16]))
     if asset == "body":
+        # If the authored AI output uses the new swimsuit convention,
+        # it must include both separate opaque coverage layers.
+        swimwear = {"removable_neutral_modesty_band_upper",
+                    "removable_neutral_modesty_band_lower"} & set(ids)
+        if swimwear and len(swimwear) != 2:
+            raise RuntimeError("BODY_SWIMWEAR_TOP_BOTTOM_PARTS_MISSING")
         if "neck" not in families or not ({"face", "head"} & set(families)):
             raise RuntimeError("BODY_MISSING_ANATOMICAL_PARTS: need neck and face/head")
         if "mouth" not in families:
