@@ -188,12 +188,13 @@ def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
     if unexpected:
         raise RuntimeError("ARTWORK_PART_CROSS_ASSET_CONTAMINATION: " + str(unexpected[:16]))
     if asset == "body":
-        # If the authored AI output uses the new swimsuit convention,
-        # it must include both separate opaque coverage layers.
-        swimwear = {"removable_neutral_modesty_band_upper",
-                    "removable_neutral_modesty_band_lower"} & set(ids)
-        if swimwear and len(swimwear) != 2:
-            raise RuntimeError("BODY_SWIMWEAR_TOP_BOTTOM_PARTS_MISSING")
+        # A bust-up need not fabricate an invisible lower garment. If a
+        # lower garment is visible, its upper companion is still required.
+        # Actual clothed artwork pixels need separate visual inspection.
+        upper = "removable_neutral_modesty_band_upper"
+        lower = "removable_neutral_modesty_band_lower"
+        if lower in ids and upper not in ids:
+            raise RuntimeError("BODY_SWIMWEAR_UPPER_PART_MISSING")
         if "neck" not in families or not ({"face", "head"} & set(families)):
             raise RuntimeError("BODY_MISSING_ANATOMICAL_PARTS: need neck and face/head")
         if "mouth" not in families:
