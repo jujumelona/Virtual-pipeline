@@ -120,4 +120,4 @@ Anime VTuber BODY ONLY: preserve the existing eye shape and facial identity, tap
 완성된 방송용 상반신은 배 위~허리 위까지, 양쪽 어깨·상완·전완·손을 포함한다. 사용자가 요청하지 않은 고정된 얼굴 초근접 구도와 회색 프록시는 금지.
 사용자가 요구한 고유 애니풍 얼굴형과 큰 눈·좌우 홍채 정합을 유지한다. 턱 뒤 목 언더페인트, 양어깨·상완·전완·양손·복부를 실제 일러스트로 그린다. 귀·입·코는 간결한 애니풍으로 유지하고 하나의 U형 턱으로 고정하지 않는다.
 회색 단색 몸통, 프록시 도형, 끊긴 목, 누락된 팔/손, 짧은 상체는 최종 FAIL. 완성 원화→파츠 분리 순서. 최종 ZIP은 실제 다층 PSD·투명 파츠 PNG·알파 마스크·원본 입력·미리보기·레이어 좌표·분리/검증 JSON·Cubism 안내 필수. 중간 PNG 검사 통과만으로 납품 성공 주장 금지.
-High quality finished anime VTuber upper-body BODY illustration down to the abdomen with natural neck, both shoulders, upper arms, forearms and hands, individual face and aligned irises, beautifully illustrated opaque base garment. No gray polygon torso, no missing hands, no head-only crop, no fake PSD.
+High quality finished anime VTuber upper-body BODY illustration down to the abdomen with natural neck, both shoulders, upper arms, forearms and hands, individual face and aligned irises, separate minimal neutral modesty-cover overlay, NO attached clothing. No gray polygon torso, no missing hands, no head-only crop, no fake PSD.
