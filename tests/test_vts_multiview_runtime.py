@@ -75,3 +75,17 @@ def test_explicit_skin_and_second_pass_face_semantics_are_distinct():
     tags = [item["semantic_tag"] for item in evidence["records"]]
     assert tags == ["topwear", "topwear", "handwear", "mouth"]
     assert evidence["records"][0]["evidence"] == "author_declared_anatomy_or_asset"
+
+
+def test_native_moc3_worker_uses_supported_live2d_py_public_model_api():
+    """Protect against a non-existent live2d.v3.LAppModel import path."""
+    import ast
+    from pathlib import Path
+    source = (Path(__file__).resolve().parents[1] /
+              "tools/vts_native_moc_pose_worker.py").read_text(encoding="utf-8")
+    ast.parse(source)
+    assert "import live2d  # live2d-py" in source
+    assert "live2d.Model()" in source
+    assert "live2d.v3" not in source
+    assert "LAppModel()" not in source
+    assert "GetParamIds()" in source
