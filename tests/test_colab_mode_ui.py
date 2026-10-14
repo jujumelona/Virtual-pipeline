@@ -1,4 +1,4 @@
-"""The production notebook UI uses five top-level modes and a shared asset selector."""
+"""The production notebook UI uses six top-level modes and a shared asset selector."""
 import ast
 import json
 from pathlib import Path
@@ -22,15 +22,16 @@ def code_cells():
     return cells
 
 
-def test_five_top_modes_and_four_shared_assets():
+def test_six_top_modes_and_four_shared_assets():
     assert tuple(TOP_MODE_CHOICES) == (
-        "live2d_upper", "live2d_full", "inochi2d_upper", "inochi2d_full", "3d")
+        "live2d_bust_up", "live2d_upper", "live2d_full", "inochi2d_upper", "inochi2d_full", "3d")
     assert tuple(ASSET_KINDS) == ("body", "hair", "accessory", "outfit")
     assert {select_mode(m, a).asset_kind for m in TOP_MODE_CHOICES
             for a in ASSET_KINDS} == set(ASSET_KINDS)
 
 
 @pytest.mark.parametrize("mode,family,framing", [
+    ("live2d_bust_up", "live2d", "upper"),
     ("live2d_upper", "live2d", "upper"),
     ("live2d_full", "live2d", "full"),
     ("inochi2d_upper", "inochi2d", "upper"),
@@ -60,7 +61,7 @@ def test_deprecated_asset_modes_are_not_accepted(asset):
 def test_static_native_colab_controls_are_only_two_selectors():
     codes = code_cells()
     assert len(codes) >= 9  # Four selection cells plus Live2D upload/build/download
-    assert '#@param ["Live2D 상반신", "Live2D 전신", "Inochi2D 상반신", "Inochi2D 전신", "3D"]' in codes[1]
+    assert '#@param ["Live2D 바스트업", "Live2D 상반신", "Live2D 전신", "Inochi2D 상반신", "Inochi2D 전신", "3D"]' in codes[1]
     assert '#@param ["신체만", "헤어만", "액세서리만", "의상만"]' in codes[2]
     assert "MODE_CONFIG_APPLIED" in codes[2]
     assert "require_submode_config(globals())" in codes[3]
