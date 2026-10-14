@@ -187,6 +187,34 @@ def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
                 raise RuntimeError("BODY_MISSING_RIG_COMPONENT: " + family)
         from tools.vts_native_visual_quality import require_live2d_body_underpaint
         neck = require_live2d_body_underpaint(parts, canvas)
+        # A 2D neck must physically extend behind the jaw as well as the
+        # torso. A purely touching alpha edge is not occlusion-safe.
+        import numpy as np
+        def alpha_mask(record):
+            canvas_alpha = Image.new("L", canvas, 0)
+            canvas_alpha.paste(record["image"].convert("RGBA").getchannel("A"),
+                               (int(record["left"]), int(record["top"])))
+            return np.asarray(canvas_alpha) > 10
+        face_parts = [p for p in parts if re.split(r"[._ -]+", str(p["id"]).casefold())[0] in ("face", "head")]
+        neck_parts = [p for p in parts if re.split(r"[._ -]+", str(p["id"]).casefold())[0] == "neck"]
+        face_alpha = np.zeros((canvas[1], canvas[0]), dtype=bool)
+        neck_alpha = np.zeros_like(face_alpha)
+        for p in face_parts:
+            face_alpha |= alpha_mask(p)
+        for p in neck_parts:
+            neck_alpha |= alpha_mask(p)
+        overlap = int(np.count_nonzero(face_alpha & neck_alpha))
+        if overlap == 0:
+            raise RuntimeError("ARTWORK_JAW_NECK_UNDERPAINT_MISSING: no face-neck alpha overlap")
+        neck["face_neck_overlap_pixels"] = overlap
+        for component in ("eye", "hand"):
+            members = [x for x in ids if x.startswith(component + "_")
+                       or x.startswith(component + ".")]
+            side_tokens = [set(re.split(r"[._ -]+", x)) for x in members]
+            for side, accepted in (("left", {"l", "left"}), ("right", {"r", "right"})):
+                if not any(tokens & accepted for tokens in side_tokens):
+                    raise RuntimeError("ARTWORK_BILATERAL_PART_MISSING: "
+                                       + component + "_" + side)
     else:
         neck = {"status": "NOT_BODY"}
     return {"status": "SEMANTIC_SOURCE_PREFLIGHT_PASS",
@@ -203,9 +231,35 @@ def prepare_multiview_input(source: Path, output: Path, *, asset: str, edition: 
     view = _check_view_members(source, asset=asset, output=output / "reference_views",
                                required=require_views)
     part = validate_artwork_parts(info["parts"], info["canvas"], asset=asset)
+    # Compare authored visible composite against the AI's nominated master.
+    # Extra hidden underpaint should disappear under correct draw order.
+    import numpy as np
+    from PIL import Image
+    composite = Image.new("RGBA", info["canvas"], (0, 0, 0, 0))
+    for record in info["parts"]:
+        piece = Image.new("RGBA", info["canvas"], (0, 0, 0, 0))
+        piece.alpha_composite(record["image"].convert("RGBA"),
+                              (int(record["left"]), int(record["top"])))
+        composite.alpha_composite(piece)
+    master = info["master"].convert("RGBA")
+    x = np.asarray(composite, dtype=np.int16)
+    y = np.asarray(master, dtype=np.int16)
+    support = (x[..., 3] > 10) | (y[..., 3] > 10)
+    visible_rgb_mae = float(np.abs(x[..., :3] - y[..., :3])[support].mean()) if np.any(support) else 255.0
+    alpha_mae = float(np.abs(x[..., 3] - y[..., 3]).mean())
+    fidelity = {"rgb_visible_mae": round(visible_rgb_mae, 4),
+                "alpha_mae": round(alpha_mae, 4),
+                "measured_on": "neutral artwork composite",
+                "display_state_transitions_verified": False}
+    _write_json(output / "neutral_composite_fidelity.json", fidelity)
+    if visible_rgb_mae > 12.0 or alpha_mae > 4.0:
+        raise RuntimeError("NEUTRAL_ARTWORK_PARTS_DONT_REBUILD_MASTER: "
+                           + json.dumps(fidelity, ensure_ascii=False)
+                           + "; redraw misplaced/duplicate layers")
     report = {"schema": "vtuber/colab-art-to-rig-preflight-v1",
               "source": str(source), "asset": asset, "edition": edition,
-              "views": view, "parts": part, "state": "SOURCE_ART_VALIDATED_NOT_RIGGED"}
+              "views": view, "parts": part, "neutral_composite": fidelity,
+              "state": "SOURCE_ART_VALIDATED_NOT_RIGGED"}
     _write_json(output / "artwork_preflight.json", report)
     return report
 
