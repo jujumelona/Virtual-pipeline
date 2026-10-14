@@ -501,6 +501,62 @@ def build_review_contact_sheet(reference_report: dict, pose_report: dict | None,
     canvas.save(output)
     return output
 
+def package_detached_asset_from_ai(source: Path, imported: dict, output: Path,
+                                   *, asset: str, body_reference: Path,
+                                   source_qa: dict) -> dict:
+    """Deliver a detached HAIR/OUTFIT/ACCESSORY PSD without faking a full avatar.
+
+    This is not a Cubism FREE whole-character rig nor a PRO-licensed action:
+    no Cubism Editor and no proprietary SDK required for PSD packaging.
+    The uploaded body reference is a same-canvas alignment constraint.
+    """
+    if asset == "body" or asset not in VIEW_SETS:
+        raise ValueError("DETACHED_ASSET_KIND_REQUIRED")
+    from PIL import Image
+    from zipfile import ZIP_DEFLATED
+    body_reference = Path(body_reference).resolve(strict=True)
+    with Image.open(body_reference) as reference, Image.open(imported["master"]) as art:
+        if reference.size != art.size:
+            raise ValueError("DETACHED_ASSET_BODY_CANVAS_MISMATCH")
+    out = Path(output)
+    out.mkdir(parents=True, exist_ok=True)
+    destination = out / f"{asset}_detached_artwork.zip"
+    if destination.exists():
+        raise FileExistsError(destination)
+    body_bytes_sha = hashlib.sha256(body_reference.read_bytes()).hexdigest()
+    art_file = Path(imported["psd"]).resolve(strict=True)
+    with ZipFile(destination, "w", ZIP_DEFLATED) as archive:
+        archive.write(art_file, f"artwork/{asset}.psd")
+        archive.write(Path(imported["master"]), "artwork/master.png")
+        archive.write(body_reference, "reference/body" + body_reference.suffix.lower())
+        archive.write(source, "input_reference/finished_ai_artwork.zip")
+        archive.writestr("metadata/detached_asset.json", json.dumps({
+            "schema": "vtuber/detached-2d-asset-v1",
+            "asset": asset, "import_psd": f"artwork/{asset}.psd",
+            "body_reference_sha256": body_bytes_sha,
+            "body_reference_same_canvas": True,
+            "rig_generated": False,
+            "placement_art_quality_verified": False,
+            "source_views_matched": bool(source_qa["views"]["valid"]),
+            "note": "Detached PSD and original AI parts; attach to a complete "
+                    "avatar and verify its actual movement. Not an MOC3.",
+        }, ensure_ascii=False, indent=2))
+        archive.writestr("README_RESULT.md",
+                         "별도 자산의 원화 및 편집용 PSD입니다. PRO 라이선스 없이 "
+                         "Colab에서 PSD 패키지를 준비합니다. 완성 캐릭터의 "
+                         "실제 리깅·부착·추적 및 시각 품질은 확인되지 않았습니다.\n")
+    with ZipFile(destination) as archive:
+        if archive.testzip() is not None:
+            raise RuntimeError("DETACHED_ARTWORK_PACKAGE_INVALID")
+    return {
+        "state": "detached_artwork_ready_attachment_required",
+        "package": str(destination), "moc3_generated": False,
+        "editor_required": True, "source_artwork": str(art_file),
+        "body_reference_sha256": body_bytes_sha,
+        "notes": "No face-tracked model built from detached art.",
+    }
+
+
 def process_completed_ai_2d_zip(source: Path, output: Path, *,
                                 edition: str, scope: str, asset: str,
                                 reference_image: Path | None = None,
@@ -524,15 +580,25 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
     imported = prepare_large_ai_pack(source, output / "imported", edition=edition)
     # Authored RGBA/PSD takes precedence over See-through guesses. See-through
     # remains available in the image-only path in vts_production.
-    from tools.vts_production import make_cubism_handoff
-    native = make_cubism_handoff(
-        imported["master"], output / "native",
-        edition=edition, scope=scope,
-        asset_kind=asset if edition == "pro" else None,
-        reference_image=reference_image,
-        external_psd=Path(imported["psd"]),
-        qwen=False, preserve_supplied_parts=True,
-        psd2live=(asset == "body"))
+    # An isolated detachable layer pack cannot be routed into a FREE
+    # whole-character avatar builder; it is a PSD attachment to a real body.
+    if asset == "body":
+        from tools.vts_production import make_cubism_handoff
+        native = make_cubism_handoff(
+            imported["master"], output / "native",
+            edition=edition, scope=scope,
+            asset_kind=asset if edition == "pro" else None,
+            reference_image=reference_image,
+            external_psd=Path(imported["psd"]),
+            qwen=False, preserve_supplied_parts=True,
+            psd2live=True)
+    else:
+        if reference_image is None:
+            raise ValueError("DETACHED_ASSET_REQUIRES_BODY_REFERENCE_IMAGE")
+        native = package_detached_asset_from_ai(
+            source, imported, output / "detached",
+            asset=asset, body_reference=reference_image,
+            source_qa=preflight)
     if not Path(native["package"]).is_file():
         raise RuntimeError("NATIVE_HANDOFF_PACKAGE_MISSING")
     evidence = {"schema": "vtuber/ai-2d-open-source-pipeline-v1",
