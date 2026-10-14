@@ -50,7 +50,7 @@ def test_missing_view_is_regeneration_not_false_pass(tmp_path):
 def test_3d_eight_way_turnaround_detects_duplicate_frames(tmp_path):
     path = tmp_path / "model.zip"
     with ZipFile(path, "w") as archive:
-        for i, view in enumerate(VIEWS_FOR_3D):
+        for i, view in enumerate((*VIEWS_FOR_3D, "detail_occlusion")):
             archive.writestr("views/body_" + view + ".png", _png((i * 18, 20, 70 + i)))
     report = prepare_3d_turnaround_input(path, tmp_path / "3d", asset="body")
     assert not report["missing"]
