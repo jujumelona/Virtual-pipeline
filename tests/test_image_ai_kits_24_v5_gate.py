@@ -37,8 +37,16 @@ def test_every_canonical_zip_has_its_own_reference_and_scope_gate(mode, asset):
     for name, contents in docs.items():
         assert marker in contents, (path, name)
         assert "REFERENCE_NOT_VIEWED" in contents, (path, name)
-    # The mandatory read-all safety gate now precedes the asset-specific contract.
-    assert docs["00_MASTER_FIRST.md"].startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]")
+    # A mode-specific priority heading may precede the mandatory read-all gate.
+    # The gate must remain a real, unique heading before legacy template slots.
+    master = docs["00_MASTER_FIRST.md"]
+    lines = master.splitlines()
+    gates = [i for i, line in enumerate(lines)
+             if line.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]")]
+    slots = [i for i, line in enumerate(lines)
+             if line.startswith("## [EXISTING_VTUBER_TEMPLATE_SLOTS_V1]")]
+    assert len(gates) == len(slots) == 1, (path, gates, slots)
+    assert gates[0] < slots[0], (path, gates, slots)
     assert f"# 최우선 제작 계약: {mode} / {asset}" in docs["00_MASTER_FIRST.md"]
     first = docs["00_MASTER_FIRST.md"]
     assert "실제" in first and any(word in first for word in ("참고", "비교", "샘플", "이미지"))
