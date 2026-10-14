@@ -37,12 +37,17 @@ def main() -> int:
     stack = decompose.from_psd(args.psd, output / "imported_layers")
     rig = rig_from_stack(stack, name=args.psd.stem,
                          source=str(args.psd))
+    # A real second OSS rig artifact, distinct from Cubism MOC3.
+    from image2live2d.backends.nijilive import NijiliveEmitter
+    independent_inp = NijiliveEmitter(asset_root=output / "imported_layers").emit(
+        rig, output / "independent_nijilive")
     valid_params = {p.id: p for p in rig.parameters}
     report = {"schema": "vtuber/independent-pose-sweep-v1",
               "source": "image2live2d_independent_rig",
               "psd": str(args.psd), "frames": [], "errors": [],
               "native_psd2live_model_verified": False,
-              "render_engine": "image2live2d.preview.render_pose"}
+              "render_engine": "image2live2d.preview.render_pose",
+              "independent_nijilive_inp": str(independent_inp)}
     original = None
     for label, values in POSES:
         actual = {k: min(max(v, valid_params[k].min), valid_params[k].max)
