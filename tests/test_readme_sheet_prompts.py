@@ -16,7 +16,9 @@ def test_readme_explains_all_five_modes_and_four_shared_assets():
 def test_readme_describes_connected_live2d_and_unverified_execution():
     text=README.read_text(encoding="utf-8")
     assert "VTuber_Finished_AI_ZIP_All_Modes.ipynb" in text
-    assert "PSD2Live" in text and "자동 리깅" in text
+    assert "PSD2Live" in text and "RIGGING=auto" in text
+    assert "분리 PSD" in text and "artwork_only" in text
+    assert "자동 리깅을 기본 실행" not in text
     assert "Live2D" in text and "⑤" in text and "⑨" in text
     assert "ZIP" in text and "PSD" in text
     assert "실제 Colab GPU" in text
