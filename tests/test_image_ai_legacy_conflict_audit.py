@@ -25,6 +25,10 @@ def test_all_336_md_files_are_normalized_and_scoped(mode, asset):
             assert rewrite(content, mode=mode, asset=asset, name=name) == content, (
                 f"{mode}/{asset}/{name} still has an old contradictory instruction")
             if mode == "3d":
+                assert "4시점" not in content
+                assert "4면으로" not in content
+                assert "단순 캐릭터 마네킹 형태" not in content
+                assert "수영복가" not in content
                 assert "4면도" not in content
                 assert "9방향 턴어라운드" not in content
                 assert "정·후·좌·우 4면도" not in content
@@ -37,6 +41,11 @@ def test_all_336_md_files_are_normalized_and_scoped(mode, asset):
             if mode == "3d" and asset == "body":
                 assert "BODY 피부 베이스" not in content
                 assert "단순 도형 프록시 자체는 BODY에 허용" not in content
+            if mode != "3d" and asset == "body":
+                assert "BODY 상의/터틀넥/보디슈트 금지" not in content
+                assert "BODY에 터틀넥·상의 금지" not in content
+                assert "신체는 애니풍 의상 장착용 마네킹" not in content
+                assert "애니풍 2D 버추얼 마네킹 원화" not in content
             if mode == "live2d_bust_up" and asset == "body":
                 assert "하나의 U형 턱으로 고정하지 않는다" not in content
 
