@@ -266,8 +266,62 @@ def render_independent_pose_preview(psd: Path, output: Path, *, home: Path | Non
         raise RuntimeError("INDEPENDENT_POSE_REPORT_INVALID")
     return report
 
+def render_actual_native_moc3(model3: Path, output: Path, *,
+                             timeout_seconds: int = 600) -> dict:
+    """Render the *PSD2Live MOC3* through independent Cubism runtime wrappers.
+
+    Missing GL/Core dependencies remain a flagged blocker, never fabricated
+    screenshots. No Cubism Editor PRO installation is required for the renderer.
+    """
+    import importlib.util
+    model3 = Path(model3).resolve(strict=True)
+    output = Path(output).resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    if os.environ.get("VTS_SKIP_NATIVE_POSE_RENDER") == "1":
+        raise RuntimeError("NATIVE_POSE_RENDER_DISABLED_BY_USER")
+    requirements = (
+        ("live2d", "live2d-py"), ("pygame", "pygame"),
+        ("OpenGL", "PyOpenGL"),
+    )
+    to_install = [package for module, package in requirements
+                  if importlib.util.find_spec(module) is None]
+    if to_install:
+        subprocess.run([sys.executable, "-m", "pip", "install",
+                        "--disable-pip-version-check", *to_install],
+                       check=True, timeout=900)
+    runner = shutil.which("xvfb-run")
+    if not runner and sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
+        if os.name == "posix" and getattr(os, "geteuid", lambda: 1)() == 0:
+            subprocess.run(["apt-get", "update", "-qq"], check=True, timeout=600)
+            subprocess.run(["apt-get", "install", "-y", "xvfb", "xauth"],
+                           check=True, timeout=600)
+        runner = shutil.which("xvfb-run")
+    if not runner and sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
+        raise RuntimeError("NATIVE_POSE_DISPLAY_REQUIRED: xvfb-run unavailable")
+    args = [sys.executable, "-u", "-m", "tools.vts_native_moc_pose_worker",
+            "--model3", str(model3), "--output", str(output)]
+    if runner:
+        args = [runner, "-a", *args]
+    env = os.environ.copy()
+    if runner:
+        env.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
+    log = output / "native_pose.log"
+    with log.open("w", encoding="utf-8") as stream:
+        proc = subprocess.run(args, cwd=Path(__file__).resolve().parents[1],
+                              env=env, stdout=stream, stderr=subprocess.STDOUT,
+                              timeout=timeout_seconds, check=False)
+    path = output / "native_pose_report.json"
+    if not path.is_file():
+        raise RuntimeError(f"NATIVE_POSE_RUNTIME_FAILED: exit={proc.returncode}; log={log}")
+    report = json.loads(path.read_text(encoding="utf-8"))
+    if proc.returncode or not report.get("native_pose_rendered") or not report.get("pose_activity_passed"):
+        raise RuntimeError(f"NATIVE_POSE_QA_FAILED: exit={proc.returncode}; log={log}")
+    return report
+
+
 def write_handoff_verdict(output: Path, *, source_report: dict,
-                          rig_result: dict, pose_report: dict | None = None) -> dict:
+                          rig_result: dict, pose_report: dict | None = None,
+                          native_pose_report: dict | None = None) -> dict:
     """Never equate a structural MOC3 check or a second rig's pose to visual QA."""
     output = Path(output)
     report = {
@@ -277,12 +331,17 @@ def write_handoff_verdict(output: Path, *, source_report: dict,
         "native_reference_files_valid": bool(
             (rig_result.get("psd2live") or {}).get("runtime_references_valid")),
         "independent_pose_reference": pose_report,
-        "actual_native_pose_rendered": False,
+        "actual_native_pose_rendered": bool(native_pose_report and native_pose_report.get("native_pose_rendered")),
+        "native_pose_activity_passed": bool(native_pose_report and native_pose_report.get("pose_activity_passed")),
+        "native_pose_report": native_pose_report,
         "vts_runtime_verified": False,
         "artistic_quality_verified": False,
-        "state": "NATIVE_MODEL_CREATED_VISUAL_REVIEW_REQUIRED",
+        "state": ("NATIVE_POSE_FRAMES_CAPTURED_ART_REVIEW_REQUIRED"
+                  if native_pose_report and native_pose_report.get("pose_activity_passed")
+                  else "NATIVE_MODEL_CREATED_NATIVE_RENDER_NOT_VERIFIED"),
         "blockers": [
-            "Real PSD2Live MOC3 parameter poses not rendered in Cubism Core",
+            "Native pose rendering missing or incomplete" if not native_pose_report else
+            "Native screenshots require artist review for eye/neck seam correctness",
             "VTube Studio live tracking not exercised",
             "Auxiliary multi-view drawings are not automatically keyed to deformers",
         ],
@@ -388,9 +447,19 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
             evidence["pose_qa_error"] = str(exc)
             evidence["pose_qa"] = None
+        # Unlike the alternate preview, these frames load the actual PSD2Live MOC3.
+        native_pose_report = None
+        try:
+            model3 = Path(native["psd2live"]["model3_json"])
+            native_pose_report = render_actual_native_moc3(
+                model3, output / "native_moc3_pose")
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+            evidence["native_pose_error"] = str(exc)
+        evidence["native_pose"] = native_pose_report
         verdict = write_handoff_verdict(
             output / "quality", source_report=preflight,
-            rig_result=native, pose_report=evidence["pose_qa"])
+            rig_result=native, pose_report=evidence["pose_qa"],
+            native_pose_report=native_pose_report)
         evidence["quality"] = verdict
         evidence["contact_sheet"] = str(build_review_contact_sheet(
             preflight["views"], evidence["pose_qa"],
