@@ -27,7 +27,7 @@ def test_finished_zip_is_consumed_without_regenerating_artwork():
                      if cell["cell_type"] == "code")
     for required in (
         "files.upload()", "finished_artwork.zip", "inspect_large_ai_pack",
-        "prepare_large_ai_pack", "make_cubism_handoff", "prepare_psd2live",
+        "prepare_large_ai_pack", "process_completed_ai_2d_zip", "prepare_psd2live",
         "build_inochi2d", "inspect_native_inp", "run_isolated",
         "validate_vrm", "files.download(", "native_files_created",
     ):
@@ -57,8 +57,8 @@ def test_free_body_is_not_forced_to_pro_in_all_modes():
     assert "EDITION='free' #@param ['free','pro']" in selection
     assert "FREE에서도 신체만 원화 제작/리깅 가능" in selection
     assert "edition=EDITION" in production
-    assert "asset_kind=ASSET if EDITION=='pro' else None" in production
-    assert "psd2live=(ASSET=='body')" in production
+    assert "asset=ASSET" in production
+    assert "process_completed_ai_2d_zip(" in production
     assert "EDITION='pro' #@param" not in selection
 
 
