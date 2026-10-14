@@ -480,6 +480,9 @@ def build_review_contact_sheet(reference_report: dict, pose_report: dict | None,
     observed = reference_report["observed"]
     frame_by_pose = {x["pose"]: x["image"] for x in
                      (pose_report or {}).get("frames", [])}
+    native = (pose_report or {}).get("source") == "live2d_py_cubism_native_runtime"
+    rig_heading = ("NATIVE MOC3 (NOT VTS CERTIFIED)" if native else
+                   "SECONDARY RIG (NOT CUBISM)")
     pairs = [
         ("head_three_quarter_L", "yaw_left"),
         ("head_three_quarter_R", "yaw_right"),
@@ -499,7 +502,7 @@ def build_review_contact_sheet(reference_report: dict, pose_report: dict | None,
                             start_y + boxh - 4), fill="#ffffff")
             draw.text((start_x + 12, start_y + 10),
                       ("AI ART " + ref_name if column == 0 else
-                       "SECONDARY RIG (NOT CUBISM) " + rig_pose), fill="#242424")
+                       rig_heading + " " + rig_pose), fill="#242424")
             if source and Path(source).is_file():
                 with Image.open(source) as picture:
                     image = picture.convert("RGBA")
@@ -648,6 +651,10 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
         evidence["contact_sheet"] = str(build_review_contact_sheet(
             preflight["views"], evidence["pose_qa"],
             output / "quality" / "multiview_pose_reference_comparison.png"))
+        if native_pose_report:
+            evidence["native_contact_sheet"] = str(build_review_contact_sheet(
+                preflight["views"], native_pose_report,
+                output / "quality" / "multiview_vs_native_moc3_comparison.png"))
     _write_json(output / "pipeline_result.json", evidence)
     return evidence
 
