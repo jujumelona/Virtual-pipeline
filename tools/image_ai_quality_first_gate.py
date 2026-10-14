@@ -150,6 +150,13 @@ def patched_text(content: str, *, mode: str, asset: str, name: str) -> str:
         if boundary < 0:
             raise ValueError("Read-first banner incomplete: " + name)
         boundary += len(READ_FIRST_END)
+        # On BODY, the already-canonical opaque swimsuit brief takes precedence
+        # immediately after the read-first gate. Never hide it under other art text.
+        if COVER_MARKER in content:
+            cover_end = content.find(COVER_MARKER_END, boundary)
+            if cover_end < 0:
+                raise ValueError("Clothing brief incomplete: " + name)
+            boundary = cover_end + len(COVER_MARKER_END)
         content = content[:boundary].rstrip("\r\n") + "\n\n" + quality + "\n\n" + content[boundary:].lstrip("\r\n")
     elif COVER_MARKER in content:
         boundary = content.find(COVER_MARKER_END)
