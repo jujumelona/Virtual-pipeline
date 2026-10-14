@@ -40,7 +40,9 @@ def run(model3: Path, output: Path, *, size: int = 768) -> dict:
     try:
         model.LoadModelJson(str(model3))
         model.Resize(size, size)
-        for name in ("SetAutoBlinkEnable", "SetAutoBreathEnable"):
+        # live2d-py 1.0.0 exposes SetAutoBlink/SetAutoBreath.
+        # Unrecognized old Enable names silently leave autonomous motions on.
+        for name in ("SetAutoBlink", "SetAutoBreath"):
             fun = getattr(model, name, None)
             if callable(fun):
                 fun(False)
