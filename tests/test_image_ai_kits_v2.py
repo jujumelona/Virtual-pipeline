@@ -70,7 +70,13 @@ def test_all_original_anime_kits_are_valid_with_fourteen_documents():
                 delivery = archive.read("00_DELIVERY_AND_RECHECK.md").decode("utf-8")
                 # The read-before-generation gate takes precedence over the
                 # historic master heading; both contracts must remain present.
-                assert master.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]")
+                gate_lines = master.splitlines()
+                gate_positions = [i for i, line in enumerate(gate_lines)
+                                  if line.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]")]
+                slot_positions = [i for i, line in enumerate(gate_lines)
+                                  if line.startswith("## [EXISTING_VTUBER_TEMPLATE_SLOTS_V1]")]
+                assert len(gate_positions) == len(slot_positions) == 1
+                assert gate_positions[0] < slot_positions[0]
                 assert f"# 최우선 제작 계약: {mode} / {asset}" in master
                 assert "## [EXISTING_VTUBER_TEMPLATE_SLOTS_V1]" in master
                 assert "00_DELIVERY_AND_RECHECK.md" in master
