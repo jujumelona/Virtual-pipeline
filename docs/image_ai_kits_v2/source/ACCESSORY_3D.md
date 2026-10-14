@@ -1,10 +1,10 @@
-# 3D 액세서리만 — 사용자가 지정한 물건 하나의 4면도
+# 3D 액세서리만 — 사용자가 지정한 물건 하나의 8방향 턴어라운드
 
 액세서리 종류를 사용자 지시대로 해석한다. **'머리장식'을 요구받으면 머리장식만** 만들고, 안경·귀걸이·왕관·목걸이를 덧붙여 액세서리 세트로 만들지 않는다.
 
 - views/accessory_front.png, views/accessory_back.png, views/accessory_left.png, views/accessory_right.png: 그 물건의 형태·두께·부착 방향·재질·앞뒤 모양을 보여주는 서로 다른 시점 그림.
 - details/accessory_components.png: 체인·달린 리본·매달린 보석 등 **그 한 물건 내부에서** 실제 분리해 움직일 부분이 있는 경우만 별도 상세 이미지.
-- previews/turnaround_sheet.png: 앞서 만든 정·후·좌·우 그림을 마지막에 배열한 합성 미리보기.
+- previews/turnaround_sheet.png: 앞서 만든 정·후·좌·우 및 대각 시점 그림을 마지막에 배열한 합성 미리보기.
 
 기준 캐릭터 이미지가 제공됐을 때 실제 부착 위치와 크기를 맞춘다. 몸·머리·의상 자체를 이 ZIP의 신규 생성 대상에 추가하지 않는다. 3D 장착·물리·본·리깅은 이미지 AI의 출력 대상이 아니다.
 
@@ -23,23 +23,23 @@
 
 **재배치 규칙:** 실제 정면/후면/좌측/우측을 따로 그리고 해당 accessory 참조 원화만 그린다. `source/FACE_NECK_GEOMETRY_GUIDANCE.json`의 3D 모드 계약을 따르며 2D PSD/VRM 제작 요구를 추가하지 않는다.
 
-## [2026-10-13 고급 4면도 선화·재질·형태 전문 기법 | accessory/3D]
-### 02_ADVANCED_PARTS.md에 반영할 accessory 전용 4면도 지침
+## [2026-10-13 고급 8방향 턴어라운드 선화·재질·형태 전문 기법 | accessory/3D]
+### 02_ADVANCED_PARTS.md에 반영할 accessory 전용 8방향 턴어라운드 지침
 **[3D 단일 소품 참조]** 요청된 물건 하나의 정면·후면·좌우에서 고정부·두께·표면 재질을 일치시킨다. 유연한 체인·끈·리본이 실제 있고 자세가 필요한 경우에만 원래 디자인을 보존한 **중립 자세 추가 참조 이미지**를 생각한다. 처음부터 휘어진 디자인을 멋대로 직선화하거나 다른 장식 한 벌을 만들지 않는다. 2D 분할/메시·물리·UV 생성 요구 금지.
 
-### 06_ADVANCED_OFFICIAL_COMMUNITY.md에 반영할 accessory 전용 4면도 지침
-**[참조/3D 규격 구분]** https://vrm.dev/en/vrm1/humanoid/ 는 실제 3D 모델/스켈레톤 단계. 소품의 4시점 두께·길이·유연한 연결의 중립 형태는 제작자 그림 참고이며 VRM의 필수 텍스처/메시 규격이 아니다.
+### 06_ADVANCED_OFFICIAL_COMMUNITY.md에 반영할 accessory 전용 8방향 턴어라운드 지침
+**[참조/3D 규격 구분]** https://vrm.dev/en/vrm1/humanoid/ 는 실제 3D 모델/스켈레톤 단계. 소품의 8방향 시점 두께·길이·유연한 연결의 중립 형태는 제작자 그림 참고이며 VRM의 필수 텍스처/메시 규격이 아니다.
 
-### 07_REVIEW_BEFORE_FINAL_ZIP.md에 반영할 accessory 전용 4면도 지침
-**[3D 소품 QC]** 네 방향에서 요청 소품의 실제 고정부·두께·길이·표면 하이라이트가 일치하는가? 선택적 중립 포즈 참조를 추가했더라도 원래 휘어짐/디자인·부착점을 바꾸지 않았는가? 눈/귀/피부·헤어/의상 전체가 소품 시트에 복제되거나 새 소품이 추가되지 않았는가?
+### 07_REVIEW_BEFORE_FINAL_ZIP.md에 반영할 accessory 전용 8방향 턴어라운드 지침
+**[3D 소품 QC]** 8방향에서 요청 소품의 실제 고정부·두께·길이·표면 하이라이트가 일치하는가? 선택적 중립 포즈 참조를 추가했더라도 원래 휘어짐/디자인·부착점을 바꾸지 않았는가? 눈/귀/피부·헤어/의상 전체가 소품 시트에 복제되거나 새 소품이 추가되지 않았는가?
 
-### 08_PRACTICAL_TIPS.md에 반영할 accessory 전용 4면도 지침
-**[소품 고급 4면도]** 주문 소품이 체인·끈처럼 유연한 연결을 실제 가지면 고정부/연결 길이·중립 모양의 그림을 추가 참고로 설명할 수 있다. 금속·유리 등 요청 재질에만 적절한 좁은 하이라이트/투명 표현을 사용한다. 정면을 잘라 후면/측면이라 하지 않고 실제 재질·두께를 새 시점마다 맞춘다.
+### 08_PRACTICAL_TIPS.md에 반영할 accessory 전용 8방향 턴어라운드 지침
+**[소품 고급 8방향 턴어라운드]** 주문 소품이 체인·끈처럼 유연한 연결을 실제 가지면 고정부/연결 길이·중립 모양의 그림을 추가 참고로 설명할 수 있다. 금속·유리 등 요청 재질에만 적절한 좁은 하이라이트/투명 표현을 사용한다. 정면을 잘라 후면/측면이라 하지 않고 실제 재질·두께를 새 시점마다 맞춘다.
 
-### 09_VISUAL_ART_QUALITY.md에 반영할 accessory 전용 4면도 지침
-**[3D 단일 소품 미술]** 실제 한 종류 소품의 얇은 연결·고정부 선폭/투명·금속 반사와 네 시점 형상 연속성이 유지되는지 확인한다. 다른 물건/부속을 품질 핑계로 추가하지 않는다.
+### 09_VISUAL_ART_QUALITY.md에 반영할 accessory 전용 8방향 턴어라운드 지침
+**[3D 단일 소품 미술]** 실제 한 종류 소품의 얇은 연결·고정부 선폭/투명·금속 반사와 8방향 시점 형상 연속성이 유지되는지 확인한다. 다른 물건/부속을 품질 핑계로 추가하지 않는다.
 
-### 10_ANIME_STYLE.md에 반영할 accessory 전용 4면도 지침
+### 10_ANIME_STYLE.md에 반영할 accessory 전용 8방향 턴어라운드 지침
 ANIME SINGLE ACCESSORY TURNAROUND REFERENCE ONLY: separately drawn four angles of the requested object's actual shape, thin-connection line weight and realistic stylized material highlights, optional neutral hanging form only when genuinely needed; no full character, added ornaments, modeling UV or VRM.
 
-**중요:** 이 문서에서는 요청된 자산 하나의 전후좌우 참조 원화만 만든다. 2D 그림자 레이어·PSD 분리/인체 전체의 재생성·3D 메시/본/UV 산출은 추가하지 않는다.
+**중요:** 이 문서에서는 요청된 자산 하나의 8방향 참조 원화만 만든다. 2D 그림자 레이어·PSD 분리/인체 전체의 재생성·3D 메시/본/UV 산출은 추가하지 않는다.
