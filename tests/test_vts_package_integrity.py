@@ -7,7 +7,8 @@ import pytest
 from PIL import Image
 
 from tools.vts_artwork_export import build_artwork_package
-from tools.vts_package_integrity import verify_artwork_package
+from tools.vts_package_integrity import (verify_artwork_package,
+                                         render_input_vs_psd_comparison)
 
 
 def _sample(tmp_path, edition="free", asset_kind=None, color=(150, 100, 200)):
@@ -22,6 +23,13 @@ def _sample(tmp_path, edition="free", asset_kind=None, color=(150, 100, 200)):
             archive.writestr(f"hair.front.{index:03d}.png", buffer.getvalue())
     return build_artwork_package(source, tmp_path / "out", edition=edition,
                                  scope="upper", asset_kind=asset_kind)
+
+
+def _comparison_png(preview_bytes):
+    with Image.open(BytesIO(preview_bytes)) as source:
+        output = BytesIO()
+        render_input_vs_psd_comparison(source, source).save(output, format="PNG")
+        return output.getvalue()
 
 
 def _tamper(source, target, replacement, output):
@@ -128,7 +136,7 @@ def test_final_handoff_checks_appended_pro_reference(tmp_path):
         archive.writestr("source_psd/see_through_layers.psd", psd)
         archive.writestr("input_reference/source_avatar.png", preview)
         archive.writestr("input_reference/body_base.png", preview)
-        archive.writestr("preview/input_vs_psd_comparison.png", preview)
+        archive.writestr("preview/input_vs_psd_comparison.png", _comparison_png(preview))
         archive.writestr("preview/pro_body_asset_overlay.png", preview)
         archive.writestr("metadata/input_vs_psd_geometry.json",
                          json.dumps({"output_psd_canvas": [256, 384]}))
@@ -150,7 +158,7 @@ def test_final_handoff_rejects_misaligned_pro_reference_json(tmp_path):
         archive.writestr("source_psd/see_through_layers.psd", psd)
         archive.writestr("input_reference/source_avatar.png", preview)
         archive.writestr("input_reference/body_base.png", preview)
-        archive.writestr("preview/input_vs_psd_comparison.png", preview)
+        archive.writestr("preview/input_vs_psd_comparison.png", _comparison_png(preview))
         archive.writestr("preview/pro_body_asset_overlay.png", preview)
         archive.writestr("metadata/input_vs_psd_geometry.json",
                          json.dumps({"output_psd_canvas": [256, 384]}))
@@ -171,7 +179,7 @@ def test_final_handoff_rejects_pro_reference_image_with_different_canvas(tmp_pat
         archive.writestr("source_psd/see_through_layers.psd", psd)
         archive.writestr("input_reference/source_avatar.png", preview)
         archive.writestr("input_reference/body_base.png", preview)
-        archive.writestr("preview/input_vs_psd_comparison.png", preview)
+        archive.writestr("preview/input_vs_psd_comparison.png", _comparison_png(preview))
         archive.writestr("preview/pro_body_asset_overlay.png", preview)
         archive.writestr("metadata/input_vs_psd_geometry.json",
                          json.dumps({"source_canvas": [256, 384],
@@ -208,7 +216,7 @@ def _append_final_handoff_for_regression(package, *, pro=False):
         preview = archive.read("preview/composite.png")
         archive.writestr("source_psd/see_through_layers.psd", source_psd)
         archive.writestr("input_reference/source_avatar.png", preview)
-        archive.writestr("preview/input_vs_psd_comparison.png", preview)
+        archive.writestr("preview/input_vs_psd_comparison.png", _comparison_png(preview))
         archive.writestr("metadata/input_vs_psd_geometry.json",
                          json.dumps({"source_canvas": [256, 384],
                                      "output_psd_canvas": [256, 384]}))
@@ -219,6 +227,36 @@ def _append_final_handoff_for_regression(package, *, pro=False):
             archive.writestr("metadata/pro_reference_alignment.json",
                              json.dumps({"output_psd_canvas": [256, 384],
                                          "input_size": [256, 384]}))
+
+
+def test_final_handoff_rejects_wrong_comparison_pixels_same_dimensions(tmp_path):
+    result = _sample(tmp_path)
+    _append_final_handoff_for_regression(result["package"])
+    assert verify_artwork_package(
+        result["package"], require_final_handoff=True)["status"] == "PASS"
+    wrong = BytesIO()
+    Image.new("RGB", (1440, 770), (10, 20, 30)).save(wrong, format="PNG")
+    changed = tmp_path / "wrong_comparison_pixels.zip"
+    _tamper(result["package"], "preview/input_vs_psd_comparison.png",
+            wrong.getvalue(), changed)
+    with pytest.raises(ValueError, match="comparison pixels mismatch"):
+        verify_artwork_package(changed, require_final_handoff=True)
+
+
+def test_final_handoff_rejects_stale_comparison_after_source_pixel_change(tmp_path):
+    result = _sample(tmp_path)
+    _append_final_handoff_for_regression(result["package"])
+    with ZipFile(result["package"]) as archive:
+        with Image.open(BytesIO(archive.read("input_reference/source_avatar.png"))) as im:
+            source = im.convert("RGBA")
+    source.putpixel((60, 60), (1, 2, 3, 255))
+    changed_bytes = BytesIO()
+    source.save(changed_bytes, format="PNG")
+    changed = tmp_path / "stale_comparison.zip"
+    _tamper(result["package"], "input_reference/source_avatar.png",
+            changed_bytes.getvalue(), changed)
+    with pytest.raises(ValueError, match="comparison pixels mismatch"):
+        verify_artwork_package(changed, require_final_handoff=True)
 
 
 def test_final_handoff_rejects_header_only_source_psd(tmp_path):

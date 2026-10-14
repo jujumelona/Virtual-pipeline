@@ -11,7 +11,24 @@ from pathlib import Path
 from struct import unpack
 from zipfile import ZipFile
 
-from PIL import Image
+from PIL import Image, ImageDraw
+
+
+def render_input_vs_psd_comparison(original: Image.Image, final: Image.Image) -> Image.Image:
+    """Render the exact handoff preview layout from original and PSD pixels."""
+    source_t = original.convert("RGBA")
+    result_t = final.convert("RGBA")
+    source_t.thumbnail((720, 720), Image.Resampling.LANCZOS)
+    result_t.thumbnail((720, 720), Image.Resampling.LANCZOS)
+    panel = Image.new("RGBA", (1440, 770), (235, 235, 235, 255))
+    sx, sy = (720 - source_t.width) // 2, (720 - source_t.height) // 2 + 35
+    rx, ry = 720 + (720 - result_t.width) // 2, (720 - result_t.height) // 2 + 35
+    panel.alpha_composite(source_t, (sx, sy))
+    panel.alpha_composite(result_t, (rx, ry))
+    draw = ImageDraw.Draw(panel)
+    draw.text((16, 12), "INPUT ORIGINAL", fill=(0, 0, 0, 255))
+    draw.text((736, 12), "EXTRACTED PSD COMPOSITE", fill=(0, 0, 0, 255))
+    return panel.convert("RGB")
 
 
 def verify_artwork_package(package: Path, *, require_final_handoff: bool = False,
@@ -195,10 +212,14 @@ def verify_artwork_package(package: Path, *, require_final_handoff: bool = False
             if len(original_images) != 1 or len(source_psds) != 1:
                 raise ValueError("Artwork ZIP final source input/PSD missing or ambiguous")
             with Image.open(BytesIO(archive.read(original_images[0]))) as original:
+                original.load()
                 source_image_size = original.size
-                original.verify()
+                expected_panel = render_input_vs_psd_comparison(original, assembled)
             with Image.open(BytesIO(archive.read("preview/input_vs_psd_comparison.png"))) as panel:
-                panel.verify()
+                panel.load()
+                if (panel.mode != "RGB" or panel.size != expected_panel.size
+                        or panel.tobytes() != expected_panel.tobytes()):
+                    raise ValueError("Artwork ZIP input-vs-PSD comparison pixels mismatch")
             source_psd_bytes = archive.read(source_psds[0])
             if len(source_psd_bytes) < 26 or source_psd_bytes[:4] != b"8BPS":
                 raise ValueError("Artwork ZIP original source PSD missing or invalid")
