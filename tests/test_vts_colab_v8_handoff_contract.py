@@ -216,3 +216,50 @@ def test_native_rig_rejects_missing_moc3_in_zip(tmp_path, monkeypatch):
         exec(compile(cell, "cell-8", "exec"),
              dict(INPUT_KIND="existing_psd_zip", DO_NATIVE_RIG=True,
                   INPUT_FILE=tmp_path / "input.zip", WORK=tmp_path, EDITION="pro", SCOPE="upper"))
+
+
+@pytest.mark.parametrize("edition", ["free", "pro"])
+@pytest.mark.parametrize("asset", ["hair", "outfit", "accessory"])
+def test_detached_art_zip_does_not_request_standalone_moc3(edition, asset):
+    """Both FREE and PRO detachables produce PSD assets, not a synthetic BODY rig."""
+    cell = next(c for c in _load_cells() if "#@title ⑤ Live2D FREE/PRO" in c)
+    if edition == "pro":
+        cell = cell.replace('EDITION = "free" #@param', 'EDITION = "pro" #@param')
+    cell = cell.replace(
+        'RIGGING = "artwork_only" #@param',
+        'RIGGING = "auto" #@param',
+    ).replace(
+        'INPUT_KIND = "single_image" #@param',
+        'INPUT_KIND = "parts_zip" #@param',
+    )
+    state = {
+        "TOP_MODE": "live2d_bust_up",
+        "ASSET_KIND": asset,
+        "MODE_CONFIG_APPLIED": "live2d_bust_up",
+        "MODE_CONFIG_SIGNATURE": ("live2d_bust_up", asset),
+    }
+    exec(compile(cell, "v8-mode-choice", "exec"), state)
+    assert state["selection"].asset_kind == asset
+    assert state["DO_NATIVE_RIG"] is False
+
+
+@pytest.mark.parametrize("edition", ["free", "pro"])
+def test_body_art_zip_auto_rig_still_enabled(edition):
+    cell = next(c for c in _load_cells() if "#@title ⑤ Live2D FREE/PRO" in c)
+    if edition == "pro":
+        cell = cell.replace('EDITION = "free" #@param', 'EDITION = "pro" #@param')
+    cell = cell.replace(
+        'RIGGING = "artwork_only" #@param',
+        'RIGGING = "auto" #@param',
+    ).replace(
+        'INPUT_KIND = "single_image" #@param',
+        'INPUT_KIND = "parts_zip" #@param',
+    )
+    state = {
+        "TOP_MODE": "live2d_bust_up",
+        "ASSET_KIND": "body",
+        "MODE_CONFIG_APPLIED": "live2d_bust_up",
+        "MODE_CONFIG_SIGNATURE": ("live2d_bust_up", "body"),
+    }
+    exec(compile(cell, "v8-mode-choice", "exec"), state)
+    assert state["DO_NATIVE_RIG"] is True
