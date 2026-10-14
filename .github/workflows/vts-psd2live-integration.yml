@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "tools/vts_psd2live.py"
+      - "tools/vts_native_moc_pose_worker.py"
+      - "tools/vts_multiview_runtime.py"
+      - "tests/test_vts_multiview_runtime.py"
       - "tools/psd2live_bridge/**"
       - "tools/vts_psd2live_names.py"
       - "tools/vts_production.py"
@@ -36,6 +39,16 @@ jobs:
         env:
           VTS_PSD2LIVE_HOME: ${{ runner.temp }}/psd2live_external/psd2live
         run: python -m ci.vts_psd2live_integration
+      - name: Load exported real MOC3 in live2d-py and render head/eyes/mouth
+        run: |
+          python -m pip install --disable-pip-version-check "live2d-py==1.0.0" "pygame" "PyOpenGL"
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y xvfb xauth
+          fi
+          timeout 240s xvfb-run -a python -m tools.vts_native_moc_pose_worker \
+            --model3 psd2live-integration-output/pro/model/tml.model3.json \
+            --output psd2live-integration-output/native_moc3_pose --size 768
       - name: Upload result and diagnostics
         uses: actions/upload-artifact@v4
         if: always()
