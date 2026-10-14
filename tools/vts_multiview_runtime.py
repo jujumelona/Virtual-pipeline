@@ -397,3 +397,56 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
             output / "quality" / "multiview_pose_reference_comparison.png"))
     _write_json(output / "pipeline_result.json", evidence)
     return evidence
+
+
+def prepare_3d_turnaround_input(source: Path, output: Path, *, asset: str) -> dict:
+    """Check the complete eight-view 3D image brief, not only four PNG names.
+
+    The existing VRM worker still consumes its explicitly supported orthogonal
+    reference views. This validates (but does not silently train on) diagonal
+    references; no 3D hair/outfit native generator is fabricated here.
+    """
+    if asset not in VIEW_SETS:
+        raise ValueError("INVALID_3D_ASSET")
+    from PIL import Image
+    source = Path(source).resolve(strict=True)
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    expected = tuple(f"{asset}_{direction}" for direction in VIEWS_FOR_3D)
+    found: dict[str, str] = {}
+    contents: dict[str, str] = {}
+    with ZipFile(source) as archive:
+        for info in archive.infolist():
+            result = _safe_view_name(info.filename)
+            if not result or result[0] != "views":
+                continue
+            stem = result[1]
+            if stem not in expected:
+                continue
+            if stem in found:
+                raise ValueError("3D_DUPLICATE_ANGLE: " + stem)
+            if info.file_size > 48_000_000:
+                raise ValueError("3D_ANGLE_OVERSIZED: " + stem)
+            data = archive.read(info)
+            with Image.open(io.BytesIO(data)) as image:
+                if image.format != "PNG" or min(image.size) < 128:
+                    raise ValueError("3D_ANGLE_INVALID: " + stem)
+                pixels = hashlib.sha256(image.convert("RGBA").tobytes()).hexdigest()
+            target = output / f"{stem}.png"
+            target.write_bytes(data)
+            found[stem] = str(target)
+            contents[stem] = pixels
+    missing = sorted(set(expected) - set(found))
+    repeated = [n for digest in set(contents.values())
+                if len(n := [k for k, v in contents.items() if v == digest]) > 1]
+    report = {"schema": "vtuber/3d-turnaround-preflight-v1",
+              "required_views": list(expected), "found": found,
+              "missing": missing, "duplicated_pixel_groups": repeated,
+              "front_back_left_right_used_by_existing_vrm_worker": True,
+              "diagonal_views_automatically_consumed_by_vrm_mesh": False,
+              "state": "SOURCE_ART_VERIFIED_NOT_NATIVE_MODEL"}
+    _write_json(output / "turnaround_report.json", report)
+    if missing or repeated:
+        raise RuntimeError("3D_TURNAROUND_REGENERATION_REQUIRED: "
+                           + json.dumps({"missing": missing, "duplicates": repeated}))
+    return report
