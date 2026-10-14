@@ -90,7 +90,7 @@ def normalize_body_swimwear(text: str, *, mode: str, name: str) -> str:
         # The read-first banner MUST stay at byte zero. Insert the wardrobe
         # brief immediately after that validated banner, never before it.
         if text.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]"):
-            boundary = "**GPT가 이 문서를 읽기 전에 이미지를 생성했다면 그 출력은 납품 실패다.**\\n\\n"
+            boundary = "**GPT가 이 문서를 읽기 전에 이미지를 생성했다면 그 출력은 납품 실패다.**\n\n"
             idx = text.find(boundary)
             if idx < 0:
                 raise ValueError("Read-first boundary missing: " + name)
