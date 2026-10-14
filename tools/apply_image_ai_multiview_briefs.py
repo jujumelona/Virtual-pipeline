@@ -81,7 +81,7 @@ def normalize_body_swimwear(text: str, *, mode: str, name: str) -> str:
     if COVER_MARKER in text:
         start = text.index(COVER_MARKER)
         end = text.index(COVER_MARKER_END, start) + len(COVER_MARKER_END)
-        text = text[:start] + text[end:]
+        text = text[:start] + text[end:].lstrip("\r\n")
     for old, new in BODY_UNSAFE_REPLACEMENTS:
         text = text.replace(old, new)
     # The references may contain old negative examples. Keep the visual data
