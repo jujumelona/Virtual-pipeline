@@ -112,3 +112,13 @@ PDF/PSD 편집 자산과 방송용 실제 네이티브 모델은 구분합니다
 - `parts_zip`은 이미 실제로 분리한 원화 파츠가 있을 때만 선택합니다. `existing_psd_zip`과 `artwork_only` 조합은 업로드한 기존 PSD 결과 ZIP을 **재추론·PSD 재출력·리깅 없이 그대로 재사용**하고 내부 ZIP 구조를 다시 점검합니다.
 - 업로드할 PNG/ZIP의 확장자와 빈 파일 여부를 **디스크에 저장하기 전에** 검사합니다. PRO 탈착 자산에는 별도의 같은 캔버스 기준 몸체 PNG를 사용합니다.
 - PSD2Live는 이전 코드 호환용 **명시적 opt-in**이며, 정상적인 Live2D 원화 제작 경로에는 필요하지 않습니다. PSD 결과는 리깅된 `.cmo3`/`.moc3` 모델이 아닙니다. ArtMesh·디포머·키폼·물리·모션·내보내기는 공식 Cubism Editor 사용자 작업입니다.
+
+
+## 이미지 AI 24종 ZIP과 Colab 오픈소스 런타임 — 역할 분리 (2026-10-14)
+
+- **24개 이미지 지침 ZIP** (`docs/image_ai_kits_v2/zips/`): GPT/Gemini 등 대형 이미지 AI가 모드/자산별 원화·다각도 참고·숨은 면·RG​​BA 파츠를 생성하는 문서. 이 ZIP에 See-through, PSD2Live, image2live2d 실행 스크립트를 넣지 않는다.
+- **Colab 실행** (`notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb` 및 `notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb`): 대형 AI가 완성한 아트워크 ZIP을 업로드한 후 오픈소스 분리·PSD 변환·PSD2Live 네이티브 자동 리깅을 수행한다.
+- **입력 QA** (`tools/vts_multiview_runtime.py`): 시점 PNG 중복·누락, 자산 혼입, 얼굴/목/몸통 겹침, 좌우 눈·손, 중립 합성 오차를 검사한다. 원화가 잘못되면 이미지 제작 단계로 되돌릴 근거를 남긴다.
+- **대체 백엔드**: image2live2d는 자체 nijilive INP 모델과 보조 렌더를 생성한다. 이 결과가 PSD2Live에서 생성한 Cubism MOC3의 품질을 인증하지 않는다.
+- **실제 모델 자세** (`tools/vts_native_moc_pose_worker.py`): 별도 라이선스 조건을 충족한 live2d-py/Cubism Core와 OpenGL 환경에서 네이티브 MOC3의 회전·눈·입 자세를 렌더링한다. 필요한 런타임이 없거나 움직임이 없으면 미검증/오류를 기록한다.
+- **남은 한계**: 참조 시점 PNG가 PSD2Live 디포머 키폼에 자동으로 매핑되는 것은 아니며, 눈·목의 시각적 완성도나 VTube Studio 실제 트래킹이 자동 인증되는 것도 아니다. 독립 3D 헤어/의상 VRM 생성은 아직 미지원이다. 미검증을 성공으로 표시하지 않는다.
