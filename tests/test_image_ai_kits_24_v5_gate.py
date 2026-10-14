@@ -71,7 +71,7 @@ def test_every_canonical_zip_has_its_own_reference_and_scope_gate(mode, asset):
             assert ("전면" in first or "정면" in first) and "후면" in first and "좌/우" in first
             assert "2D 파츠" in first
         else:
-            assert "도형" in first and "가슴" in first
+            assert "애니" in first and "목" in first and ("손" in first or "양손" in first)
     else:
         assert ("기준" in first or "참조" in first or "앵커" in first) and ("독립" in first or "한 종류" in first or "한 벌" in first)
     if mode == "3d":
