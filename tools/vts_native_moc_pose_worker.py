@@ -44,6 +44,17 @@ def run(model3: Path, output: Path, *, size: int = 768) -> dict:
             fun = getattr(model, name, None)
             if callable(fun):
                 fun(False)
+        # Do not allow unknown parameter identifiers to masquerade as
+        # successful animated keyforms. Cubism's setter can be a no-op for
+        # an absent parameter, and a blank/static model is not a passed rig.
+        available = set(model.GetParamIds())
+        required_controls = {"ParamAngleX", "ParamAngleY", "ParamAngleZ",
+                             "ParamEyeLOpen", "ParamEyeROpen", "ParamMouthOpenY"}
+        missing_controls = sorted(required_controls - available)
+        if missing_controls:
+            raise RuntimeError(
+                "NATIVE_MODEL_MISSING_ANIMATION_CONTROLS: "
+                + ", ".join(missing_controls))
         report = {
             "schema": "vtuber/live2d-native-moc3-poses-v1",
             "source": "live2d_py_cubism_native_runtime",
