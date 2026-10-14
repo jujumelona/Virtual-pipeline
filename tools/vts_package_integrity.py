@@ -24,6 +24,11 @@ def verify_artwork_package(package: Path, *, require_final_handoff: bool = False
         records = manifest["layers"]
         if not records or len(records) != manifest["drawable_layer_count"]:
             raise ValueError("Artwork ZIP manifest layer count mismatch")
+        semantic_names = [record["semantic_name"] for record in records]
+        if (any(not isinstance(name, str) or not name.strip()
+                for name in semantic_names)
+                or len(set(semantic_names)) != len(semantic_names)):
+            raise ValueError("Artwork ZIP duplicate or empty semantic layer names")
         canvas = (manifest["canvas_width"], manifest["canvas_height"])
         psd_name = ("avatar.psd" if manifest["edition"] == "free"
                     else manifest["asset_kind"] + ".psd")
@@ -127,6 +132,64 @@ def verify_artwork_package(package: Path, *, require_final_handoff: bool = False
             missing = required.difference(names)
             if missing:
                 raise ValueError("Artwork ZIP final handoff missing: " + ", ".join(sorted(missing)))
+            # These are observations, not native Cubism objects. Reject a
+            # contradictory manifest even if the PSD bytes themselves open.
+            metadata_required = {
+                "metadata/manual_rig_reference.json",
+                "metadata/segmentation_trace.json",
+                "metadata/integrity_report.json",
+                "metadata/texture_budget.json",
+                "TEXTURE_BUDGET.md",
+                "OFFICIAL_EDITOR_SETTINGS.md",
+            }
+            absent_metadata = metadata_required.difference(names)
+            if absent_metadata:
+                raise ValueError("Artwork ZIP final handoff missing: "
+                                 + ", ".join(sorted(absent_metadata)))
+            if any(name.lower().endswith((".moc3", ".cmo3")) for name in names):
+                raise ValueError("Artwork ZIP cannot claim native Cubism artifacts")
+            trace = json.loads(archive.read("metadata/segmentation_trace.json"))
+            attempts = trace.get("attempts")
+            accepted = trace.get("accepted_source_names")
+            if (not isinstance(attempts, list) or not isinstance(accepted, list)
+                    or trace.get("qwen_attempt_count") != len(attempts)
+                    or trace.get("qwen_accepted_count") != len(accepted)
+                    or [a.get("source_layer") for a in attempts
+                        if isinstance(a, dict) and a.get("accepted") is True] != accepted
+                    or any(not isinstance(a, dict) or not isinstance(a.get("source_layer"), str)
+                           or not isinstance(a.get("accepted"), bool) for a in attempts)):
+                raise ValueError("Artwork ZIP segmentation trace is inconsistent")
+            integrity = json.loads(archive.read("metadata/integrity_report.json"))
+            if (integrity.get("layer_count") != len(records)
+                    or integrity.get("qwen_model_attempts") != len(attempts)
+                    or integrity.get("qwen_model_splits_accepted") != len(accepted)
+                    or any(integrity.get(field) is not False for field in (
+                        "moc3_exported", "native_cubism_artmesh_deformer_keyforms_checked",
+                        "native_cubism_texture_atlas_checked"))):
+                raise ValueError("Artwork ZIP integrity report contradicts PSD/Editor status")
+            manual = json.loads(archive.read("metadata/manual_rig_reference.json"))
+            suggested = manual.get("suggested_layer_entries")
+            if (not isinstance(suggested, list) or len(suggested) != len(records)
+                    or any(not isinstance(x, dict) or
+                           (x.get("semantic_name"), x.get("family"),
+                            x.get("observed_bounds_xyxy"), x.get("observed_center_xy")) !=
+                           (r["semantic_name"], r["semantic_family"],
+                            r["canvas_xyxy_bbox"], r["visible_alpha_centroid_xy"])
+                           for x, r in zip(suggested, records))
+                    or any(manual.get(field) is not False for field in (
+                        "native_cubism_import", "auto_rigged", "has_native_keyforms",
+                        "has_physics_binds"))
+                    or any(manual.get("editor_setup_plan", {}).get(field) is not False
+                           for field in ("native_cmo3_created", "native_moc3_created",
+                                         "native_physics3_json_created",
+                                         "native_keyforms_created",
+                                         "texture_packing_verified"))):
+                raise ValueError("Artwork ZIP manual Editor reference contradicts PSD")
+            budget = json.loads(archive.read("metadata/texture_budget.json"))
+            if (budget.get("free_limit_applied") is not (manifest["edition"] == "free")
+                    or budget.get("editor_packing_verified") is not False
+                    or budget.get("artwork_resized") is not False):
+                raise ValueError("Artwork ZIP texture budget claims native packing")
             original_images = [n for n in names if n.startswith("input_reference/source_")]
             source_psds = [n for n in names if n.startswith("source_psd/") and n.endswith(".psd")]
             if len(original_images) != 1 or len(source_psds) != 1:
