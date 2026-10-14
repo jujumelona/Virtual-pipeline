@@ -7,6 +7,8 @@ on:
       - "tools/apply_existing_vtuber_template_slots.py"
       - "tools/apply_image_ai_multiview_briefs.py"
       - "tools/image_ai_quality_first_gate.py"
+      - "tools/reconcile_image_ai_legacy_conflicts.py"
+      - "tests/test_image_ai_legacy_conflict_audit.py"
       - "tests/test_image_ai_quality_first_gate.py"
       - "tools/image_ai_read_first_gate.py"
       - "tests/test_image_ai_read_first_gate.py"
@@ -30,10 +32,12 @@ jobs:
           python tools/apply_existing_vtuber_template_slots.py --write
           python tools/apply_image_ai_multiview_briefs.py --write
           python -m tools.image_ai_quality_first_gate --write
+          python -m tools.reconcile_image_ai_legacy_conflicts --write
           python tools/image_ai_read_first_gate.py --check
           python tools/apply_existing_vtuber_template_slots.py --check
           python tools/apply_image_ai_multiview_briefs.py --check
           python -m tools.image_ai_quality_first_gate --check
+          python -m tools.reconcile_image_ai_legacy_conflicts --check
       - name: Confirm mapping and do not break existing 14 MD releases
         run: |
           python -m pip install --disable-pip-version-check pytest
