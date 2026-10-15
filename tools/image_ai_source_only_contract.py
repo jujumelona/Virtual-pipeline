@@ -38,8 +38,8 @@ def source_contract(mode: str, asset: str) -> str:
     backtick = chr(96)
     if mode == "3d":
         deliver = (
-            "- 결과 ZIP: views/" + asset + "_front.png 등의 8방향 개별 원화와 "
-            "views/" + asset + "_detail_occlusion.png 총 9장. "
+            "- 결과 ZIP: views/front.png, views/front_three_quarter_L.png 등 "
+            "8방향 개별 원화와 views/detail_occlusion.png 총 9장. "
             "각도·캐릭터 동일성과 가림 실루엣을 지킨다."
         )
     else:
@@ -61,13 +61,16 @@ def source_contract(mode: str, asset: str) -> str:
         "outfit": "- 옷깃·소매·안감·등 뒤 겹침을 참고 시점 그림으로 보여준다.",
         "accessory": "- 소품 부착점과 가려진 뒷면을 참고 시점 그림으로 보여준다.",
     }[asset]
+    handoff = ("3D 결과는 이후의 3D 제작 단계에서 처리하며 See-through나 PSD2Live의 입력이 아니다."
+               if mode == "3d" else
+               "2D 후속 Colab에서 See-through가 파츠를 분리하고 PSD2Live가 리깅을 수행한다.")
     return f"""### 이미지 생성 AI 업무: 완성 원화만
 - 해당 자산의 완성 원화와 다각도 그림을 **이미지 생성 모델로 직접 그려 PNG ZIP을 전달**한다.
-- **부위별 절단, 개별 파츠 PNG, 알파 마스크, 다층 PSD, 레이어 순서, 리깅/메쉬/키폼 제작은 맡지 않는다.** 후속 Colab에서 See-through가 파츠를 분리하고 리깅 단계가 사용한다.
+- **부위별 절단, 개별 파츠 PNG, 알파 마스크, 다층 PSD, 레이어 순서, 리깅/메쉬/키폼 제작은 맡지 않는다.** {handoff}
 - 원본 자료는 실제 열람하고, 사용자가 PSD 템플릿을 제공하지 않아도 신규 디자인 원화를 진행한다.
 {deliver}
 {joint}
-- 참고 시점 이미지는 회전 키폼 자체가 아니다. See-through 분리 이후 리깅 시 실제 관절·가림·회전 연결을 별도로 검증해야 한다.
+- 참고 시점 이미지는 회전 키폼 자체가 아니다. 실제 관절·가림·회전 연결은 후속 제작 단계에서 별도로 검증해야 한다.
 - 기존 14개 MD의 공식 PSD·파츠 기술 링크는 **작화 참고 문헌**이지 이미지 생성 AI의 파일 출력 요구가 아니다.
 """
 
