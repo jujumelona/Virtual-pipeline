@@ -21,6 +21,67 @@ MODES = ("live2d_bust_up", "live2d_upper", "live2d_full",
          "inochi2d_upper", "inochi2d_full")
 ASSETS = ("body", "hair", "outfit", "accessory")
 
+# Phrases previously published into first-page/quality/template sections.
+# They are active output instructions (NOT links or background PSD examples).
+# Replace in their original location; a newer appended contract alone cannot
+# resolve two simultaneously active and contradictory production orders.
+OUTDATED_2D_OUTPUT = (
+    (
+        "2D는 원화·독립 알파 PNG·마스크·레이어 순서·편집 가능한 다층 PSD, 목/턱/어깨 관절의 단색 underpaint를 남긴다.",
+        "2D 이미지 AI는 템플릿 각 슬롯을 보고 마스터와 동일 좌표의 독립 RGBA 파츠 원화를 하나씩 그린다. 후속 Colab에서 마스크·다층 PSD·리깅 입력을 조립한다."
+    ),
+    (
+        "**원화 먼저, 파츠 분리 나중.**",
+        "**기준 마스터 확정 뒤 템플릿 파츠 슬롯을 하나씩 독립 작화.**"
+    ),
+    (
+        "원화 파츠 분리·보완 → 실제 PSD·PNG·검증 기록·ZIP",
+        "파츠 하나씩 독립 RGBA PNG 제작·가림 보완 → 원화 ZIP·검증 기록 (PSD는 후속 Colab)"
+    ),
+    (
+        "독립 PSD·PNG·마스크로 제작한다.",
+        "독립 RGBA 파츠 PNG를 하나씩 그린다. PSD·마스크는 후속 Colab에서 제작한다."
+    ),
+    (
+        "개별 파츠 채색 보존 분리·PSD/ZIP 조립",
+        "공식 템플릿 대응 슬롯의 파츠별 독립 RGBA 원화 제작·검수·PNG ZIP 납품"
+    ),
+    (
+        "실제 생성한 원화에서 레이어를 분리하고 세부를 손상시키지 않는다.",
+        "각 세부 파츠는 실제 템플릿 대응 슬롯을 확인한 뒤 고유한 독립 그림으로 제작한다."
+    ),
+    (
+        "편집 가능한 PSD는 고품질 기준 원화와 파츠 분리를 마친 후에 제작한다.",
+        "편집 가능한 PSD는 후속 Colab에서 독립 파츠 RGBA를 조립하여 제작한다."
+    ),
+    (
+        "독립 RGBA 파츠는 isolated_parts/*.png, 실제 가림 순서는 layer_order.txt",
+        "독립 RGBA 파츠는 part_art/*.png, 실제 앞뒤 순서는 part_art/_order.txt"
+    ),
+    (
+        "기본 layer_order.txt에는",
+        "중립 합성에는"
+    ),
+    (
+        "isolated_parts/와 layer_order.txt에는",
+        "part_art/와 part_art/_order.txt에는"
+    ),
+    (
+        "실제 생성·PSD 파츠·PNG에는",
+        "실제 생성한 독립 RGBA PNG에는"
+    ),
+    (
+        "별도 PNG/PSD 파츠",
+        "별도 독립 RGBA PNG 파츠"
+    ),
+)
+
+
+def modernize_2d_steps(text: str) -> str:
+    for old, new in OUTDATED_2D_OUTPUT:
+        text = text.replace(old, new)
+    return text
+
 
 def update_one(path: Path, *, write: bool) -> bool:
     with ZipFile(path) as original:
@@ -40,6 +101,7 @@ def update_one(path: Path, *, write: bool) -> bool:
         if old_start in body:
             body = re.sub(re.escape(old_start) + r".*?" +
                           re.escape(old_end), "", body, flags=re.S)
+        body = modernize_2d_steps(body)
         if body.count(BEGIN) != 1 or body.count(END) != 1:
             raise ValueError("SOURCE_ONLY_REFERENCE_MARKER_MISSING: " + path.name + "/" + name)
         begin = body.index(BEGIN) + len(BEGIN)
