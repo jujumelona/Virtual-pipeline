@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from pathlib import Path
 import tempfile
 from zipfile import ZipFile
@@ -32,6 +33,13 @@ def update_one(path: Path, *, write: bool) -> bool:
     contract = source_contract(mode_name, asset)
     updated = {}
     for name, body in old.items():
+        old_start = "## [IMAGE_ART_MULTIVIEW_SOURCE_ONLY_V1]"
+        old_end = "## [/IMAGE_ART_MULTIVIEW_SOURCE_ONLY_V1]"
+        if body.count(old_start) != body.count(old_end) or body.count(old_start) > 1:
+            raise ValueError("PARTIAL_OLD_MULTIVIEW_CONTRACT: " + path.name + "/" + name)
+        if old_start in body:
+            body = re.sub(re.escape(old_start) + r".*?" +
+                          re.escape(old_end), "", body, flags=re.S)
         if body.count(BEGIN) != 1 or body.count(END) != 1:
             raise ValueError("SOURCE_ONLY_REFERENCE_MARKER_MISSING: " + path.name + "/" + name)
         begin = body.index(BEGIN) + len(BEGIN)
