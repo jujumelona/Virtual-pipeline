@@ -21,6 +21,12 @@ POSES = (
     ("blink_yaw_left", {"ParamAngleX": -30, "ParamEyeLOpen": 0, "ParamEyeROpen": 0}),
     ("blink_yaw_right", {"ParamAngleX": 30, "ParamEyeLOpen": 0, "ParamEyeROpen": 0}),
     ("mouth_open", {"ParamMouthOpenY": 1}),
+    ("gaze_left", {"ParamEyeBallX": -1}),
+    ("gaze_right", {"ParamEyeBallX": 1}),
+    ("gaze_up", {"ParamEyeBallY": 1}),
+    ("gaze_down", {"ParamEyeBallY": -1}),
+    ("yaw_left_gaze_left", {"ParamAngleX": -30, "ParamEyeBallX": -1}),
+    ("yaw_right_gaze_right", {"ParamAngleX": 30, "ParamEyeBallX": 1}),
 )
 
 def run(model3: Path, output: Path, *, size: int = 768) -> dict:
@@ -51,7 +57,8 @@ def run(model3: Path, output: Path, *, size: int = 768) -> dict:
         # an absent parameter, and a blank/static model is not a passed rig.
         available = set(model.GetParamIds())
         required_controls = {"ParamAngleX", "ParamAngleY", "ParamAngleZ",
-                             "ParamEyeLOpen", "ParamEyeROpen", "ParamMouthOpenY"}
+                             "ParamEyeLOpen", "ParamEyeROpen", "ParamMouthOpenY",
+                             "ParamEyeBallX", "ParamEyeBallY"}
         missing_controls = sorted(required_controls - available)
         if missing_controls:
             raise RuntimeError(
@@ -70,6 +77,7 @@ def run(model3: Path, output: Path, *, size: int = 768) -> dict:
         defaults = {
             "ParamAngleX": 0, "ParamAngleY": 0, "ParamAngleZ": 0,
             "ParamEyeLOpen": 1, "ParamEyeROpen": 1, "ParamMouthOpenY": 0,
+            "ParamEyeBallX": 0, "ParamEyeBallY": 0,
         }
         for label, params in POSES:
             for key, value in {**defaults, **params}.items():
@@ -108,6 +116,24 @@ def run(model3: Path, output: Path, *, size: int = 768) -> dict:
         report["geometry"] = geometry
         report["native_pose_geometry_passed"] = geometry["geometry_passed"]
         report["failures"].extend(geometry["failures"])
+        # A parameter may exist while its iris artmesh is still unbound or
+        # misclassified. Test actual gaze-only change within the face ROI.
+        from PIL import ImageChops
+        import numpy as np
+        eyes_roi = (int(size * 0.26), int(size * 0.08),
+                    int(size * 0.74), int(size * 0.34))
+        for label, other in (("gaze_left", "gaze_right"),
+                             ("gaze_up", "gaze_down")):
+            with Image.open(output / (label + ".png")) as a, Image.open(output / (other + ".png")) as b:
+                lhs = np.asarray(a.convert("RGB").crop(eyes_roi), dtype=np.int16)
+                rhs = np.asarray(b.convert("RGB").crop(eyes_roi), dtype=np.int16)
+            affected = int(np.count_nonzero(np.max(np.abs(lhs - rhs), axis=2) > 12))
+            report.setdefault("eye_gaze_tests", []).append(
+                {"pair":[label, other], "changed_face_pixels": affected})
+            if affected < 50:
+                report["failures"].append({"code": "NATIVE_IRIS_GAZE_NOT_ANIMATED",
+                                            "poses": [label, other],
+                                            "changed_face_pixels": affected})
         report["native_pose_rendered"] = len(report["frames"]) == len(POSES)
         report["pose_activity_passed"] = not report["failures"]
         (output / "native_pose_report.json").write_text(
