@@ -13,6 +13,12 @@ POSES = (
     ("neutral", {}),
     ("yaw_left", {"ParamAngleX": -30}),
     ("yaw_right", {"ParamAngleX": 30}),
+    # PSD2Live advertises +/-45 head yaw. The old +/-30 smoke test never
+    # checked the actual edge where the neck/jaw separation is most likely.
+    ("yaw_left_45", {"ParamAngleX": -45}),
+    ("yaw_right_45", {"ParamAngleX": 45}),
+    ("yaw_pitch_up_left", {"ParamAngleX": -30, "ParamAngleY": 20}),
+    ("yaw_pitch_down_right", {"ParamAngleX": 30, "ParamAngleY": -20}),
     ("pitch_up", {"ParamAngleY": 30}),
     ("pitch_down", {"ParamAngleY": -30}),
     ("roll_left", {"ParamAngleZ": -30}),
