@@ -1117,16 +1117,20 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         bilateral_splits=bilateral_splits, qwen_requested=qwen)
     extras.append(("metadata/part_separation_audit.json",
                    json.dumps(separation_audit, ensure_ascii=False, indent=2).encode("utf-8")))
-    # High-reuse shapes (cavity, teeth and tongue) belong to BODY only.
-    # Package as independently registered RGBA artwork, not extra visible
-    # layers in the neutral PSD. Unconditional insertion would create a
-    # second mouth in the static composite and regress source fidelity.
-    reusable_parts_report = None
-    if edition == "free" or asset_kind == "body":
-        from tools.vts_reusable_mouth_parts import generate_reusable_mouth_assets
-        reusable_assets, reusable_parts_report = generate_reusable_mouth_assets(
-            layers, canvas)
-        extras.extend(reusable_assets)
+    # Do not replace an anime character's actual mouth with generic
+    # procedural ellipses. Image AI now authors the oral cavity, teeth and
+    # tongue as independent, anchored RGBA artwork. Legacy See-through-only
+    # output must not silently claim these artist-authored parts exist.
+    reusable_parts_report = {
+        "status": "requires_individually_authored_image_ai_artwork",
+        "method": "no_generic_shape_injection",
+        "parts_as_separate_png": [],
+        "native_psd2live_keyform_binding_verified": False,
+        "warning": "Submit source-only part_art/mouth.open.png, "
+                   "part_art/mouth.tooth.t.png and part_art/mouth.tongue.png "
+                   "in the same character style, or use a verified alternative.",
+    } if edition == "free" or asset_kind == "body" else None
+    if reusable_parts_report is not None:
         extras.append(("metadata/reusable_mouth_parts.json",
                        json.dumps(reusable_parts_report, ensure_ascii=False,
                                   indent=2).encode("utf-8")))
