@@ -144,7 +144,7 @@ def test_wrong_front_to_back_order_rejected_by_rendering(tmp_path):
     order = values["part_art/_order.txt"].decode().splitlines()
     order = [x for x in order if x != "part_art/face.png"]
     order.insert(0, "part_art/face.png")  # face hides the mouth entirely
-    values["part_art/_order.txt"] = "\\n".join(order).encode()
+    values["part_art/_order.txt"] = "\n".join(order).encode()
     new_zip = tmp_path / "bad_zorder.zip"
     with ZipFile(new_zip, "w") as output:
         for name, value in values.items():
