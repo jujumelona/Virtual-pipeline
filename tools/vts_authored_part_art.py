@@ -101,6 +101,47 @@ def assemble_authored_parts(source: Path, master: Path, output: Path,
     if enforce_required_parts and not semantic_audit["named_role_requirements_met"]:
         raise ValueError("AUTHORED_REQUIRED_PART_ROLES_MISSING: "
                          + ", ".join(semantic_audit["missing_or_unproven_roles"]))
+    # A visible neck reference is NOT underpaint. The actual separately
+    # authored neck PNG must reach behind the lower face and into the torso.
+    # This geometric condition is necessary but not sufficient for yaw/pitch.
+    neck_geometry = {
+        "status": "NOT_APPLICABLE", "native_profile_90_verified": False,
+        "neck_seamless_at_extreme_poses_verified": False,
+    }
+    if asset == "body" and enforce_required_parts:
+        from PIL import ImageChops
+        def select_single(family: str):
+            hits = [part for part in layers
+                    if re.split(r"[._-]+", part["name"].lower())[0] == family]
+            if len(hits) != 1:
+                raise ValueError("AUTHORED_BODY_NECK_GEOMETRY_AMBIGUOUS: " + family)
+            return hits[0]["image"].getchannel("A").point(
+                lambda a: 255 if a > 10 else 0)
+        face_a = select_single("face")
+        neck_a = select_single("neck")
+        torso_a = select_single("torso")
+        bbox = face_a.getbbox()
+        if not bbox:
+            raise ValueError("AUTHORED_BODY_FACE_EMPTY")
+        jaw = Image.new("L", canvas, 0)
+        jaw_start = bbox[1] + int((bbox[3] - bbox[1]) * 0.57)
+        jaw.paste(face_a.crop((bbox[0], jaw_start, bbox[2], bbox[3])),
+                  (bbox[0], jaw_start))
+        jaw_overlap = ImageChops.multiply(jaw, neck_a).histogram()[255]
+        torso_overlap = ImageChops.multiply(torso_a, neck_a).histogram()[255]
+        neck_geometry = {
+            "status": "SOURCE_ALPHA_JOINT_OVERLAP_ONLY",
+            "jaw_neck_shared_pixels": jaw_overlap,
+            "neck_torso_shared_pixels": torso_overlap,
+            "native_profile_90_verified": False,
+            "neck_seamless_at_extreme_poses_verified": False,
+        }
+        if jaw_overlap < 16:
+            raise ValueError("AUTHORED_JAW_NECK_HIDDEN_PAINT_MISSING: "
+                             + str(jaw_overlap) + " pixels")
+        if torso_overlap < 16:
+            raise ValueError("AUTHORED_NECK_TORSO_HIDDEN_PAINT_MISSING: "
+                             + str(torso_overlap) + " pixels")
     # Explicit uppermost-first order. Hidden expression variants MUST NOT
     # be visible in the neutral composite, but are retained in the PSD for
     # the native PSD2Live expression-opacity rigging engine.
@@ -158,6 +199,7 @@ def assemble_authored_parts(source: Path, master: Path, output: Path,
         "parts": [x["name"] for x in layers],
         "independent_rgba_png_count": len(layers),
         "semantic_part_roles": semantic_audit,
+        "neck_source_overlap": neck_geometry,
         "required_roles_enforced": enforce_required_parts,
         "neutral_hidden_alternate_parts": [
             layers[i]["name"] for i in range(len(layers)) if alternate[i]],
@@ -171,50 +213,3 @@ def assemble_authored_parts(source: Path, master: Path, output: Path,
         json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     return report
 
-    # be visible in the neutral composite, but are retained in the PSD for
-    # the native PSD2Live expression-opacity rigging engine.
-    alternate = []
-    for item in layers:
-        tokens = set(re.split(r"[._-]+", item["name"].lower()))
-        alternate.append(bool(
-            ("mouth" in tokens and (tokens & {"open", "tooth", "teeth", "tongue"})) or
-            ("eye" in tokens and tokens & {"closed", "close", "shut"})
-        ))
-    if asset == "body" and not any(
-        item["name"].startswith(("mouth.close", "mouth.closed"))
-        for item in layers
-    ):
-        raise ValueError("AUTHORED_BODY_REQUIRES_SINGLE_CLOSED_MOUTH")
-    preview = Image.new("RGBA", canvas)
-    for item, is_alternate in reversed(list(zip(layers, alternate))):
-        if not is_alternate:
-            preview.alpha_composite(item["image"])
-    from PIL import ImageChops
-    # Pixel fidelity is a review metric because independently generated
-    # drawings can be inconsistent even with identical canvas dimensions.
-    original_rgba = neutral_original
-    delta = ImageChops.difference(preview, original_rgba)
-    difference_bbox = delta.getbbox()
-    output = Path(output)
-    output.mkdir(parents=True, exist_ok=True)
-    preview.save(output / "neutral_reconstruction.png")
-    from tools.vts_artwork_export import _write_psd
-    psd = output / (asset + ".psd")
-    _write_psd(layers, psd, free=edition == "free", compact_for_atlas=True)
-    report = {
-        "schema": "vtuber/authored-part-art-assembly-v1",
-        "origin": "image_ai_one_part_per_generation",
-        "psd": str(psd), "canvas": list(canvas),
-        "parts": [x["name"] for x in layers],
-        "independent_rgba_png_count": len(layers),
-        "neutral_hidden_alternate_parts": [
-            layers[i]["name"] for i in range(len(layers)) if alternate[i]],
-        "neutral_preview": str(output / "neutral_reconstruction.png"),
-        "neutral_exact_same_as_master": difference_bbox is None,
-        "master_reconstruction_difference_bounds": list(difference_bbox) if difference_bbox else None,
-        "visual_alignment_verified": False,
-        "native_rig_verified": False,
-    }
-    (output / "authored_parts.json").write_text(
-        json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    return report
