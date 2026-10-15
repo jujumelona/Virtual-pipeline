@@ -35,19 +35,8 @@ COVER_PRIORITIES = frozenset((
     "07_REVIEW_BEFORE_FINAL_ZIP.md", "09_VISUAL_ART_QUALITY.md",
     "10_ANIME_STYLE.md",
 ))
-COVER_INSTRUCTIONS = """## [BODY_DEFAULT_OPAQUE_SWIMWEAR_V1]
-
-### BODY 불투명 기본 수영복: 목과 어깨 완전 개방 (상위 규칙)
-- 성인(20세 이상) 귀여운 비성적 애니풍 VTuber. 가슴을 충분히 덮는 불투명 무지 **끈 없는 반도(bandeau)/일자형 튜브 수영복 상의**를 모든 정면·좌우 3/4·측면·후면·상하 시점, 표정 시트, 원화 마스터 및 합성 미리보기에서 착용한다.
-- 상의 윗선은 쇄골 아래에 있고 **목 전면·측면·후면, 좌우 목-어깨 접합부, 양쪽 어깨 윗면과 외곽선, 쇄골 아래 상흉부 피부, 겨드랑이·상완 관절 윤곽**을 가리지 않는다. 피부는 자연스러운 단순 애니풍으로 표현하고 뼈·근육 세부 묘사를 강조하지 않는다.
-- **금지:** 하이넥 스포츠 브라, 목에 걸리는 홀터 끈, 어깨끈, 레이서백, 민소매 탱크톱, 어깨까지 올라오는 원단, 목까지 이어진 몸통 의상/보디슈트. 목-어깨 사이로 수영복 원단이 올라오거나 어깨 위에 스트랩이 있으면 검수 실패다.
-- 실제 화면에 하체가 포함될 때만 불투명 하이웨이스트 쇼츠형 수영복 하의를 추가한다. 바스트업에서 프레임 밖 하체를 만들지 않는다.
-- 모든 최종 마스터와 합성·각도 이미지에는 불투명 수영복을 착용한다. 수영복을 제거한 노출 합성 이미지는 만들거나 납품하지 않는다. 가려진 몸체는 단순한 비해부학적 언더페인트만 제작한다.
-- 2D 상의는 BODY와 분리된 removable_neutral_modesty_band_upper, 보이는 하의는 removable_neutral_modesty_band_lower 독립 파츠로 둔다. 피부·목·어깨 레이어에 복장을 합쳐 그리지 않는다. 디자인 의상은 별도 OUTFIT ZIP 전용이다.
-- 3D는 **8방향 턴어라운드 및 가림 세부 1장(총 9장)** 전부 같은 끈 없는 수영복을 착용하고, PSD 파츠/리깅 실행은 요구하지 않는다.
-- 턱 뒤 목 및 양어깨 숨은 피부를 충분히 그린다. 모든 정면·3/4·측면에서 목과 어깨 형태가 끊김 없이 보이지 않으면 재생성·재검수한다.
-
-## [/BODY_DEFAULT_OPAQUE_SWIMWEAR_V1]"""
+from tools.normalize_matte_clay_kits import CONTRACT as MATTE_CLAY_CONTRACT
+COVER_INSTRUCTIONS = COVER_MARKER + "\n\n" + MATTE_CLAY_CONTRACT["body"] + COVER_MARKER_END
 
 BODY_UNSAFE_REPLACEMENTS = (
     ("터틀넥·민소매 상의·보디슈트·드레스 금지. 가려야 할 부분은 가장 작은 단색 무지 밴드형 이너만 별도 교체 가능한 가림 레이어로 사용한다.",
