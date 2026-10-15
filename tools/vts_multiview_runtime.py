@@ -166,7 +166,7 @@ def _check_view_members(source: Path, *, asset: str, output: Path,
     return report
 
 def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
-                           asset: str) -> dict:
+                           asset: str, underpaint_parts: list[dict] | None = None) -> dict:
     """Reject known semantic cross-contamination before model installation."""
     from PIL import Image
     if asset not in PART_FAMILIES:
@@ -217,7 +217,19 @@ def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
                        for observed in families):
                 raise RuntimeError("BODY_MISSING_RIG_COMPONENT: " + family)
         from tools.vts_native_visual_quality import require_live2d_body_underpaint
-        neck = require_live2d_body_underpaint(parts, canvas)
+        # Explicit hidden neck underpaint may contain the required seam pixels.
+        # It is intentionally OFF in neutral layer_order.txt, but survives as
+        # an invisible editable PSD layer for actual head/neck deformation.
+        hidden_neck = [p for p in (underpaint_parts or [])
+                       if str(p.get("id", "")).casefold() == "hidden_neck_underpaint"]
+        try:
+            neck = require_live2d_body_underpaint(parts, canvas)
+        except ValueError as error:
+            if (not str(error).startswith("AI_ARTWORK_NECK_BODY_UNDERPAINT_MISSING:")
+                    or len(hidden_neck) != 1):
+                raise
+            neck = {"status": "HIDDEN_NECK_BRIDGE_GEOMETRY_PENDING_VALIDATION",
+                    "editor_review_required": True}
         # A 2D neck must physically extend behind the jaw as well as the
         # torso. A purely touching alpha edge is not occlusion-safe.
         import numpy as np
@@ -235,8 +247,32 @@ def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
         for p in neck_parts:
             neck_alpha |= alpha_mask(p)
         overlap = int(np.count_nonzero(face_alpha & neck_alpha))
-        if overlap == 0:
-            raise RuntimeError("ARTWORK_JAW_NECK_UNDERPAINT_MISSING: no face-neck alpha overlap")
+        if overlap == 0 or neck["status"] == "HIDDEN_NECK_BRIDGE_GEOMETRY_PENDING_VALIDATION":
+            if len(hidden_neck) != 1:
+                if overlap == 0:
+                    raise RuntimeError("ARTWORK_JAW_NECK_UNDERPAINT_MISSING: no face-neck alpha overlap")
+                raise RuntimeError("AI_ARTWORK_NECK_BODY_UNDERPAINT_MISSING: missing painted neck-torso overlap")
+            hidden_alpha = alpha_mask(hidden_neck[0])
+            torso_parts = [p for p in parts if semantic_family(str(p["id"]).casefold()) in ("torso", "body")]
+            jaw_parts = [p for p in parts if semantic_family(str(p["id"]).casefold()) == "jaw"]
+            torso_alpha = np.zeros_like(neck_alpha)
+            jaw_alpha = face_alpha.copy()
+            for p in torso_parts:
+                torso_alpha |= alpha_mask(p)
+            for p in jaw_parts:
+                jaw_alpha |= alpha_mask(p)
+            # Unlike a token bypass, physically require the hidden paint to
+            # connect jaw, neck, and torso across all three seam regions.
+            metrics = {
+                "hidden_jaw_overlap_pixels": int(np.count_nonzero(hidden_alpha & jaw_alpha)),
+                "hidden_neck_overlap_pixels": int(np.count_nonzero(hidden_alpha & neck_alpha)),
+                "hidden_torso_overlap_pixels": int(np.count_nonzero(hidden_alpha & torso_alpha)),
+            }
+            if min(metrics.values()) < 16:
+                raise RuntimeError("ARTWORK_HIDDEN_NECK_BRIDGE_INCOMPLETE: " + str(metrics))
+            neck.update(metrics)
+            neck["status"] = "EXPLICIT_HIDDEN_NECK_BRIDGE_PRESENT_RIG_VISUAL_REVIEW_REQUIRED"
+            neck["editor_review_required"] = True
         neck["face_neck_overlap_pixels"] = overlap
         for component in ("eye", "hand"):
             related = {"eye", "eyes", "eyewhite", "eyelash", "irides", "pupil"} if component == "eye" else {"hand"}
@@ -309,7 +345,8 @@ def prepare_multiview_input(source: Path, output: Path, *, asset: str, edition: 
         view = _check_view_members(source, asset=asset,
                                    output=output / "reference_views",
                                    required=require_views)
-        part = validate_artwork_parts(info["parts"], info["canvas"], asset=asset)
+        part = validate_artwork_parts(info["parts"], info["canvas"], asset=asset,
+                                      underpaint_parts=info.get("underpaint_parts", []))
     except (ValueError, RuntimeError) as error:
         request = _write_artwork_regeneration_request(
             output, asset=asset, source=source, error=error)
