@@ -43,7 +43,8 @@ VIEWS_FOR_3D = ("front", "front_three_quarter_L", "left", "back_three_quarter_L"
 PART_FAMILIES = {
     "body": {"face", "head", "eyes", "eye", "brow", "eyebrow", "nose", "mouth",
              "eyewhite", "eyelash", "irides", "pupil", "blush",
-             "neck", "torso", "body", "arm", "hand", "ear", "pelvis", "leg", "foot"},
+             "neck", "torso", "body", "arm", "hand", "ear", "pelvis", "leg", "foot",
+             "skin", "scalp", "jaw", "shoulder", "forearm"},
     "hair": {"hair"},
     "outfit": {"outfit", "cloth", "sleeve", "clothing", "garment"},
     "accessory": {"accessory", "ornament", "object", "prop"},
@@ -174,7 +175,16 @@ def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
     ids = [str(p["id"]).casefold() for p in parts]
     if len(ids) != len(set(ids)):
         raise ValueError("PART_IDS_NOT_UNIQUE")
-    families = [re.split(r"[._ -]+", name)[0] for name in ids]
+    # A compound anatomical name must be classified as one BODY component.
+    # Splitting upper_arm_L at the first underscore yields the unrelated
+    # family "upper" and incorrectly rejects valid VTuber shoulder/arm rigs.
+    # Do NOT broadly allow any prefix "upper": e.g. upper_outfit is not BODY.
+    def semantic_family(name: str) -> str:
+        if re.match(r"^upper[._ -]+arm(?:[._ -]|$)", name):
+            return "arm"
+        return re.split(r"[._ -]+", name)[0]
+
+    families = [semantic_family(name) for name in ids]
     # BODY can legitimately include a removable non-anatomical privacy
     # overlay. Do not accept arbitrary unrelated costumes or accessories.
     permitted_body_overlay = {
@@ -202,8 +212,9 @@ def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
         if not any(f in {"torso", "body"} for f in families):
             raise RuntimeError("BODY_MISSING_TORSO_PART")
         for family in ("eye", "arm", "hand"):
-            if not any(x == family or x.startswith(family + "_")
-                       or x.startswith(family + ".") for x in ids):
+            if not any(observed == family or
+                       (family == "arm" and observed == "forearm")
+                       for observed in families):
                 raise RuntimeError("BODY_MISSING_RIG_COMPONENT: " + family)
         from tools.vts_native_visual_quality import require_live2d_body_underpaint
         neck = require_live2d_body_underpaint(parts, canvas)
@@ -241,7 +252,7 @@ def validate_artwork_parts(parts: list[dict], canvas: tuple[int, int], *,
                     # being stretched as an entire eye during yaw/blink.
                     for kind, aliases in (
                         ("iris", {"iris", "irides", "pupil"}),
-                        ("white", {"white", "sclera", "eyewhite"}),
+                        ("white", {"white", "whites", "sclera", "eyewhite"}),
                         ("lash", {"lash", "lashes", "eyelash", "eyelid", "lid"}),
                     ):
                         if not any(tokens & aliases for tokens in side_parts):
