@@ -27,6 +27,14 @@ ASSETS = ("body", "hair", "outfit", "accessory")
 # resolve two simultaneously active and contradictory production orders.
 OUTDATED_2D_OUTPUT = (
     (
+        "완성 마스터에서 편집 가능한 다층 PSD·파츠 PNG·마스크를 만든다.",
+        "완성 마스터와 실제 템플릿 슬롯에 맞춰 독립 RGBA 파츠 PNG를 하나씩 그린다. PSD·마스크는 Colab에서 만든다."
+    ),
+    (
+        "독립 의상 파츠·가림 후면·마스크·PSD를 납품한다.",
+        "독립 의상 파츠 RGBA PNG와 가림 후면을 한 장씩 제작한다. PSD·마스크는 Colab에서 제작한다."
+    ),
+    (
         "2D는 원화·독립 알파 PNG·마스크·레이어 순서·편집 가능한 다층 PSD, 목/턱/어깨 관절의 단색 underpaint를 남긴다.",
         "2D 이미지 AI는 템플릿 각 슬롯을 보고 마스터와 동일 좌표의 독립 RGBA 파츠 원화를 하나씩 그린다. 후속 Colab에서 마스크·다층 PSD·리깅 입력을 조립한다."
     ),
