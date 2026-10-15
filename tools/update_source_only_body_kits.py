@@ -1,8 +1,7 @@
-"""Synchronize the 20 published 2D source-art instruction ZIPs.
+"""Update all 20 published 2D instruction ZIPs to template-first part-by-part artwork.
 
-Image AI: draw full illustrations and closed/open expression reference PNGs.
-Colab: synthesize independent cavity/tooth/tongue layer artwork and perform
-segmentation/PSD2Live. Preserve 14 original MD names and all unrelated assets.
+The 4 three-dimensional image kits are left unchanged. Image AI draws
+independent RGBA artwork; Colab performs PSD assembly/rigging.
 """
 from __future__ import annotations
 
@@ -12,11 +11,14 @@ from pathlib import Path
 import tempfile
 from zipfile import ZipFile
 
-from tools.image_ai_source_only_contract import BEGIN, END, source_contract, source_only_output_file
+from tools.image_ai_source_only_contract import (
+    BEGIN, END, source_contract, source_only_output_file,
+)
 
 ROOT = Path(__file__).resolve().parents[1] / "docs/image_ai_kits_v2/zips"
 MODES = ("live2d_bust_up", "live2d_upper", "live2d_full",
          "inochi2d_upper", "inochi2d_full")
+ASSETS = ("body", "hair", "outfit", "accessory")
 
 
 def update_one(path: Path, *, write: bool) -> bool:
@@ -26,14 +28,19 @@ def update_one(path: Path, *, write: bool) -> bool:
         if len(names) != 14 or len(set(names)) != 14 or original.testzip():
             raise ValueError("2D_KIT_EXPECTS_14_VALID_MDS: " + str(path))
         old = {name: original.read(name).decode("utf-8") for name in names}
-    mode_name, asset = path.stem.split("__")\n    text = source_contract(mode_name, asset)
+    mode_name, asset = path.stem.split("__")
+    contract = source_contract(mode_name, asset)
     updated = {}
     for name, body in old.items():
         if body.count(BEGIN) != 1 or body.count(END) != 1:
             raise ValueError("SOURCE_ONLY_REFERENCE_MARKER_MISSING: " + path.name + "/" + name)
         begin = body.index(BEGIN) + len(BEGIN)
         end = body.index(END, begin)
-        updated[name] = (source_only_output_file(mode_name, asset)\n                         if name == "04_OUTPUT_FILES.md" else\n                         body[:begin] + "\n" + text + body[end:])
+        updated[name] = (
+            source_only_output_file(mode_name, asset)
+            if name == "04_OUTPUT_FILES.md"
+            else body[:begin] + "\n" + contract + body[end:]
+        )
     if updated == old:
         return False
     if not write:
@@ -66,10 +73,14 @@ def main():
     mode.add_argument("--write", action="store_true")
     args = parser.parse_args()
     changed = 0
-    for item in MODES:
-        changed += int(update_one(ROOT / (item + "__body.zip"), write=args.write))
-    print(f"5 BODY 2D source-only kits verified; changed={changed}; "
-          "other 19 ZIPs remain untouched")
+    for mode_name in MODES:
+        for asset in ASSETS:
+            changed += int(update_one(
+                ROOT / (mode_name + "__" + asset + ".zip"),
+                write=args.write,
+            ))
+    print(f"20 two-dimensional source-art ZIPs verified; changed={changed}; "
+          "four 3D ZIPs untouched")
 
 
 if __name__ == "__main__":
