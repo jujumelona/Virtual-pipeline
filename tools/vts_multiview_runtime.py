@@ -731,7 +731,8 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
                                       else imported["psd"]),
                 "source_art_only": source_only,
                 "layer_decomposition": "See-through" if source_only else "author_supplied",
-                "stage": "complete" if asset == "body" else "attachment_ready",
+                "stage": "native_rig_generated_unverified" if asset == "body" else "attachment_ready",
+                 "multiview_reference_keyforms_bound": False,
                 "native": native, "source_qa": preflight,
                 "pose_qa": None,
                 "moc3_application_verified": False}
@@ -785,6 +786,15 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
                 "NATIVE_RIG_POSE_GEOMETRY_FAILED: actual MOC3 screenshots "
                 "show disconnected body parts, missing geometry QA, or canvas clipping; "
                 + str(evidence.get("native_pose_error", "see native_moc3_pose/native_pose_report.json")))
+    if asset == "body":
+        # PSD2Live builds from the front PSD. Source multi-view PNGs were
+        # inspected, not mapped onto the native ArtMesh deformation curves.
+        # A rig that merely rotates its eye parts must never be "complete".
+        evidence["stage"] = "native_poses_checked_multiview_unbound_review_required"
+        evidence["native_head_gaze_isolation_passed"] = bool(
+            native_pose_report and
+            (native_pose_report.get("parameter_isolation") or {}).get("passed"))
+        evidence["garment_shape_review_required"] = True
     _write_json(output / "pipeline_result.json", evidence)
     return evidence
 
