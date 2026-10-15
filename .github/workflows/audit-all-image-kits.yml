@@ -22,7 +22,7 @@ jobs:
           python-version: "3.12"
       - name: Read all 336 MD documents and summarize remaining conflicting instructions
         run: |
-          python -m tools.audit_24_image_kits --output /tmp/audit-24.json
+          python -m tools.audit_24_image_kits --strict --output /tmp/audit-24.json
       - uses: actions/upload-artifact@v4
         with:
           name: full-24-zip-audit
