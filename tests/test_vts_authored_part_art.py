@@ -154,6 +154,35 @@ def test_wrong_front_to_back_order_rejected_by_rendering(tmp_path):
                                 asset="body", edition="free")
 
 
+def test_required_authored_mouth_expression_refs_must_be_real_distinct_png(tmp_path):
+    from tools.vts_source_only_pack import validate_authored_mouth_reference_states
+    z, master = make_pack(tmp_path)
+    with ZipFile(z) as original:
+        files = {name: original.read(name) for name in original.namelist()}
+    with pytest.raises(ValueError, match="REFERENCE_MISSING"):
+        validate_authored_mouth_reference_states(z, (128, 128))
+    master_bytes = master.read_bytes()
+    files["expression_refs/mouth_closed.png"] = master_bytes
+    files["expression_refs/mouth_open.png"] = master_bytes
+    equal_zip = tmp_path / "equal_mouth_views.zip"
+    with ZipFile(equal_zip, "w") as output:
+        for name, value in files.items():
+            output.writestr(name, value)
+    with pytest.raises(ValueError, match="REFERENCES_IDENTICAL"):
+        validate_authored_mouth_reference_states(equal_zip, (128, 128))
+    with Image.open(master) as im:
+        open_state = im.copy()
+    open_state.putpixel((56, 79), (255, 55, 91, 255))
+    files["expression_refs/mouth_open.png"] = png_bytes(open_state)
+    correct_zip = tmp_path / "distinct_mouth_views.zip"
+    with ZipFile(correct_zip, "w") as output:
+        for name, value in files.items():
+            output.writestr(name, value)
+    report = validate_authored_mouth_reference_states(correct_zip, (128, 128))
+    assert report["status"] == "CLOSED_OPEN_PNG_CONTENT_DISTINCT"
+    assert not report["actual_template_consultation_verified"]
+
+
 def test_artwork_authoring_contract_requires_per_part_and_template():
     from tools.image_ai_source_only_contract import source_contract
     for mode in ("live2d_bust_up", "live2d_upper", "live2d_full",
