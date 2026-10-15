@@ -127,10 +127,12 @@ def normalize(s: str, asset: str, mode: str, name: str) -> str:
     if asset == "body":
         # The old swimwear marker is reused by older tooling, but its actual
         # *contents* now describe matte non-anatomical full-coverage art.
-        cover = OLD_COVER_START + "\n\n" + CONTRACT["body"] + "\n" + OLD_COVER_END
-        s = replace_marked(s, OLD_COVER_START, OLD_COVER_END, cover)
         for old, new in BODY_REPLACEMENTS:
             s = s.replace(old, new)
+        # Replace the legacy block *after* normalizing old prose; never
+        # mutate the final canonical brief (or break old generator parity).
+        cover = OLD_COVER_START + "\n\n" + CONTRACT["body"] + OLD_COVER_END
+        s = replace_marked(s, OLD_COVER_START, OLD_COVER_END, cover)
         if any(word in s for word in CONFLICT):
             matches = [word for word in CONFLICT if word in s]
             raise ValueError("Conflicting BODY instruction in " + mode + "/" + name
