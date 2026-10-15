@@ -81,7 +81,8 @@ def _difference_hash(image) -> int:
     return bits
 
 def _check_view_members(source: Path, *, asset: str, output: Path,
-                        required: bool = True) -> dict:
+                        required: bool = True,
+                        master_canvas: tuple[int, int] | None = None) -> dict:
     """Extract useful *artwork* views, verify real PNGs, refuse duplicates.
 
     A reference is not a rig/keyform; downstream preview must use an actual
@@ -116,6 +117,7 @@ def _check_view_members(source: Path, *, asset: str, output: Path,
                             or max(image.size) > 16384):
                         raise ValueError("Invalid PNG dimensions or format")
                     image.load()
+                    canvas_of_view = image.size
                     dhash = _difference_hash(image)
                     md5 = hashlib.sha256(image.convert("RGBA").tobytes()).hexdigest()
             except (OSError, ValueError) as error:
@@ -126,6 +128,7 @@ def _check_view_members(source: Path, *, asset: str, output: Path,
                 "source": item.filename, "file": str(destination),
                 "sha256": hashlib.sha256(data).hexdigest(),
                 "pixel_sha256": md5, "dhash": f"{dhash:016x}",
+                "size": list(canvas_of_view),
             }
     expected = VIEW_SETS[asset]
     missing = [name for name in expected if name not in observed]
@@ -145,6 +148,25 @@ def _check_view_members(source: Path, *, asset: str, output: Path,
                         ^ int(observed[right]["dhash"], 16)).bit_count()
             if distance <= 1:
                 similar.append({"left": left, "right": right, "distance": distance})
+    if master_canvas is not None:
+        # Face/neck/shoulder geometry cannot be registered to front art if
+        # each rotation reference was generated on an unrelated crop/scale.
+        # Detail-only occlusion drawings remain exempt from this rule.
+        alignment_names = [
+            name for name in expected if name in observed and
+            (name.endswith(("front", "three_quarter_L", "three_quarter_R",
+                            "profile_L", "profile_R", "pitch_up", "pitch_down"))
+             or name == "body_front")
+        ]
+        mismatches = [
+            {"name": n, "observed_size": observed[n]["size"],
+             "master_size": list(master_canvas)}
+            for n in alignment_names
+            if tuple(observed[n]["size"]) != tuple(master_canvas)
+        ]
+        if mismatches:
+            failures.append({"code": "MULTIVIEW_RIG_ALIGNMENT_CANVAS_MISMATCH",
+                             "examples": mismatches})
     if missing and required:
         failures.append({"code": "MULTIVIEW_REQUIRED_ART_MISSING", "names": missing})
     if not observed and required:
@@ -155,6 +177,8 @@ def _check_view_members(source: Path, *, asset: str, output: Path,
         "missing_required": missing, "near_duplicates_review": similar,
         "errors": failures, "valid": not failures,
         "character_identity_verified": False,
+        "side_profile_neck_connection_visually_verified": False,
+        "side_profile_head_yaw_90_native_supported": False,
         "reference_angles_used_as_rig_keyforms": False,
         "note": "Auxiliary art; angle guidance alone cannot move a native rig.",
     }
