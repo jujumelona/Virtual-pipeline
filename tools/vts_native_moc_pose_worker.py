@@ -100,6 +100,14 @@ def run(model3: Path, output: Path, *, size: int = 768) -> dict:
                 "different_from_neutral": changed is not None if params else None,
                 "rgb_stddev": [round(float(v), 4) for v in stat.stddev],
             })
+        # Native frame activity alone can pass a severely torn rig.
+        # A connected neutral BODY that breaks into large separate regions
+        # during tilt/roll is structurally invalid even though pixels changed.
+        from tools.vts_native_pose_integrity import inspect_native_pose_frames
+        geometry = inspect_native_pose_frames(output)
+        report["geometry"] = geometry
+        report["native_pose_geometry_passed"] = geometry["geometry_passed"]
+        report["failures"].extend(geometry["failures"])
         report["native_pose_rendered"] = len(report["frames"]) == len(POSES)
         report["pose_activity_passed"] = not report["failures"]
         (output / "native_pose_report.json").write_text(
