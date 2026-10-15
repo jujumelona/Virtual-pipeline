@@ -92,15 +92,30 @@ def scan() -> dict:
                     if mode != "3d" and asset != "body" and "part_art/mouth." in doc:
                         issues.append(dict(kit=key, document=name,
                                            code="body_part_example_in_non_body"))
+                    # New canonical 2D paragraph describes stage ownership
+                    # and contains explicit prohibitions (e.g. "PSD is NOT
+                    # generated"). Those must never be counted as obsolete
+                    # POSITIVE instructions. Older material outside the
+                    # canonical block is examined line by line.
+                    in_current_2d_contract = False
                     for i, line in enumerate(lines, 1):
-                        if line.strip().startswith("#") and line.strip().endswith("]"):
-                            pass
+                        if mode != "3d" and "[IMAGE_AI_SOURCE_ONLY_V2]" in line:
+                            in_current_2d_contract = True
+                        if in_current_2d_contract:
+                            if "[/IMAGE_AI_SOURCE_ONLY_V2]" in line:
+                                in_current_2d_contract = False
+                            continue
                         for code, rx in patterns.items():
                             if not rx.search(line):
                                 continue
-                            if MUST_IGNORE_LINE.search(line) and not line.lstrip().startswith("- **"):
-                                # Keep suspicious occurrences visible as review,
-                                # but don't claim an instruction violation.
+                            if code == "old_multiview_contract":
+                                severity = "blocker"
+                            elif MUST_IGNORE_LINE.search(line) or re.search(
+                                r"않는다|아니다|없다|배제|불필요|필수(?:가|는)? 아니다|"
+                                r"포함하지|제외|지시하지|대체하지|않도록", line
+                            ):
+                                # Stage-exclusion sentences are not active
+                                # instructions to build the excluded output.
                                 severity = "review"
                             else:
                                 severity = "blocker"
