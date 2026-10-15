@@ -63,7 +63,7 @@ def _alias(original: str, sam_label: str | None) -> tuple[str | None, str]:
     # Explicit anatomy has higher confidence than global visible-only SAM
     # masks when the original source part is hidden by hair or clothing.
     if family in ("eye", "eyes", "eyewhite", "eyelash", "irides"):
-        if family == "eyewhite" or tail & {"sclera", "white", "eyewhite"}:
+        if family == "eyewhite" or tail & {"sclera", "white", "whites", "eyewhite", "eyewhites"}:
             return "eyewhite", "fine_eye_source"
         if tail & {"closed", "close", "shut"}:
             return "eye close", "fine_closed_eye_source"
