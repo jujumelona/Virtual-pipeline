@@ -1,7 +1,8 @@
-"""Accept source-art-only image AI ZIP and prepare See-through inputs.
+"""Accept standalone image-AI PNG artworks and multiview references.
 
-The image generator supplies only PNG artwork and multiview references.
-No segmentation metadata, PSD or layer_order is read from this package.
+If independently painted part_art/ inputs exist, validate authored expression
+reference drawings too; otherwise preserve the legacy See-through-only path.
+PSD assembly and rigging are downstream responsibilities.
 """
 from __future__ import annotations
 
@@ -18,6 +19,44 @@ def is_source_only_zip(source: Path) -> bool:
                     or n == "manifest.json" or n.endswith("/manifest.json") for n in names)
             and any(n.endswith("outputs/master.png") or
                     n in ("master.png", "master_original.png") for n in names))
+
+
+def validate_authored_mouth_reference_states(source: Path, canvas: tuple[int, int]) -> dict:
+    """Validate actual close/open illustrations, not just two filenames.
+
+    The check proves distinct pixel content and consistent registration only;
+    it cannot prove the generator visually consulted the Live2D PSD template.
+    """
+    from PIL import ImageChops
+    paths = ("expression_refs/mouth_closed.png",
+             "expression_refs/mouth_open.png")
+    states = []
+    with ZipFile(source) as z:
+        for name in paths:
+            if name not in z.namelist() or z.namelist().count(name) != 1:
+                raise ValueError("AUTHORED_BODY_MOUTH_EXPRESSION_REFERENCE_MISSING: " + name)
+            info = z.getinfo(name)
+            if not 0 < info.file_size <= 48_000_000:
+                raise ValueError("AUTHORED_BODY_MOUTH_EXPRESSION_REFERENCE_SIZE: " + name)
+            raw = z.read(name)
+            with Image.open(io.BytesIO(raw)) as im:
+                im.load()
+                if im.format != "PNG" or im.size != canvas or im.mode not in ("RGB", "RGBA"):
+                    raise ValueError("AUTHORED_BODY_MOUTH_EXPRESSION_REFERENCE_INVALID: " + name)
+                states.append(im.convert("RGBA"))
+    def flattened(im):
+        bg = Image.new("RGBA", canvas, (255, 255, 255, 255))
+        bg.alpha_composite(im)
+        return bg.convert("RGB")
+    difference = ImageChops.difference(flattened(states[0]), flattened(states[1]))
+    region = difference.getbbox()
+    if region is None:
+        raise ValueError("AUTHORED_BODY_MOUTH_EXPRESSION_REFERENCES_IDENTICAL")
+    return {"status": "CLOSED_OPEN_PNG_CONTENT_DISTINCT",
+            "files": list(paths),
+            "difference_bbox_xyxy": list(region),
+            "actual_anime_style_verified": False,
+            "actual_template_consultation_verified": False}
 
 
 def prepare_source_only_2d(source: Path, output: Path, *, asset: str) -> dict:
@@ -63,6 +102,8 @@ def prepare_source_only_2d(source: Path, output: Path, *, asset: str) -> dict:
                                 output=output / "reference_views", required=True)
     from tools.vts_authored_part_art import has_authored_parts
     authored_parts_present = has_authored_parts(source)
+    expressions = (validate_authored_mouth_reference_states(source, canvas)
+                   if authored_parts_present and asset == "body" else None)
     return {
         "schema": "vtuber/image-ai-source-only-v2",
         "asset": asset, "master": str(target),
@@ -70,6 +111,7 @@ def prepare_source_only_2d(source: Path, output: Path, *, asset: str) -> dict:
         "parts": {"status": "SOURCE_ONLY_NEEDS_SEETHROUGH", "count": 0,
                   "visual_quality_verified": False},
         "authored_parts_present": authored_parts_present,
+        "mouth_expression_reference_qa": expressions,
         "source_only": True,
         "multiview_reference_applied_to_native_keyforms": False,
         "state": "SOURCE_ART_CHECKED_NOT_RIGGED",
