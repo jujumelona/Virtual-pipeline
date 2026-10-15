@@ -84,6 +84,7 @@ def source_contract(mode: str, asset: str) -> str:
                      "2D 전용 neck_underpaint/body_joint_overlaps PNG를 3D 납품 파일로 만들지 않는다.")
         return f"""### 이미지 생성 AI 3D 형태 참고 전용
 - 동일 자산의 8방향과 가림 참고 이미지를 직접 그려 제출한다.
+- 8방향 그림은 실제 VRM 메시/본이 아니다. 기존 자동 제작 과정에서 정면·후면·좌우 기본 시점 외 대각 시점의 메시 반영은 검증되지 않았으며, 회전 가림·목/어깨 접합·본 리깅을 완료했다고 주장하지 않는다.
 {deliver}
 {joint}
 {handoff}
