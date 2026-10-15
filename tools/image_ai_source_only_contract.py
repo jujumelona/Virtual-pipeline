@@ -152,6 +152,44 @@ def source_contract(mode: str, asset: str) -> str:
         if asset == "body" else
         " BODY 전용 expression_refs/mouth_closed.png 및 mouth_open.png를 새로 만들지 않는다."
     )
+    if asset == "body":
+        side_requirements = (
+            "- [목 파츠 실물 제작] `part_art/neck.png`는 턱 아래에 딱 맞춰 자르지 않는다. "
+            "정면에서 얼굴 레이어 아래로 목 피부를 입 높이 가까이까지 연장하고, "
+            "목 밑은 몸통 상부(쇄골 외피 안쪽)와 겹치게 실제 같은 색의 픽셀로 그린다. "
+            "단순한 검은 틈, 피부색 직사각형 또는 알파가 접하기만 한 선은 실패다. "
+            "`part_art/face.png`의 턱 아래 실제 알파와 목, 목과 몸통 알파가 각각 겹쳐야 한다.\\n"
+            "- [45°와 90° 구분] `head_three_quarter_L/R.png`는 각각 약 45° "
+            "머리 돌림의 형태 가이드다. `head_profile_L/R.png`는 각각 진짜 90° "
+            "측면 **형태 참고**이며 자동으로 MOC3 90° 키폼이 되지 않는다. "
+            "모든 각도에는 코→입→턱 선, 귀의 실제 앞뒤 위치, "
+            "턱 아래부터 목뿌리·양어깨 연결을 포함해 잘린 목이 없어야 한다. "
+            "좌우 시점은 단순 좌우 반전/정면 왜곡으로 만들지 않는다.\\n"
+            "- [상하 회전] `head_pitch_up/down.png`는 턱 아래 목 피부가 더 보이거나 "
+            "가려지는 변화, 귀·턱 끝·목뿌리의 앞뒤 가림을 실제 새 그림으로 설명한다. "
+            "`neck_underpaint.png`와 `body_joint_overlaps.png`는 "
+            "참고 그림만으로 인정되며 실제 `part_art/neck.png`와 "
+            "`part_art/torso.png`의 보이지 않는 픽셀을 대신하지 못한다.\\n"
+        )
+    else:
+        side_requirements = (
+            "- [자산별 옆/뒤 가림] 정면·좌우 3/4·좌우 측면·뒷면 참고에서 "
+            "선택한 자산의 앞뒤 깊이와 BODY 실제 앵커를 명확히 한다. "
+            "헤어는 귀 뒤 모근·목 뒤 가닥, 의상은 옷깃 아래 목·어깨·겨드랑이, "
+            "소품은 귀·머리·옷 장착 부위를 각각 해당될 때만 보강한다. "
+            "BODY 얼굴·눈·입·목을 이 자산 PNG에 복제하지 않는다.\\n"
+        )
+    native_limits = (
+        "- [실제 리깅 기능] Live2D PSD2Live 기본 자동 머리 요 회전은 "
+        "`ParamAngleX=-45..+45`, 피치는 `ParamAngleY=-30..+30`다. "
+        "90° 정측면 참고는 별도 키폼·교체 원화/추가 구현 없이는 재현되지 않는다. "
+        "다각도 참고 파일이 자동으로 변형 키폼에 적용됐다고 주장하지 않는다. "
+        if mode.startswith("live2d") else
+        "- [실제 리깅 기능] Inochi2D의 PNG·PSD 기반 원화는 "
+        "Inochi Creator 파츠 노드/메시/뼈/변형을 별도로 설정해야 움직인다. "
+        "참고 측면 그림은 실제 90° 키폼이 아니며 현재 파이프라인에서 "
+        "자동 Inochi2D 리깅이 확인되지 않았다. "
+    )
     return f"""### [ONE_PART_PER_GENERATION_V1] 실제 VTuber 파츠를 하나씩 그리는 작업 계약
 **이 단계는 '완성 이미지 한 장만 그린 뒤 남에게 전부 잘라 달라'가 아니다.**
 - 먼저 제공된 템플릿의 이미지와 실제 레이어/파츠 구조를 열어 눈으로 확인한다. 템플릿을 링크만 적어두고 미열람 상태로 생성하지 않는다. 참조: {template_url}
@@ -166,6 +204,8 @@ def source_contract(mode: str, asset: str) -> str:
 - 6) 해당 자산의 {consistency}을(를) 좌우 3/4·측면 참조와 교차 확인한다. **중립 파츠 합성은 원래 `outputs/master.png`의 해당 자산과 색·위치·모양이 같아야 한다.** 중복·가림 구멍·부유 파츠·선화 소실은 실패다.
 - 7) 필수 납품: `outputs/master.png`, `part_art/_order.txt`, 각 파츠의 개별 `part_art/*.png`, 다음 다각도 참조 PNG: {", ".join("reference_views/" + v + ".png" for v in VIEWS_2D[asset])}.{expression_delivery}
 - 8) 신뢰할 수 있는 투명 배경을 이미지 생성기가 지원하지 못하면 **하얀 배경 PNG를 투명 파츠라고 이름만 바꿔 내지 말고** 별도 검수 실패로 표시한다. 원본 파츠를 보존한 채 Colab에 See-through 분리 경로를 요청할 수 있다.
+- 9) 3/4·좌우 측면·상하 회전의 **기본 비교 참고 이미지**는 마스터와 같은 캔버스 크기·화면 기준축·캐릭터 척도를 유지한다. 눈·귀·턱·목 부착점 위치는 실제 회전에 따라 바뀌어도 재프레이밍·확대/축소해서 연결을 숨기지 않는다. 확대된 디테일 클로즈업은 별도 추가 그림으로만 제출한다.
+{side_requirements}{native_limits}
 {joint}
 - **제작 단계 확정:** 이미지 AI는 위에 명시한 독립 파츠의 실제 그림과 다각도 참조를 하나씩 제작한다. PSD 인코딩·메시·키폼·리깅은 별도 단계다. {handoff}
 - 기존 실제 템플릿을 열지 않았거나 파츠를 하나하나 생성하지 않은 결과는 완료라고 보고하지 않는다.
