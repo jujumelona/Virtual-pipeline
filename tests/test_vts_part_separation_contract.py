@@ -14,6 +14,7 @@ def test_complete_bustup_body_label_set_counts_each_anatomical_role():
             "eye." + side + ".iris",
             "eye." + side + ".upper.lash",
             "eyebrow." + side,
+            "ear." + side,
             "arm." + side + ".upper",
             "arm." + side + ".forearm",
             "hand." + side,
