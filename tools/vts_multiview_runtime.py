@@ -631,6 +631,37 @@ def package_detached_asset_from_ai(source: Path, imported: dict, output: Path,
     }
 
 
+def check_psd2live_body_semantics(metadata: dict) -> dict:
+    """Catch skin/eye/limb tags lost between authored PSD and generated MOC3.
+
+    The vendor can generate an animation for a recognized tag even when that
+    tag names the WRONG source pixels. A non-empty MOC3 is not enough.
+    """
+    records = (metadata or {}).get("records") or []
+    eyes = {"eyewhite": set(), "irides": set(), "eyelash": set()}
+    limbs = set()
+    for item in records:
+        name = str(item.get("semantic_tag") or "")
+        side = item.get("side")
+        if name in eyes and side in {"l", "r"}:
+            eyes[name].add(side)
+        if name == "handwear" and side in {"l", "r"}:
+            limbs.add(side)
+    missing = []
+    for kind, sides in eyes.items():
+        missing.extend(kind + "_" + side for side in ("l", "r") if side not in sides)
+    missing.extend("arm_hand_" + side for side in ("l", "r") if side not in limbs)
+    report = {"schema": "vtuber/semantic-rig-binding-v1",
+              "source_count": len(records),
+              "eye_and_arm_sides": {**{k:sorted(v) for k,v in eyes.items()},
+                                    "arm_hand": sorted(limbs)},
+              "missing": missing, "passed": bool(records) and not missing}
+    if not report["passed"]:
+        raise RuntimeError("NATIVE_RIG_LAYER_ROLE_LOST: "
+                           + json.dumps(report, ensure_ascii=False))
+    return report
+
+
 def process_completed_ai_2d_zip(source: Path, output: Path, *,
                                 edition: str, scope: str, asset: str,
                                 reference_image: Path | None = None,
@@ -686,6 +717,16 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
     if asset == "body":
         if native.get("state") != "psd2live_rigged_unverified":
             raise RuntimeError("PSD2LIVE_REAL_MODEL_NOT_CREATED")
+        # Fail before expensive independent/native rendering when eye-white
+        # pixels were mislabelled as irises or a limb lost character-side info.
+        try:
+            evidence["semantic_rig_binding"] = check_psd2live_body_semantics(
+                native.get("psd2live_layer_names") or {})
+        except RuntimeError as exc:
+            evidence["stage"] = "semantic_rig_binding_failed"
+            evidence["semantic_rig_binding_error"] = str(exc)
+            _write_json(output / "pipeline_result.json", evidence)
+            raise
         try:
             pose = render_independent_pose_preview(
                 Path(imported["psd"]), output / "independent_pose")
@@ -714,6 +755,15 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
             evidence["native_contact_sheet"] = str(build_review_contact_sheet(
                 preflight["views"], native_pose_report,
                 output / "quality" / "multiview_vs_native_moc3_comparison.png"))
+        if not native_pose_report or not native_pose_report.get("native_pose_geometry_passed", False):
+            # Native MOC3 compile success is NOT a completed model when arms
+            # are disconnected or clipping masks break during rotation.
+            evidence["stage"] = "native_pose_geometry_failed"
+            _write_json(output / "pipeline_result.json", evidence)
+            raise RuntimeError(
+                "NATIVE_RIG_POSE_GEOMETRY_FAILED: actual MOC3 screenshots "
+                "show disconnected body parts, missing geometry QA, or canvas clipping; "
+                + str(evidence.get("native_pose_error", "see native_moc3_pose/native_pose_report.json")))
     _write_json(output / "pipeline_result.json", evidence)
     return evidence
 
