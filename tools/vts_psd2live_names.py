@@ -137,6 +137,25 @@ def normalize_layer_names(layers: list[dict]) -> tuple[list[dict], dict]:
             side = "l"
         elif "right" in tokens or "r" in tokens:
             side = "r"
+        # Synthetic PSD intermediates such as arm.004/arm.005 lost their
+        # original left/right name. Recover side only from a strong,
+        # isolated on-canvas silhouette: screen-left is character RIGHT.
+        # Never classify torso/head or broad centered silhouettes this way.
+        if side is None and tag in {"handwear", "legwear", "footwear", "ears"}:
+            image = layer.get("image")
+            if image is not None:
+                rgba = image.convert("RGBA")
+                bbox = rgba.getchannel("A").getbbox()
+                if bbox and rgba.width >= 100:
+                    center = (bbox[0] + bbox[2]) / 2.0
+                    relative = center / rgba.width
+                    span = (bbox[2] - bbox[0]) / rgba.width
+                    if span < 0.42 and relative < 0.38:
+                        side = "r"
+                        evidence += "+inferred_screen_left_character_right"
+                    elif span < 0.42 and relative > 0.62:
+                        side = "l"
+                        evidence += "+inferred_screen_right_character_left"
         # In v3.3.1 both side and variant suffix are recognized by the
         # classifier. Deterministic numeric IDs prevent collisions.
         new = (f"{tag}_{i:04d}" + (f"-{side}" if side else "")) if tag else old
