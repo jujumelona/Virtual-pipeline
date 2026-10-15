@@ -48,6 +48,17 @@ def source_contract(mode: str, asset: str) -> str:
             + ", ".join("reference_views/" + v + ".png" for v in VIEWS_2D[asset])
             + ". 필요한 경우 expression_refs/에 완성된 표정 참고 PNG를 더한다."
         )
+    if mode != "3d" and asset == "body":
+        # Complete expression reference drawings are allowed; PSD/raster
+        # segmentation and reusable oral overlays belong to Colab, not AI.
+        deliver += (
+            " - BODY의 입은 닫힘/벌림을 각각 실제로 그린 "
+            "expression_refs/mouth_closed.png 및 "
+            "expression_refs/mouth_open.png도 생성한다. 열린 입에는 "
+            "입안의 어두운 공간·윗니·혀가 실제로 구별되게 보이고, "
+            "다른 얼굴과 위치·선화·색조가 일치해야 한다. "
+            "이 둘은 상태별 완성 참고 원화이며 PSD 레이어/마스크가 아니다."
+        )
     joint = {
         "body": (
             "- 목·턱·좌우 어깨·상완·전완·손의 실루엣을 시점마다 정합되게 그린다. "
