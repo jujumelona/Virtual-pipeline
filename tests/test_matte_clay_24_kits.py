@@ -9,6 +9,7 @@ import pytest
 from tools.normalize_matte_clay_kits import (
     ROOT, MODES, ASSETS, START, END, normalize,
 )
+from tools.image_ai_source_only_contract import BEGIN as SOURCE_BEGIN, END as SOURCE_END
 
 DOCUMENTS = {
     "00_MASTER_FIRST.md", "00_DELIVERY_AND_RECHECK.md", "00_READ_FIRST.md",
@@ -40,6 +41,7 @@ def test_published_kit_is_complete_scoped_and_idempotent(mode, asset):
 
     for name, data in docs.items():
         assert data.count(START) == data.count(END) == 1, (path, name)
+        assert data.count(SOURCE_BEGIN) == data.count(SOURCE_END) == 1, (path, name)
         assert normalize(data, asset, mode, name) == data, (path, name)
         if asset == "body":
             assert "불투명 단색 무광 찰흙형" in data, (path, name)
@@ -50,8 +52,8 @@ def test_published_kit_is_complete_scoped_and_idempotent(mode, asset):
     master = docs["00_MASTER_FIRST.md"]
     assert master.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]")
     if asset == "body":
-        assert "removable_neutral_modesty_band_upper" in master
-        assert "목과 양쪽 어깨" in master
+        assert "See-through" in master
+        assert "목·턱·좌우 어깨" in master
         assert "얼굴" in master and "눈" in master
         assert "MATTE_CLAY_BODY_V1" in master
     if mode == "3d":
@@ -59,7 +61,9 @@ def test_published_kit_is_complete_scoped_and_idempotent(mode, asset):
         assert "views/" in docs["04_OUTPUT_FILES.md"]
     else:
         assert "reference_views/" in docs["04_OUTPUT_FILES.md"]
-        assert "isolated_parts/" in docs["04_OUTPUT_FILES.md"]
+        assert "outputs/master.png" in docs["04_OUTPUT_FILES.md"]
+        assert "파츠 PNG" in docs["04_OUTPUT_FILES.md"]  # expressly forbidden
+        assert "See-through" in docs["04_OUTPUT_FILES.md"]
 
 def test_exactly_six_body_and_eighteen_independent_assets():
     paths = sorted(ROOT.glob("*.zip"))
