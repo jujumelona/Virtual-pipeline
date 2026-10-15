@@ -19,13 +19,14 @@ def inspect_native_pose_frames(root: Path) -> dict:
     import numpy as np
     from PIL import Image
     try:
-        from scipy.ndimage import label
+        from scipy.ndimage import label, binary_fill_holes
     except ImportError as exc:
         raise RuntimeError("NATIVE_GEOMETRY_QA_REQUIRES_SCIPY") from exc
 
     root = Path(root)
     entries, failures = [], []
     neutral = None
+    neutral_mouth_hole = 0
     for pose in POSES:
         path = root / (pose + ".png")
         with Image.open(path) as frame:
@@ -48,7 +49,28 @@ def inspect_native_pose_frames(root: Path) -> dict:
                   "largest_connected_fraction": round(fraction, 6),
                   "largest_components_px": components[:8],
                   "side_border_foreground_pixels": sides}
+        # Detect a major transparent face-mask hole, not only detached pieces.
+        # A large black void that *disappears* on opening the mouth is a
+        # particularly reliable signature of wrong neutral mouth occlusion.
+        face_rows = max(1, int(rgb.shape[0] * .35))
+        internal = binary_fill_holes(foreground) & ~foreground
+        holes, n_holes = label(internal[:face_rows], structure=np.ones((3, 3), dtype=np.uint8))
+        hole_sizes = np.bincount(holes.ravel(), minlength=n_holes + 1)[1:]
+        max_face_hole = int(hole_sizes.max()) if hole_sizes.size else 0
+        face_pixels = max(1, int(foreground[:face_rows].sum()))
+        record["largest_transparent_face_hole_px"] = max_face_hole
+        record["face_hole_fraction"] = round(max_face_hole / face_pixels, 6)
         entries.append(record)
+        if pose == "neutral":
+            neutral_mouth_hole = max_face_hole
+        if pose == "mouth_open" and neutral and neutral_mouth_hole >= 500:
+            if (neutral_mouth_hole >= .022 * max(1, int(neutral["foreground_pixels"])) * .25
+                    and max_face_hole < neutral_mouth_hole * .5):
+                failures.append({
+                    "pose": "neutral", "code": "NATIVE_NEUTRAL_FACE_OCCLUSION_HOLE",
+                    "neutral_hole_pixels": neutral_mouth_hole,
+                    "mouth_open_hole_pixels": max_face_hole,
+                })
         if pose == "neutral":
             neutral = record
             if fraction < 0.95:
