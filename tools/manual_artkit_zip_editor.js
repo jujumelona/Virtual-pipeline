@@ -1,0 +1,15 @@
+/* Manual ZIP member reader/writer for direct, reviewed MD edits.
+   ZIP method 0 only (the published 24 image kits are stored, not deflated).
+   Expressions return accessors; this script does NOT auto-edit or run CI. */
+(function(){
+const BASE="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const lut=new Int16Array(128).fill(-1);for(let i=0;i<64;i++)lut[BASE.charCodeAt(i)]=i;
+function b64d(s){let a=[],n=0,bits=0;for(let i=0;i<s.length;i++){let c=s.charCodeAt(i);if(c===61)break;if(c>127||lut[c]<0)continue;n=(n<<6)|lut[c];bits+=6;if(bits>=8){bits-=8;a.push(n>>>bits&255)}}return a}
+function b64e(b){let o=[];for(let i=0;i<b.length;i+=3){let n=(b[i]<<16)|((b[i+1]||0)<<8)|(b[i+2]||0);o.push(BASE[n>>>18&63]+BASE[n>>>12&63]+(i+1<b.length?BASE[n>>>6&63]:"=")+(i+2<b.length?BASE[n&63]:"="))}return o.join("")}
+function unicode(b){let a=[];for(let i=0;i<b.length;){let c=b[i++];a.push(c<128?c:c<224?(c&31)<<6|b[i++]&63:c<240?(c&15)<<12|(b[i++]&63)<<6|b[i++]&63:((c&7)<<18)|(b[i++]&63)<<12|(b[i++]&63)<<6|b[i++]&63)}let out=[];for(let i=0;i<a.length;i+=6000)out.push(String.fromCodePoint(...a.slice(i,i+6000)));return out.join("")}
+function bytes(s){let a=[];for(let i=0;i<s.length;i++){let c=s.codePointAt(i);if(c>65535)i++;if(c<128)a.push(c);else if(c<2048)a.push(192|c>>6,128|c&63);else if(c<65536)a.push(224|c>>12,128|(c>>6)&63,128|c&63);else a.push(240|c>>18,128|(c>>12)&63,128|(c>>6)&63,128|c&63)}return a}
+function unpack(input){const b=Array.isArray(input)?input:b64d(input);let u=p=>b[p]|b[p+1]<<8,v=p=>(b[p]|b[p+1]<<8|b[p+2]<<16|b[p+3]<<24)>>>0,p=0,f={};while(v(p)===0x04034b50){if(u(p+8)!==0)throw Error("Expected stored ZIP member");let z=v(p+18),n=u(p+26),e=u(p+28),j=p+30+n+e;f[unicode(b.slice(p+30,p+30+n))]=unicode(b.slice(j,j+z));p=j+z}if(Object.keys(f).length!==14)throw Error("Expected exactly 14 MD members");return f}
+let table=new Uint32Array(256);for(let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=c&1?0xedb88320^(c>>>1):c>>>1;table[i]=c>>>0}function crc(b){let c=0xffffffff;for(let x of b)c=table[(c^x)&255]^(c>>>8);return(c^0xffffffff)>>>0}
+function pack(f){let a=[],entries=[];let put=(...xs)=>a.push(...xs),u16=x=>put(x&255,x>>>8&255),u32=x=>put(x&255,x>>>8&255,x>>>16&255,x>>>24&255);for(let [n,t]of Object.entries(f)){let data=bytes(t),name=bytes(n),at=a.length,c=crc(data);put(80,75,3,4);u16(20);u16(2048);u16(0);u16(0);u16(0);u32(c);u32(data.length);u32(data.length);u16(name.length);u16(0);put(...name);put(...data);entries.push({name,data,c,at})}let off=a.length;for(let v of entries){put(80,75,1,2);u16(20);u16(20);u16(2048);u16(0);u16(0);u16(0);u32(v.c);u32(v.data.length);u32(v.data.length);u16(v.name.length);u16(0);u16(0);u16(0);u16(0);u32(0);u32(v.at);put(...v.name)}let size=a.length-off;put(80,75,5,6);u16(0);u16(0);u16(entries.length);u16(entries.length);u32(size);u32(off);u16(0);return b64e(a)}
+return {unpack,pack};
+})()
