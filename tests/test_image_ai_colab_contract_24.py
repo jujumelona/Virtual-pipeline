@@ -75,7 +75,8 @@ def test_shipped_body_zip_has_opaque_swimsuit_default_and_preserves_readfirst_ga
                  "09_VISUAL_ART_QUALITY.md", "10_ANIME_STYLE.md"):
         assert texts[name].count(COVER_MARKER) == 1
         assert "성인(20세 이상)" in texts[name]
-        assert "비키니형 스포츠 수영복" in texts[name]
+        assert "끈 없는 반도(bandeau)/일자형 튜브 수영복 상의" in texts[name]
+        assert "하이넥 스포츠 브라" in texts[name]
         assert "하이웨이스트 쇼츠형 하의" in texts[name]
         assert normalize_body_swimwear(
             texts[name], mode=mode, name=name) == texts[name]
