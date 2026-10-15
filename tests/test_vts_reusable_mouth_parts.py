@@ -32,7 +32,7 @@ def test_mouth_parts_are_separate_transparent_registered_png():
     ]
     alpha_boxes = []
     for path, data in items:
-        assert data.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+        assert data[:4] == bytes((137, 80, 78, 71))
         with Image.open(BytesIO(data)) as png:
             assert png.mode == "RGBA"
             assert png.size == (320, 320)
