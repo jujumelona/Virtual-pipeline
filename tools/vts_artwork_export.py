@@ -1117,6 +1117,19 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         bilateral_splits=bilateral_splits, qwen_requested=qwen)
     extras.append(("metadata/part_separation_audit.json",
                    json.dumps(separation_audit, ensure_ascii=False, indent=2).encode("utf-8")))
+    # High-reuse shapes (cavity, teeth and tongue) belong to BODY only.
+    # Package as independently registered RGBA artwork, not extra visible
+    # layers in the neutral PSD. Unconditional insertion would create a
+    # second mouth in the static composite and regress source fidelity.
+    reusable_parts_report = None
+    if edition == "free" or asset_kind == "body":
+        from tools.vts_reusable_mouth_parts import generate_reusable_mouth_assets
+        reusable_assets, reusable_parts_report = generate_reusable_mouth_assets(
+            layers, canvas)
+        extras.extend(reusable_assets)
+        extras.append(("metadata/reusable_mouth_parts.json",
+                       json.dumps(reusable_parts_report, ensure_ascii=False,
+                                  indent=2).encode("utf-8")))
     from tools.vts_official_settings import editor_settings_md
     official_sam_labels = output / "official_sam19" / "sam19.json"
     if official_sam_labels.is_file():
@@ -1162,6 +1175,7 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         "qwen_attempts": attempted, "qwen_splits_accepted": generated,
         "bilateral_splits": bilateral_splits,
         "part_separation_audit": separation_audit,
+        "reusable_mouth_parts": reusable_parts_report,
         "psd2live_layer_names": rig_names_report,
         "official_sam19_attempts": len(semantic_sam_trace),
         "official_sam19_accepted": sum(bool(x.get("accepted")) for x in semantic_sam_trace),
