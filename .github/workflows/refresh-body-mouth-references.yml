@@ -1,19 +1,10 @@
 name: Refresh 2D per-part template artwork briefs
 
 on:
-  push:
-    paths:
-      - ".github/workflows/refresh-body-mouth-references.yml"
-      - "tools/update_source_only_body_kits.py"
-      - "tools/image_ai_source_only_contract.py"
-      - "tools/image_ai_read_first_gate.py"
-      - "tools/image_ai_quality_first_gate.py"
-      - "tools/apply_existing_vtuber_template_slots.py"
-      - "tools/normalize_matte_clay_kits.py"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: refresh-all-2d-part-art-briefs
