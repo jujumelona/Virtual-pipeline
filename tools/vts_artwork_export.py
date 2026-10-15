@@ -1089,6 +1089,20 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     if psd2live_names:
         from tools.vts_psd2live_names import normalize_layer_names
         layers, rig_names_report = normalize_layer_names(layers)
+    # Audit the *pre-normalization source names*. PSD2Live's classifier uses
+    # broader classes (e.g. HANDWEAR for arms); they do not prove that upper
+    # arms, forearms and hands were separately cut. SAM19 'eyes' likewise
+    # must not masquerade as iris/eyewhite/upper-lash.
+    from tools.vts_part_separation_contract import audit_part_separation
+    separation_audit = audit_part_separation(
+        [layer.get("source_name", layer["name"]) for layer in layers],
+        asset="body" if edition == "free" else asset_kind, scope=scope,
+    )
+    print("[VTS PART CUT AUDIT] observed=" +
+          str(separation_audit["named_role_coverage"]) + "/" +
+          str(separation_audit["named_role_total"]) +
+          " missing_or_unproven=" +
+          ",".join(separation_audit["missing_or_unproven_roles"]), flush=True)
     name = "avatar" if edition == "free" else asset_kind
     psd_path = output / (name + ".psd")
     group_count = _write_psd(layers, psd_path, free=edition == "free",
@@ -1101,6 +1115,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         layers, edition=edition, scope=scope, asset_kind=asset_kind,
         qwen_attempts=attempted, split_names=generated, group_count=group_count,
         bilateral_splits=bilateral_splits, qwen_requested=qwen)
+    extras.append(("metadata/part_separation_audit.json",
+                   json.dumps(separation_audit, ensure_ascii=False, indent=2).encode("utf-8")))
     from tools.vts_official_settings import editor_settings_md
     official_sam_labels = output / "official_sam19" / "sam19.json"
     if official_sam_labels.is_file():
@@ -1145,6 +1161,7 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
         "asset_kind": asset_kind, "canvas": list(canvas),
         "qwen_attempts": attempted, "qwen_splits_accepted": generated,
         "bilateral_splits": bilateral_splits,
+        "part_separation_audit": separation_audit,
         "psd2live_layer_names": rig_names_report,
         "official_sam19_attempts": len(semantic_sam_trace),
         "official_sam19_accepted": sum(bool(x.get("accepted")) for x in semantic_sam_trace),
