@@ -42,6 +42,17 @@ def test_actual_rotating_body_cannot_lose_head_and_arms(tmp_path: Path):
     assert ("roll_right", "NATIVE_BODY_ROTATION_CLIPPED_AT_CANVAS") in found
 
 
+def test_neutral_mouth_transparency_mask_hole_is_rejected(tmp_path: Path):
+    for pose in POSES:
+        frame = connected_body()
+        if pose != "mouth_open":
+            ImageDraw.Draw(frame).ellipse((142, 64, 177, 90), fill="black")
+        frame.save(tmp_path / (pose + ".png"))
+    report = inspect_native_pose_frames(tmp_path)
+    assert any(f["code"] == "NATIVE_NEUTRAL_FACE_OCCLUSION_HOLE"
+               for f in report["failures"])
+
+
 def test_connected_complete_body_is_not_falsely_rejected(tmp_path: Path):
     for pose in POSES:
         connected_body().save(tmp_path / (pose + ".png"))
