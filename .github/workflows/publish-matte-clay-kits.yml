@@ -5,6 +5,7 @@ on:
     paths:
       - "tools/normalize_matte_clay_kits.py"
       - ".github/workflows/publish-matte-clay-kits.yml"
+      - "tests/test_matte_clay_24_kits.py"
   workflow_dispatch:
 permissions:
   contents: write
@@ -24,6 +25,10 @@ jobs:
         run: |
           python tools/normalize_matte_clay_kits.py --write
           python tools/normalize_matte_clay_kits.py --check
+      - name: Test all published MD contracts against actual ZIPs
+        run: |
+          python -m pip install --disable-pip-version-check pytest
+          python -m pytest -q tests/test_matte_clay_24_kits.py
       - name: Publish 24 replaced existing canonical ZIPs directly to main
         run: |
           if git diff --quiet -- docs/image_ai_kits_v2/zips; then
