@@ -12,7 +12,7 @@ import re
 # Only aliases listed in PSD2Live's LayerClassifier, not invented tags.
 SAM_ALIASES = {
     "hair": "front hair", "headwear": "headwear", "face": "face",
-    "eyes": "irides", "eyewear": "eyewear", "ears": "ears",
+    "eyewear": "eyewear", "ears": "ears",
     "earwear": "earwear", "nose": "nose", "mouth": "mouth",
     "neck": "neck", "neckwear": "neckwear", "topwear": "topwear",
     "handwear": "handwear", "bottomwear": "bottomwear",
@@ -23,7 +23,7 @@ FAMILY_ALIASES = {
     "face": "face", "head": "face", "body": "topwear", "torso": "topwear",
     "pelvis": "bottomwear", "thigh": "legwear", "shin": "legwear",
     "hair": "front hair", "eyebrow": "eyebrow", "brow": "eyebrow",
-    "eye": "irides", "eyes": "irides", "mouth": "mouth",
+    "mouth": "mouth",
     "nose": "nose", "ear": "ears", "ears": "ears",
     "neck": "neck", "cloth": "topwear", "outfit": "topwear",
     "sleeve": "handwear", "hand": "handwear", "arm": "handwear",
@@ -57,6 +57,8 @@ def _alias(original: str, sam_label: str | None) -> tuple[str | None, str]:
         return "facedetail", "specific_face_source"
     # A generated second-pass face.*.pass2.* layer is intentionally SAM-partitioned.
     # Unlike authored face_skin, its class comes from the observed SAM mask.
+    if sam_label == "eyes" and family in {"unknown", "mystery", "raw"}:
+        return None, "sam_generic_eyes_not_iris"
     if family == "face" and "pass2" in tail and sam_label in SAM_ALIASES:
         return SAM_ALIASES[sam_label], "sam_second_pass_partition"
 
@@ -71,6 +73,9 @@ def _alias(original: str, sam_label: str | None) -> tuple[str | None, str]:
             return "eyelash", "fine_eye_source"
         if family == "irides" or tail & {"iris", "irides", "pupil", "highlight"}:
             return "irides", "fine_eye_source"
+        # A whole eye/eyes mask includes lashes, whites and irises; it is NOT
+        # safe to send to the iris-only driver. Require a finer split.
+        return None, "unsplit_eye_not_iris"
     if family == "hair":
         if "back" in tail or "rear" in tail:
             return "back hair", "explicit_hair_depth"
