@@ -116,24 +116,18 @@ def run(model3: Path, output: Path, *, size: int = 768) -> dict:
         report["geometry"] = geometry
         report["native_pose_geometry_passed"] = geometry["geometry_passed"]
         report["failures"].extend(geometry["failures"])
-        # A parameter may exist while its iris artmesh is still unbound or
-        # misclassified. Test actual gaze-only change within the face ROI.
-        from PIL import ImageChops
-        import numpy as np
-        eyes_roi = (int(size * 0.26), int(size * 0.08),
-                    int(size * 0.74), int(size * 0.34))
-        for label, other in (("gaze_left", "gaze_right"),
-                             ("gaze_up", "gaze_down")):
-            with Image.open(output / (label + ".png")) as a, Image.open(output / (other + ".png")) as b:
-                lhs = np.asarray(a.convert("RGB").crop(eyes_roi), dtype=np.int16)
-                rhs = np.asarray(b.convert("RGB").crop(eyes_roi), dtype=np.int16)
-            affected = int(np.count_nonzero(np.max(np.abs(lhs - rhs), axis=2) > 12))
-            report.setdefault("eye_gaze_tests", []).append(
-                {"pair":[label, other], "changed_face_pixels": affected})
-            if affected < 50:
-                report["failures"].append({"code": "NATIVE_IRIS_GAZE_NOT_ANIMATED",
-                                            "poses": [label, other],
-                                            "changed_face_pixels": affected})
+        # Compare the actual MOC3 screenshots by semantic control. Previous
+        # fixed screen-space eye ROI could pass eye-only yaw or miss displaced
+        # eyes entirely when artwork was not centered on the canvas.
+        from tools.vts_pose_parameter_isolation import inspect_pose_parameter_isolation
+        isolation = inspect_pose_parameter_isolation(output)
+        report["parameter_isolation"] = isolation
+        report["failures"].extend(isolation["failures"])
+        if not isolation["passed"] and not isolation["failures"]:
+            report["failures"].append({
+                "code": "NATIVE_GAZE_NOT_ANIMATED",
+                "gaze_changed_pixels": isolation["gaze_changed_pixels"],
+            })
         report["native_pose_rendered"] = len(report["frames"]) == len(POSES)
         report["pose_activity_passed"] = not report["failures"]
         (output / "native_pose_report.json").write_text(
