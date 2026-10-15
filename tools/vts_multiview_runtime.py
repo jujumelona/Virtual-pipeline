@@ -678,28 +678,46 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
     source = Path(source).resolve(strict=True)
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
-    preflight = prepare_multiview_input(
-        source, output / "source_qa", asset=asset, edition=edition,
-        require_views=require_views)
-    from tools.vts_ai_pack_import import prepare_large_ai_pack
-    imported = prepare_large_ai_pack(source, output / "imported", edition=edition)
+    from tools.vts_source_only_pack import is_source_only_zip, prepare_source_only_2d
+    source_only = is_source_only_zip(source)
+    if source_only:
+        preflight = prepare_source_only_2d(
+            source, output / "source_qa", asset=asset)
+        imported = None
+    else:
+        preflight = prepare_multiview_input(
+            source, output / "source_qa", asset=asset, edition=edition,
+            require_views=require_views)
+        from tools.vts_ai_pack_import import prepare_large_ai_pack
+        imported = prepare_large_ai_pack(source, output / "imported", edition=edition)
     # Authored RGBA/PSD takes precedence over See-through guesses. See-through
     # remains available in the image-only path in vts_production.
     # An isolated detachable layer pack cannot be routed into a FREE
     # whole-character avatar builder; it is a PSD attachment to a real body.
     if asset == "body":
         from tools.vts_production import make_cubism_handoff
+        # Source-only ZIP: pass the original master to the existing real
+        # See-through inference. An already-partitioned legacy ZIP bypasses it.
+        master = Path(preflight["master"]) if source_only else imported["master"]
         native = make_cubism_handoff(
-            imported["master"], output / "native",
+            master, output / "native",
             edition=edition, scope=scope,
             asset_kind=asset if edition == "pro" else None,
             reference_image=reference_image,
-            external_psd=Path(imported["psd"]),
-            qwen=False, preserve_supplied_parts=True,
+            external_psd=None if source_only else Path(imported["psd"]),
+            qwen=False, preserve_supplied_parts=not source_only,
             psd2live=True)
     else:
         if reference_image is None:
             raise ValueError("DETACHED_ASSET_REQUIRES_BODY_REFERENCE_IMAGE")
+        if source_only:
+            from tools.vts_production import run_see_through
+            # Splitting happens in Colab, never inside 24 image-AI ZIP kits.
+            inferred = run_see_through(
+                Path(preflight["master"]), output / "decomposition",
+                third_party=Path("/content/vtuber_builder/third_party/see-through"),
+                qwen=False)
+            imported = {"master": Path(preflight["master"]), "psd": Path(inferred)}
         native = package_detached_asset_from_ai(
             source, imported, output / "detached",
             asset=asset, body_reference=reference_image,
@@ -709,7 +727,10 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
     evidence = {"schema": "vtuber/ai-2d-open-source-pipeline-v1",
                 "source_zip": str(source), "edition": edition,
                 "scope": scope, "asset": asset,
-                "source_artwork": str(imported["psd"]),
+                "source_artwork": str(native.get("art_psd") if source_only and asset == "body"
+                                      else imported["psd"]),
+                "source_art_only": source_only,
+                "layer_decomposition": "See-through" if source_only else "author_supplied",
                 "stage": "complete" if asset == "body" else "attachment_ready",
                 "native": native, "source_qa": preflight,
                 "pose_qa": None,
@@ -729,7 +750,7 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
             raise
         try:
             pose = render_independent_pose_preview(
-                Path(imported["psd"]), output / "independent_pose")
+                Path(evidence["source_artwork"]), output / "independent_pose")
             evidence["pose_qa"] = pose
         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
             evidence["pose_qa_error"] = str(exc)
