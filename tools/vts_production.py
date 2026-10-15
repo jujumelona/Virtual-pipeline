@@ -64,6 +64,22 @@ def _semantic_family(name: str) -> str:
         "head": "body.head", "hair": "hair.general",
         "face": "face", "ears": "ear",
     }
+    # Keep originally supplied BODY anatomy identity *before* the generic
+    # See-through classification collapses shoulders/jaw/scalp to cloth or
+    # upper_arm_L/forearm_R into undirected arm panels. These IDs become
+    # the parent/side controls PSD2Live can actually bind.
+    stem = raw.split(".")
+    first = stem[0] if stem else ""
+    side = next(("left" if t in ("l", "left") else "right"
+                 for t in stem if t in ("l", "r", "left", "right")), None)
+    if first in ("upper", "forearm", "shoulder") and side:
+        form = {"upper": "upper", "forearm": "forearm", "shoulder": "shoulder"}[first]
+        if first == "upper" and len(stem) > 1 and stem[1] != "arm":
+            form = None
+        if form is not None:
+            return "arm." + side + "." + form
+    if first in ("skin", "scalp", "jaw"):
+        return {"skin": "body.skin", "scalp": "face.scalp", "jaw": "face.jaw"}[first]
     # The See-through / Qwen layer name is a semantic identity, not just an
     # annotation. Never discard left/right, front/back, iris or lid suffixes.
     canonical = ("hair.", "eye.", "eyebrow.", "mouth.", "cloth.",
