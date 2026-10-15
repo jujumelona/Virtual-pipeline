@@ -12,6 +12,21 @@ PARAMS={
  "body.angle_x":(-15,0,15),"body.angle_y":(-15,0,15),
  "body.angle_z":(-15,0,15),"breath":(0,0,1),
 }
+def _neck_joint_weight(y_coordinates: np.ndarray) -> np.ndarray:
+    """Fix lower neck to torso while upper neck follows the head.
+
+    Coordinates are global image-space (increasing Y downward). This is a
+    seam-safety deformation, not measured 90-degree profile geometry.
+    """
+    y = np.asarray(y_coordinates, dtype=float)
+    if y.size == 0:
+        return np.asarray([], dtype=float)
+    span = max(float(np.ptp(y)), 1.0)
+    progress = np.clip((y - float(y.min())) / span, 0.0, 1.0)
+    smooth = progress * progress * (3.0 - 2.0 * progress)
+    return 1.0 - smooth
+
+
 def _role(part: str) -> str:
     return part.casefold().replace("_", ".").split(".")[0]
 
@@ -123,6 +138,14 @@ def build_keyforms(meshes_json: str, parts_json: str,
             elif p.endswith(".y"):dx=np.zeros(len(v));dy=np.full(len(v),0.20*span[1])
             elif p=="breath":dx=v[:,0]*0.018;dy=-np.full(len(v),0.012*span[1])
             else:continue
+            # The neck is an actual bridge, not a rigid head ornament.
+            # Let its top follow the jaw while its lower-most vertices stay
+            # rooted at the torso, preventing a cut when the head yaws,
+            # pitches or tilts. Final seams still need native pose renders.
+            if role == "neck" and p.startswith("head.angle_"):
+                influence = _neck_joint_weight(verts[:, 1])
+                dx = np.asarray(dx) * influence
+                dy = np.asarray(dy) * influence
             # Endpoints need independent offsets: eye.open has default == max.
             high_amount=math.radians(hi-mid) if "angle" in p else hi-mid
             low_amount=math.radians(low-mid) if "angle" in p else low-mid
