@@ -251,6 +251,20 @@ def apply(path: Path, *, write: bool) -> bool:
         if archive.testzip() is not None:
             raise ValueError("Invalid CRC: " + path.name)
         old = {name: archive.read(name).decode("utf-8") for name in names}
+    if mode != "3d":
+        # Obsolete 2D multi-view output blocks requested image AI-written
+        # PSD, isolated_parts and masks. Current image AI creates one
+        # correctly anchored part_art/*.png per call instead. This legacy
+        # generator must not restore those old instructions on any rebuild.
+        if all(
+            doc.count("## [IMAGE_AI_SOURCE_ONLY_V2]") == 1
+            and doc.count("## [/IMAGE_AI_SOURCE_ONLY_V2]") == 1
+            and "## [IMAGE_ART_MULTIVIEW_SOURCE_ONLY_V1]" not in doc
+            for doc in old.values()
+        ):
+            return False
+        raise ValueError("OBSOLETE_2D_MULTIVIEW_GENERATOR: "
+                         "regenerate using python -m tools.update_source_only_body_kits")
     new = old.copy()
     section = guidance(mode, asset)
     for name in EXPECTED:
