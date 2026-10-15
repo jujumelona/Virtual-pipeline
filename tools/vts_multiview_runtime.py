@@ -694,7 +694,8 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
         from tools.vts_authored_part_art import assemble_authored_parts
         authored_report = assemble_authored_parts(
             source, Path(preflight["master"]), output / "authored_parts",
-            asset=asset, edition=edition)
+            asset=asset, edition=edition, scope=scope,
+            enforce_required_parts=True)
         imported = {
             "master": Path(preflight["master"]),
             "psd": Path(authored_report["psd"]),
