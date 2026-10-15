@@ -1,4 +1,4 @@
-"""Synchronize only five published 2D BODY source-art instruction ZIPs.
+"""Synchronize the 20 published 2D source-art instruction ZIPs.
 
 Image AI: draw full illustrations and closed/open expression reference PNGs.
 Colab: synthesize independent cavity/tooth/tongue layer artwork and perform
@@ -12,7 +12,7 @@ from pathlib import Path
 import tempfile
 from zipfile import ZipFile
 
-from tools.image_ai_source_only_contract import BEGIN, END, source_contract
+from tools.image_ai_source_only_contract import BEGIN, END, source_contract, source_only_output_file
 
 ROOT = Path(__file__).resolve().parents[1] / "docs/image_ai_kits_v2/zips"
 MODES = ("live2d_bust_up", "live2d_upper", "live2d_full",
@@ -24,24 +24,24 @@ def update_one(path: Path, *, write: bool) -> bool:
         infos = original.infolist()
         names = [x.filename for x in infos]
         if len(names) != 14 or len(set(names)) != 14 or original.testzip():
-            raise ValueError("BODY_KIT_EXPECTS_14_VALID_MDS: " + str(path))
+            raise ValueError("2D_KIT_EXPECTS_14_VALID_MDS: " + str(path))
         old = {name: original.read(name).decode("utf-8") for name in names}
-    text = source_contract(path.stem.split("__")[0], "body")
+    mode_name, asset = path.stem.split("__")\n    text = source_contract(mode_name, asset)
     updated = {}
     for name, body in old.items():
         if body.count(BEGIN) != 1 or body.count(END) != 1:
             raise ValueError("SOURCE_ONLY_REFERENCE_MARKER_MISSING: " + path.name + "/" + name)
         begin = body.index(BEGIN) + len(BEGIN)
         end = body.index(END, begin)
-        updated[name] = body[:begin] + "\n" + text + body[end:]
+        updated[name] = (source_only_output_file(mode_name, asset)\n                         if name == "04_OUTPUT_FILES.md" else\n                         body[:begin] + "\n" + text + body[end:])
     if updated == old:
         return False
     if not write:
-        raise ValueError("BODY_KIT_REBUILD_REQUIRED: " + path.name)
+        raise ValueError("2D_KIT_REBUILD_REQUIRED: " + path.name)
     tmp = None
     try:
         with tempfile.NamedTemporaryFile(
-            dir=path.parent, prefix="source-mouth-", suffix=".zip",
+            dir=path.parent, prefix="source-per-part-", suffix=".zip",
             delete=False,
         ) as stream:
             tmp = Path(stream.name)
@@ -50,7 +50,7 @@ def update_one(path: Path, *, write: bool) -> bool:
                 written.writestr(entry, updated[entry.filename].encode("utf-8"))
         with ZipFile(tmp) as check:
             if check.testzip() or check.namelist() != names:
-                raise ValueError("BODY_KIT_ARCHIVE_CHANGED_STRUCTURE: " + path.name)
+                raise ValueError("2D_KIT_ARCHIVE_CHANGED_STRUCTURE: " + path.name)
         os.replace(tmp, path)
         tmp = None
         return True
