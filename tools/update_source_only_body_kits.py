@@ -98,6 +98,19 @@ def update_one(path: Path, *, write: bool) -> bool:
         if len(names) != 14 or len(set(names)) != 14 or original.testzip():
             raise ValueError("2D_KIT_EXPECTS_14_VALID_MDS: " + str(path))
         old = {name: original.read(name).decode("utf-8") for name in names}
+    # The 2026-10-16 files were individually inspected, reviewed, and
+    # directly modified. Do not reconstruct/overwrite their native content
+    # using a generic 14-MD contract replacement.
+    # A separate manual edit must review *every* affected document before
+    # the published binary is replaced.
+    acceptance = "[VTUBER_SIDE_NECK_RIG_ACCEPTANCE_V1]"
+    if any(acceptance in body for body in old.values()):
+        if not all(body.count(acceptance) == 1 for body in old.values()):
+            raise ValueError("MANUALLY_REVIEWED_KIT_ACCEPTANCE_INCONSISTENT: " + path.name)
+        if not all(body.count(BEGIN) == 1 and body.count(END) == 1
+                   for body in old.values()):
+            raise ValueError("MANUALLY_REVIEWED_KIT_CONTRACT_MISSING: " + path.name)
+        return False
     mode_name, asset = path.stem.split("__")
     contract = source_contract(mode_name, asset)
     updated = {}
