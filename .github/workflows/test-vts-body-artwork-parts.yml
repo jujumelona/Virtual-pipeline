@@ -8,6 +8,8 @@ on:
       - "tools/vts_psd_layer.py"
       - "tools/vts_native_visual_quality.py"
       - "tests/test_vts_body_artwork_parts.py"
+      - "tests/test_finished_zip_colab_neck_preflight.py"
+      - "notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb"
       - ".github/workflows/test-vts-body-artwork-parts.yml"
   workflow_dispatch:
 permissions:
@@ -24,4 +26,4 @@ jobs:
       - name: Install scoped test dependencies
         run: python -m pip install --disable-pip-version-check pytest pillow numpy psd-tools==1.14.2
       - name: Run synthetic BODY ZIP and PSD regression checks
-        run: python -m pytest -q tests/test_vts_body_artwork_parts.py
+        run: python -m pytest -q tests/test_vts_body_artwork_parts.py tests/test_finished_zip_colab_neck_preflight.py
