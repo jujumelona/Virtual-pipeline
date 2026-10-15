@@ -38,8 +38,8 @@ def source_contract(mode: str, asset: str) -> str:
     backtick = chr(96)
     if mode == "3d":
         deliver = (
-            "- 결과 ZIP: views/front.png, views/front_three_quarter_L.png 등 "
-            "8방향 개별 원화와 views/detail_occlusion.png 총 9장. "
+            "- 결과 ZIP: views/" + asset + "_front.png, views/" + asset + "_front_three_quarter_L.png 등 "
+            "8방향 개별 원화와 views/" + asset + "_detail_occlusion.png 총 9장. "
             "각도·캐릭터 동일성과 가림 실루엣을 지킨다."
         )
     else:
