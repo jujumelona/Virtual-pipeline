@@ -297,7 +297,7 @@ def test_colab_ui_has_no_preparation_or_rig_export_step_yet():
     ("cloth.sleeve.left", None, "handwear"),
     ("face.pass2.02", "mouth", "mouth"),
     ("body.pass2.01", "topwear", "topwear"),
-    ("face.pass2.01", "eyes", "irides"),
+    # Generic SAM19 eyes does not establish separately authored iris art.
     ("ornament.ears.right.2", None, "earwear"),
     ("unknown.pass2.01", "eyewear", "eyewear"),
 ])
@@ -317,6 +317,16 @@ def test_psd2live_vendor_semantic_name_and_side(name, label, expected):
     assert len(layers) == 1
     assert data["pixel_operations"] == 0
     assert data["extra_inference_passes"] == 0
+
+
+def test_coarse_sam_eye_partition_keeps_identity_not_iris():
+    from tools.vts_psd2live_names import normalize_layer_names
+    source = {"name": "face.pass2.01", "sam_label": "eyes",
+              "image": Image.new("RGBA", (8, 8), (123, 4, 56, 90))}
+    converted, trace = normalize_layer_names([source])
+    assert converted[0]["name"] == "face.pass2.01"
+    assert trace["records"][0]["semantic_tag"] is None
+    assert trace["unclassified_count"] == 1
 
 
 def test_unknown_layer_keeps_identity_not_fake_body_part():
