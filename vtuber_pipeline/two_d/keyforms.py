@@ -12,6 +12,27 @@ PARAMS={
  "body.angle_x":(-15,0,15),"body.angle_y":(-15,0,15),
  "body.angle_z":(-15,0,15),"breath":(0,0,1),
 }
+def _role(part: str) -> str:
+    return part.casefold().replace("_", ".").split(".")[0]
+
+
+def _gaze_drawable(part: str) -> bool:
+    tokens = part.casefold().replace("_", ".").split(".")
+    return "eye" in tokens and bool(
+        {"iris", "irides", "pupil", "highlight", "glint"} & set(tokens)
+    )
+
+
+def _shared_frame(meshes: list, roles: set[str]):
+    selected = [np.asarray(m["vertices_xy"], dtype=float)
+                for m in meshes if _role(m["semantic_id"]) in roles]
+    if not selected:
+        return None
+    combined = np.concatenate(selected, axis=0)
+    return combined.mean(axis=0), np.maximum(combined.max(axis=0) -
+                                             combined.min(axis=0), 1.0)
+
+
 def build_keyforms(meshes_json: str, parts_json: str,
                    face_landmarks_json: str, output_dir: str) -> dict:
     src=json.loads(Path(meshes_json).read_text(encoding="utf-8"))
@@ -24,6 +45,14 @@ def build_keyforms(meshes_json: str, parts_json: str,
             part["semantic_id"]: part.get("landmarks_xy", [])
             for part in part_doc.get("parts", [])
         }
+    # All head children share a common movement frame. The same is true
+    # for torso and clothing, preventing per-layer translation/stretch drift.
+    head_roles = {"head", "face", "eye", "hair", "brow", "eyebrow",
+                  "ear", "nose", "mouth", "jaw", "scalp", "neck"}
+    body_roles = {"body", "torso", "arm", "shoulder", "forearm", "hand",
+                  "cloth", "outfit", "sleeve", "garment", "leg"}
+    head_frame = _shared_frame(src["meshes"], head_roles)
+    body_frame = _shared_frame(src["meshes"], body_roles)
     entries=[]
     for m in src["meshes"]:
         verts=np.asarray(m["vertices_xy"],dtype=float)
@@ -42,22 +71,38 @@ def build_keyforms(meshes_json: str, parts_json: str,
             if np.all(pivot >= lower - margin) and np.all(pivot <= upper + margin):
                 center = np.clip(pivot, lower, upper)
                 pivot_source = "observed_hrnet"
-        span=np.maximum(verts.max(axis=0)-verts.min(axis=0),1)
+        local_span=np.maximum(verts.max(axis=0)-verts.min(axis=0),1)
         deltas={}
         for p,(low,mid,hi) in PARAMS.items():
-            if p.startswith("head.") and not any(n in part for n in ("hair","eye","face","mouth","brow","neck")):
+            role = _role(part)
+            if p.startswith("head.") and role not in head_roles:
                 continue
-            if p.startswith("body.") and not any(n in part for n in ("body","arm","cloth","leg")):
+            if p.startswith("body.") and role not in body_roles:
                 continue
             if p.startswith("eye.left") and "eye.left" not in part: continue
             if p.startswith("eye.right") and "eye.right" not in part: continue
-            if p.startswith("eye.") and not ("eye" in part): continue
+            # Gaze moves only the iris/pupil/highlight, never an entire eye.
+            if p in ("eye.x", "eye.y") and not _gaze_drawable(part):
+                continue
             if p.startswith("mouth.") and "mouth" not in part: continue
             if p.startswith("brow.left") and "brow.left" not in part: continue
             if p.startswith("brow.right") and "brow.right" not in part: continue
             if p=="breath" and not any(x in part for x in ("body","cloth")): continue
-            v=verts-center
-            if p.endswith("angle_x"):
+            shared = (head_frame if p.startswith("head.") else
+                      body_frame if p.startswith("body.") else None)
+            if shared is not None:
+                v = verts - shared[0]
+                span = shared[1]
+            else:
+                v = verts - center
+                span = local_span
+            if p == "body.angle_x":
+                # Common torso translation instead of independently stretching
+                # each cloth mesh; articulation stays in part-specific physics.
+                dx=np.full(len(v),0.13*span[0]);dy=np.zeros(len(v))
+            elif p == "body.angle_y":
+                dx=np.zeros(len(v));dy=np.full(len(v),0.11*span[1])
+            elif p.endswith("angle_x"):
                 # Nonuniform deformation varies with vertical extent and part position.
                 dx=0.16*span[0]*(1-(v[:,1]/span[1])**2)+0.25*v[:,0]
                 dy=-0.07*v[:,0]
@@ -88,5 +133,9 @@ def build_keyforms(meshes_json: str, parts_json: str,
                         "pivot_xy":center.tolist(),"pivot_source":pivot_source})
     out=Path(output_dir)/"keyforms.json";out.parent.mkdir(parents=True,exist_ok=True)
     out.write_text(json.dumps({"parameters":{k:list(v) for k,v in PARAMS.items()},
-                               "keyforms":entries},indent=2),encoding="utf-8")
+                               "keyforms":entries,
+                               "pose_authoring": "shared_anatomical_frame_analytic_preview",
+                               "multiview_reference_keyforms_bound": False,
+                               "native_cubism_keyforms_verified": False}, indent=2),
+                   encoding="utf-8")
     return {"keyforms_json":str(out)}
