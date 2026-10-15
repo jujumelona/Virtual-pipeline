@@ -23,12 +23,12 @@ def png_bytes(im):
     return buf.getvalue()
 
 
-def make_pack(tmp_path, *, bad_order=None, opaque=False):
-    face = rgba((24, 12, 106, 104), (238, 180, 170, 255))
-    closed = rgba((48, 78, 73, 82), (74, 26, 35, 255))
-    opened = rgba((44, 77, 77, 91), (58, 20, 35, 255))
-    tooth = rgba((51, 80, 70, 83), (246, 240, 239, 255))
-    tongue = rgba((52, 86, 71, 89), (214, 87, 121, 255))
+def make_pack(tmp_path, *, bad_order=None, opaque=False, size=(128, 128)):
+    face = rgba((24, 12, 106, 104), (238, 180, 170, 255), size)
+    closed = rgba((48, 78, 73, 82), (74, 26, 35, 255), size)
+    opened = rgba((44, 77, 77, 91), (58, 20, 35, 255), size)
+    tooth = rgba((51, 80, 70, 83), (246, 240, 239, 255), size)
+    tongue = rgba((52, 86, 71, 89), (214, 87, 121, 255), size)
     order = [
         "part_art/mouth.close.png",
         "part_art/mouth.tooth.t.png",
@@ -90,6 +90,30 @@ def test_false_transparent_white_background_refused(tmp_path):
     with pytest.raises(ValueError, match="AUTHORED_PART_NOT_TRANSPARENT_OR_EMPTY"):
         assemble_authored_parts(z, master, tmp_path / "out",
                                 asset="body", edition="free")
+
+
+def test_actual_native_psd_roundtrip_maintains_five_original_part_names(tmp_path):
+    """Real psd-tools codec, without mocking PSD writing or file decoding."""
+    from tools.vts_production import psd_to_registered_rgba
+    z, master = make_pack(tmp_path, size=(320, 320))
+    report = assemble_authored_parts(z, master, tmp_path / "real_psd",
+                                    asset="body", edition="free")
+    psd_path = Path(report["psd"])
+    assert psd_path.read_bytes().startswith(b"8BPS")
+    from psd_tools import PSDImage
+    actual = PSDImage.open(psd_path)
+    assert actual.size == (320, 320)
+    leaves = [x for x in actual.descendants() if not x.is_group()]
+    assert len(leaves) == 5
+    _, registered, count = psd_to_registered_rgba(
+        psd_path, tmp_path / "registered", artmesh_max=100)
+    assert count == 5
+    with ZipFile(registered) as archive:
+        names = archive.namelist()
+    assert any(n.startswith("mouth.close.") for n in names)
+    assert any(n.startswith("mouth.open.") for n in names)
+    assert any(n.startswith("mouth.tooth.") for n in names)
+    assert any(n.startswith("mouth.tongue.") for n in names)
 
 
 def test_artwork_authoring_contract_requires_per_part_and_template():
