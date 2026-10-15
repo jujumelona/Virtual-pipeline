@@ -17,6 +17,7 @@ from typing import Any
 
 BODY_REQUIRED = (
     "face", "neck", "torso", "nose", "mouth_open",
+    "ear_left", "ear_right",
     "eye_left_white", "eye_left_iris", "eye_left_upper_lash", "brow_left",
     "eye_right_white", "eye_right_iris", "eye_right_upper_lash", "brow_right",
     "upper_arm_left", "forearm_left", "hand_left",
@@ -89,6 +90,8 @@ def classify_name(name: str) -> set[str]:
                 out.add("eye_" + side + "_pupil")
             if t & {"highlight", "glint"}:
                 out.add("eye_" + side + "_highlight")
+        if t & {"ear", "ears"} and not t & {"earwear", "earring"}:
+            out.add("ear_" + side)
         if t & {"brow", "eyebrow"}:
             out.add("brow_" + side)
         if "hand" in t:
