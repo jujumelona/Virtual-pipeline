@@ -191,6 +191,17 @@ def patch(path: Path, *, write: bool) -> bool:
         if len(infos) != 14 or set(names) != set(EXPECTED) or z.testzip() is not None:
             raise ValueError("Corrupt/cross-contaminated instruction ZIP: " + str(path))
         old = {name: z.read(name).decode("utf-8") for name in names}
+    if mode != "3d":
+        # Legacy authoring scripts included PSD/mask/part-separation tasks
+        # for the image model. Never republish those tasks into the
+        # canonical per-part RGBA artwork briefs.
+        if all(value.count("## [IMAGE_AI_SOURCE_ONLY_V2]") == 1
+               and value.count("## [/IMAGE_AI_SOURCE_ONLY_V2]") == 1
+               and "## [IMAGE_ART_MULTIVIEW_SOURCE_ONLY_V1]" not in value
+               for value in old.values()):
+            return False
+        raise ValueError("OBSOLETE_2D_INSTRUCTION_REGENERATOR: "
+                         "use python -m tools.update_source_only_body_kits")
     new = {name: patched_text(old[name], mode=mode, asset=asset, name=name)
            for name in names}
     if new == old:
