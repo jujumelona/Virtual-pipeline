@@ -133,7 +133,7 @@ def source_contract(mode: str, asset: str) -> str:
 - 7) 필수 납품: `outputs/master.png`, `part_art/_order.txt`, 각 파츠의 개별 `part_art/*.png`, 다음 다각도 참조 PNG: {", ".join("reference_views/" + v + ".png" for v in VIEWS_2D[asset])}. BODY는 `expression_refs/mouth_closed.png` / `expression_refs/mouth_open.png`도 첨부하고 입안·치아·혀가 실제로 어떻게 겹치는지 명확히 묘사한다.
 - 8) 신뢰할 수 있는 투명 배경을 이미지 생성기가 지원하지 못하면 **하얀 배경 PNG를 투명 파츠라고 이름만 바꿔 내지 말고** 별도 검수 실패로 표시한다. 원본 파츠를 보존한 채 Colab에 See-through 분리 경로를 요청할 수 있다.
 {joint}
-- **지침 충돌 해결:** 과거 다른 문서의 '개별 파츠 PNG 금지/완성 PNG 한 장만/파츠는 무조건 Colab에서 전부 분리'는 이 최신 계약으로 대체한다. **이미지 AI는 파츠별 그림까지 직접 생성하지만, PSD 인코딩·메시·키폼·리깅은 절대 생성하지 않는다.** {handoff}
+- **제작 단계 확정:** 이미지 AI는 위에 명시한 독립 파츠의 실제 그림과 다각도 참조를 하나씩 제작한다. PSD 인코딩·메시·키폼·리깅은 별도 단계다. {handoff}
 - 기존 실제 템플릿을 열지 않았거나 파츠를 하나하나 생성하지 않은 결과는 완료라고 보고하지 않는다.
 """
 
