@@ -1,0 +1,27 @@
+name: Validate BODY artwork part intake
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/vts_multiview_runtime.py"
+      - "tools/vts_ai_pack_import.py"
+      - "tools/vts_psd_layer.py"
+      - "tools/vts_native_visual_quality.py"
+      - "tests/test_vts_body_artwork_parts.py"
+      - ".github/workflows/test-vts-body-artwork-parts.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Install scoped test dependencies
+        run: python -m pip install --disable-pip-version-check pytest pillow numpy psd-tools==1.14.2
+      - name: Run synthetic BODY ZIP and PSD regression checks
+        run: python -m pytest -q tests/test_vts_body_artwork_parts.py
