@@ -142,7 +142,11 @@ def normalize(s: str, asset: str, mode: str, name: str) -> str:
         s = s.replace("기본 BODY의 수영복", "기본 BODY의 단색 무광 찰흙 외피")
         s = s.replace("기본 가림 수영복", "기본 단색 무광 찰흙 외피")
     s = s.rstrip() + "\n\n" + START + "\n" + CONTRACT[asset] + END + "\n"
-    return s
+    # Final single source of truth: these are image-generating AI kits,
+    # not part-splitting/PSD authoring instructions. Keep all 14 original
+    # reference documents but remove old division/rigging deliverables.
+    from tools.image_ai_source_only_contract import normalize_source_only
+    return normalize_source_only(s, mode, asset, name)
 
 def update(path: Path, asset: str, mode: str, write: bool) -> bool:
     if not path.is_file():
