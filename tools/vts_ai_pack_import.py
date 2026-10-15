@@ -144,8 +144,27 @@ def _inspect_image_only_pack(archive: ZipFile, names: list[str], source: Path,
         parts.append({"id": part_id, "filename": filename, "z": z,
                       "left": 0, "top": 0, "image": image,
                       "method": "supplied_independent_artwork"})
+    # Inactive authored seam-paint layers are not in layer_order.txt and must
+    # not change the neutral composite. Keep them for deformation handoff.
+    hidden_names = sorted(n for n in names
+                          if n.startswith(prefix + "underpaint_parts/")
+                          and n.endswith(".png"))
+    if len(hidden_names) > 32:
+        raise ValueError("AI_PACK_TOO_MANY_UNDERPAINT_PARTS")
+    underpaint_parts = []
+    for hidden in hidden_names:
+        stem = hidden[len(prefix + "underpaint_parts/"):-4]
+        if not _valid_part_id(stem) or "/" in stem:
+            raise ValueError("AI_PACK_UNDERPAINT_ID_INVALID")
+        image = _decode_png(archive, hidden, is_part=True)
+        if image.size != master.size or image.getchannel("A").getbbox() is None:
+            raise ValueError("AI_PACK_UNDERPAINT_CANVAS_OR_ALPHA_INVALID: " + stem)
+        underpaint_parts.append({"id": stem, "filename": hidden,
+                                 "image": image, "left": 0, "top": 0,
+                                 "visible": False})
     return {
-        "master": master, "parts": parts, "canvas": master.size,
+        "master": master, "parts": parts, "underpaint_parts": underpaint_parts,
+        "canvas": master.size,
         "manifest": {"schema": "live2d/simple-image-artwork-zip-v1",
                      "scope": "unspecified", "part_count": len(parts)},
         "source": source, "archive_prefix": prefix,
@@ -286,18 +305,31 @@ def prepare_large_ai_pack(source: Path, destination: Path, *, edition: str = "fr
         bbox = image.getchannel("A").getbbox()
         create_import_layer(image.crop(bbox), group, name=item["id"],
                             top=item["top"] + bbox[1], left=item["left"] + bbox[0])
+    # Separate hidden seam-paint layers must survive into the actual native
+    # source PSD. Keeping them hidden preserves exact neutral-pose pixels.
+    hidden_parts = result.get("underpaint_parts", [])
+    for item in hidden_parts:
+        image = item["image"]
+        bbox = image.getchannel("A").getbbox()
+        layer = create_import_layer(image.crop(bbox), group, name=item["id"],
+                                    top=bbox[1], left=bbox[0])
+        layer.visible = False
     save_import_psd(psd, psd_file)
     decoded = PSDImage.open(psd_file)
     layers = [x for x in decoded.descendants() if not x.is_group()]
-    if len(layers) != len(result["parts"]):
+    if len(layers) != len(result["parts"]) + len(hidden_parts):
         raise RuntimeError("AI_PACK_PSD_LAYER_COUNT_MISMATCH")
-    # Stored native order must agree with manifest back-to-front ordering.
-    if [layer.name for layer in layers] != [x["id"] for x in result["parts"]]:
+    # Preserve the visible authored order and retain hidden deformation
+    # underpaint without contaminating the neutral composition.
+    if [layer.name for layer in layers] != [x["id"] for x in result["parts"]] + [x["id"] for x in hidden_parts]:
         raise RuntimeError("AI_PACK_PSD_LAYER_ORDER_MISMATCH")
+    if any(layer.is_visible() for layer in layers[len(result["parts"]):]):
+        raise RuntimeError("AI_PACK_HIDDEN_UNDERPAINT_BECAME_VISIBLE")
     import_report = {
         "schema": "live2d/large-ai-pack-import-report-v1",
         "source_zip": str(source), "master": str(master),
-        "psd": str(psd_file), "part_count": len(layers),
+        "psd": str(psd_file), "part_count": len(result["parts"]),
+        "underpaint_part_count": len(hidden_parts),
         "canvas": list(result["canvas"]),
         "skipped_see_through": True, "skipped_semantic_sam": True,
         "mask_only_parts_rejected": False,
