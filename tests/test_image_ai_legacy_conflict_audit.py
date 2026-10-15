@@ -63,8 +63,8 @@ def test_clothed_body_and_asset_framing_do_not_conflict(mode):
         assert "9방향 턴어라운드" not in master
     else:
         assert "removable_neutral_modesty_band_upper" in master
-        assert "하체가 화면에 존재" in master
-        assert "빈 하의 레이어를 억지로 만들지 않는다" in master
+        assert "실제 화면에 하체가 포함될 때만" in master
+        assert "바스트업에서 프레임 밖 하체를 만들지 않는다" in master
 
 
 @pytest.mark.parametrize("asset", ("hair", "outfit", "accessory"))
