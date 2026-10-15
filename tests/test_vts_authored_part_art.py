@@ -116,6 +116,44 @@ def test_actual_native_psd_roundtrip_maintains_five_original_part_names(tmp_path
     assert any(n.startswith("mouth.tongue.") for n in names)
 
 
+def test_rgb_only_damage_is_rejected_even_when_alpha_is_identical(tmp_path):
+    """Previous RGBA difference.getbbox() missed RGB-only color damage."""
+    z, master = make_pack(tmp_path)
+    with Image.open(master) as im:
+        changed = im.copy()
+    changed.putpixel((55, 80), (0, 255, 30, 255))
+    changed.save(master)
+    with pytest.raises(ValueError, match="AUTHORED_NEUTRAL_MASTER_RECONSTRUCTION_MISMATCH"):
+        assemble_authored_parts(z, master, tmp_path / "color_fail",
+                                asset="body", edition="free")
+
+
+def test_missing_eye_and_limbs_rejected_in_production_gate(tmp_path):
+    z, master = make_pack(tmp_path)
+    with pytest.raises(ValueError, match="AUTHORED_REQUIRED_PART_ROLES_MISSING"):
+        assemble_authored_parts(z, master, tmp_path / "role_fail",
+                                asset="body", edition="free",
+                                enforce_required_parts=True)
+
+
+def test_wrong_front_to_back_order_rejected_by_rendering(tmp_path):
+    z, master = make_pack(tmp_path)
+    with ZipFile(z) as archive:
+        values = {i.filename: archive.read(i.filename)
+                  for i in archive.infolist()}
+    order = values["part_art/_order.txt"].decode().splitlines()
+    order = [x for x in order if x != "part_art/face.png"]
+    order.insert(0, "part_art/face.png")  # face hides the mouth entirely
+    values["part_art/_order.txt"] = "\\n".join(order).encode()
+    new_zip = tmp_path / "bad_zorder.zip"
+    with ZipFile(new_zip, "w") as output:
+        for name, value in values.items():
+            output.writestr(name, value)
+    with pytest.raises(ValueError, match="AUTHORED_NEUTRAL_MASTER_RECONSTRUCTION_MISMATCH"):
+        assemble_authored_parts(new_zip, master, tmp_path / "z_fail",
+                                asset="body", edition="free")
+
+
 def test_artwork_authoring_contract_requires_per_part_and_template():
     from tools.image_ai_source_only_contract import source_contract
     for mode in ("live2d_bust_up", "live2d_upper", "live2d_full",
