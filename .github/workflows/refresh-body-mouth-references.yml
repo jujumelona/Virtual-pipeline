@@ -27,8 +27,8 @@ jobs:
           python-version: "3.12"
       - name: Update 2D BODY instruction ZIPs only
         run: |
-          python tools/update_source_only_body_kits.py --write
-          python tools/update_source_only_body_kits.py --check
+          python -m tools.update_source_only_body_kits --write
+          python -m tools.update_source_only_body_kits --check
           git status --short
       - name: Commit and push ZIP updates
         run: |
