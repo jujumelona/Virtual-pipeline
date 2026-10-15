@@ -61,12 +61,15 @@ def prepare_source_only_2d(source: Path, output: Path, *, asset: str) -> dict:
     target.write_bytes(data)
     views = _check_view_members(source, asset=asset,
                                 output=output / "reference_views", required=True)
+    from tools.vts_authored_part_art import has_authored_parts
+    authored_parts_present = has_authored_parts(source)
     return {
         "schema": "vtuber/image-ai-source-only-v2",
         "asset": asset, "master": str(target),
         "canvas": canvas, "views": views,
         "parts": {"status": "SOURCE_ONLY_NEEDS_SEETHROUGH", "count": 0,
                   "visual_quality_verified": False},
+        "authored_parts_present": authored_parts_present,
         "source_only": True,
         "multiview_reference_applied_to_native_keyforms": False,
         "state": "SOURCE_ART_CHECKED_NOT_RIGGED",
