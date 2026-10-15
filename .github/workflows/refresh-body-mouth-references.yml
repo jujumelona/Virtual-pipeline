@@ -6,6 +6,10 @@ on:
       - ".github/workflows/refresh-body-mouth-references.yml"
       - "tools/update_source_only_body_kits.py"
       - "tools/image_ai_source_only_contract.py"
+      - "tools/image_ai_read_first_gate.py"
+      - "tools/image_ai_quality_first_gate.py"
+      - "tools/apply_existing_vtuber_template_slots.py"
+      - "tools/normalize_matte_clay_kits.py"
   workflow_dispatch:
 
 permissions:
@@ -16,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  update-five-body-zips:
+  update-all-published-art-briefs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,10 +29,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Update all twenty 2D template-and-part instruction ZIPs
+      - name: Correct early read-first workflow across all 24 ZIPs, then reconcile 20 2D briefs
         run: |
+          python -m tools.image_ai_read_first_gate --write
           python -m tools.update_source_only_body_kits --write
+          python -m tools.image_ai_read_first_gate --check
           python -m tools.update_source_only_body_kits --check
+          python -m tools.audit_24_image_kits --strict
           git status --short
       - name: Commit and push ZIP updates
         run: |
@@ -39,6 +46,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/image_ai_kits_v2/zips
-          test "$(git diff --cached --name-only | wc -l)" -eq 20
-          git commit -m "Update twenty 2D kits for template-guided per-part AI artwork"
+          n="$(git diff --cached --name-only | wc -l)"
+          if [ "$n" -lt 20 ] || [ "$n" -gt 24 ]; then
+            echo "Unexpected number of changed kit ZIPs: $n"
+            exit 1
+          fi
+          git commit -m "Remove old stage-output conflicts from 24 image AI prompt ZIPs"
           git push
