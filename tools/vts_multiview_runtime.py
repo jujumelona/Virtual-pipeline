@@ -690,6 +690,23 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
             require_views=require_views)
         from tools.vts_ai_pack_import import prepare_large_ai_pack
         imported = prepare_large_ai_pack(source, output / "imported", edition=edition)
+    if source_only and preflight.get("authored_parts_present"):
+        from tools.vts_authored_part_art import assemble_authored_parts
+        authored_report = assemble_authored_parts(
+            source, Path(preflight["master"]), output / "authored_parts",
+            asset=asset, edition=edition)
+        imported = {
+            "master": Path(preflight["master"]),
+            "psd": Path(authored_report["psd"]),
+        }
+        preflight["parts"] = {
+            "status": "AI_AUTHORED_INDIVIDUAL_RGBA_PARTS_ASSEMBLED",
+            "count": authored_report["independent_rgba_png_count"],
+            "master_exactly_reconstructed":
+                authored_report["neutral_exact_same_as_master"],
+            "visual_quality_verified": False,
+        }
+        preflight["authored_part_art"] = authored_report
     # Authored RGBA/PSD takes precedence over See-through guesses. See-through
     # remains available in the image-only path in vts_production.
     # An isolated detachable layer pack cannot be routed into a FREE
@@ -704,13 +721,13 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
             edition=edition, scope=scope,
             asset_kind=asset if edition == "pro" else None,
             reference_image=reference_image,
-            external_psd=None if source_only else Path(imported["psd"]),
-            qwen=False, preserve_supplied_parts=not source_only,
+            external_psd=None if imported is None else Path(imported["psd"]),
+            qwen=False, preserve_supplied_parts=imported is not None,
             psd2live=True)
     else:
         if reference_image is None:
             raise ValueError("DETACHED_ASSET_REQUIRES_BODY_REFERENCE_IMAGE")
-        if source_only:
+        if source_only and imported is None:
             from tools.vts_production import run_see_through
             # Splitting happens in Colab, never inside 24 image-AI ZIP kits.
             inferred = run_see_through(
@@ -730,7 +747,8 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
                 "source_artwork": str(native.get("art_psd") if source_only and asset == "body"
                                       else imported["psd"]),
                 "source_art_only": source_only,
-                "layer_decomposition": "See-through" if source_only else "author_supplied",
+                "layer_decomposition": ("image_ai_individual_rgba_parts" if source_only and imported is not None
+                                        else "See-through" if source_only else "author_supplied"),
                 "stage": "native_rig_generated_unverified" if asset == "body" else "attachment_ready",
                  "multiview_reference_keyforms_bound": False,
                 "native": native, "source_qa": preflight,
