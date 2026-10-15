@@ -39,6 +39,25 @@ BAD_3D = {
     "legacy_2d_rig_output": re.compile(r"(?:PSD|ArtMesh|moc3|Cubism).{0,20}(?:필수|생성|제작|납품)"),
     "old_split_png_paths": re.compile(r"isolated_parts/|underpaint_parts/|layer_order\.txt"),
 }
+# These were found as *positive* production commands in the old 14-MD
+# banners, template slots and art-quality sections (not examples or URLs).
+# They must never silently survive under a new trailing contract.
+FORBIDDEN_POSITIVE_2D = (
+    "실제 PSD는 완성 원화에서 파츠 분리·레이어 작성하여 최종 납품한다",
+    "그 원화의 품질 확인 후 파츠 분리/PSD 제작",
+    "독립 PSD·PNG·마스크로 제작한다",
+    "원화 파츠 분리·보완 → 실제 PSD·PNG·검증 기록·ZIP",
+    "개별 파츠 채색 보존 분리·PSD/ZIP 조립",
+    "편집 가능한 PSD는 고품질 기준 원화와 파츠 분리를 마친 후에 제작한다",
+    "원화·독립 알파 PNG·마스크·레이어 순서·편집 가능한 다층 PSD",
+    "독립 RGBA 파츠는 isolated_parts/*.png",
+    "isolated_parts/와 layer_order.txt에는",
+    "기본 layer_order.txt에는",
+)
+FORBIDDEN_POSITIVE_3D = (
+    "실제 PSD는 완성 원화에서 파츠 분리·레이어 작성하여 최종 납품한다",
+    "그 원화의 품질 확인 후 파츠 분리/PSD 제작",
+)
 SHOULD_2D = ("ONE_PART_PER_GENERATION_V1", "part_art/_order.txt",
              "outputs/master.png")
 SHOULD_3D = ("views/", "3D", "MATTE_CLAY_BODY_V1")
@@ -80,6 +99,15 @@ def scan() -> dict:
                         if missing not in doc and (mode != "3d" or name == "04_OUTPUT_FILES.md"):
                             issues.append(dict(kit=key, document=name,
                                                code="required_marker_missing", excerpt=missing))
+                    for legacy_instruction in (
+                        FORBIDDEN_POSITIVE_3D if mode == "3d"
+                        else FORBIDDEN_POSITIVE_2D
+                    ):
+                        if legacy_instruction in doc:
+                            issues.append(dict(kit=key, document=name,
+                                               code="active_legacy_stage_instruction",
+                                               severity="blocker",
+                                               excerpt=legacy_instruction))
                     for mark in ("[IMAGE_AI_SOURCE_ONLY_V2]", "[/IMAGE_AI_SOURCE_ONLY_V2]"):
                         if mode != "3d" and doc.count(mark) != 1:
                             issues.append(dict(kit=key, document=name, code="source_marker_count",
