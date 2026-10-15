@@ -72,8 +72,11 @@ def source_contract(mode: str, asset: str) -> str:
 """
 
 def source_only_output_file(mode: str, asset: str) -> str:
+    matte = ("불투명 단색 무광 찰흙형 BODY" if asset == "body"
+             else "BODY 기준 무광 찰흙형 정렬; 해당 자산만 제작")
     return (
-        "# 04 — 이미지 생성 AI 원화 납품만\n\n" +
+        "# 04 — 이미지 생성 AI 원화 납품만\n\n"
+        "## [MATTE_CLAY_BODY_V1]\n" + matte + "\n## [/MATTE_CLAY_BODY_V1]\n\n" +
         BEGIN + "\n" + source_contract(mode, asset) + END + "\n" +
         "\n## 납품 검사\n\n"
         "완성 PNG를 실제 열어서 동일 캐릭터·색·실루엣·시점별 목·어깨 연결을 확인한다. "
