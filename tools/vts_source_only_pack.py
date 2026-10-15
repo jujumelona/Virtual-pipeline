@@ -99,7 +99,8 @@ def prepare_source_only_2d(source: Path, output: Path, *, asset: str) -> dict:
     target = output / "source_master.png"
     target.write_bytes(data)
     views = _check_view_members(source, asset=asset,
-                                output=output / "reference_views", required=True)
+                                output=output / "reference_views", required=True,
+                                master_canvas=canvas)
     from tools.vts_authored_part_art import has_authored_parts
     authored_parts_present = has_authored_parts(source)
     expressions = (validate_authored_mouth_reference_states(source, canvas)
