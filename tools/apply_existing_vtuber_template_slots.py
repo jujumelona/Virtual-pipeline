@@ -58,7 +58,7 @@ def guidance(registry: dict, key: str) -> str:
     else:
         no_input = ("참조 PSD의 존재는 도움이 되지만 납품 필수 사용자 첨부물이 아니다. "
                     "공개 샘플 캐릭터의 실제 픽셀을 재사용하지 않고 원본 애니 캐릭터를 직접 디자인하며 "
-                    "완성 마스터에서 편집 가능한 다층 PSD·파츠 PNG·마스크를 만든다. "
+                    "완성 마스터의 외형과 템플릿 슬롯을 기준으로 독립 RGBA 파츠를 하나씩 직접 그린다. PSD·마스크는 후속 Colab이 제작한다. "
                     "일러스트 생성/PSD 쓰기 도구가 없으면 그 도구의 한계를 보고한다.")
     # Registry entries retain legacy full-BODY frame and visual-gate
     # prose for every asset. Do not send those directions to an independent
@@ -88,7 +88,7 @@ def guidance(registry: dict, key: str) -> str:
                  "신체·얼굴 원화는 제작하지 않는다.")
         no_input = (f"{kind} 자산 8방향 참조 PNG 및 가림 세부 1장을 제작한다. 네이티브 VRM 완성은 약속하지 않는다."
                     if t["mode"] == "3d" else
-                    f"{kind} 자산만 독립 PSD·PNG·마스크로 제작한다. "
+                    f"{kind} 자산의 파츠별 독립 RGBA PNG를 하나씩 그린다. PSD·마스크는 Colab에서 만든다. "
                     "기준 몸체가 없으면 공통 캔버스·앵커를 기록하고 정합 미검증을 표시한다.")
     if t["mode"] == "3d":
         intro = intro.replace(
@@ -98,7 +98,7 @@ def guidance(registry: dict, key: str) -> str:
     build_sequence = (
         "필수 8방향 원화·가림 세부 1장 실제 제작 → 시점 간 디자인 정합·시각 검수 → 3D 참고 PNG·검증 기록·ZIP"
         if t["mode"] == "3d" else
-        "필수 다각도·표정·숨은 면 원화 실제 제작 → 정합 검수 → 원화 파츠 분리·보완 → 실제 PSD·PNG·검증 기록·ZIP"
+        "실제 템플릿 열람 → 필수 다각도·표정·숨은 면과 각 파츠를 독립 RGBA PNG로 작화·검수 → 이미지 원화 ZIP 납품 → Colab PSD 조립"
     )
     return f"""{MARKER}
 
