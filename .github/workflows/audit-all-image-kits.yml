@@ -1,0 +1,29 @@
+name: Audit all 24 image kits
+
+on:
+  push:
+    paths:
+      - "tools/audit_24_image_kits.py"
+      - "tools/normalize_24_image_kits.py"
+      - ".github/workflows/audit-all-image-kits.yml"
+      - "docs/image_ai_kits_v2/zips/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-documents:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Read all 336 MD documents and summarize remaining conflicting instructions
+        run: |
+          python -m tools.audit_24_image_kits --output /tmp/audit-24.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: full-24-zip-audit
+          path: /tmp/audit-24.json
