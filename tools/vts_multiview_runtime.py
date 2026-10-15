@@ -567,8 +567,13 @@ def build_review_contact_sheet(reference_report: dict, pose_report: dict | None,
     rig_heading = ("NATIVE MOC3 (NOT VTS CERTIFIED)" if native else
                    "SECONDARY RIG (NOT CUBISM)")
     pairs = [
-        ("head_three_quarter_L", "yaw_left"),
-        ("head_three_quarter_R", "yaw_right"),
+        ("head_three_quarter_L", "yaw_left_45" if native else "yaw_left"),
+        ("head_three_quarter_R", "yaw_right_45" if native else "yaw_right"),
+        # These are deliberately NOT equivalent angles. The left side is an
+        # actual 90-degree artist reference; PSD2Live's rig is limited to 45.
+        # Displaying them together exposes the missing profile authoring.
+        ("head_profile_L", "yaw_left_45" if native else "yaw_left"),
+        ("head_profile_R", "yaw_right_45" if native else "yaw_right"),
         ("head_pitch_up", "pitch_up"),
         ("head_pitch_down", "pitch_down"),
         ("neck_underpaint", "neutral"),
