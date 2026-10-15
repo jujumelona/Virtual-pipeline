@@ -172,6 +172,16 @@ def apply(path: Path, registry: dict, *, write: bool) -> bool:
         if len(names) != 14 or len(set(names)) != 14 or z.testzip() is not None:
             raise ValueError(f"Corrupt or incomplete 14-MD ZIP: {path.name}")
         content = {name: z.read(name).decode("utf-8") for name in names}
+    if key.split("__", 1)[0] != "3d":
+        # Historic template publisher asked image AI to ship PSD/masks.
+        # The authored 2D route now uses reference-guided part_art PNGs.
+        # Do not silently reinstate the older instruction section.
+        if all(doc.count("[IMAGE_AI_SOURCE_ONLY_V2]") == 2
+               and "## [IMAGE_ART_MULTIVIEW_SOURCE_ONLY_V1]" not in doc
+               for doc in content.values()):
+            return False
+        raise ValueError("OBSOLETE_2D_TEMPLATE_REGENERATOR: "
+                         "use tools.update_source_only_body_kits for 2D")
     target = content.copy()
     for name in DOCS:
         if name not in target:
