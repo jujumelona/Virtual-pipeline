@@ -111,12 +111,19 @@ def source_contract(mode: str, asset: str) -> str:
         "outfit": "outfit.back, outfit.front, sleeve.left, sleeve.right; 실제 존재하는 칼라·리본·밑단만",
         "accessory": "accessory.back, accessory.front; 실제 개별 장식과 부착점만",
     }[asset]
+    frame_info = {
+        "live2d_bust_up": "얼굴 크게, 목·양어깨·양팔·양손·상복부까지",
+        "live2d_upper": "두상부터 상반신·허리까지",
+        "live2d_full": "정수리부터 두 발까지 일관된 6등신",
+        "inochi2d_upper": "두상부터 상반신·양손까지",
+        "inochi2d_full": "머리부터 두 발까지 일관된 6등신",
+    }[mode]
     return f"""### [ONE_PART_PER_GENERATION_V1] 실제 VTuber 파츠를 하나씩 그리는 작업 계약
 **이 단계는 '완성 이미지 한 장만 그린 뒤 남에게 전부 잘라 달라'가 아니다.**
 - 먼저 제공된 템플릿의 이미지와 실제 레이어/파츠 구조를 열어 눈으로 확인한다. 템플릿을 링크만 적어두고 미열람 상태로 생성하지 않는다. 참조: {template_url}
 - [공식 Live2D 원화 분리 예제] https://docs.live2d.com/en/cubism-editor-tutorials/psd/ ; [자유 재사용 가능 예시 PSD] https://github.com/tsunehimatoi/psd2live-examples (CC0, 개별 샘플 표시 조건 검토).
 - **참고 슬롯:** {slot_reference}. 공식 템플릿은 구성·앞뒤·숨은 영역의 예시다. 그 캐릭터 모습, 스타일, 인체 비율을 복사하지 않는다. Inochi Aka는 얼굴 구조 참고이지 전신 팔까지 있는 템플릿이 아니다.
-- 자산과 프레이밍: {mode}/{asset}; {frame(mode)}. 다른 자산을 새로 제작하지 않는다.
+- 자산과 프레이밍: {mode}/{asset}; {frame_info}. 다른 자산을 새로 제작하지 않는다.
 - 1) 해당 자산의 디자인 마스터를 그려 정면 전체 실루엣, 원래 배치·좌우·눈/입·색을 고정한다.
 - 2) 다음부터는 **한 번의 생성/수정에서 정확히 한 파츠**만 그린다. 해당 파츠와 원래 마스터, 실제 공식 템플릿의 대응 슬롯, 직전 승인된 파츠를 함께 시각적으로 참고한다. 결과를 확인하고 다음 파츠로 넘어간다. 시트 한 장에 여러 작은 파츠를 한꺼번에 그리는 것으로 대체 금지.
 - 3) 각 파츠는 **마스터와 동일한 전체 캔버스 좌표의 RGBA PNG**를 `part_art/<semantic_name>.png`에 저장한다. 한 파일에는 그 파츠와 **원래 가려졌지만 회전할 때 노출되는 연장 픽셀만** 그리고, 다른 얼굴/몸/옷을 같이 넣지 않는다. 배경·가이드·레이블·텍스트·캐릭터 실루엣 중복을 투명 영역에 남기지 않는다.
