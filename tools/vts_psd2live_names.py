@@ -57,7 +57,8 @@ def _alias(original: str, sam_label: str | None) -> tuple[str | None, str]:
         return "facedetail", "specific_face_source"
     # A generated second-pass face.*.pass2.* layer is intentionally SAM-partitioned.
     # Unlike authored face_skin, its class comes from the observed SAM mask.
-    if sam_label == "eyes" and family in {"unknown", "mystery", "raw"}:
+    if sam_label == "eyes" and (family in {"unknown", "mystery", "raw"} or
+                                (family == "face" and "pass2" in tail)):
         return None, "sam_generic_eyes_not_iris"
     if family == "face" and "pass2" in tail and sam_label in SAM_ALIASES:
         return SAM_ALIASES[sam_label], "sam_second_pass_partition"
