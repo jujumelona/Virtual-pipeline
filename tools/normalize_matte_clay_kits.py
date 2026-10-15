@@ -145,7 +145,12 @@ def normalize(s: str, asset: str, mode: str, name: str) -> str:
     # Final single source of truth: these are image-generating AI kits,
     # not part-splitting/PSD authoring instructions. Keep all 14 original
     # reference documents but remove old division/rigging deliverables.
-    from tools.image_ai_source_only_contract import normalize_source_only
+    # This file runs both as a top-level CI script and as a tools package.
+    # Python script execution sets sys.path[0] to tools/, not repo root.
+    if __package__:
+        from .image_ai_source_only_contract import normalize_source_only
+    else:
+        from image_ai_source_only_contract import normalize_source_only
     return normalize_source_only(s, mode, asset, name)
 
 def update(path: Path, asset: str, mode: str, write: bool) -> bool:
