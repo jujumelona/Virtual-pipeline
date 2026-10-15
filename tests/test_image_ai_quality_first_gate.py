@@ -35,7 +35,7 @@ def test_canonical_zip_uses_real_image_generation_before_layer_assembly(mode, as
     assert first.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]")
     if asset == "body":
         assert first.index(COVER_MARKER) < first.index(START)
-        assert "불투명한 스포츠형 수영복 상의" in first and "하체가 화면에 포함되는" in first
+        assert "불투명 무광 단색" in first and "해부학적" in first
         assert "눈 뜸/반감김/감김" in first
         assert "T/A 포즈" in first if mode == "live2d_bust_up" else True
     else:
