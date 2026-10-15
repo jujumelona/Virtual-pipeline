@@ -10,7 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 
 POSES = (
-    "neutral", "yaw_left", "yaw_right", "pitch_up", "pitch_down",
+    "neutral", "yaw_left", "yaw_right", "yaw_left_45", "yaw_right_45",
+    "yaw_pitch_up_left", "yaw_pitch_down_right", "pitch_up", "pitch_down",
     "roll_left", "roll_right", "blink_neutral", "mouth_open",
 )
 
