@@ -56,7 +56,7 @@ def test_clothed_body_and_asset_framing_do_not_conflict(mode):
         master = archive.read("00_MASTER_FIRST.md").decode("utf-8")
     assert master.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]")
     assert "성인(20세 이상)" in master
-    assert "불투명" in master and "수영복" in master
+    assert "불투명" in master and "무광" in master and "찰흙" in master
     assert "IMAGE_AI_NATIVE_ART_FIRST_QUALITY_V1" in master
     if mode == "3d":
         assert "8방향" in master and "가림 세부" in master
@@ -138,7 +138,7 @@ def test_semantic_wardrobe_input_paths_and_work_sequence_are_consistent(mode, as
             assert "사용자 PSD가 없는 신규 캐릭터에서도" not in doc, (mode, asset, name)
         if asset == "body":
             assert "불투명" in documents["00_MASTER_FIRST.md"]
-            assert "수영복" in documents["00_MASTER_FIRST.md"]
+            assert "MATTE_CLAY_BODY_V1" in documents["00_MASTER_FIRST.md"]
         if asset != "body":
             assert "BODY_DEFAULT_OPAQUE_SWIMWEAR_V1" not in doc
     master = documents["00_MASTER_FIRST.md"]
