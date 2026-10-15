@@ -1,4 +1,4 @@
-name: Refresh BODY source-art mouth references
+name: Refresh 2D per-part template artwork briefs
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: refresh-body-source-mouth
+  group: refresh-all-2d-part-art-briefs
   cancel-in-progress: false
 
 jobs:
@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Update 2D BODY instruction ZIPs only
+      - name: Update all twenty 2D template-and-part instruction ZIPs
         run: |
           python -m tools.update_source_only_body_kits --write
           python -m tools.update_source_only_body_kits --check
@@ -39,6 +39,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/image_ai_kits_v2/zips
-          test "$(git diff --cached --name-only | wc -l)" -eq 5
-          git commit -m "Update five BODY 2D kits with open-mouth reference artwork contract"
+          test "$(git diff --cached --name-only | wc -l)" -eq 20
+          git commit -m "Update twenty 2D kits for template-guided per-part AI artwork"
           git push
