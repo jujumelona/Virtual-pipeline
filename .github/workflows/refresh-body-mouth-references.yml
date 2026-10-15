@@ -1,0 +1,44 @@
+name: Refresh BODY source-art mouth references
+
+on:
+  push:
+    paths:
+      - ".github/workflows/refresh-body-mouth-references.yml"
+      - "tools/update_source_only_body_kits.py"
+      - "tools/image_ai_source_only_contract.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-body-source-mouth
+  cancel-in-progress: false
+
+jobs:
+  update-five-body-zips:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Update 2D BODY instruction ZIPs only
+        run: |
+          python tools/update_source_only_body_kits.py --write
+          python tools/update_source_only_body_kits.py --check
+          git status --short
+      - name: Commit and push ZIP updates
+        run: |
+          if git diff --quiet -- docs/image_ai_kits_v2/zips; then
+            echo "No ZIP changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/image_ai_kits_v2/zips
+          test "$(git diff --cached --name-only | wc -l)" -eq 5
+          git commit -m "Update five BODY 2D kits with open-mouth reference artwork contract"
+          git push
