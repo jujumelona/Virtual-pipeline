@@ -109,7 +109,7 @@ def render(mode: str, asset: str) -> str:
         "inochi2d_full": "전신: 정수리부터 양발까지. Inochi2D의 실제 노드·메시·키폼은 원화 납품 뒤 별도로 검증한다.",
     }[mode]
     stage = ("PSD2Live의 레이어 이름 분류는 실물 RGBA가 분리되었다는 증거가 아니다. "
-             "PSD2Live 기본 회전/메시의 실제 키폼과 목·턱의 край 포즈까지는 별도 검증."
+             "PSD2Live 기본 회전/메시의 실제 키폼과 목·턱의 극단 포즈까지는 별도 검증."
              if mode.startswith("live2d") else
              "Inochi2D에서 이 RGBA 파츠는 시각 자료다. Creator의 실제 메시·노드·변형·키폼은 후속 리깅 검증이 필요하다.")
     full_body_note = "" if mode.endswith("_full") else (
