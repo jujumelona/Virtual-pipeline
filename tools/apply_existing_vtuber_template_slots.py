@@ -176,7 +176,8 @@ def apply(path: Path, registry: dict, *, write: bool) -> bool:
         # Historic template publisher asked image AI to ship PSD/masks.
         # The authored 2D route now uses reference-guided part_art PNGs.
         # Do not silently reinstate the older instruction section.
-        if all(doc.count("## [IMAGE_AI_SOURCE_ONLY_V2]") == 1 and\n               doc.count("## [/IMAGE_AI_SOURCE_ONLY_V2]") == 1
+        if all(doc.count("## [IMAGE_AI_SOURCE_ONLY_V2]") == 1 and
+               doc.count("## [/IMAGE_AI_SOURCE_ONLY_V2]") == 1
                and "## [IMAGE_ART_MULTIVIEW_SOURCE_ONLY_V1]" not in doc
                for doc in content.values()):
             return False
