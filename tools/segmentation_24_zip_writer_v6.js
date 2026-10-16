@@ -55,8 +55,8 @@
 - **V3만으로 불가능/불충분:** ${is3d?"2D PSD는 3D 메시·스키닝·텍스처·VRM을 대체할 수 없다.":missingV3[asset]}
 - **어떤 엔진이 실제 수행:** ${stage}
 - **완성 조건:** 이미지 생성 GPT가 한 장짜리 가짜 파츠 시트를 만들면 실패. See-through 결과 PSD만 생성되거나 레이어 이름/개수만 맞으면 **분리 성공 아님**. 실제 움직일 파츠의 서로 다른 원본 RGB/알파/레이어/가려진 면이 검증돼야 한다. 실패 항목은 해당 파츠만 정밀 분리·인페인팅하여 재검사하고, 전체 원화를 매번 재생성하지 않는다.
-- 3D HAIR/OUTFIT처럼 제작 엔진이 없는 경우 또는 독립 2D 자산의 세부 분리가 남아 있으면 `NOT_YET_RIG_READY`로 명시한다. 중간 PSD를 완성된 방송 모델로 제출 금지.
-- 경로 규정의 코드 기준: `tools/vts_segmentation_profiles.py`. Live2D/Inochi2D 실행은 `notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb`의 모드/자산 선택을 따른다.
+- 3D HAIR/OUTFIT처럼 제작 엔진이 없는 경우 또는 독립 2D 자산의 세부 분리가 남아 있으면 \`NOT_YET_RIG_READY\`로 명시한다. 중간 PSD를 완성된 방송 모델로 제출 금지.
+- 경로 규정의 코드 기준: \`tools/vts_segmentation_profiles.py\`. Live2D/Inochi2D 실행은 \`notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb\`의 모드/자산 선택을 따른다.
 ## [/MODE_ASSET_SEETHROUGH_V3_ROUTING_V6]`;
   }
   return {contract};
