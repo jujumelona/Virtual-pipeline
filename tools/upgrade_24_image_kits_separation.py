@@ -52,8 +52,10 @@ D. 검사/실패 처분: 합성한 중립 이미지가 마스터와 일치하는
 def repair_legacy_instructions(t, mode, asset, name):
     """Replace contradicting active sentences in place, retaining useful art detail."""
     if mode == "3d":
-        return t.replace("### [직접 생성: 피부색 통일 - BODY 신체 파츠별 실제 작화 명령]",
+        t = t.replace("### [직접 생성: 피부색 통일 - BODY 신체 파츠별 실제 작화 명령]",
                          "### [3D 다각도 그림 피부톤 통일 — 2D 파츠 분리 지시 아님]")
+        return t.replace("잘린 단면만 표시하거나 2D PSD/마스크를 납품",
+                         "금지: 잘린 단면만 표시하거나 2D PSD/마스크를 납품")
     pattern = (r"(?m)^실제 템플릿 슬롯·마스터·직전 승인 파츠를 .*?"
                r"독립 RGBA PNG로 그린다\..*?"
                r"(?:후속 Colab 작업이다|Colab 단계다)\.\s*$")
