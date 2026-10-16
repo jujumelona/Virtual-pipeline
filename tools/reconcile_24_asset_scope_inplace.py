@@ -29,6 +29,54 @@ ASSET_TARGET = {
     "outfit": "OUTFIT: 실제 옷감·소매·옷깃·밑단·의상에 붙은 디자인 요소만. BODY·얼굴·눈·피부·헤어·독립 장신구 픽셀은 0개",
     "accessory": "ACCESSORY: 지정된 단일 장신구만. BODY·얼굴·눈·피부·헤어·의복 픽셀과 요청하지 않은 다른 장신구는 0개",
 }
+# Explicit include/exclude directions repeated in every member, including the
+# instructions actually read by the generating AI. These are OUTPUT rules,
+# not merely high-priority precedence declarations or reference annotations.
+ASSET_EXCLUDE = {
+    "body": (
+        "BODY에서 머리카락 전부 제외: 앞머리·옆머리·뒷머리·잔머리·묶음머리·"
+        "포니테일·헤어 장식·머리핀·리본·귀걸이·안경·목걸이·독립 액세서리·"
+        "패션 의상·옷깃·소매·의복 주름 생성 금지. 민머리 신체 베이스만 만든다. "
+        "참조 캐릭터에 머리카락/의상이 보여도 BODY 마스터나 각도·표정 참고 그림에 복사하지 않는다"
+    ),
+    "hair": (
+        "HAIR에서는 머리카락만. 얼굴 피부·눈·홍채·흰자·속눈썹·코·입·귀·"
+        "목·어깨·팔·손·몸통·의상·헤어 장식/액세서리 픽셀 생성 금지. "
+        "기준 BODY는 참조이고 헤어 PNG에 합치지 않는다"
+    ),
+    "outfit": (
+        "OUTFIT에서는 옷감과 의복 일체형 부속만. 머리카락·얼굴·눈·입·"
+        "몸통 피부·양팔·양손·다리 피부·장신구 독립 파츠 생성 금지. "
+        "기준 BODY/HAIR는 참조이고 의상 이미지에 합치지 않는다"
+    ),
+    "accessory": (
+        "ACCESSORY에서는 요청된 한 종류의 장신구만. 머리카락·얼굴·눈·"
+        "피부·몸통·손·의상·요청되지 않은 기타 장식 생성 금지. "
+        "장착 위치의 기준 BODY/HAIR/OUTFIT 원화는 참조일 뿐 픽셀 납품 금지"
+    ),
+}
+ASSET_REJECT = {
+    "body": (
+        "BODY master 및 정면·3/4·측면·후면 참조에서 머리카락 한 가닥, "
+        "헤어핀, 의상 디자인, 독립 장신구가 보이면 CROSS_ASSET_CONTAMINATION: FAIL. "
+        "참고 합성본은 별도 previews/로 격리하고 실제 BODY 납품에 섞지 않는다. "
+        "실제 눈으로 확인하기 전 PASS 선언 금지; 위반 시 BODY 원화를 수정·재검수"
+    ),
+    "hair": (
+        "HAIR master/납품 PNG에 눈·얼굴·피부·의복·머리장식이 있으면 "
+        "CROSS_ASSET_CONTAMINATION: FAIL. 기준 캐릭터 합성은 별도 previews/에서만 허용"
+    ),
+    "outfit": (
+        "OUTFIT master/납품 PNG에 피부·얼굴·눈·머리카락·독립 장신구가 있으면 "
+        "CROSS_ASSET_CONTAMINATION: FAIL. 기준 캐릭터 합성은 별도 previews/에서만 허용"
+    ),
+    "accessory": (
+        "ACCESSORY master/납품 PNG에 머리카락·피부·얼굴·의상 또는 요청되지 않은 "
+        "추가 소품이 있으면 CROSS_ASSET_CONTAMINATION: FAIL. "
+        "기준 캐릭터 합성은 별도 previews/에서만 허용"
+    ),
+}
+
 REFERENCE_ONLY = {
     "hair": "승인된 얼굴·눈·몸통은 위치/크기 참조일 뿐 새로 그리지 않는다. 두피 경계와 모근만 정합시킨다",
     "outfit": "승인된 얼굴·눈·팔·몸통은 위치와 가림 참조다. 옷감만 독립 원화로 그리며 피부를 함께 칠하지 않는다",
@@ -109,7 +157,10 @@ def repair(text: str, mode: str, asset: str) -> tuple[str, int]:
     # The source-only contract is already first. Tighten its active asset
     # declaration WITHOUT stacking another global override paragraph.
     marker = "- 자산 경계: "
-    entries = result.splitlines(keepends=True)
+    # Stable two-line gate is inserted next to the REAL asset definition
+    # in every one of the 14 ZIP documents. No accumulating appendages.
+    entries = [line for line in result.splitlines(keepends=True)
+               if not line.startswith(("- 명시적 생성 제외:", "- 실물 납품 차단:"))]
     for i, line in enumerate(entries):
         if line.startswith(marker) and i < 10:
             old = line.rstrip("\r\n")
@@ -117,10 +168,17 @@ def repair(text: str, mode: str, asset: str) -> tuple[str, int]:
             if old != expected:
                 entries[i] = expected + line[len(old):]
                 count += 1
+            entries[i+1:i+1] = [
+                "- 명시적 생성 제외: " + ASSET_EXCLUDE[asset] + ".\n",
+                "- 실물 납품 차단: " + ASSET_REJECT[asset] + ".\n",
+            ]
             break
     else:
         raise ValueError("asset boundary not in first section")
-    result = "".join(entries)
+    updated = "".join(entries)
+    if updated != result:
+        count += 1
+    result = updated
     # Ref/reference descriptions are not new layers: this exact confusion
     # made the completed-character illustration contaminate BODY output.
     if mode == "live2d_bust_up" and asset == "body":
@@ -137,6 +195,9 @@ def validate_member(s: str, mode: str, asset: str, name: str) -> None:
         raise ValueError((mode, asset, name, "stage count"))
     if "- 자산 경계: " + ASSET_TARGET[asset] not in header:
         raise ValueError((mode, asset, name, "asset boundary not fixed"))
+    if (header.count("- 명시적 생성 제외: " + ASSET_EXCLUDE[asset]) != 1
+            or header.count("- 실물 납품 차단: " + ASSET_REJECT[asset]) != 1):
+        raise ValueError((mode, asset, name, "missing explicit negative output contract"))
     if mode != "3d" and s.count("## [IMAGE_AI_SOURCE_ONLY_V2]") != 1:
         raise ValueError((mode, asset, name, "image stage marker"))
     for line in s.splitlines():
