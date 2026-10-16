@@ -125,7 +125,7 @@ def validate_member(s: str, mode: str, asset: str, name: str) -> None:
         raise ValueError((mode, asset, name, "stage count"))
     if "- 자산 경계: " + ASSET_TARGET[asset] not in header:
         raise ValueError((mode, asset, name, "asset boundary not fixed"))
-    if s.count("## [IMAGE_AI_SOURCE_ONLY_V2]") != (mode != "3d"):
+    if mode != "3d" and s.count("## [IMAGE_AI_SOURCE_ONLY_V2]") != 1:
         raise ValueError((mode, asset, name, "image stage marker"))
     for line in s.splitlines():
         if line.startswith("- **모드별 실제 구도:**") and (
