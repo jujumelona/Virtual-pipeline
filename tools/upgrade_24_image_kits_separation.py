@@ -102,6 +102,12 @@ def repair_legacy_instructions(t, mode, asset, name):
         "**파츠명만 받아서 상상으로 생성하는 것을 금지한다.** 현재 생성할 파츠마다 시각적으로 다음 4개를 동시에 비교한다.",
         "**원화를 임의로 새로 그려 파츠로 위장하지 않는다.** 후속 전문 분리 단계에서는 추출할 파츠마다 다음 4개를 대조한다.")
     t = t.replace(
+        "**생성 전 필수:** 02_ADVANCED_PARTS.md의 [SINGLE_PART_VISUAL_TASK_CARDS_V1]에서 파츠마다 템플릿 참고 그림·형태·숨은 원화·부착점·실패 사례를 읽고 한 개씩 직접 그린다. 파츠 이름 목록만 읽고 일괄 생성 금지.",
+        "**마스터 확정 후 분리 전 필수:** 02_ADVANCED_PARTS.md의 [SINGLE_PART_VISUAL_TASK_CARDS_V1]을 참조해 해당 파츠의 템플릿 위치·가림·부착점·실패 사례를 하나씩 확인한 후 전용 분리 도구로 원본 픽셀을 추출·보정한다. 생성 AI가 파츠를 한 장씩 새로 그려 납품하지 않는다.")
+    t = t.replace(
+        "해당 파츠/마스터 재생성 전까지 PASS 금지.",
+        "마스터 색상 보정·전문 분리 재추출·재합성 검증 전까지 PASS 금지.")
+    t = t.replace(
         "잘못된 신체 파츠를 재생성할 때까지 납품하지 않는다.",
         "기준 원화를 보정하고 후속 분리 파츠를 재추출·검수할 때까지 해당 단계의 완료를 선언하지 않는다.")
     t = t.replace(
@@ -124,6 +130,7 @@ def legacy_collision_codes(s, mode, asset, name):
             "old_one_part": r"한 파츠 한 번의 그림 생성",
             "wrong_part_stage": r"각 파츠를 생성하기 전에",
             "wrong_generation_6": r"생성 요청은 항상 6가지로 구체화한다",
+            "direct_part_generation_instruction": r"한 개씩 직접 그린다\. 파츠 이름 목록만",
         }
         errs.extend(code for code,pat in patterns.items() if re.search(pat,rest))
         if s.count("## [IMAGE_AI_SOURCE_ONLY_V2]")!=1:errs.append("missing_V2_member")
