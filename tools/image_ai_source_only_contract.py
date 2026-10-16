@@ -225,6 +225,28 @@ def source_only_output_file(mode: str, asset: str) -> str:
     )
 
 def normalize_source_only(text: str, mode: str, asset: str, filename: str) -> str:
+    # Each published 24-ZIP document contains a manually approved production
+    # contract and (in 02/07) explicit drawing and visual review instructions.
+    # A generic "remove PSD/parts lines" pass would destroy real instructions.
+    # Do not silently rewrite or strip such a document.
+    if "[VTUBER_SIDE_NECK_RIG_ACCEPTANCE_V1]" in text:
+        if (text.count(BEGIN) != 1 or text.count(END) != 1 or
+                text.count("[VTUBER_SIDE_NECK_RIG_ACCEPTANCE_V1]") != 1):
+            raise ValueError("MANUAL_IMAGE_KIT_CONTRACT_CORRUPT: " + filename)
+        required = (
+            ("[EXPLICIT_DRAWING_STEPS_V1]", "[/EXPLICIT_DRAWING_STEPS_V1]",
+             "[SINGLE_PART_VISUAL_TASK_CARDS_V1]",
+             "[/SINGLE_PART_VISUAL_TASK_CARDS_V1]")
+            if filename == "02_ADVANCED_PARTS.md" and mode != "3d"
+            else ("[EXPLICIT_DRAWING_STEPS_V1]", "[/EXPLICIT_DRAWING_STEPS_V1]")
+            if filename == "02_ADVANCED_PARTS.md"
+            else ("[REAL_VISUAL_REVIEW_V1]", "[/REAL_VISUAL_REVIEW_V1]")
+            if filename == "07_REVIEW_BEFORE_FINAL_ZIP.md"
+            else ()
+        )
+        if any(text.count(marker) != 1 for marker in required):
+            raise ValueError("MANUAL_IMAGE_KIT_DRAWING_STEPS_MISSING: " + filename)
+        return text
     # Actual visual drawing recipes are authoritative user-facing artwork
     # instructions, not outdated PSD output contracts. Preserve them across
     # source-only regeneration rather than silently deleting sentences
@@ -243,7 +265,12 @@ def normalize_source_only(text: str, mode: str, asset: str, filename: str) -> st
         preserved.append(complete)
         text = text[:start] + text[end + len(last):]
     if filename == "04_OUTPUT_FILES.md":
-        return source_only_output_file(mode, asset)
+        # On an older non-reviewed pack, rebuild the output contract but do
+        # not lose any already embedded drawing/review appendix.
+        rendered = source_only_output_file(mode, asset)
+        if preserved:
+            rendered += "\n" + "\n\n".join(preserved) + "\n"
+        return rendered
     # Remove prior copy to ensure repeated writes do not accumulate instructions.
     text = re.sub(re.escape(BEGIN) + r".*?" + re.escape(END), "",
                   text, flags=re.S)
