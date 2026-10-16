@@ -225,6 +225,23 @@ def source_only_output_file(mode: str, asset: str) -> str:
     )
 
 def normalize_source_only(text: str, mode: str, asset: str, filename: str) -> str:
+    # Actual visual drawing recipes are authoritative user-facing artwork
+    # instructions, not outdated PSD output contracts. Preserve them across
+    # source-only regeneration rather than silently deleting sentences
+    # containing the words "parts", "PSD", "occlusion" and "mask".
+    preserved = []
+    for first, last in (
+        ("## [EXPLICIT_DRAWING_STEPS_V1]", "## [/EXPLICIT_DRAWING_STEPS_V1]"),
+        ("## [REAL_VISUAL_REVIEW_V1]", "## [/REAL_VISUAL_REVIEW_V1]"),
+    ):
+        start, end = text.find(first), text.find(last)
+        if start < 0 and end < 0:
+            continue
+        if start < 0 or end < start:
+            raise ValueError("INCOMPLETE_EXPLICIT_DRAWING_RECIPE: " + filename)
+        complete = text[start:end + len(last)]
+        preserved.append(complete)
+        text = text[:start] + text[end + len(last):]
     if filename == "04_OUTPUT_FILES.md":
         return source_only_output_file(mode, asset)
     # Remove prior copy to ensure repeated writes do not accumulate instructions.
@@ -251,6 +268,8 @@ def normalize_source_only(text: str, mode: str, asset: str, filename: str) -> st
     while lines and not lines[-1].strip():
         lines.pop()
     result = "\n".join(lines) + "\n\n" + BEGIN + "\n" + source_contract(mode, asset) + END + "\n"
+    if preserved:
+        result += "\n" + "\n\n".join(preserved) + "\n"
     if result.count(BEGIN) != 1 or result.count(END) != 1:
         raise ValueError("SOURCE_ONLY_MARKER_DUPLICATE: " + filename)
     return result
