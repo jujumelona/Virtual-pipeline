@@ -141,7 +141,7 @@ def validate_member(s: str, mode: str, asset: str, name: str) -> None:
         if asset != "body" and line.startswith("- 정면 얼굴 높이"):
             raise ValueError((mode, asset, name, "face generation ratio in nonbody"))
     if mode == "live2d_bust_up" and asset == "body" and (
-        "골반·허벅지·무릎·발·전신 그림 생성 금지" not in s
+        "골반·다리 금지" not in header
     ):
         raise ValueError((mode, asset, name, "bustup range not locked"))
 
