@@ -1,5 +1,22 @@
 # 이미지 AI 제작 지시서 ZIP — 6개 지시 모드 × 4개 자산 = 24종
 
+## [2026-10-17] 24종 See-through V3 실제 분리 경로 V6
+
+24개 정식 ZIP의 14개 MD 각각에 `MODE_ASSET_SEETHROUGH_V3_ROUTING_V6`을 삽입했습니다. 실행 규칙은 [24개 모드·자산별 런타임 경로표](../../tools/vts_segmentation_profiles.py), Colab은 [통합 완료 ZIP 노트북](../../notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb)을 사용합니다. **See-through V3의 상위 23개 태그는 고정된 모델 출력 범위**이지 사용자가 원하는 임의의 Live2D 리깅 파츠를 직접 생성한다는 의미가 아닙니다.
+
+| ZIP 선택 | 정확한 처리 | 실제 후속 추가 분리 |
+|---|---|---|
+| Live2D 바스트업·상반신·전신 BODY (3) | See-through V3 `body → head` 두 단계: 얼굴·홍채·흰자·속눈썹·눈썹·코·입·귀·목 | 양쪽 눈 각각의 레이어 독립성, 두피, 상완/전완/양손, 목/관절 숨은 면; 전신에만 다리/발 |
+| Live2D HAIR (3) | 독립 헤어 원화의 실제 RGBA 또는 단색 배경 전경 마스크. **머리 없는 완전 캐릭터 이미지가 아니므로 V3 head crop 불가** | 앞머리·옆머리 좌우·뒷머리·가려진 뿌리, 움직일 술 |
+| Live2D OUTFIT (3) | 동일 캔버스 독립 의상 전경 추출. V3 클래스 topwear/legwear 등은 완성 인물 PSD에서 참고하는 분류 | 실제 의복에 있는 앞뒤 판·소매 좌우·안감·접합면 |
+| Live2D ACCESSORY (3) | 요청받은 단일 소품의 실제 알파 추출. headwear/eyewear/objects 등은 요청 품목에 맞을 때만 참고 | 부착점, 가려진 후면, 필요한 움직일 부품 |
+| Inochi2D BODY/HAIR/OUTFIT/ACCESSORY (8) | 같은 의미 분리 규칙을 사용하되 최종 Inochi 노드/INP 제작 경로 별도 | 상반신은 다리 제외, 전신은 하체 포함; Live2D ArtMesh/리깅과 동일시 금지 |
+| 3D BODY (1) | 2D See-through 사용 금지, 3D 다각도 → 실제 메시/VRM 경로 | UV, 본, 모델·동작 검증 |
+| 3D HAIR/OUTFIT (2) | 그림 참고만 가능. 기존 VRM에 독립 모발/의복을 자동 결합하는 제작 경로는 미지원 | 가짜 VRM/완성 선언 금지 |
+| 3D ACCESSORY (1) | 기존 VRM과 실제 부착 위치가 있을 때만 3D 소품 결합 경로 | 무근거 임의 부착 금지 |
+
+**주의:** 독립 헤어·의상·장신구 원화는 지금 코드에서 본체 합성용 PNG 알파를 확인한 **단일 PSD 후보**를 만들 수 있습니다. 이것만으로 내부 이동 파츠가 나뉜 것은 아니므로, `DETACHED_ALPHA_SINGLE_LAYER_REFINEMENT_REQUIRED` 또는 기타 구체적 미완료 상태를 유지합니다. See-through를 억지로 돌려 무관한 얼굴/몸 파츠를 만들어 완료 처리하는 것보다 정확합니다. 정적 ZIP 및 코드 규칙 검증은 실제 GPU 품질/리깅 성공을 보장하지 않습니다.
+
 ## [2026-10-17] GPT 원화 생성 → 전문 분리 AI 인계 (2D 20종)
 
 **Live2D/Inochi2D 20개 ZIP에서 가장 우선하는 계약은 `GPT_ARTWORK_SEGMENTER_HANDOFF_V5`입니다.** ZIP 안의 14개 MD 모두에 모드/자산별로 삽입했습니다. GPT 등 대형 이미지 AI는 **`outputs/master.png` 한 장 및 `reference_views/*.png` (BODY는 `expression_refs/*.png` 포함)만 실제 PNG로 생성**하고 `<mode>__<asset>__ARTWORK.zip`으로 제출합니다. 이 소스 ZIP의 임무는 여기까지입니다. `part_art/*.png`, `layer_order.txt`, `manifest.json`, PSD, MOC3 등을 GPT가 가짜 결과로 작성하는 것은 금지합니다.
