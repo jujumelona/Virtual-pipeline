@@ -48,6 +48,84 @@ C. {asset} 실제 세분화 판단: {CUT[asset]}
 D. 검사/실패 처분: 합성한 중립 이미지가 마스터와 일치하는지, 눈 흰자·홍채를 단독 표시했을 때 중복 눈이 아닌지, 투명 구멍·접합선·가림 뒤 색 누락이 없는지 확인. 레이어 이름/PNG 숫자/SAM 마스크 출력만으로 성공 처리하지 않는다. 미완료는 EYE_MICRO_SPLIT_UNRESOLVED, UNDERPAINT_MISSING, SOURCE_PIXEL_MISMATCH, PART_ALPHA_INVALID 중 해당 원인으로 보류하고 같은 생성 AI에 다시 파츠 시트를 그리라고 보내지 않는다. PSD/Live2D/Inochi2D 리깅과 측면 키폼 성공은 후속 단계에서 따로 검증한다.
 - 근거: https://docs.live2d.com/ko/cubism-editor-tutorials/psd/ ; https://docs.live2d.com/ko/cubism-editor-manual/divide-the-material/ ; https://github.com/shitagaki-lab/see-through ; https://ai.meta.com/research/sam2/
 ## [/ART_SOURCE_AND_SEPARATION_V3]"""
+
+def repair_legacy_instructions(t, mode, asset, name):
+    """Replace contradicting active sentences in place, retaining useful art detail."""
+    if mode == "3d":
+        return t.replace("### [직접 생성: 피부색 통일 - BODY 신체 파츠별 실제 작화 명령]",
+                         "### [3D 다각도 그림 피부톤 통일 — 2D 파츠 분리 지시 아님]")
+    pattern = (r"(?m)^실제 템플릿 슬롯·마스터·직전 승인 파츠를 .*?"
+               r"독립 RGBA PNG로 그린다\..*?"
+               r"(?:후속 Colab 작업이다|Colab 단계다)\.\s*$")
+    replacement = ("이미지 생성 AI는 현재 자산의 고품질 마스터 한 장 및 각도·가림 참고 그림을 "
+                   "먼저 만든다. 원본의 세부 픽셀을 보존한 독립 RGBA PNG는 후속 전문 분리 단계에서 "
+                   "추출·숨은 면 보정 후 검증한다. 파츠 순서 파일은 분리 단계만 작성하고 "
+                   "PSD·리깅은 그 이후 작업이다.")
+    t = re.sub(pattern, lambda _: replacement, t)
+    pairs = (
+      ("외부 생성 AI에게 얼굴부터 몸까지 완성한 인체 일러스트를 한 장으로 요구하지 않는다.",
+       "이미지 생성 AI는 얼굴·눈·목·어깨·팔·손과 무광 몸통이 자연스럽게 연결된 해당 모드의 BODY 마스터 한 장을 완성한다. 헤어·의상·액세서리는 합치지 않는다."),
+      ("### [직접 생성: 피부색 통일 - BODY 신체 파츠별 실제 작화 명령]",
+       "### [BODY 마스터 피부톤 및 후속 전문 분리 보정 기준]"),
+      ("양쪽 상완·전완·손은 각각 독립 RGBA PNG다.",
+       "양쪽 상완·전완·손은 후속 전문 분리 단계가 각각 독립 RGBA PNG로 추출하고 가려진 접합면을 보정한다."),
+      ("각 파츠를 생성하기 전에",
+       "전용 분리 단계에서 각 파츠의 마스크를 확정하기 전에"),
+      ("**생성 요청은 항상 6가지로 구체화한다.**",
+       "**전용 분리·숨은 면 보정 요청은 항상 6가지로 구체화한다.**"),
+      ("파츠별 원화를 하나씩 생성하되 PSD 인코딩·메시·리깅은 여기서 하지 않는다.",
+       "이미지 생성 AI는 마스터 및 각도·표정 참고를 완성한다. 각 파츠 RGBA 추출·숨은 면 보정·재합성은 후속 전문 분리 단계에서 수행하고, PSD·리깅은 이후에 검증한다."),
+      ("한 파츠 한 번의 그림 생성·정면 합성·숨은 면·시점별 부착점 검수를 요구한다.",
+       "완성 마스터를 이용한 전문 분리 단계의 원본 픽셀 추출·정면 재합성·숨은 면·시점별 부착점 검수를 요구한다."),
+      ("그 파츠 이외의 픽셀, 배경, 위치 표시선, 템플릿 캐릭터 그림은 투명해야 한다.",
+       "후속 전문 분리 단계의 파츠 PNG에서만 다른 파츠·배경·위치 표시선·템플릿 픽셀을 투명하게 제거한다."),
+      ("마스터에서 해당 파츠가 점유하는 실제 위치에 그린다.",
+       "마스터에서 해당 파츠가 점유하는 실제 위치와 원점을 후속 분리 PNG에도 유지한다."),
+      ("part_art/_order.txt 및 outputs/master.png도 동일한 전체 캔버스 좌표로 제출한다.",
+       "생성 AI는 outputs/master.png를 제출한다. 파츠 분리 검증 후에만 part_art/_order.txt와 같은 캔버스 좌표의 개별 PNG를 제출한다."),
+      ("## 파츠 원화의 제작 근거", "## 전문 분리 단계의 파츠 가공 근거"),
+      ("# 그림 한 장씩 제작할 때 보는 실물 파츠 카드", "# 전문 분리 단계에서 확인할 실물 파츠 검수 카드"),
+      ("한 번에 하나씩 독립 RGBA PNG로 그린다",
+       "마스터 픽셀 보존형 정밀 분리 단계에서 독립 RGBA PNG로 추출한다"),
+      ("하나씩 독립 RGBA PNG로 그린다",
+       "마스터 픽셀 보존형 정밀 분리 단계에서 독립 RGBA PNG로 추출한다"),
+    )
+    for before, after in pairs:
+        t = t.replace(before, after)
+    t = t.replace(
+        "## 납품 검사\n\n완성 마스터와 각 파츠 PNG를 실제 열어",
+        "## 납품 검사 — 생성 AI 마스터 / 후속 분리 단계 분리\n\n"
+        "생성 AI는 마스터·각도·표정 PNG만 납품한다. 후속 분리 단계의 최종 검사에서 완성 마스터와 각 파츠 PNG를 실제 열어")
+    return t
+
+
+def legacy_collision_codes(s, mode, asset, name):
+    """All 336 documents receive the same fail-closed in-place audit."""
+    errs = []
+    rest = s.split("## [/ART_SOURCE_AND_SEPARATION_V3]",1)[-1]
+    if mode != "3d":
+        patterns = {
+            "direct_rgba_drawing": r"(?:한 번에 하나씩|하나씩)\s*독립 RGBA PNG로 그린다",
+            "direct_part_order_submission": r"실제 템플릿 슬롯·마스터·직전 승인 파츠를 .{0,190}part_art/_order\.txt",
+            "deny_master": r"외부 생성 AI에게 얼굴부터 몸까지 완성한 인체 일러스트를 한 장으로 요구하지 않는다",
+            "premature_arm_png": r"양쪽 상완·전완·손은 각각 독립 RGBA PNG다",
+            "image_ai_per_part": r"파츠별 원화를 하나씩 생성하되",
+            "old_one_part": r"한 파츠 한 번의 그림 생성",
+            "wrong_part_stage": r"각 파츠를 생성하기 전에",
+            "wrong_generation_6": r"생성 요청은 항상 6가지로 구체화한다",
+        }
+        errs.extend(code for code,pat in patterns.items() if re.search(pat,rest))
+        if s.count("## [IMAGE_AI_SOURCE_ONLY_V2]")!=1:errs.append("missing_V2_member")
+        if not all(x in s.split("## [/ART_SOURCE_AND_SEPARATION_V3]",1)[0]
+                   for x in ("SemanticSam","outputs/master.png","part_art/_order.txt")):
+            errs.append("handoff_incomplete")
+    else:
+        if "### [직접 생성: 피부색 통일 - BODY 신체 파츠별 실제 작화 명령]" in rest:
+            errs.append("2d_part_command_in_3d")
+    if s.count("## [ART_SOURCE_AND_SEPARATION_V3]")!=1:errs.append("invalid_V3_count")
+    return errs
+
+
 def edit(data,mode,asset,name):
     t=data.decode("utf-8-sig")
     t=re.sub(r"## \[ART_SOURCE_AND_SEPARATION_V3\].*?## \[/ART_SOURCE_AND_SEPARATION_V3\]\s*","",t,flags=re.S)
@@ -67,6 +145,7 @@ def edit(data,mode,asset,name):
         t=t.replace("04 — 이미지 생성 AI 개별 파츠 원화 납품",
                     "04 — 이미지 AI 마스터 및 전문 분리 AI 파츠 납품")
         t=t.replace("**양손 전체 필수:**","**양손 원화 필수(분리 PNG는 후속):**")
+    t=repair_legacy_instructions(t,mode,asset,name)
     return (contract(mode,asset)+"\n\n"+t.strip()+"\n").encode("utf8")
 def main(root,check=False):
     count=0
@@ -82,6 +161,8 @@ def main(root,check=False):
             s=d.decode("utf8")
             if not s.startswith("## [ART_SOURCE_AND_SEPARATION_V3]") or f"{mode} / {asset}" not in s[:180] or SCOPE[mode] not in s[:2000]:raise ValueError(("scope",path,n))
             if mode!="3d" and not all(w in s[:5000] for w in ("See-through","part_art/_order.txt","master.png","SemanticSam")):raise ValueError(("split handoff",path,n))
+            active=legacy_collision_codes(s,mode,asset,n)
+            if active:raise ValueError(("unresolved instructions",path,n,active))
         if not check and before!=after:
             tmp=path.with_suffix(".tmp")
             with ZipFile(tmp,"w",compression=ZIP_STORED) as z:

@@ -27,6 +27,7 @@ jobs:
         run: |
           python tools/upgrade_24_image_kits_separation.py
           python tools/upgrade_24_image_kits_separation.py --check
+          python -m compileall -q tools/upgrade_24_image_kits_separation.py
       - name: Commit 24 ZIP updates
         run: |
           git config user.name "github-actions[bot]"
