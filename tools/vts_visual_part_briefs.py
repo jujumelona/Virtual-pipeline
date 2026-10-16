@@ -95,6 +95,26 @@ ACCESSORY = """### ACCESSORY: 실제 생성할 그림별 제작 카드
 **생성 후 검사:** 소품을 제거해도 BODY/HAIR/OUTFIT 원화는 원본 그대로 남아야 하며, 장착 상태에서 코·귀·목이 실루엣 밖으로 떨어져 보이거나 회전 때 고정부가 떠 있어서는 안 된다.
 """
 
+
+MASKED = """### [MASKED_PART_REFERENCE_JOB_V1] 실제 그림을 입력으로 주는 한-파츠 생성 프로토콜
+
+**글 설명만으로 그리지 않는다.** 먼저 승인한 캐릭터 마스터 원화, 실제 열어 본 공식/오픈소스 템플릿의 해당 파츠 이미지, 현재 파츠 원본(없으면 빈 RGBA), 그리고 **이번에 칠할 영역을 흰색으로 표시한 원본 크기의 마스크**를 준비한다. 단지 템플릿 URL을 복사하거나 파츠 이름만 적는 것은 실패다. 마스크는 그 파츠의 실제 실루엣과 회전 시 드러날 숨은 연장 영역에 한정하고 눈·옷·머리 등 다른 파츠까지 칠하지 않는다.
+
+원본 위치를 유지한 작업 파일은 다음처럼 준비할 수 있다(그림을 대신 생성하는 코드가 아니다).
+
+    python -m tools.vts_part_visual_task prepare --master master.png --template-slot actual_template_part.png --target-mask part_fill_mask.png --base-part approved_part.png --role neck --output part_job_neck
+
+작업 폴더의 input.png는 실제 기존 파츠와 그린 적 없는 **초록(#00FF00) 배경**, 오직 채울 부분만 **자홍색(#FF00FF)** 으로 표시한다. mask.png는 그 자홍 영역의 이진 마스크다. character_context.png는 같은 캐릭터 원화에서 잘라 낸 시각적 연속성 참고, template_slot.png는 실제 템플릿 레이어 참고다. 각 그림을 이미지 AI에 함께 보여 주고, 자홍 영역만 기존 선·색·명암을 이어서 그리게 한다. 절대로 자르거나 다른 크기로 재프레이밍하거나 주변 픽셀을 다시 그리지 않는다.
+
+생성한 crop 결과 output.png를 받으면 아래처럼 **마스크 영역의 생성된 픽셀만** 원본 전체 캔버스로 되돌린다. 승인받은 원본 픽셀은 그대로 남는다.
+
+    python -m tools.vts_part_visual_task apply --job-dir part_job_neck --generated part_job_neck/output.png --output-part part_art/neck.png
+
+기존 승인 파츠가 없으면 --base-part는 생략할 수 있지만, 여전히 **실제 마스터·실제 템플릿 슬롯·승인된 영역 마스크**를 제공해야 한다. 사각형을 대충 마스크로 잡아 얼굴과 목을 함께 생성하는 것은 금지한다. 템플릿을 바꾸면 해당 부위 사진도 바꿔야 한다. 이미지 생성 모델이 정확히 RGB 초록색이나 좌표를 지키지 못했으면 완료가 아니라 재검수 대상이다.
+
+참고한 실제 공개 제작 사례: https://github.com/tsunehimatoi/psd2live-examples/blob/main/cases/hiakari-inori/prompts/art/inori/legs/jobs/thigh_L/prompt.txt (CC0). 이 사례처럼 **실제 input.png와 mask.png를 함께 주고 지시**하는 것이 핵심이다. 텍스트 파츠명만 주는 방식은 사용하지 않는다.
+"""
+
 def render(mode: str, asset: str) -> str:
     if mode not in {"live2d_bust_up", "live2d_upper", "live2d_full", "inochi2d_upper", "inochi2d_full"}:
         raise ValueError("Visual card source only applies to 2D modes")
@@ -113,10 +133,10 @@ def render(mode: str, asset: str) -> str:
              if mode.startswith("live2d") else
              "Inochi2D에서 이 RGBA 파츠는 시각 자료다. Creator의 실제 메시·노드·변형·키폼은 후속 리깅 검증이 필요하다.")
     full_body_note = "" if mode.endswith("_full") else (
-        "\n**이 모드는 전신이 아니다.** 아래 BODY 표의 pelvis/thigh/shin/foot 항목은 생성 대상에서 제외한다. "
-        "하체를 넣으면 해당 ZIP의 프레이밍 위반이다.\n"
+        "\n**상반신/바스트업 구도:** 이 모드에서 보이지 않는 하체 파츠는 생성하지 않는다. "
+        "골반·허벅지·종아리·발의 전신 전용 그림은 전신 ZIP에서만 다룬다.\n"
     )
     return (BEGIN + "\n# 02 부록 — 생성 AI용 그림 작업 카드: " + mode + " / " + asset +
             "\n\n**프레임:** " + frame + "\n\n" + COMMON + "\n" +
-            tables[asset] + full_body_note + "\n**후속 단계:** " + stage +
+            tables[asset] + full_body_note + "\n" + MASKED + "\n**후속 단계:** " + stage +
             "\n\n" + END + "\n")
