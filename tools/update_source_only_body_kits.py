@@ -15,6 +15,7 @@ from zipfile import ZipFile
 from tools.image_ai_source_only_contract import (
     BEGIN, END, source_contract, source_only_output_file,
 )
+from tools.vts_visual_part_briefs import (BEGIN as VISUAL_BEGIN, END as VISUAL_END, render as visual_task_cards)
 
 ROOT = Path(__file__).resolve().parents[1] / "docs/image_ai_kits_v2/zips"
 MODES = ("live2d_bust_up", "live2d_upper", "live2d_full",
@@ -123,6 +124,14 @@ def update_one(path: Path, *, write: bool) -> bool:
             body = re.sub(re.escape(old_start) + r".*?" +
                           re.escape(old_end), "", body, flags=re.S)
         body = modernize_2d_steps(body)
+        if name == "02_ADVANCED_PARTS.md":
+            # One physical drawing card appendix per ZIP (not 14 repeated copies).
+            if body.count(VISUAL_BEGIN) != body.count(VISUAL_END) or body.count(VISUAL_BEGIN) > 1:
+                raise ValueError("PARTIAL_VISUAL_TASK_CARDS: " + path.name)
+            if VISUAL_BEGIN in body:
+                body = re.sub(re.escape(VISUAL_BEGIN) + r".*?" +
+                              re.escape(VISUAL_END), "", body, flags=re.S).rstrip()
+            body = body.rstrip() + "\n\n" + visual_task_cards(mode_name, asset)
         if body.count(BEGIN) != 1 or body.count(END) != 1:
             raise ValueError("SOURCE_ONLY_REFERENCE_MARKER_MISSING: " + path.name + "/" + name)
         begin = body.index(BEGIN) + len(BEGIN)
@@ -132,6 +141,21 @@ def update_one(path: Path, *, write: bool) -> bool:
             if name == "04_OUTPUT_FILES.md"
             else body[:begin] + "\n" + contract + body[end:]
         )
+        if name == "04_OUTPUT_FILES.md":
+            updated[name] += (
+                "\n## 실제 생성 단계\n"
+                "파츠 이름만으로 그리지 않는다. 02_ADVANCED_PARTS.md의 "
+                "[SINGLE_PART_VISUAL_TASK_CARDS_V1]에서 현재 파츠의 "
+                "참조 템플릿 이미지·실제 선화·경계·숨은 픽셀·앞뒤 순서·"
+                "실패 예시를 읽고, 그림 하나를 생성한 다음 비교 검수한다.\n"
+            )
+        if name == "00_READ_FIRST.md":
+            updated[name] += (
+                "\n## 개별 파츠 생성 필수 선행 단계\n"
+                "02_ADVANCED_PARTS.md의 [SINGLE_PART_VISUAL_TASK_CARDS_V1]을 "
+                "실제 열고 각 파츠 카드를 한 개씩 적용한다. "
+                "파츠 이름만 확인하고 전체를 한 번에 생성하는 것은 불합격이다.\n"
+            )
     if updated == old:
         return False
     if not write:
