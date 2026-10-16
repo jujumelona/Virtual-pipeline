@@ -641,6 +641,8 @@ def package_detached_asset_from_ai(source: Path, imported: dict, output: Path,
             "rig_generated": False,
             "placement_art_quality_verified": False,
             "source_views_matched": bool(source_qa["views"]["valid"]),
+            "segmentation_status": source_qa.get("parts", {}).get("status"),
+            "extra_layer_refinement_verified": False,
             "note": "Detached PSD and original AI parts; attach to a complete "
                     "avatar and verify its actual movement. Not an MOC3.",
         }, ensure_ascii=False, indent=2))
@@ -694,7 +696,8 @@ def check_psd2live_body_semantics(metadata: dict) -> dict:
 def process_completed_ai_2d_zip(source: Path, output: Path, *,
                                 edition: str, scope: str, asset: str,
                                 reference_image: Path | None = None,
-                                require_views: bool = True) -> dict:
+                                require_views: bool = True,
+                                mode: str | None = None) -> dict:
     """Single Colab entry: QA art, import PSD, reuse existing converter, review poses.
 
     All execution stays in Python. The original image-AI instructions are data,
@@ -707,6 +710,18 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
     source = Path(source).resolve(strict=True)
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
+    from tools.vts_segmentation_profiles import (
+        get_segmentation_profile, infer_live2d_mode,
+        select_source_segmentation, write_segmentation_plan,
+    )
+    mode = mode or infer_live2d_mode(scope)
+    if mode not in ("live2d_bust_up", "live2d_upper", "live2d_full"):
+        raise ValueError("LIVE2D_SEGMENTATION_MODE_MISMATCH")
+    if (scope == "full") != (mode == "live2d_full"):
+        raise ValueError("LIVE2D_SEGMENTATION_FRAME_MISMATCH")
+    select_source_segmentation(mode, asset)
+    profile = write_segmentation_plan(mode, asset,
+                                      output / "segmentation_plan.json")
     from tools.vts_source_only_pack import is_source_only_zip, prepare_source_only_2d
     source_only = is_source_only_zip(source)
     if source_only:
@@ -737,6 +752,7 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
             "visual_quality_verified": False,
         }
         preflight["authored_part_art"] = authored_report
+    preflight["segmentation_profile"] = profile
     # Authored RGBA/PSD takes precedence over See-through guesses. See-through
     # remains available in the image-only path in vts_production.
     # An isolated detachable layer pack cannot be routed into a FREE
@@ -758,13 +774,20 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
         if reference_image is None:
             raise ValueError("DETACHED_ASSET_REQUIRES_BODY_REFERENCE_IMAGE")
         if source_only and imported is None:
-            from tools.vts_production import run_see_through
-            # Splitting happens in Colab, never inside 24 image-AI ZIP kits.
-            inferred = run_see_through(
-                Path(preflight["master"]), output / "decomposition",
-                third_party=Path("/content/vtuber_builder/third_party/see-through"),
-                qwen=False)
-            imported = {"master": Path(preflight["master"]), "psd": Path(inferred)}
+            # Detached hair/outfit/accessory does not contain a full face/head.
+            # Upstream See-through V3 always runs a head crop: do NOT guess a
+            # full character or produce unrelated eyes/body parts.
+            from tools.vts_asset_input import prepare_detached_asset
+            prepared, report = prepare_detached_asset(
+                Path(preflight["master"]), output / "detached_source",
+                asset_kind=asset, qwen=False, layer_count=4, pass_budget=0,
+                third_party=Path("/content/vtuber_builder/third_party"))
+            imported = {"master": Path(preflight["master"]), "psd": Path(prepared)}
+            preflight["parts"] = {
+                "status": "DETACHED_ALPHA_SINGLE_LAYER_REFINEMENT_REQUIRED",
+                "count": 1, "needs_asset_specific_micro_split": True,
+                "visual_quality_verified": False, "foreground": report}
+            preflight["detached_segmentation"] = report
         native = package_detached_asset_from_ai(
             source, imported, output / "detached",
             asset=asset, body_reference=reference_image,
@@ -777,9 +800,16 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
                 "source_artwork": str(native.get("art_psd") if source_only and asset == "body"
                                       else imported["psd"]),
                 "source_art_only": source_only,
-                "layer_decomposition": ("image_ai_individual_rgba_parts" if source_only and imported is not None
-                                        else "See-through" if source_only else "author_supplied"),
-                "stage": "native_rig_generated_unverified" if asset == "body" else "attachment_ready",
+                "layer_decomposition": (
+                    "image_ai_individual_rgba_parts"
+                    if source_only and preflight.get("authored_parts_present")
+                    else "see_through_v3_body_head"
+                    if source_only and asset == "body"
+                    else "source_alpha_only_needs_asset_refinement"
+                    if source_only else "author_supplied"),
+                "segmentation_profile": profile,
+                "stage": ("native_rig_generated_unverified" if asset == "body"
+                          else "detached_artwork_requires_micro_split_and_attachment"),
                  "multiview_reference_keyforms_bound": False,
                 "native": native, "source_qa": preflight,
                 "pose_qa": None,
