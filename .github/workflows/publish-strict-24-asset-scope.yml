@@ -1,0 +1,46 @@
+name: Publish individually scoped 24 asset ZIPs
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/reconcile_24_asset_scope_inplace.py"
+      - ".github/workflows/publish-strict-24-asset-scope.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish-strict-24-asset-scope
+  cancel-in-progress: false
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Rewrite individual source lines in 336 MDs
+        run: |
+          python -m compileall -q tools/reconcile_24_asset_scope_inplace.py
+          python tools/reconcile_24_asset_scope_inplace.py --report /tmp/asset-scope-changes.json
+          python tools/reconcile_24_asset_scope_inplace.py --check --report /tmp/asset-scope-final.json
+          python -m tools.audit_24_image_kits --strict
+      - name: Save per-document evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: per-kit-336-document-scope-audit
+          path: |
+            /tmp/asset-scope-changes.json
+            /tmp/asset-scope-final.json
+      - name: Publish the corrected 24 original ZIPs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/image_ai_kits_v2/zips/*.zip
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(image kits): rewrite shared pose and face drawing instructions per asset scope"
+          git pull --rebase origin main
+          git push origin HEAD:main
