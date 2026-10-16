@@ -119,7 +119,7 @@ def source_contract(mode: str, asset: str) -> str:
         "accessory": "accessory.back, accessory.front; 실제 개별 장식과 부착점만",
     }[asset]
     frame_info = {
-        "live2d_bust_up": "얼굴 크게, 목·양어깨·양팔·양손·상복부까지",
+        "live2d_bust_up": "정수리부터 윗배 BODY 베이스와 양어깨·상완·전완·손가락 끝까지 온전한 양손, 가장 낮은 손가락 끝 아래 여백 포함. 좁은 방송 크롭은 별도",
         "live2d_upper": "두상부터 상반신·허리까지",
         "live2d_full": "정수리부터 두 발까지 일관된 6등신",
         "inochi2d_upper": "두상부터 상반신·양손까지",
@@ -244,6 +244,16 @@ def normalize_source_only(text: str, mode: str, asset: str, filename: str) -> st
             if filename == "07_REVIEW_BEFORE_FINAL_ZIP.md"
             else ()
         )
+        hand_scope = filename in {
+            "00_MASTER_FIRST.md", "00_DELIVERY_AND_RECHECK.md",
+            "00_READ_FIRST.md", "01_COMMON_RULES.md",
+            "02_ADVANCED_PARTS.md", "03_MODE_RULES.md", "04_OUTPUT_FILES.md",
+            "07_REVIEW_BEFORE_FINAL_ZIP.md", "08_PRACTICAL_TIPS.md",
+            "09_VISUAL_ART_QUALITY.md",
+        }
+        if hand_scope:
+            required += ("[BROADCAST_HANDS_BODY_COLOR_V1]",
+                         "[/BROADCAST_HANDS_BODY_COLOR_V1]")
         if any(text.count(marker) != 1 for marker in required):
             raise ValueError("MANUAL_IMAGE_KIT_DRAWING_STEPS_MISSING: " + filename)
         return text
@@ -255,6 +265,7 @@ def normalize_source_only(text: str, mode: str, asset: str, filename: str) -> st
     for first, last in (
         ("## [EXPLICIT_DRAWING_STEPS_V1]", "## [/EXPLICIT_DRAWING_STEPS_V1]"),
         ("## [REAL_VISUAL_REVIEW_V1]", "## [/REAL_VISUAL_REVIEW_V1]"),
+        ("## [BROADCAST_HANDS_BODY_COLOR_V1]", "## [/BROADCAST_HANDS_BODY_COLOR_V1]"),
     ):
         start, end = text.find(first), text.find(last)
         if start < 0 and end < 0:
