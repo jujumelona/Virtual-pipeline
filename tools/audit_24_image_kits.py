@@ -126,7 +126,14 @@ def scan() -> dict:
                     # POSITIVE instructions. Older material outside the
                     # canonical block is examined line by line.
                     in_current_2d_contract = False
+                    in_new_stage_contract = False
                     for i, line in enumerate(lines, 1):
+                        if "## [ART_SOURCE_AND_SEPARATION_V3]" in line:
+                            in_new_stage_contract = True
+                        if in_new_stage_contract:
+                            if "## [/ART_SOURCE_AND_SEPARATION_V3]" in line:
+                                in_new_stage_contract = False
+                            continue
                         if mode != "3d" and "[IMAGE_AI_SOURCE_ONLY_V2]" in line:
                             in_current_2d_contract = True
                         if in_current_2d_contract:
