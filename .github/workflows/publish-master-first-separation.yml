@@ -1,0 +1,38 @@
+name: Publish source-first specialist separation kits
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/upgrade_24_image_kits_separation.py"
+      - ".github/workflows/publish-master-first-separation.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: source-first-24-kit-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Update and validate all 24 original ZIPs
+        run: |
+          python tools/upgrade_24_image_kits_separation.py
+          python tools/upgrade_24_image_kits_separation.py --check
+      - name: Commit 24 ZIP updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/image_ai_kits_v2/zips/*.zip
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(image-ai): publish specialized master-first separation instructions"
+          git pull --rebase origin main
+          git push origin HEAD:main
