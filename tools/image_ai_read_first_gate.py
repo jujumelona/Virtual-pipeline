@@ -54,6 +54,8 @@ def banner(mode: str, asset: str) -> str:
     )
     return f"""# {MARKER} — 모든 지침/참고 이미지 확인 전 생성 절대 금지
 
+**[실제 원화 작화 방식: 02_ADVANCED_PARTS.md의 EXPLICIT_DRAWING_STEPS_V1을 반드시 먼저 열어 따르며, 07_REVIEW_BEFORE_FINAL_ZIP.md의 REAL_VISUAL_REVIEW_V1로 실제 그림을 비교한다.]**
+
 **최상위 순서 계약: 여기까지 끝나기 전에는 이미지 생성·수정 도구를 호출하지 않는다.**
 이 ZIP에서 제작할 자산은 {mode}/{asset} 한 종류뿐이다.
 
