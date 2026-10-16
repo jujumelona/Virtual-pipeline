@@ -26,6 +26,11 @@ POSES = (
     ("blink_neutral", {"ParamEyeLOpen": 0, "ParamEyeROpen": 0}),
     ("blink_yaw_left", {"ParamAngleX": -30, "ParamEyeLOpen": 0, "ParamEyeROpen": 0}),
     ("blink_yaw_right", {"ParamAngleX": 30, "ParamEyeLOpen": 0, "ParamEyeROpen": 0}),
+    # A streaming mouth cannot be certified by testing only closed and open.
+    # Capture intermediate native Cubism states for interpolation checks.
+    ("mouth_quarter", {"ParamMouthOpenY": 0.25}),
+    ("mouth_half", {"ParamMouthOpenY": 0.5}),
+    ("mouth_three_quarters", {"ParamMouthOpenY": 0.75}),
     ("mouth_open", {"ParamMouthOpenY": 1}),
     ("gaze_left", {"ParamEyeBallX": -1}),
     ("gaze_right", {"ParamEyeBallX": 1}),
@@ -129,6 +134,13 @@ def run(model3: Path, output: Path, *, size: int = 768) -> dict:
         isolation = inspect_pose_parameter_isolation(output)
         report["parameter_isolation"] = isolation
         report["failures"].extend(isolation["failures"])
+        # Detect open/closed swaps, stuck poses and mouth states that jump
+        # straight from closed to fully open instead of interpolating.
+        from tools.vts_native_mouth_motion import inspect_native_mouth_motion
+        mouth_motion = inspect_native_mouth_motion(output)
+        report["mouth_motion"] = mouth_motion
+        report["native_mouth_interpolation_passed"] = mouth_motion["passed"]
+        report["failures"].extend(mouth_motion["failures"])
         if not isolation["passed"] and not isolation["failures"]:
             report["failures"].append({
                 "code": "NATIVE_GAZE_NOT_ANIMATED",
