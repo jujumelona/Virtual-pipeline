@@ -3,44 +3,19 @@ name: Refresh 2D per-part template artwork briefs
 on:
   workflow_dispatch:
 
+# Legacy ZIP rewriters are intentionally disabled: re-running them over
+# ART_SOURCE_AND_SEPARATION_V3 would restore contradictory per-part generation.
 permissions:
   contents: read
-
-concurrency:
-  group: refresh-all-2d-part-art-briefs
-  cancel-in-progress: false
-
 jobs:
-  update-all-published-art-briefs:
+  validate-current-source-first-zips:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: true
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Correct early read-first workflow across all 24 ZIPs, then reconcile 20 2D briefs
+      - name: Verify 24 canonical ZIPs, preserving source and split boundaries
         run: |
-          python -m tools.image_ai_read_first_gate --write
-          python -m tools.update_source_only_body_kits --write
-          python -m tools.image_ai_read_first_gate --check
-          python -m tools.update_source_only_body_kits --check
+          python tools/upgrade_24_image_kits_separation.py --check
           python -m tools.audit_24_image_kits --strict
-          git status --short
-      - name: Commit and push ZIP updates
-        run: |
-          if git diff --quiet -- docs/image_ai_kits_v2/zips; then
-            echo "No ZIP changes"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/image_ai_kits_v2/zips
-          n="$(git diff --cached --name-only | wc -l)"
-          if [ "$n" -lt 20 ] || [ "$n" -gt 24 ]; then
-            echo "Unexpected number of changed kit ZIPs: $n"
-            exit 1
-          fi
-          git commit -m "Remove old stage-output conflicts from 24 image AI prompt ZIPs"
-          git push

@@ -6,33 +6,19 @@ on:
       - "tools/enforce_body_neckline_kits.py"
       - ".github/workflows/publish-body-neckline.yml"
   workflow_dispatch:
+# Legacy ZIP rewriters are intentionally disabled: re-running them over
+# ART_SOURCE_AND_SEPARATION_V3 would restore contradictory per-part generation.
 permissions:
-  contents: write
-concurrency:
-  group: publish-body-neckline-main
-  cancel-in-progress: false
+  contents: read
 jobs:
-  publish:
+  validate-current-source-first-zips:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Rebuild 24 ZIPs and verify 14 original documents per ZIP
+      - name: Verify 24 canonical ZIPs, preserving source and split boundaries
         run: |
-          python tools/enforce_body_neckline_kits.py --write
-          python tools/enforce_body_neckline_kits.py --check
-      - name: Commit all 24 revised ZIPs to main
-        run: |
-          if git diff --quiet -- docs/image_ai_kits_v2/zips/; then
-            echo "All 24 ZIPs are already synchronized."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/image_ai_kits_v2/zips/*.zip
-          git commit -m "fix(image-ai): preserve open neck and shoulders in all 24 artwork ZIPs"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          python tools/upgrade_24_image_kits_separation.py --check
+          python -m tools.audit_24_image_kits --strict
