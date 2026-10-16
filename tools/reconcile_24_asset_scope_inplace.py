@@ -89,6 +89,18 @@ def repair(text: str, mode: str, asset: str) -> tuple[str, int]:
     for line in lines:
         content = line.rstrip("\r\n")
         ending = line[len(content):]
+        # Remove other asset's actionable checklists from every ZIP.
+        checklist = re.match(r"^-\\s*\\[\\s*[xX ]?\\s*\\]\\s*(BODY|HAIR|OUTFIT|ACCESSORY)\\s*:", content)
+        if checklist and checklist.group(1).lower() != asset:
+            count += 1
+            continue
+        # A bustup/upper BODY must not include the full-body part-card row
+        # at all: conditional wording still causes unintended legs in image AI.
+        if (asset == "body" and not is_full(mode)
+                and content.lstrip().startswith("| pelvis / thigh.left/right")):
+            count += 1
+            continue
+        ending = line[len(content):]
         updated = line_replacement(content, mode, asset)
         if updated != content:
             count += 1
@@ -128,6 +140,12 @@ def validate_member(s: str, mode: str, asset: str, name: str) -> None:
     if mode != "3d" and s.count("## [IMAGE_AI_SOURCE_ONLY_V2]") != 1:
         raise ValueError((mode, asset, name, "image stage marker"))
     for line in s.splitlines():
+        other_check = re.match(r"^-\\s*\\[\\s*[xX ]?\\s*\\]\\s*(BODY|HAIR|OUTFIT|ACCESSORY)\\s*:", line)
+        if other_check and other_check.group(1).lower() != asset:
+            raise ValueError((mode, asset, name, "other asset acceptance checklist"))
+        if (asset == "body" and not is_full(mode)
+                and line.lstrip().startswith("| pelvis / thigh.left/right")):
+            raise ValueError((mode, asset, name, "full-body part row inside upper scope"))
         if line.startswith("- **모드별 실제 구도:**") and (
             MODE_SOURCE[mode] not in line or ASSET_TARGET[asset] not in line
         ):
