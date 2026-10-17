@@ -1,33 +1,38 @@
-# 이미지 AI 원화 제작 ZIP — 19개 (공통 FACE 1개 + 모드별 자산 18개)
+# 버추얼 원화 제작 ZIP — 18개
 
-**FACE는 바스트업/상반신/전신별로 나뉘지 않습니다.** 얼굴·눈·귀·입·턱·목은 동일 캐릭터의 공통 원화이며 Live2D, Inochi2D, 3D에서 재사용합니다.
+## 2D 공통 FACE 1개
 
-## FACE — 모드와 구도 선택 없이 한 번만 생성
+[**공통 2D FACE 원화 ZIP**](zips/face.zip) — `face.zip`
 
-- **[공통 FACE 제작 지침 ZIP](zips/face.zip)** — 이름: `face.zip`
-- 민머리 얼굴·귀·눈·입·턱·목만 생성. 어깨·몸통·팔·손·의상 없음.
-- 2D용 정면 마스터·좌우 45°·90°·상하 회전·입표정 참고와 3D용 머리·목 8방향 참조를 **하나의 ZIP**으로 지시합니다.
-- 결과 원화의 정면 얼굴·목은 구도가 달라도 재생성하지 않고 동일 캐릭터를 기준으로 정렬합니다. 3D 전용 머리·목 참조가 자동으로 VRM 형상이 되는 것은 아닙니다.
+얼굴·눈·귀·턱·목을 한 번만 제작하고 Live2D/Inochi2D의 바스트업·상반신·전신에 공통 사용합니다. 의상·머리카락·어깨·팔은 그리지 않습니다. 입표정·정면·좌우 고개 회전 참고를 포함합니다.
 
-## 구도가 실제로 달라지는 자산 — 18개
+**3D 모드는 이 FACE ZIP을 사용하지 않습니다.** 얼굴을 캐릭터 전체 2D 원화에 포함하여 3D 복원합니다.
 
-| 제작 모드 | HAIR | OUTFIT (의상 입은 몸통·팔·손) | ACCESSORY |
+## 2D 구도별 자산 15개
+
+| 2D 제작 모드 | HAIR | OUTFIT (착의 몸통·팔·손) | ACCESSORY |
 |---|---|---|---|
 | Live2D 바스트업 | [ZIP](zips/live2d_bust_up__hair.zip) | [ZIP](zips/live2d_bust_up__outfit.zip) | [ZIP](zips/live2d_bust_up__accessory.zip) |
 | Live2D 상반신 | [ZIP](zips/live2d_upper__hair.zip) | [ZIP](zips/live2d_upper__outfit.zip) | [ZIP](zips/live2d_upper__accessory.zip) |
 | Live2D 전신 | [ZIP](zips/live2d_full__hair.zip) | [ZIP](zips/live2d_full__outfit.zip) | [ZIP](zips/live2d_full__accessory.zip) |
 | Inochi2D 상반신 | [ZIP](zips/inochi2d_upper__hair.zip) | [ZIP](zips/inochi2d_upper__outfit.zip) | [ZIP](zips/inochi2d_upper__accessory.zip) |
 | Inochi2D 전신 | [ZIP](zips/inochi2d_full__hair.zip) | [ZIP](zips/inochi2d_full__outfit.zip) | [ZIP](zips/inochi2d_full__accessory.zip) |
-| 3D VRM 참조 | [ZIP](zips/3d__hair.zip) | [ZIP](zips/3d__outfit.zip) | [ZIP](zips/3d__accessory.zip) |
 
-OUTFIT은 선택된 방송 구도에 맞춰 의상을 실제로 착용한 몸통·어깨·양팔·양손을 제작합니다. 전신 모드에는 착의 하체가 추가됩니다. 별도의 의상을 벗은 신체 원화는 요구하지 않습니다. HAIR와 ACCESSORY는 자신이 소유한 자산 픽셀만 생성합니다.
+OUTFIT은 별도 2D FACE와 목깃을 맞춰 의상을 착용한 몸통·팔·손을 그립니다. 전신 모드에서는 착의 하체까지 그립니다. HAIR와 ACCESSORY는 해당 자산만 제작합니다. 원화 생성 AI에 파츠 분리·PSD·리깅 완료를 요구하지 않습니다.
 
-**권장 순서:** 공통 FACE → 해당 구도 OUTFIT → HAIR → ACCESSORY → 얼굴·목·옷깃 앵커 확인 → 후속 Colab 실제 합성·파츠 분리·PSD·리깅.
+## 3D: 완성 캐릭터 원화 1개 + 액세서리 1개
 
-**Colab:** [완성 원화 ZIP 입력 노트북](../../notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb). UI에서 FACE는 모드별 선택이 아닌 독립 공통 선택으로 취급합니다.
+| 3D 제작 항목 | 생성 입력 | ZIP |
+|---|---|---|
+| **3D 전체 캐릭터** | 얼굴·헤어·의상 착용 전신이 모두 포함된 **2D 캐릭터의 정면·후면·좌·우·대각도** 원화 | [3D CHARACTER](zips/3d__character.zip) |
+| **3D 액세서리** | 기존 VRM에 부착할 소품의 2D 다각도 원화 | [3D ACCESSORY](zips/3d__accessory.zip) |
 
-**ZIP 관리:** `node tools/build_source_only_kits_v7.js`와 `node tools/build_source_only_kits_v7.js --check`로 총 19개(각 문서 14개) 일치 여부를 검사합니다. 원화 ZIP은 이미지 생성 지침이며 완성 이미지나 실제 분리·리깅 산출물이 아닙니다.
+3D 작업은 2D 원화를 입력으로 3D 메시·재질/텍스처를 복원하고 Blender/VRM 경로를 사용합니다. 현재 제작기는 4개 직교 시점을 활용하고 대각도 참조는 추가 검수에만 사용합니다. 별도 3D 헤어/의상 메쉬 제작은 아직 연결되지 않았으므로 3D HAIR·OUTFIT ZIP을 배포하지 않습니다.
 
-**구현 경계:** FACE·OUTFIT 연결/자동 눈·입 세부분리/실제 Live2D·Inochi2D·VRM 리깅 성공은 아직 검증되지 않았습니다. 참고 2D/3D 캔버스 좌표의 결합도 제작 단계에서 따로 검사해야 합니다. 안전 판정 우회나 노출된 신체 생성은 요구하지 않습니다.
+**총계: 2D FACE 1 + 2D 전용 15 + 3D 2 = 18 ZIP.**
 
-오래된 `__body.zip` 6개 및 `<mode>__face.zip` 6개는 배포에서 삭제됐습니다. source/BODY_2D.md 등의 구문은 과거 기록으로 현행 지침에 적용되지 않습니다.
+[Colab 제작 노트북](../../notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb)에서 3D는 `전체 캐릭터`를 선택하고, 2D 공통 FACE는 `얼굴만`을 선택합니다.
+
+`node tools/build_source_only_kits_v7.js --check`와 `python -m tools.audit_24_image_kits --strict`로 압축파일 및 문서 계약을 검사합니다. 과거 `__body.zip`과 `3d__hair.zip`·`3d__outfit.zip`, 프레이밍별 FACE ZIP은 폐기됩니다.
+
+**현재 한계:** 2D 원화 생성·ZIP 검증 자체가 3D 모델 생성 성공을 보장하지 않습니다. 실제 메시·리깅·VRM 검증 및 방송 앱 동작 검사가 별도로 필요합니다.
