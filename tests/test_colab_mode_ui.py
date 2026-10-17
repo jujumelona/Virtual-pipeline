@@ -25,10 +25,12 @@ def code_cells():
 def test_one_shared_face_plus_six_frwing_modes():
     assert tuple(TOP_MODE_CHOICES) == (
         "face", "live2d_bust_up", "live2d_upper", "live2d_full", "inochi2d_upper", "inochi2d_full", "3d")
-    assert tuple(ASSET_KINDS) == ("face", "hair", "accessory", "outfit")
+    assert tuple(ASSET_KINDS) == ("face", "character", "hair", "accessory", "outfit")
     assert select_mode("face", "face").framing == "head"
-    assert {select_mode(m,a).asset_kind for m in TOP_MODE_CHOICES
-            for a in ASSET_KINDS if (m=="face")== (a=="face")} == set(ASSET_KINDS)
+    valid={("face","face"),("3d","character"),("3d","accessory")}
+    valid|={(mode,asset) for mode in TOP_MODE_CHOICES if mode not in ("face","3d")
+            for asset in ("hair","outfit","accessory")}
+    assert {select_mode(m,a).asset_kind for m,a in valid} == set(ASSET_KINDS)
 
 
 @pytest.mark.parametrize("mode,family,framing", [
@@ -40,7 +42,7 @@ def test_one_shared_face_plus_six_frwing_modes():
     ("3d", "3d", "full"),
 ])
 def test_mode_routes_are_exact(mode, family, framing):
-    for asset in ("hair","accessory","outfit"):
+    for asset in (("character","accessory") if mode=="3d" else ("hair","accessory","outfit")):
         selected = select_mode(mode, asset)
         assert (selected.family, selected.framing, selected.asset_kind) == (
             family, framing, asset)
@@ -162,3 +164,10 @@ def test_face_has_no_bustup_full_or_engine_selection():
     for asset in ("hair", "outfit", "accessory"):
         with pytest.raises(ValueError, match="공통"):
             select_mode("face", asset)
+
+
+def test_3d_never_requires_head_only_or_detached_hair_outfit():
+    assert select_mode("3d","character").asset_label == "전체 캐릭터"
+    for wrong in ("face","hair","outfit"):
+        with pytest.raises(ValueError):
+            select_mode("3d",wrong)
