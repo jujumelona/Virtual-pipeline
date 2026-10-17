@@ -113,6 +113,8 @@ def ensure_see_through_python(venv: Path) -> str:
 
 
 def prepare(*, qwen: bool = False, install: bool = True, sam_body: bool = True):
+    if qwen:
+        raise ValueError('SEE_THROUGH_ONLY: Qwen/Stable-Layers installation disabled')
     ROOT.mkdir(parents=True, exist_ok=True)
     # An interrupted new preparation must not expose an old ready marker.
     output = ROOT / "vts_setup_manifest.json"

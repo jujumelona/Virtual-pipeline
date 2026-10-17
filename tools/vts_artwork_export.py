@@ -945,9 +945,8 @@ def build_artwork_package(registered_zip: Path, output: Path, *, edition: str,
     # All API entry points, including dependency-injected callers, must obey
     # the same execution contract. FREE may opt in after See-through/SAM;
     # independent PRO hair/accessory may opt in. PRO body/outfit remain off.
-    if qwen and not (edition == "free" or
-                     (edition == "pro" and asset_kind in ("hair", "accessory"))):
-        raise ValueError("Qwen backend is permitted only for FREE or PRO hair/accessory")
+    if qwen:
+        raise ValueError("SEE_THROUGH_ONLY: Qwen/Stable-Layers refinement disabled")
     validate_artwork_request(edition=edition, scope=scope, asset_kind=asset_kind,
                              per_pass_layers=per_pass_layers, max_qwen_passes=max_qwen_passes)
     layers, canvas = _read_registered(registered_zip)

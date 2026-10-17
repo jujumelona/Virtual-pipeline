@@ -41,8 +41,8 @@ def _flat_border_foreground_mask(rgba):
 def prepare_detached_asset(master: Path, work: Path, *, asset_kind: str,
                            qwen: bool, layer_count: int, pass_budget: int,
                            third_party: Path, python: str | None = None):
-    if qwen and asset_kind not in ("hair", "accessory"):
-        raise ValueError("Qwen foreground masks are allowed only for PRO hair/accessory")
+    if qwen:
+        raise ValueError("SEE_THROUGH_ONLY: Qwen foreground inference disabled")
     from tools.vts_psd_layer import create_import_layer, new_import_psd, save_import_psd
 
     with Image.open(master) as source:

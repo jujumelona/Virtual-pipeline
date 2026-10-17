@@ -707,12 +707,10 @@ def make_cubism_handoff(master: Path, output: Path, *, edition: str, scope: str,
 
     A detachable PRO hair/outfit/accessory is not a full Live2D character.
     """
-    # Qwen is opt-in for FREE semantic subparts and PRO hair/accessory.
-    # PRO body/outfit do not run this refinement backend.
-    if qwen and not (edition == "free" or
-                     (edition == "pro" and asset_kind in ("hair", "accessory"))):
-        print("[VTS QWEN] disabled: only FREE or PRO hair/accessory may use Qwen", flush=True)
-        qwen = False
+    # Production path is See-through only; no generative Qwen splitter.
+    if qwen:
+        raise ValueError("SEE_THROUGH_ONLY: Qwen/Stable-Layers refinement is disabled")
+    qwen = False
     # Direct calls from older notebook cells must isolate BEFORE loading
     # image/PSD/native libraries; protection cannot depend on one UI import.
     if 'ipykernel' in sys.modules and not _worker:
