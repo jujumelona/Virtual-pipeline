@@ -1,4 +1,4 @@
-"""Audit 24 published source-only image generation instruction ZIPs."""
+"""Audit 19 source-only kits: one common FACE plus 18 scoped assets."""
 from __future__ import annotations
 from pathlib import Path
 from zipfile import ZipFile
@@ -6,7 +6,8 @@ import argparse, json
 
 ROOT=Path(__file__).resolve().parents[1]/"docs/image_ai_kits_v2/zips"
 MODES=("live2d_bust_up","live2d_upper","live2d_full","inochi2d_upper","inochi2d_full","3d")
-ASSETS=("face","hair","outfit","accessory")
+ASSETS=("hair","outfit","accessory")
+TARGETS=(("face","face"),)+tuple((m,a) for m in MODES for a in ASSETS)
 DOCUMENTS={
  "00_MASTER_FIRST.md","00_DELIVERY_AND_RECHECK.md","00_READ_FIRST.md",
  "01_COMMON_RULES.md","02_ADVANCED_PARTS.md","03_MODE_RULES.md",
@@ -33,6 +34,10 @@ LEGACY=("ART_SOURCE_AND_SEPARATION_V3","GPT_ARTWORK_SEGMENTER_HANDOFF_V5",
         "See-through V3","SemanticSam","Qwen-Image-Layered",
         "part_art/_order.txt","isolated_parts/")
 def expected_files(mode,asset):
+    if mode=="face" and asset=="face":
+        return (("outputs/master.png",)+tuple("reference_views/"+v+".png" for v in VIEWS["face"])
+                +("expression_refs/mouth_closed.png","expression_refs/mouth_open.png")
+                +tuple("views/face_"+v+".png" for v in THREE))
     if mode=="3d":
         return tuple("views/"+asset+"_"+v+".png" for v in THREE)
     out=["outputs/master.png"]
@@ -43,9 +48,9 @@ def scan():
     issues=[];inventory=[]
     def fail(kit,name,code,detail=""):
         issues.append({"kit":kit,"document":name,"code":code,"severity":"blocker","excerpt":detail})
-    for mode in MODES:
-        for asset in ASSETS:
-            kit=mode+"__"+asset; p=ROOT/(kit+".zip")
+    for mode,asset in TARGETS:
+            kit="face" if mode=="face" else mode+"__"+asset
+            p=ROOT/("face.zip" if mode=="face" else kit+".zip")
             if not p.is_file():
                 fail(kit,"","missing_zip");continue
             try:
@@ -72,13 +77,15 @@ def scan():
                 fail(kit,"00_MASTER_FIRST.md","face_scope_or_palette_missing")
             if asset=="outfit" and ("옷" not in master or "양손" not in master):
                 fail(kit,"00_MASTER_FIRST.md","clothed_torso_hands_missing")
-    for legacy_mode in MODES:
-        if (ROOT/(legacy_mode+"__body.zip")).exists():
-            fail(legacy_mode+"__body","","deprecated_body_zip_still_published")
+    wanted={"face.zip"} | {m+"__"+a+".zip" for m in MODES for a in ASSETS}
+    extras={p.name for p in ROOT.glob("*.zip")}-wanted
+    for name in sorted(extras):fail(name,"","stale_or_duplicate_published_zip")
+
     return {"schema":"vtuber/source-art-only-v7","kits":len({x["kit"] for x in inventory}),
             "documents":len(inventory),"blockers":len(issues),"reviews":0,"issues":issues,
-            "matrix":[{"kit":m+"__"+a,"blockers":sum(i["kit"]==m+"__"+a for i in issues),
-                      "reviews":0} for m in MODES for a in ASSETS]}
+            "matrix":[{"kit":("face" if m=="face" else m+"__"+a),
+                       "blockers":sum(i["kit"]==("face" if m=="face" else m+"__"+a) for i in issues),
+                      "reviews":0} for m,a in TARGETS]}
 def main():
     p=argparse.ArgumentParser();p.add_argument("--strict",action="store_true");p.add_argument("--output",type=Path)
     a=p.parse_args();r=scan()
@@ -86,6 +93,6 @@ def main():
         a.output.parent.mkdir(parents=True,exist_ok=True)
         a.output.write_text(json.dumps(r,ensure_ascii=False,indent=2),encoding="utf-8")
     print(json.dumps({k:v for k,v in r.items() if k!="issues"},ensure_ascii=False,indent=2))
-    if a.strict and (r["blockers"] or r["kits"]!=24 or r["documents"]!=336):
-        raise SystemExit("SOURCE_ART_ONLY_V7_KIT_CONTRACT_FAIL")
+    if a.strict and (r["blockers"] or r["kits"]!=19 or r["documents"]!=266):
+        raise SystemExit("SOURCE_ART_ONLY_19_KIT_CONTRACT_FAIL")
 if __name__=="__main__":main()
