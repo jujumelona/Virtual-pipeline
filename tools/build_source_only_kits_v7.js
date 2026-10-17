@@ -134,7 +134,7 @@ function generate(mode,asset){
   return {b64:res.join(""),size:a.length,doc_count:docs.length,files,mode,asset,zip:result};
 }
 
-// Canonical, reproducible output for all 24 instruction archives.
+// Canonical reproducible output for 18 instruction archives: 2D FACE 1, 2D scoped 15, 3D 2.
 if (typeof require !== 'undefined' && require.main === module) {
   const fs = require('fs'), path = require('path');
   const root = path.join(__dirname, '..', 'docs', 'image_ai_kits_v2', 'zips');
