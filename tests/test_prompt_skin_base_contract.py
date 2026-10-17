@@ -1,78 +1,43 @@
-"""Generated VTuber base prompts must request a modest, opaque rigging cover."""
+"""Legacy external generator now emits face/neck only, never a BODY reference."""
 from vtuber_pipeline.prompt_contract import Identity, build_prompts
 
 
-def _identity():
-    return Identity(
-        hair_color="#F0F0F0",
-        hairstyle="long white hair, center bangs",
-        eye_color="violet",
-        face_description="soft neutral anime face",
-        skin_color="#EBC9B8",
-    )
+def identity():
+    return Identity(hair_color="#F0F0F0", hairstyle="long white hair",
+                    eye_color="orange", face_description="adult round anime face",
+                    skin_color="#EBC9B8")
 
 
-def test_2d_generated_prompts_use_contrasting_clothed_suit():
-    data = build_prompts("inochi2d", _identity())
-    assert data["image_count"] == 21
-    prompts = {item["filename"]: item["prompt"] for item in data["images"]}
-    master = prompts["front_master.png"]
-    assert "smooth scalp without attached hair" in master
-    assert "uncovered scalp" in master
-    assert "skin" in master.lower()
-    assert "#EBC9B8" in master
-    for name, prompt in prompts.items():
-        assert "PROFESSIONAL FULLY COVERED ADULT ANIME VTUBER" in prompt, name
-        assert "opaque" in prompt.lower(), name
-        assert "neutral_underlayer:" not in prompt, name
-        assert "integrated_default_outfit:" not in prompt, name
-    assert "blue-gray" in master.lower()
-    assert "#526B83" in master
-    assert "neckline" in master.lower()
-    assert "sleeve cuffs" in master.lower()
-    assert "working suit" in prompts["body.png"].lower()
+def test_2d_face_only_brief_has_no_body_parts():
+    for mode in ("live2d", "inochi2d"):
+        data = build_prompts(mode, identity())
+        prompts = {x["filename"]: x["prompt"] for x in data["images"]}
+        assert data["image_count"] == 16
+        assert "front_master.png" in prompts
+        assert "face.png" in prompts and "neck.png" in prompts
+        assert "body.png" not in prompts
+        assert "arm_left.png" not in prompts and "hand_left.png" not in prompts
+        assert "#EBC9B8" in prompts["front_master.png"]
+        for prompt in prompts.values():
+            assert "FACE ASSET ONLY" in prompt
+            assert "No shoulders, arms, hands, torso" in prompt
+            assert "OUTFIT" in prompt
 
 
-def test_3d_generated_prompts_have_visible_cover_all_views():
-    identity = _identity()
-    data = build_prompts("3d", identity)
+def test_3d_references_are_head_only_not_native_vrm():
+    data = build_prompts("3d", identity())
     assert data["image_count"] == 5
-    assert "blue-gray full-coverage production suit" in data["packaging"].lower()
-    for item in data["images"]:
-        prompt = item["prompt"]
-        assert "#EBC9B8" in prompt
-        assert "#526B83" in prompt
-        assert "neckline" in prompt.lower()
-        assert "PROFESSIONAL FULLY COVERED ADULT ANIME VTUBER" in prompt
-        assert "same hairstyle" in prompt.lower()
-        assert "DEFAULT INTEGRATED COSTUME" not in prompt
-        assert "wearing the SAME complete default costume" not in prompt
-        assert "neutral_underlayer:" not in prompt
+    assert "not a riggable VRM input" in data["packaging"]
+    for view in data["images"]:
+        assert "FACE ASSET ONLY" in view["prompt"]
+        assert "#EBC9B8" in view["prompt"]
 
 
-def test_legacy_outfit_field_cannot_leak_into_skin_base():
-    identity = Identity(
-        hair_color="#F0F0F0",
-        hairstyle="long white hair",
-        eye_color="violet",
-        face_description="adult anime face",
-        outfit="LEGACY_OUTFIT_SENTINEL",
-        skin_color="#EBC9B8",
-    )
-    for mode in ("3d", "inochi2d", "live2d"):
-        bundle = build_prompts(mode, identity)
+def test_legacy_outfit_field_cannot_become_body_prompt():
+    value = Identity(hair_color="white", hairstyle="medium", eye_color="orange",
+                     face_description="adult anime", outfit="LEGACY_OUTFIT_SENTINEL",
+                     skin_color="#F2D4BE")
+    for mode in ("live2d", "inochi2d", "3d"):
+        bundle = build_prompts(mode, value)
         assert "LEGACY_OUTFIT_SENTINEL" not in str(bundle)
-
-def test_all_generated_briefs_prohibit_exposed_torso_and_keep_wardrobe_separate():
-    identity = _identity()
-    for mode in ("3d", "inochi2d", "live2d"):
-        spec = build_prompts(mode, identity)
-        for part in spec["images"]:
-            prompt = part["prompt"].lower()
-            assert "fully covered" in prompt
-            assert "opaque" in prompt
-            assert "underwear" not in prompt
-            assert "{skin_color}" not in prompt
-            assert "fashion garments are independent future assets" in prompt
-            assert "#526b83" in prompt
-            assert "sleeve cuffs" in prompt
+        assert "body.png" not in str(bundle)
