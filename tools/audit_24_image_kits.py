@@ -6,7 +6,7 @@ import argparse, json
 
 ROOT=Path(__file__).resolve().parents[1]/"docs/image_ai_kits_v2/zips"
 MODES=("live2d_bust_up","live2d_upper","live2d_full","inochi2d_upper","inochi2d_full","3d")
-ASSETS=("body","hair","outfit","accessory")
+ASSETS=("face","hair","outfit","accessory")
 DOCUMENTS={
  "00_MASTER_FIRST.md","00_DELIVERY_AND_RECHECK.md","00_READ_FIRST.md",
  "01_COMMON_RULES.md","02_ADVANCED_PARTS.md","03_MODE_RULES.md",
@@ -16,8 +16,8 @@ DOCUMENTS={
  "11_OFFICIAL_IMAGE_EXAMPLES.md"
 }
 VIEWS={
- "body":("body_front","head_three_quarter_L","head_three_quarter_R","head_profile_L",
-         "head_profile_R","head_pitch_up","head_pitch_down","neck_underpaint","body_joint_overlaps"),
+ "face":("face_front","head_three_quarter_L","head_three_quarter_R","head_profile_L",
+         "head_profile_R","head_pitch_up","head_pitch_down","neck_underpaint","face_neck_overlap"),
  "hair":("hair_front","hair_three_quarter_L","hair_three_quarter_R","hair_profile_L",
          "hair_profile_R","hair_back","hair_underlayers","hair_motion_clearance"),
  "outfit":("outfit_front","outfit_three_quarter_L","outfit_three_quarter_R","outfit_profile_L",
@@ -37,7 +37,7 @@ def expected_files(mode,asset):
         return tuple("views/"+asset+"_"+v+".png" for v in THREE)
     out=["outputs/master.png"]
     out.extend("reference_views/"+v+".png" for v in VIEWS[asset])
-    if asset=="body":out.extend(("expression_refs/mouth_closed.png","expression_refs/mouth_open.png"))
+    if asset=="face":out.extend(("expression_refs/mouth_closed.png","expression_refs/mouth_open.png"))
     return tuple(out)
 def scan():
     issues=[];inventory=[]
@@ -68,8 +68,13 @@ def scan():
             for expected in expected_files(mode,asset):
                 if chr(96)+expected+chr(96) not in output:
                     fail(kit,"04_OUTPUT_FILES.md","required_artwork_png_missing",expected)
-            if asset=="body" and "FACE_SKIN_BASE" not in master:
-                fail(kit,"00_MASTER_FIRST.md","missing_body_palette_lock")
+            if asset=="face" and ("FACE_SKIN_BASE" not in master or "몸통" not in master):
+                fail(kit,"00_MASTER_FIRST.md","face_scope_or_palette_missing")
+            if asset=="outfit" and ("옷" not in master or "양손" not in master):
+                fail(kit,"00_MASTER_FIRST.md","clothed_torso_hands_missing")
+    for legacy_mode in MODES:
+        if (ROOT/(legacy_mode+"__body.zip")).exists():
+            fail(legacy_mode+"__body","","deprecated_body_zip_still_published")
     return {"schema":"vtuber/source-art-only-v7","kits":len({x["kit"] for x in inventory}),
             "documents":len(inventory),"blockers":len(issues),"reviews":0,"issues":issues,
             "matrix":[{"kit":m+"__"+a,"blockers":sum(i["kit"]==m+"__"+a for i in issues),
