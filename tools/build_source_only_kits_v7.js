@@ -113,9 +113,10 @@ function generate(mode,asset){
     [facePrompt,faceDesign],
     [faceDesign,faceQC]
   ];
+  const seeThroughContract = is3d ? "" : "【SEE_THROUGH_ONLY_2D_V1 / 2D 원화 생성 최우선】\n- GPT/Gemini 이미지 생성은 각 자산의 고품질 애니풍 원화(master.png)와 시점별 참고 PNG만 담당한다. 독립 눈·입·머리 PNG, alpha mask, PSD, 메시, 리깅 파일을 생성하지 않는다.\n- See-through(내부 LayerDiff/Marigold 및 공식 SemanticSAM 후처리)만 파츠 분리 모델로 사용한다. Qwen/Stable-Layers 및 기타 이미지 생성 AI를 분리 모델로 사용하지 않는다.\n- FACE·HAIR·OUTFIT·ACCESSORY 단독 그림을 See-through 전체 캐릭터 입력에 직접 주지 않는다. 반드시 OUTFIT(착의 몸체) → FACE(얼굴·목) → HAIR(앞·옆·뒤 머리) → ACCESSORY(선택 소품)를 동일 캔버스로 정렬·합성해 완성된 정면 캐릭터 PNG 한 장을 만든 후 See-through를 실행한다. 순서는 기본 합성 순서이며 목·옷깃·머리/얼굴 가림은 시각 검수한다.\n- outputs/master.png는 해당 자산만 담긴 실제 RGBA 투명 원화여야 한다. 흰색 RGB 배경을 RGBA로 단순 변환한 것은 무효. 불투명 배경만 가능하다면 합성 준비 미완료를 알리고 실제 투명 PNG로 수정한다.\n- 공통 FACE와 구도별 자산은 머리 크기/목 끝/옷깃/어깨/두상 중심 및 픽셀 좌표를 일치시킨다. 캔버스 크기 불일치 시 임의 확대·축소하지 말고 실제 좌표 정합을 요구한다. 피부색은 사용자의 참고 캐릭터가 최우선이며 FACE·목·손에서 같아야 한다.\n- 정면 원화는 눈 좌우의 흰자·홍채·동공·윗속눈썹, 입 닫힘/벌림 참고, 모근·앞옆뒤 머리, 목·옷깃 경계가 뚜렷한 전문 애니 VTuber 그림이다. 원화는 분리 시트가 아니며 숨겨진 면은 참고 시점에서 제시한다.\n- 기존 04_OUTPUT_FILES.md의 원화·reference_views·expression_refs PNG 이름과 자산 경계를 준수한다. 결과 ZIP에 PSD, 마스크, isolated_parts, layer_order.txt 등 추가하지 않는다. 분리 PSD 구조 검사와 실제 움직임/Pro2D 사용 검증은 별개이다." + "\n\n---\n\n";
   const docs=out.map((text,i)=>({
     name:titles[i],
-    text:(asset==="face" ?
+    text:seeThroughContract+(asset==="face" ?
       "# 고품질 애니 VTuber FACE 원화 필수 — 원시 도형 얼굴 금지\n\n"+
       focus[i].join("\n\n---\n\n")+"\n\n---\n\n" : "")+text+extra+"\n"
   }));
