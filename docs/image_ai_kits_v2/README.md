@@ -1,6 +1,8 @@
 # 이미지 생성 AI 전용 원화 ZIP — 24종 SOURCE_ART_ONLY_V7
 
-2026-10-17 기준 **이미지 생성 AI는 파츠를 분리하지 않습니다.** 아래 24개 ZIP에는 원화와 시점별 참고 그림을 만드는 지시만 있습니다.
+2026-10-17 기준 **이미지 생성 AI는 파츠를 분리하지 않습니다.** 원화와 시점별 참고 그림만 제작합니다.
+
+**배포 주의:** 24개 중 **23개 ZIP만 안전한 작업용 커버/단일 자산 지침으로 갱신**되었습니다. `live2d_bust_up__body.zip`은 전송 안전 검사에 차단되어 이전 지침이 남아 있습니다. 이 ZIP을 사용하지 말고 [최신 Live2D 바스트업 BODY 지침](SAFE_BUST_UP_BODY_BRIEF.md)을 따르세요. 전체 24개 재생성 검사는 이 1개 불일치 때문에 아직 통과하지 않습니다.
 
 **역할 계약**
 - **이미지 생성 AI:** 선택된 단일 자산의 `outputs/master.png`(2D)와 `reference_views/*.png`, BODY의 `expression_refs/*.png`를 실제 이미지로 제작합니다. 3D는 `views/*.png` 8방향+가림 참고 1장입니다.
@@ -13,15 +15,15 @@
 
 | 모드 | BODY | HAIR | OUTFIT | ACCESSORY |
 |---|---|---|---|---|
-| Live2D 바스트업 | [ZIP](zips/live2d_bust_up__body.zip) | [ZIP](zips/live2d_bust_up__hair.zip) | [ZIP](zips/live2d_bust_up__outfit.zip) | [ZIP](zips/live2d_bust_up__accessory.zip) |
+| Live2D 바스트업 | [구버전 ZIP 사용 보류 — 안전한 BODY 지침](SAFE_BUST_UP_BODY_BRIEF.md) | [ZIP](zips/live2d_bust_up__hair.zip) | [ZIP](zips/live2d_bust_up__outfit.zip) | [ZIP](zips/live2d_bust_up__accessory.zip) |
 | Live2D 상반신 | [ZIP](zips/live2d_upper__body.zip) | [ZIP](zips/live2d_upper__hair.zip) | [ZIP](zips/live2d_upper__outfit.zip) | [ZIP](zips/live2d_upper__accessory.zip) |
 | Live2D 전신 | [ZIP](zips/live2d_full__body.zip) | [ZIP](zips/live2d_full__hair.zip) | [ZIP](zips/live2d_full__outfit.zip) | [ZIP](zips/live2d_full__accessory.zip) |
 | Inochi2D 상반신 | [ZIP](zips/inochi2d_upper__body.zip) | [ZIP](zips/inochi2d_upper__hair.zip) | [ZIP](zips/inochi2d_upper__outfit.zip) | [ZIP](zips/inochi2d_upper__accessory.zip) |
 | Inochi2D 전신 | [ZIP](zips/inochi2d_full__body.zip) | [ZIP](zips/inochi2d_full__hair.zip) | [ZIP](zips/inochi2d_full__outfit.zip) | [ZIP](zips/inochi2d_full__accessory.zip) |
 | 3D VRM 참조 | [ZIP](zips/3d__body.zip) | [ZIP](zips/3d__hair.zip) | [ZIP](zips/3d__outfit.zip) | [ZIP](zips/3d__accessory.zip) |
 
-**캐릭터 범위:** BODY는 머리카락과 패션 의상·독립 장식이 없는 단색 마네킹형 기본 신체, 얼굴·목·몸통·팔·손의 기본색을 통일합니다. HAIR/OUTFIT/ACCESSORY는 각각 자기 자산만 생성하고, BODY 그림은 정렬 참조로만 사용합니다. 사용자가 기존 캐릭터 참조를 제공했다면 동일성·색상·크기를 우선합니다.
+**캐릭터 범위:** BODY는 머리카락과 패션 의상·독립 장식 없이 얼굴·목·손의 자연 피부색을 통일하고, 몸통·팔·다리에는 눈에 보이는 청회색 무광 작업용 보호 슈트를 적용합니다. 이는 최종 OUTFIT 자산이 아니며, 원화에서 표현되지 않은 커버 아래 신체 픽셀이 생성됐다고 주장할 수 없습니다. HAIR/OUTFIT/ACCESSORY는 각각 자기 자산만 생성하고, BODY 그림은 정렬 참조로만 사용합니다. 사용자가 기존 캐릭터 참조를 제공했다면 동일성·색상·크기를 우선합니다.
 
-**문서 재생성:** `node tools/build_source_only_kits_v7.js` 명령은 배포된 24개 ZIP을 재현합니다. `node tools/build_source_only_kits_v7.js --check`로 추적된 ZIP 바이트와 생성 결과를 비교합니다.
+**문서 재생성:** `node tools/build_source_only_kits_v7.js` 명령은 배포된 24개 ZIP을 재현합니다. `node tools/build_source_only_kits_v7.js --check`로 추적된 ZIP 바이트와 생성 결과를 비교합니다. 현재 바스트업 BODY 1개는 배포 교체가 차단되어 이 명령이 불일치를 보고하는 것이 정상이며, 24개 일치로 보고해서는 안 됩니다.
 
 실제 GPU 분리·시각 품질·리깅 성공은 이 지시서 ZIP의 정적 검증만으로 보장되지 않습니다.
