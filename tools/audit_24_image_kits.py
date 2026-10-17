@@ -68,7 +68,7 @@ def scan():
             for expected in expected_files(mode,asset):
                 if chr(96)+expected+chr(96) not in output:
                     fail(kit,"04_OUTPUT_FILES.md","required_artwork_png_missing",expected)
-            if asset=="face" and ("FACE_SKIN_BASE" not in master or "몸통" not in master):
+            if asset=="face" and ("#F2D4BE" not in master or "몸통" not in master):
                 fail(kit,"00_MASTER_FIRST.md","face_scope_or_palette_missing")
             if asset=="outfit" and ("옷" not in master or "양손" not in master):
                 fail(kit,"00_MASTER_FIRST.md","clothed_torso_hands_missing")
