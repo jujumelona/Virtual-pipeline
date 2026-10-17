@@ -33,6 +33,14 @@ def test_shared_face_and_scoped_artwork_instructions():
             assert "공통 FACE" in master
             assert "FACE_ONLY_V1" in master
             assert "expression_refs/mouth_open.png" in output
+            assert "PRIMARY MASTER IMAGE PROMPT" in master
+            assert "VTUBER_FACE_ART_QUALITY_V2" in master
+            assert "12칸 컨택트시트" in master
+            assert "고품질 애니 VTuber FACE 원화 필수" in master
+            assert "하나라도 실패" in master
+            assert "실제로 이 품질이 합격하기 전에는" in master
+            assert "원시 도형 얼굴 금지" in docs["09_VISUAL_ART_QUALITY.md"]
+            assert "90도" in docs["06_ADVANCED_OFFICIAL_COMMUNITY.md"] or "90°" in docs["06_ADVANCED_OFFICIAL_COMMUNITY.md"]
             assert "views/face_front.png" in output
             for framing in ("Live2D 방송 바스트업 / FACE", "Live2D 상반신 / FACE"):
                 assert framing not in master
