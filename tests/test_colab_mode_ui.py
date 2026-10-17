@@ -100,7 +100,7 @@ def test_shared_submode_must_be_reapplied_after_parent_change():
 def test_readme_explains_real_import_and_native_rig_scope():
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "Live2D 상반신" in text and "Inochi2D 전신" in text
-    assert "신체만" in text and "액세서리만" in text
+    assert "얼굴만" in text and "액세서리만" in text
     assert "VTuber_Finished_AI_ZIP_All_Modes.ipynb" in text
     assert "PSD2Live" in text and "MOC3" in text
     assert "미지원" in text and "방송" in text
