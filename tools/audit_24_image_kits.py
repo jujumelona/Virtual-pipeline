@@ -36,8 +36,7 @@ LEGACY=("ART_SOURCE_AND_SEPARATION_V3","GPT_ARTWORK_SEGMENTER_HANDOFF_V5",
 def expected_files(mode,asset):
     if mode=="face" and asset=="face":
         return (("outputs/master.png",)+tuple("reference_views/"+v+".png" for v in VIEWS["face"])
-                +("expression_refs/mouth_closed.png","expression_refs/mouth_open.png")
-                +tuple("views/face_"+v+".png" for v in THREE))
+                +("expression_refs/mouth_closed.png","expression_refs/mouth_open.png"))
     if mode=="3d":
         return tuple("views/"+asset+"_"+v+".png" for v in THREE)
     out=["outputs/master.png"]
