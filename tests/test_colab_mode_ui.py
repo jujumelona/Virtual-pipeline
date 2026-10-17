@@ -1,4 +1,4 @@
-"""The production notebook UI uses six top-level modes and a shared asset selector."""
+"""FACE is a seventh independent top-level choice, without framing."""
 import ast
 import json
 from pathlib import Path
@@ -22,12 +22,13 @@ def code_cells():
     return cells
 
 
-def test_six_top_modes_and_four_shared_assets():
+def test_one_shared_face_plus_six_frwing_modes():
     assert tuple(TOP_MODE_CHOICES) == (
-        "live2d_bust_up", "live2d_upper", "live2d_full", "inochi2d_upper", "inochi2d_full", "3d")
+        "face", "live2d_bust_up", "live2d_upper", "live2d_full", "inochi2d_upper", "inochi2d_full", "3d")
     assert tuple(ASSET_KINDS) == ("face", "hair", "accessory", "outfit")
-    assert {select_mode(m, a).asset_kind for m in TOP_MODE_CHOICES
-            for a in ASSET_KINDS} == set(ASSET_KINDS)
+    assert select_mode("face", "face").framing == "head"
+    assert {select_mode(m,a).asset_kind for m in TOP_MODE_CHOICES
+            for a in ASSET_KINDS if (m=="face")== (a=="face")} == set(ASSET_KINDS)
 
 
 @pytest.mark.parametrize("mode,family,framing", [
@@ -39,7 +40,7 @@ def test_six_top_modes_and_four_shared_assets():
     ("3d", "3d", "full"),
 ])
 def test_mode_routes_are_exact(mode, family, framing):
-    for asset in ASSET_KINDS:
+    for asset in ("hair","accessory","outfit"):
         selected = select_mode(mode, asset)
         assert (selected.family, selected.framing, selected.asset_kind) == (
             family, framing, asset)
@@ -86,8 +87,8 @@ def test_shared_submode_must_be_reapplied_after_parent_change():
     state = {"TOP_MODE": "live2d_upper"}
     begin_mode_selection(state)
     assert state["ASSET_KIND"] is None
-    assert apply_submode(state, "live2d_upper", {"ASSET_KIND": "face"})
-    assert require_submode_config(state).asset_kind == "face"
+    assert apply_submode(state, "live2d_upper", {"ASSET_KIND": "hair"})
+    assert require_submode_config(state).asset_kind == "hair"
     state["TOP_MODE"] = "inochi2d_full"
     with pytest.raises(RuntimeError):
         require_submode_config(state)
@@ -150,3 +151,14 @@ def test_readme_live2d_production_matches_default_artwork_only():
     assert "프로그램으로 만든 중립색 도형 베이스" not in readme
     assert "단색 마네킹 실루엣을 조립" not in readme
     assert "공식 Cubism Editor" in readme
+
+
+def test_face_has_no_bustup_full_or_engine_selection():
+    assert select_mode("face", "face").framing == "head"
+    for mode in ("live2d_bust_up", "live2d_upper", "live2d_full",
+                 "inochi2d_upper", "inochi2d_full", "3d"):
+        with pytest.raises(ValueError, match="공통"):
+            select_mode(mode, "face")
+    for asset in ("hair", "outfit", "accessory"):
+        with pytest.raises(ValueError, match="공통"):
+            select_mode("face", asset)
