@@ -1,13 +1,13 @@
-"""Nineteen source-art packages: one canonical FACE plus 18 scoped kits."""
+"""Eighteen source-art packages: one 2D FACE, 15 other 2D assets and 2 3D kits."""
 from zipfile import ZipFile
 from tools.audit_24_image_kits import scan, ROOT, MODES, ASSETS, TARGETS, DOCUMENTS, expected_files
 
 
-def test_19_source_only_zips_pass_semantic_audit():
+def test_18_source_only_zips_pass_semantic_audit():
     result=scan()
-    assert result["kits"] == 19 and result["documents"] == 266
+    assert result["kits"] == 18 and result["documents"] == 252
     assert result["blockers"] == 0, result["issues"]
-    assert len(list(ROOT.glob("*.zip"))) == 19
+    assert len(list(ROOT.glob("*.zip"))) == 18
     assert ASSETS == ("hair","outfit","accessory")
     assert not list(ROOT.glob("*__body.zip"))
     assert not list(ROOT.glob("*__face.zip"))
@@ -36,6 +36,9 @@ def test_shared_face_and_scoped_artwork_instructions():
             assert "views/face_front.png" in output
             for framing in ("Live2D 방송 바스트업 / FACE", "Live2D 상반신 / FACE"):
                 assert framing not in master
+        elif asset=="character":
+            assert "3D_COMPLETE_CHARACTER_FROM_2D_V1" in master
+            assert "전신" in master and "옷" in master
         elif asset=="outfit":
             assert "OUTFIT_CLOTHED_BODY_V1" in master
             assert "양손" in master and "옷" in master
@@ -49,5 +52,8 @@ def test_readme_lists_shared_face_once_and_18_other_kits():
     for mode in MODES:
         assert f"zips/{mode}__face.zip" not in index
         assert f"zips/{mode}__body.zip" not in index
-        for asset in ASSETS:
+        allowed=("character","accessory") if mode=="3d" else ASSETS
+        for asset in allowed:
             assert f"zips/{mode}__{asset}.zip" in index
+    assert "zips/3d__hair.zip" not in index
+    assert "zips/3d__outfit.zip" not in index
