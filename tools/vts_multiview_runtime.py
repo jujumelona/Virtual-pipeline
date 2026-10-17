@@ -739,7 +739,7 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
         package = output / "face_artwork_unrigged.zip"
         with ZipFile(package, "w") as z:
             z.write(Path(qa["master"]), "artwork/face_master.png")
-            for name, entry in qa["views"].get("found", {}).items():
+            for name, entry in qa["views"].get("observed", {}).items():
                 if isinstance(entry, dict) and entry.get("file"):
                     z.write(Path(entry["file"]), "reference_views/" + name + ".png")
         result = {
