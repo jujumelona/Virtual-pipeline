@@ -14,9 +14,9 @@ from tools.vts_segmentation_profiles import get_segmentation_profile
 
 def test_face_is_visible_and_no_body_choice():
     assert tuple(ASSET_KINDS) == ("face", "hair", "accessory", "outfit")
-    assert select_mode("live2d_bust_up", "face").asset_label == "얼굴만"
+    assert select_mode("face", "face").asset_label == "얼굴만"
     assert "body" not in ASSET_KINDS
-    face = get_segmentation_profile("live2d_bust_up", "face")
+    face = get_segmentation_profile("face", "face")
     assert face["requires_reference_body"] is False
     assert face["route"] == "face_source_needs_eye_mouth_segmentation"
     assert VIEW_SETS["face"][0] == "face_front"
@@ -39,7 +39,7 @@ def test_face_art_cannot_claim_body_native_rig(tmp_path):
             z.writestr(name, buffer.getvalue())
     result = process_completed_ai_2d_zip(
         art, tmp_path / "produced", edition="free", scope="upper",
-        asset="face", mode="live2d_bust_up")
+        asset="face", mode="face")
     assert result["stage"] == "FACE_ART_VERIFIED_NOT_SEGMENTED"
     assert result["native"]["moc3_generated"] is False
     assert result["moc3_application_verified"] is False
