@@ -45,7 +45,7 @@ PDF/PSD 편집 자산과 방송용 실제 네이티브 모델은 구분합니다
 | **Live2D 전신** | Live2D | full |
 | **Inochi2D 상반신** | Inochi2D | upper |
 | **Inochi2D 전신** | Inochi2D | full |
-| **3D** | 3D | full — 완성 캐릭터 2D 원화→3D 복원 |
+| **3D** | 3D | **전체 캐릭터**(얼굴·헤어·착의 전신)의 다각도 2D 원화 → 3D 복원 또는 액세서리 추가 |
 
 ### FACE를 제외한 제작 모드의 하위 자산
 
