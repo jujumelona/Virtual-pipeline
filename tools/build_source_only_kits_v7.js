@@ -60,7 +60,7 @@ function generate(mode,asset){
   const l32=(arr,x)=>arr.push(x&255,x>>>8&255,x>>>16&255,x>>>24&255);
   let bytes=[],central=[],offset=0;
   for(const doc of docs){const name=enc(doc.name),body=enc(doc.text),sum=crc(body),header=[];l32(header,0x04034b50);l16(header,20);for(let i=0;i<4;i++)l16(header,0);l32(header,sum);l32(header,body.length);l32(header,body.length);l16(header,name.length);l16(header,0);bytes.push(...header,...name,...body);
-    const c=[];l32(c,0x02014b50);l16(c,20);l16(c,20);for(let i=0;i<4;i++)l16(c,0);l32(c,sum);l32(c,body.length);l32(c,body.length);l16(c,name.length);for(let i=0;i<5;i++)l16(c,0);l32(c,0);l32(c,offset);central.push(...c,...name);offset=bytes.length}
+    const c=[];l32(c,0x02014b50);l16(c,20);l16(c,20);for(let i=0;i<4;i++)l16(c,0);l32(c,sum);l32(c,body.length);l32(c,body.length);l16(c,name.length);for(let i=0;i<4;i++)l16(c,0);l32(c,0);l32(c,offset);central.push(...c,...name);offset=bytes.length}
   const start=bytes.length;bytes.push(...central);const end=[];l32(end,0x06054b50);l16(end,0);l16(end,0);l16(end,14);l16(end,14);l32(end,central.length);l32(end,start);l16(end,0);bytes.push(...end);
   const abc="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",a=new Uint8Array(bytes),res=[];
   for(let i=0;i<a.length;i+=3){let x=a[i],y=a[i+1]||0,z=a[i+2]||0;res.push(abc[x>>2]+abc[(x&3)<<4|y>>4]+(i+1<a.length?abc[(y&15)<<2|z>>6]:"=")+(i+2<a.length?abc[z&63]:"="))}
