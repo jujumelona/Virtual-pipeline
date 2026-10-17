@@ -722,7 +722,7 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
         select_source_segmentation, write_segmentation_plan,
     )
     mode = mode or infer_live2d_mode(scope)
-    if mode not in ("live2d_bust_up", "live2d_upper", "live2d_full"):
+    if mode not in ("face", "live2d_bust_up", "live2d_upper", "live2d_full"):
         raise ValueError("LIVE2D_SEGMENTATION_MODE_MISMATCH")
     if (scope == "full") != (mode == "live2d_full"):
         raise ValueError("LIVE2D_SEGMENTATION_FRAME_MISMATCH")
