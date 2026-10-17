@@ -12,7 +12,7 @@ import json
 MODES_2D = ("live2d_bust_up", "live2d_upper", "live2d_full",
             "inochi2d_upper", "inochi2d_full")
 MODES_3D = ("3d",)
-ASSETS = ("body", "hair", "outfit", "accessory")
+ASSETS = ("face", "body", "hair", "outfit", "accessory")  # body remains a legacy backend key only
 
 # Verified against upstream common/live2d/scrap_model.py VALID_BODY_PARTS_V3.
 SEE_THROUGH_V3_TAGS = (
@@ -23,6 +23,7 @@ SEE_THROUGH_V3_TAGS = (
 )
 
 ASSET_TAGS = {
+    "face": ("face", "irides", "eyebrow", "eyewhite", "eyelash", "ears", "nose", "mouth", "neck"),
     "body": ("face", "irides", "eyebrow", "eyewhite", "eyelash",
              "ears", "nose", "mouth", "neck"),
     "hair": ("front hair", "back hair"),
@@ -35,6 +36,7 @@ ASSET_TAGS = {
 # Additional actual separate RGBA layers required by the artwork use case;
 # the V3 tags alone do not prove that these layers exist.
 FINE_LAYERS = {
+    "face": ("eye_L_white", "eye_L_iris", "eye_L_upper_lash", "eye_R_white", "eye_R_iris", "eye_R_upper_lash", "brow_L", "brow_R", "mouth_closed", "mouth_open", "face_without_eyes", "ear_L", "ear_R", "neck_extended"),
     "body": ("eye_L_white", "eye_L_iris", "eye_L_upper_lash",
              "eye_R_white", "eye_R_iris", "eye_R_upper_lash",
              "brow_L", "brow_R", "mouth_closed", "mouth_open",
@@ -49,6 +51,7 @@ FINE_LAYERS = {
                   "hidden_attachment_surface"),
 }
 FULL_BODY_EXTRA = {
+    "face": (),
     "body": ("pelvis", "thigh_L", "thigh_R", "shin_L", "shin_R",
              "foot_L", "foot_R"),
     "hair": (),
@@ -58,6 +61,7 @@ FULL_BODY_EXTRA = {
 
 # This is not a claim that V3 can split individual fingers or rig keyforms.
 NOT_NATIVE_V3 = {
+    "face": ("independent_eye_components", "hidden_face_paint", "jaw_neck_overlap", "mouth_inner"),
     "body": ("separate_left_right_eye_layers", "upper_arm",
              "forearm", "bare_hand", "fingers", "eyelids",
              "inner_mouth", "torso_underpaint", "joint_overlaps"),
@@ -84,7 +88,9 @@ def get_segmentation_profile(mode: str, asset: str) -> dict:
         raise ValueError("UNKNOWN_24_ASSET_PROFILE: " + str((mode, asset)))
     engine, frame, is_full = MODE_SPECS[mode]
     if mode == "3d":
-        if asset == "body":
+        if asset == "face":
+            route = "3d_face_reference_only_no_native_vrm"
+        elif asset == "body":
             route = "3d_multiview_body_mesh"
         elif asset == "accessory":
             route = "3d_multiview_accessory_existing_vrm"
@@ -105,19 +111,21 @@ def get_segmentation_profile(mode: str, asset: str) -> dict:
     # route to genuine alpha/foreground acquisition and require more
     # work for secondary moving layers. Do not label it complete.
     is_body = asset == "body"
-    route = ("v3_full_character_then_fine_anatomy"
-             if is_body else "detached_alpha_then_asset_specific_refinement")
+    route = ("face_source_needs_eye_mouth_segmentation" if asset == "face"
+             else "v3_full_character_then_fine_anatomy" if is_body
+             else "detached_alpha_then_asset_specific_refinement")
     return {
         "mode": mode, "asset": asset, "engine": engine, "frame": frame,
         "route": route,
-        "see_through": ("V3_TWO_PASS_BODY_HEAD" if is_body
+        "see_through": ("FACE_ONLY_HEAD_SEGMENTATION_NOT_YET_VERIFIED" if asset == "face"
+                        else "V3_TWO_PASS_BODY_HEAD" if is_body
                         else "SKIP_V3_ON_DETACHED_MASTER"),
         "v3_candidate_tags": list(ASSET_TAGS[asset]),
         "followup_rgba_layers": list(FINE_LAYERS[asset] +
             (FULL_BODY_EXTRA[asset] if is_full else ())),
         "not_guaranteed_by_v3": list(NOT_NATIVE_V3[asset]),
         "forbid_other_asset_pixels": asset != "body",
-        "requires_reference_body": not is_body,
+        "requires_reference_body": asset not in ("body", "face"),
         "needs_human_visual_qc": True,
         "source_master_has_no_rigged_parts": True,
         "status_before_real_segmentation": "ARTWORK_ONLY_UNVERIFIED",
