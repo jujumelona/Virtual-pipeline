@@ -74,6 +74,18 @@ def scan():
                     fail(kit,"04_OUTPUT_FILES.md","required_artwork_png_missing",expected)
             if asset=="face" and ("#F2D4BE" not in master or "몸통" not in master):
                 fail(kit,"00_MASTER_FIRST.md","face_scope_or_palette_missing")
+            if asset=="face":
+                for required in ("PRIMARY MASTER IMAGE PROMPT",
+                                 "VTUBER_FACE_ART_QUALITY_V2",
+                                 "단순 SVG", "12칸 컨택트시트",
+                                 "하나라도 실패"):
+                    if required not in master:
+                        fail(kit,"00_MASTER_FIRST.md",
+                             "missing_professional_vtuber_quality_contract",required)
+                for file_name in ("03_MODE_RULES.md","09_VISUAL_ART_QUALITY.md",
+                                  "10_ANIME_STYLE.md"):
+                    if "전문" not in docs[file_name] and "애니" not in docs[file_name]:
+                        fail(kit,file_name,"face_quality_supplement_missing")
             if asset=="character" and ("전신" not in master or "의상" not in master):
                 fail(kit,"00_MASTER_FIRST.md","complete_clothed_3d_turnaround_missing")
             if asset=="outfit" and ("옷" not in master or "양손" not in master):
