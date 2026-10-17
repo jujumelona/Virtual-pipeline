@@ -77,7 +77,7 @@ def scan():
             if asset=="face":
                 for required in ("PRIMARY MASTER IMAGE PROMPT",
                                  "VTUBER_FACE_ART_QUALITY_V2",
-                                 "단순 SVG", "12칸 컨택트시트",
+                                 "Python/SVG/Cairo", "12칸 컨택트시트",
                                  "하나라도 실패"):
                     if required not in master:
                         fail(kit,"00_MASTER_FIRST.md",
