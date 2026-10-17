@@ -1,4 +1,4 @@
-"""Six fixed production modes and a shared independent-asset selector.
+"""Shared FACE is framing-free; six other modes select shaped assets.
 
 Phase 1 deliberately has NO model downloads, decomposition, artwork generation
 or exporter action. Later pipeline stages consume this contract directly.
@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 TOP_MODE_CHOICES = {
+    "face": ("FACE 공통(구도 없음)", "face", "head"),
     "live2d_bust_up": ("Live2D 바스트업", "live2d", "upper"),
     "live2d_upper": ("Live2D 상반신", "live2d", "upper"),
     "live2d_full": ("Live2D 전신", "live2d", "full"),
@@ -57,6 +58,8 @@ def select_mode(top_mode: str, asset_kind: str) -> AssetSelection:
         raise ValueError("상위 제작 모드는 Live2D 바스트업/상반신/전신, Inochi2D 상반신/전신, 3D 중 선택하세요.")
     if asset_kind not in ASSET_KINDS:
         raise ValueError("하위 자산은 얼굴/헤어/액세서리/의상 중 하나를 선택하세요.")
+    if (top_mode == "face") != (asset_kind == "face"):
+        raise ValueError("FACE는 별도 공통 모드에서만 선택합니다. 다른 모드에는 HAIR/OUTFIT/ACCESSORY 중 하나를 선택하세요.")
     _, family, framing = TOP_MODE_CHOICES[top_mode]
     return AssetSelection(top_mode=top_mode, family=family, framing=framing,
                           asset_kind=asset_kind)
