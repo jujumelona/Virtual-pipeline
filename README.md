@@ -133,11 +133,11 @@ PDF/PSD 편집 자산과 방송용 실제 네이티브 모델은 구분합니다
 - PSD2Live는 이전 코드 호환용 **명시적 opt-in**이며, 정상적인 Live2D 원화 제작 경로에는 필요하지 않습니다. PSD 결과는 리깅된 `.cmo3`/`.moc3` 모델이 아닙니다. ArtMesh·디포머·키폼·물리·모션·내보내기는 공식 Cubism Editor 사용자 작업입니다.
 
 
-## 이미지 AI 24종 ZIP과 Colab 오픈소스 런타임 — 역할 분리 (2026-10-14)
+## 이미지 AI 18종 ZIP과 Colab 오픈소스 런타임 — 역할 분리 (2026-10-17)
 
-- **24개 이미지 지침 ZIP** (`docs/image_ai_kits_v2/zips/`): GPT/Gemini 등 대형 이미지 AI가 모드/자산별 원화·다각도 참고·숨은 면·RG​​BA 파츠를 생성하는 문서. 이 ZIP에 See-through, PSD2Live, image2live2d 실행 스크립트를 넣지 않는다.
-- **Colab 실행** (`notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb` 및 `notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb`): 대형 AI가 완성한 아트워크 ZIP을 업로드한 후 오픈소스 분리·PSD 변환·PSD2Live 네이티브 자동 리깅을 수행한다.
-- **입력 QA** (`tools/vts_multiview_runtime.py`): 시점 PNG 중복·누락, 자산 혼입, 얼굴/목/몸통 겹침, 좌우 눈·손, 중립 합성 오차를 검사한다. 원화가 잘못되면 이미지 제작 단계로 되돌릴 근거를 남긴다.
+- **18개 이미지 지침 ZIP** (`docs/image_ai_kits_v2/zips/`): 2D 공통 FACE 1 + 구도별 HAIR/OUTFIT/ACCESSORY 15 + 3D 완성 캐릭터/액세서리 2. 외부 이미지 생성 AI에는 **완성 원화와 다각도 참고 PNG만** 요구하고 파츠 분리·RGBA 레이어·PSD를 생성하라고 요구하지 않는다. 이 ZIP에는 실행 스크립트가 들어 있지 않다.
+- **Colab 실행** (`notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb`): 외부 AI 원화 ZIP을 업로드받아 입력 구조를 검사한다. FACE는 원화·회전도·입표정 참고자료를 전달할 뿐 현재 자동 눈·입 파츠 분리/실제 리깅 완성까지 인증하지 않는다. 다른 2D·3D 제작 분기는 별도 제약과 검증 기준을 적용한다.
+- **입력 QA** (`tools/vts_source_only_pack.py`, `tools/vts_multiview_runtime.py`): FACE 원화 12개 PNG·두 입표정 차이·시점 복제·캔버스 정렬·기본 해상도를 검사한다. 검사를 통과해도 일본 애니 VTuber 화풍의 미적 품질은 확인되지 않으며 시각 수동 검수가 필요하다.
 - **대체 백엔드**: image2live2d는 자체 nijilive INP 모델과 보조 렌더를 생성한다. 이 결과가 PSD2Live에서 생성한 Cubism MOC3의 품질을 인증하지 않는다.
 - **실제 모델 자세** (`tools/vts_native_moc_pose_worker.py`): 별도 라이선스 조건을 충족한 live2d-py/Cubism Core와 OpenGL 환경에서 네이티브 MOC3의 회전·눈·입 자세를 렌더링한다. 필요한 런타임이 없거나 움직임이 없으면 미검증/오류를 기록한다.
 - **남은 한계**: 참조 시점 PNG가 PSD2Live 디포머 키폼에 자동으로 매핑되는 것은 아니며, 눈·목의 시각적 완성도나 VTube Studio 실제 트래킹이 자동 인증되는 것도 아니다. 독립 3D 헤어/의상 VRM 생성은 아직 미지원이다. 미검증을 성공으로 표시하지 않는다.
