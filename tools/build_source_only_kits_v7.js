@@ -48,7 +48,11 @@ function generate(mode,asset){
   ];
   if(out.length!==14)throw Error("14 docs expected");
   const safety = asset==="body" ? "\n\n## SAFE_FULL_COVERAGE_BODY_V1\n성인(20세 이상) 방송용 애니 VTuber의 가족 친화적 제작 그림. 전체 캐릭터와 모든 참고 시점에서 상체·가슴·등·복부·골반·팔·다리에는 불투명 청회색(#526B83)의 비패션 작업용 보호 슈트를 그린다. 몸통의 목둘레와 팔 소맷단·발목단을 애니 스타일 선화로 분명하게 표현한다. 얼굴·목·손의 피부는 FACE_SKIN_BASE 색상으로 통일한다. 보호 슈트는 BODY 생성 시에만 쓰는 기본 보호 커버이며 별도 OUTFIT 디자인이나 파츠 원화 납품이 아니다. 후속 파이프라인에서 커버 안쪽 픽셀이 자동으로 생성된다고 가정하지 않는다. 정면 마스터·회전 시점·표정·관절 PNG 모두 동일한 커버를 적용한다. 예쁜 애니 전문 원화로 만들고 단순 도형 프록시는 불합격이다.\n" : "\n\n## SAFE_ASSET_ONLY_V1\n사람 캐릭터를 새로 그리지 않는다. 기존 BODY는 크기와 부착점만 참고하고 최종 그림에는 지정한 헤어·의상·소품 한 자산만 나타낸다. 투명 또는 균일한 단색 배경의 독립 자산 원화를 그린다.\n";
-  const docs=out.map((text,i)=>({name:titles[i],text:text+safety+"\n"}));
+  const focusedSafety = mode==="live2d_bust_up" && asset==="body"
+    ? "\n## 방송용 바스트업 BODY 의상 커버 고정\n스튜디오에서 방송하는 성인 애니 VTuber 캐릭터. 목 위 얼굴과 양손을 제외한 모든 부위는 단정한 청회색 무광 크루넥 긴팔 점프슈트 차림으로 그린다. 어깨부터 가슴·복부와 손목까지 의복이 명확하게 보인다. 실물 캐릭터처럼 아름다운 선화·명암·표정을 우선하고 의복 커버는 단순한 보조 디자인으로 유지한다.\n"
+    : mode==="3d" && asset==="outfit"
+    ? "\n## 의상 단독 제품 제작 시점\n성인 애니 버추얼용 의상 원화를 의상 디자인만 있는 상품 일러스트 방식으로 제작한다. 재킷·소매·바지·안감·고정부의 앞·뒤·옆모습을 단일 자산으로 표시한다. 마네킹 신체·인물·얼굴은 이미지에 포함하지 않는다.\n" : "";
+  const docs=out.map((text,i)=>({name:titles[i],text:text+safety+focusedSafety+"\n"}));
   const enc=s=>{const a=unescape(encodeURIComponent(s)),b=new Uint8Array(a.length);for(let i=0;i<a.length;i++)b[i]=a.charCodeAt(i);return b};
   const table=new Uint32Array(256);for(let i=0;i<256;i++){let v=i;for(let j=0;j<8;j++)v=v&1?0xedb88320^(v>>>1):v>>>1;table[i]=v>>>0}
   const crc=a=>{let v=0xffffffff;for(let x of a)v=table[(v^x)&255]^(v>>>8);return (v^0xffffffff)>>>0};
