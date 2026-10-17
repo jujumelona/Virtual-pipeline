@@ -10,22 +10,24 @@
 
 ## 2D 구도별 자산 15개
 
-| 2D 제작 모드 | HAIR | OUTFIT (착의 몸통·팔·손) | ACCESSORY |
-|---|---|---|---|
-| Live2D 바스트업 | [ZIP](zips/live2d_bust_up__hair.zip) | [ZIP](zips/live2d_bust_up__outfit.zip) | [ZIP](zips/live2d_bust_up__accessory.zip) |
-| Live2D 상반신 | [ZIP](zips/live2d_upper__hair.zip) | [ZIP](zips/live2d_upper__outfit.zip) | [ZIP](zips/live2d_upper__accessory.zip) |
-| Live2D 전신 | [ZIP](zips/live2d_full__hair.zip) | [ZIP](zips/live2d_full__outfit.zip) | [ZIP](zips/live2d_full__accessory.zip) |
-| Inochi2D 상반신 | [ZIP](zips/inochi2d_upper__hair.zip) | [ZIP](zips/inochi2d_upper__outfit.zip) | [ZIP](zips/inochi2d_upper__accessory.zip) |
-| Inochi2D 전신 | [ZIP](zips/inochi2d_full__hair.zip) | [ZIP](zips/inochi2d_full__outfit.zip) | [ZIP](zips/inochi2d_full__accessory.zip) |
+| 2D 제작 모드 | FACE (공통, 동일 ZIP) | HAIR | OUTFIT (착의 몸통·팔·손) | ACCESSORY |
+|---|---|---|---|---|
+| Live2D 바스트업 | [공통 FACE ZIP](zips/face.zip) | [ZIP](zips/live2d_bust_up__hair.zip) | [ZIP](zips/live2d_bust_up__outfit.zip) | [ZIP](zips/live2d_bust_up__accessory.zip) |
+| Live2D 상반신 | [공통 FACE ZIP](zips/face.zip) | [ZIP](zips/live2d_upper__hair.zip) | [ZIP](zips/live2d_upper__outfit.zip) | [ZIP](zips/live2d_upper__accessory.zip) |
+| Live2D 전신 | [공통 FACE ZIP](zips/face.zip) | [ZIP](zips/live2d_full__hair.zip) | [ZIP](zips/live2d_full__outfit.zip) | [ZIP](zips/live2d_full__accessory.zip) |
+| Inochi2D 상반신 | [공통 FACE ZIP](zips/face.zip) | [ZIP](zips/inochi2d_upper__hair.zip) | [ZIP](zips/inochi2d_upper__outfit.zip) | [ZIP](zips/inochi2d_upper__accessory.zip) |
+| Inochi2D 전신 | [공통 FACE ZIP](zips/face.zip) | [ZIP](zips/inochi2d_full__hair.zip) | [ZIP](zips/inochi2d_full__outfit.zip) | [ZIP](zips/inochi2d_full__accessory.zip) |
+
+**FACE 열의 다섯 링크는 모두 동일한 `face.zip` 한 파일입니다.** 바스트업·상반신·전신별 FACE ZIP이 따로 존재한다는 의미가 아닙니다. 2D FACE를 한 번 만든 뒤 선택한 구도의 HAIR·OUTFIT·ACCESSORY에 정렬합니다.
 
 OUTFIT은 별도 2D FACE와 목깃을 맞춰 의상을 착용한 몸통·팔·손을 그립니다. 전신 모드에서는 착의 하체까지 그립니다. HAIR와 ACCESSORY는 해당 자산만 제작합니다. 원화 생성 AI에 파츠 분리·PSD·리깅 완료를 요구하지 않습니다.
 
 ## 3D: 완성 캐릭터 원화 1개 + 액세서리 1개
 
-| 3D 제작 항목 | 생성 입력 | ZIP |
-|---|---|---|
-| **3D 전체 캐릭터** | 얼굴·헤어·의상 착용 전신이 모두 포함된 **2D 캐릭터의 정면·후면·좌·우·대각도** 원화 | [3D CHARACTER](zips/3d__character.zip) |
-| **3D 액세서리** | 기존 VRM에 부착할 소품의 2D 다각도 원화 | [3D ACCESSORY](zips/3d__accessory.zip) |
+| 3D 제작 항목 | FACE 처리 | 생성 입력 | ZIP |
+|---|---|---|---|
+| **3D 전체 캐릭터** | **완성 캐릭터에 얼굴 포함** (FACE ZIP 불필요) | 얼굴·헤어·의상 착용 전신이 모두 포함된 **2D 캐릭터의 정면·후면·좌·우·대각도** 원화 | [3D CHARACTER](zips/3d__character.zip) |
+| **3D 액세서리** | 별도 얼굴 원화 불필요 | 기존 VRM에 부착할 소품의 2D 다각도 원화 | [3D ACCESSORY](zips/3d__accessory.zip) |
 
 3D 작업은 2D 원화를 입력으로 3D 메시·재질/텍스처를 복원하고 Blender/VRM 경로를 사용합니다. 현재 제작기는 4개 직교 시점을 활용하고 대각도 참조는 추가 검수에만 사용합니다. 별도 3D 헤어/의상 메쉬 제작은 아직 연결되지 않았으므로 3D HAIR·OUTFIT ZIP을 배포하지 않습니다.
 
