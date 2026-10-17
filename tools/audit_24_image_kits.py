@@ -65,7 +65,7 @@ SHOULD_3D = ("views/", "3D", "MATTE_CLAY_BODY_V1")
 # suspect but links or negative sentences need separate interpretation.
 MUST_IGNORE_LINE = re.compile(
     r"(?:https?://|과거|구버전|이전|금지|요구하지|생성하지|제작하지|납품하지|"
-    r"가정하지|참고만|링크|출처|권한|라이선스|예제에|예시.*(?:PSD|레이어))"
+    r"가정하지|납품하는 것이 아니라|참고만|링크|출처|권한|라이선스|예제에|예시.*(?:PSD|레이어))"
 )
 
 
