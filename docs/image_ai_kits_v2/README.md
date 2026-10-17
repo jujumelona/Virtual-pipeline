@@ -11,6 +11,8 @@
 - **품질 기준:** 최종 합성·분리 PSD의 눈/입·머리카락/가림·목 연결은 실제 이미지로 확인해야 하며, 모델 출력만으로 리깅 성공을 선언하지 않습니다.
 
 
+[See-through 전용 원화 합성·PSD 제작 Colab](../../notebooks/VTuber_SeeThrough_Only_Source_ZIPs.ipynb)을 사용하세요. **FACE 단독 원화에는 See-through 전체 캐릭터 분리를 실행하지 않습니다.**
+
 ## 2D 공통 FACE 1개
 
 [**공통 2D FACE 원화 ZIP**](zips/face.zip) — `face.zip`
