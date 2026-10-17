@@ -227,7 +227,7 @@ def test_mode_picker_does_not_download_any_split_models(monkeypatch, capsys):
     from tools.colab_mode_ui import select_mode
     for top in ("live2d_upper", "live2d_full", "inochi2d_upper",
                 "inochi2d_full", "3d"):
-        for asset in ("hair", "accessory", "outfit"):
+        for asset in (("character","accessory") if top=="3d" else ("hair","accessory","outfit")):
             assert select_mode(top, asset).asset_kind == asset
 
 
