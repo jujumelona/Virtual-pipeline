@@ -8,23 +8,23 @@ function generate(mode,asset){
     "3d":["3D VRM 참조도","같은 캐릭터의 실제 앞·뒤·좌·우 및 대각 4방향 참조 그림"]
   };
   const A={
-    body:["BODY 신체 기본 원화","성인(20세 이상) 애니 VTuber의 민머리 얼굴·눈·귀·코·입·목·손·몸통과 사지의 위치·관절을 제작한다. 몸통과 팔·다리는 비성적·완전 커버 작업용 보호 슈트 착용 상태로 묘사한다. 머리카락·패션 의상·장신구는 새로 디자인하지 않는다.","FACE_SKIN_BASE=#F2D4BE (사용자가 다른 피부색을 지정하면 전 뷰에서 함께 변경). 얼굴·귀·두피·목·양손 및 커버 아래의 BODY 기준 피부색은 모두 동일하다. 이미지에 보이는 가슴·등·배·어깨·팔·하체는 불투명 청회색(#526B83)의 중립적인 전신 작업용 슈트로 완전히 덮고, 목둘레·소맷단·발목에는 명확한 의복 경계선을 그린다. 몸통의 윤곽은 비해부학적 애니 스타일로 유지한다.","성인 VTuber 특유의 짧고 둥근 얼굴과 큰 애니 눈, 뚜렷한 주황 홍채·흰자·속눈썹, 간결한 코·입. 전문 일러스트 수준의 선화·2~3단계 셀 명암·목/어깨 연결과 자연스러운 뒤통수, 올바른 측면 투영. 단순 도형 프록시는 제작 실패로 판정"],
-    hair:["HAIR 헤어 원화","앞머리·양옆 머리·뒷머리·움직일 가닥만. 얼굴·눈·피부·몸통·의상·장신구를 결과 이미지에 그리지 않는다.","기존 BODY의 두상 원점과 크기에 맞춘다. BODY가 없다면 공통 캔버스와 두상 앵커를 정의하되 기존 캐릭터와 정합됐다고 주장하지 않는다.","모근, 앞·옆·뒷머리와 가려진 뒷머리 형상을 다각도 참고 원화에 표현한다. 끊어진 머리 부품 배치 시트 금지"],
-    outfit:["OUTFIT 의상 원화","지정한 의상 옷감·칼라·양 소매·밑단과 그 옷에 붙은 장식만. 신체 피부·눈·얼굴·헤어·다른 액세서리 제외.","BODY의 기존 캔버스·목둘레·어깨·허리 위치를 참조한다. 인체는 참조용일 뿐 결과 PNG에는 의상만 나타난다.","소매·목둘레·앞뒤 판·천의 안쪽·가림과 옷의 앞뒤 구조를 각도별로 자연스럽게 원화에 표현한다"],
-    accessory:["ACCESSORY 단일 소품 원화","사용자가 지정한 한 종류 소품만. 피부·얼굴·헤어·의복·요청하지 않은 다른 소품 제외.","BODY와 HAIR의 부착 앵커 위치를 참고한다. 기준 인물 이미지 픽셀은 결과 PNG에 포함하지 않는다.","요청 소품의 실제 옆 두께, 고정부, 가려진 후면, 이동하는 날개·가닥이 있다면 각도별 참조 원화에서 보여준다"]
+    face:["FACE 얼굴·목 전용","성인 애니 VTuber 얼굴(민머리·눈·코·입·귀·턱)과 목만 생성한다. 몸통·가슴·복부·어깨·팔·손·의상은 생성하지 않는다.","얼굴·귀·두피·목 피부톤 #F2D4BE 통일. 2~3단 셀 명암, 큰 주황 홍채, 자연스러운 U형 턱. 목은 후속 의상 목깃 속에 들어갈 부분만 남긴다.","실제 정면·좌우 45도·측면 90도·상하 고개 각도의 얼굴·귀·턱·목 투영을 그린다"],
+    hair:["HAIR 헤어 원화","앞머리·양옆 머리·뒷머리·움직일 가닥만. 얼굴·눈·피부·몸통·의상·장신구를 결과 이미지에 그리지 않는다.","기존 FACE의 두상 원점과 크기에 맞춘다. FACE가 없다면 공통 캔버스와 두상 앵커를 정의하되 기존 캐릭터와 정합됐다고 주장하지 않는다.","모근, 앞·옆·뒷머리와 가려진 뒷머리 형상을 다각도 참고 원화에 표현한다. 끊어진 머리 부품 배치 시트 금지"],
+    outfit:["OUTFIT 착의 몸통·팔·손 원화","선택된 의상을 입은 몸통·양어깨·상완·전완·양손을 제작한다. 전신 모드라면 옷을 입은 다리와 신발까지 포함한다. 얼굴·눈·귀·민머리 두상·헤어·독립 소품은 생성하지 않는다.","기준 FACE 목 끝에 옷깃을 정렬한다. 기본 의상은 불투명 무광 긴팔 작업복. 몸통·팔은 모두 옷감이 덮고, 손 피부만 FACE_SKIN_BASE=#F2D4BE 색상을 사용한다.","실제 옷깃·소매·손목·옷감 가림을 그린다. 몸통 정면 고정, 얼굴 고개만 45도 돌릴 때 목과 의상 연결이 끊기지 않도록 여유를 둔다. 의상을 벗은 신체 원화는 만들지 않는다"],
+    accessory:["ACCESSORY 단일 소품 원화","사용자가 지정한 한 종류 소품만. 피부·얼굴·헤어·의복·요청하지 않은 다른 소품 제외.","FACE와 HAIR의 부착 앵커 위치를 참고한다. 기준 인물 이미지 픽셀은 결과 PNG에 포함하지 않는다.","요청 소품의 실제 옆 두께, 고정부, 가려진 후면, 이동하는 날개·가닥이 있다면 각도별 참조 원화에서 보여준다"]
   };
   if(!M[mode]||!A[asset])throw Error("Invalid kit "+mode+"/"+asset);
   const [title,scope]=M[mode], [label,owned,palette,detail]=A[asset],is3d=mode==="3d";
   const v2={
-    body:["body_front","head_three_quarter_L","head_three_quarter_R","head_profile_L","head_profile_R","head_pitch_up","head_pitch_down","neck_underpaint","body_joint_overlaps"],
+    face:["face_front","head_three_quarter_L","head_three_quarter_R","head_profile_L","head_profile_R","head_pitch_up","head_pitch_down","neck_underpaint","face_neck_overlap"],
     hair:["hair_front","hair_three_quarter_L","hair_three_quarter_R","hair_profile_L","hair_profile_R","hair_back","hair_underlayers","hair_motion_clearance"],
     outfit:["outfit_front","outfit_three_quarter_L","outfit_three_quarter_R","outfit_profile_L","outfit_profile_R","outfit_back","outfit_inside_seams","outfit_joint_clearance"],
     accessory:["accessory_front","accessory_three_quarter_L","accessory_three_quarter_R","accessory_profile_L","accessory_profile_R","accessory_back","accessory_attachment_anchor","accessory_occlusion"]
   };
   const v3=["front","front_three_quarter_L","left","back_three_quarter_L","back","back_three_quarter_R","right","front_three_quarter_R","detail_occlusion"];
-  const files=is3d?v3.map(x=>"views/"+asset+"_"+x+".png"):["outputs/master.png",...v2[asset].map(x=>"reference_views/"+x+".png"),...(asset==="body"?["expression_refs/mouth_closed.png","expression_refs/mouth_open.png"]:[])];
+  const files=is3d?v3.map(x=>"views/"+asset+"_"+x+".png"):["outputs/master.png",...v2[asset].map(x=>"reference_views/"+x+".png"),...(asset==="face"?["expression_refs/mouth_closed.png","expression_refs/mouth_open.png"]:[])];
   const fl=files.map(s=>"- `"+s+"`").join("\n"),result=mode+"__"+asset+"__ARTWORK.zip";
-  const context=`**선택:** ${title} / ${label}\n\n**구도:** ${scope}.\n\n**자산 경계:** ${owned}\n\n**색·위치:** ${palette}\n\n**원화 세부:** ${detail}`;
+  const context=`**선택:** ${title} / ${label}\n\n**구도:** ${asset==="face"?"두상에서 목 끝까지만. 몸통·어깨·팔·손 제외":scope}.\n\n**자산 경계:** ${owned}\n\n**색·위치:** ${palette}\n\n**원화 세부:** ${detail}`;
   const stage="**SOURCE_ART_ONLY_V7 — 이미지 생성 AI 전용.** 이 ZIP에서는 완성 원화와 여러 시점의 참고 원화 PNG만 제작한다. 잘라낸 파츠 PNG, 각 파츠별 재생성, 마스크, 레이어 PSD, 메시, 리깅, MOC3, VRM 완성을 이미지 생성 AI에 절대 요구하지 않는다. **실제 파츠 분리·PSD 생성·리깅은 후속 Colab 노트북의 책임**이며, 노트북의 미구현 기능을 성공으로 표시해서는 안 된다.";
   const composition=is3d?"각 참조 PNG는 실제 다른 방향에서 그린 그림이어야 하며 정면 복사·거울 반전으로 방향을 위조하지 않는다. 8방향 및 가려진 부분 참조 한 장을 각각 저장한다.":"한 파일에 한 방향의 원화만 담는다. 정면 마스터와 정면·3/4·측면·상하 고개 참고는 **동일 크기 캔버스·동일 머리/몸 스케일·같은 중심 앵커**를 유지한다. `reference_views`는 움직임·가림의 참고 그림이며 파츠 이미지가 아니다.";
   const bg="실제 RGBA 투명 배경을 만들 수 있으면 사용한다. 불가능하면 균일한 흰색/단색 배경과 충분한 테두리 여백을 사용한다. 정면/참고 그림에 텍스트·워터마크·도형 표식·콜라주·빛 장식과 다른 자산 픽셀을 넣지 않는다.";
@@ -47,12 +47,12 @@ function generate(mode,asset){
     `# 참고 이미지 자료\n\n${ref}\n\n예제 캐릭터의 디자인 자체를 베끼지 않는다. ${title}에서 필요한 ${label}만 제작한다. 출력 경로는 04_OUTPUT_FILES.md의 실제 PNG 목록과 일치해야 한다.`
   ];
   if(out.length!==14)throw Error("14 docs expected");
-  const safety = asset==="body" ? "\n\n## SAFE_FULL_COVERAGE_BODY_V1\n성인(20세 이상) 방송용 애니 VTuber의 가족 친화적 제작 그림. 전체 캐릭터와 모든 참고 시점에서 상체·가슴·등·복부·골반·팔·다리에는 불투명 청회색(#526B83)의 비패션 작업용 보호 슈트를 그린다. 몸통의 목둘레와 팔 소맷단·발목단을 애니 스타일 선화로 분명하게 표현한다. 얼굴·목·손의 피부는 FACE_SKIN_BASE 색상으로 통일한다. 보호 슈트는 BODY 생성 시에만 쓰는 기본 보호 커버이며 별도 OUTFIT 디자인이나 파츠 원화 납품이 아니다. 후속 파이프라인에서 커버 안쪽 픽셀이 자동으로 생성된다고 가정하지 않는다. 정면 마스터·회전 시점·표정·관절 PNG 모두 동일한 커버를 적용한다. 예쁜 애니 전문 원화로 만들고 단순 도형 프록시는 불합격이다.\n" : "\n\n## SAFE_ASSET_ONLY_V1\n사람 캐릭터를 새로 그리지 않는다. 기존 BODY는 크기와 부착점만 참고하고 최종 그림에는 지정한 헤어·의상·소품 한 자산만 나타낸다. 투명 또는 균일한 단색 배경의 독립 자산 원화를 그린다.\n";
-  const focusedSafety = mode==="live2d_bust_up" && asset==="body"
-    ? "\n## 방송용 바스트업 BODY 의상 커버 고정\n스튜디오에서 방송하는 성인 애니 VTuber 캐릭터. 목 위 얼굴과 양손을 제외한 모든 부위는 단정한 청회색 무광 크루넥 긴팔 점프슈트 차림으로 그린다. 어깨부터 가슴·복부와 손목까지 의복이 명확하게 보인다. 실물 캐릭터처럼 아름다운 선화·명암·표정을 우선하고 의복 커버는 단순한 보조 디자인으로 유지한다.\n"
-    : mode==="3d" && asset==="outfit"
-    ? "\n## 의상 단독 제품 제작 시점\n성인 애니 버추얼용 의상 원화를 의상 디자인만 있는 상품 일러스트 방식으로 제작한다. 재킷·소매·바지·안감·고정부의 앞·뒤·옆모습을 단일 자산으로 표시한다. 마네킹 신체·인물·얼굴은 이미지에 포함하지 않는다.\n" : "";
-  const docs=out.map((text,i)=>({name:titles[i],text:text+safety+focusedSafety+"\n"}));
+  const extra = asset==="face"
+    ? "\n\n## FACE_ONLY_V1\n얼굴·눈·귀·코·입·턱·목만 그린다. 몸통·가슴·어깨·팔·손·복부 및 의상은 어떤 참고 이미지에도 그리지 않는다.\n"
+    : asset==="outfit"
+    ? "\n\n## OUTFIT_CLOTHED_BODY_V1\n얼굴을 제외한 몸통·양팔·양손을 실제 의상을 착용한 모습으로 그린다. 의복은 불투명하고 목깃과 소매가 확실하다. 신체를 벗겨낸 원화는 만들지 않는다.\n"
+    : "\n\n## ASSET_ONLY_V1\nFACE·OUTFIT을 복제하지 않고 선택한 자산만 그린다.\n";
+  const docs=out.map((text,i)=>({name:titles[i],text:text+extra+"\n"}));
   const enc=s=>{const a=unescape(encodeURIComponent(s)),b=new Uint8Array(a.length);for(let i=0;i<a.length;i++)b[i]=a.charCodeAt(i);return b};
   const table=new Uint32Array(256);for(let i=0;i<256;i++){let v=i;for(let j=0;j<8;j++)v=v&1?0xedb88320^(v>>>1):v>>>1;table[i]=v>>>0}
   const crc=a=>{let v=0xffffffff;for(let x of a)v=table[(v^x)&255]^(v>>>8);return (v^0xffffffff)>>>0};
@@ -72,7 +72,7 @@ if (typeof require !== 'undefined' && require.main === module) {
   const fs = require('fs'), path = require('path');
   const root = path.join(__dirname, '..', 'docs', 'image_ai_kits_v2', 'zips');
   const modes = ['live2d_bust_up', 'live2d_upper', 'live2d_full', 'inochi2d_upper', 'inochi2d_full', '3d'];
-  const assets = ['body', 'hair', 'outfit', 'accessory'];
+  const assets = ['face', 'hair', 'outfit', 'accessory'];
   const check = process.argv.includes('--check');
   if (!check) fs.mkdirSync(root, {recursive: true});
   let validated = 0;
