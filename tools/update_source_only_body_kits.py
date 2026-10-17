@@ -187,6 +187,17 @@ def main():
     mode.add_argument("--check", action="store_true")
     mode.add_argument("--write", action="store_true")
     args = parser.parse_args()
+    # This historical 20 BODY/parts generator MUST NOT overwrite current
+    # FACE-first 18 ZIPs. Keep its archive-reading code for historical
+    # provenance, but never allow this CLI to mutate the active kits.
+    if (ROOT / "face.zip").exists():
+        raise SystemExit(
+            "OBSOLETE_BODY_ZIP_UPDATER_DISABLED: current catalog uses "
+            "18 FACE-first source-art kits. Use "
+            "'node tools/build_source_only_kits_v7.js --check' for "
+            "reproducibility; use 'node tools/build_source_only_kits_v7.js' "
+            "to regenerate all current kits."
+        )
     changed = 0
     for mode_name in MODES:
         for asset in ASSETS:
