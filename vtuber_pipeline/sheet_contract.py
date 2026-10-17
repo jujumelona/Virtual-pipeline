@@ -112,7 +112,12 @@ def assert_contract()->None:
     found=[t.name for s in SHEETS_2D for t in s.tiles]
     detachable={"hair_front","hair_back","hair_left","hair_right",
                 "outfit_front","outfit_back"}
-    assert len(found)==len(expected-detachable)==20 and set(found)==expected-detachable
+    # The historical atlas still has five body/limb cells for reading old
+    # user files. The active generation prompts are FACE-only and never emit
+    # those cells. Validate that the FACE entries remain intact.
+    legacy_read_only = {"body", "arm_left", "arm_right", "hand_left", "hand_right"}
+    assert set(found) - legacy_read_only == expected
+    assert len(found) == len(expected) + len(legacy_read_only) == 20
     assert not (set(found)&detachable), "No detachable hair or clothes in core character"
     found_views=[t.name for s in VIEWS_3D for t in s.tiles]
     assert len(found_views)==4 and set(found_views)=={"front","back","left","right"}
