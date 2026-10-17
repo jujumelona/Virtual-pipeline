@@ -97,6 +97,30 @@ def _synthetic_face_input(path, *, canvas=(1024, 1280), missing=None,
             archive.writestr(name, payload.getvalue())
 
 
+
+def test_face_master_copy_used_as_profile_is_rejected(tmp_path):
+    art = tmp_path / "copied_master_profile.zip"
+    _synthetic_face_input(art, duplicate_angle=True)
+    with pytest.raises(ValueError, match="FACE_REFERENCE_COPIED_FROM_MASTER"):
+        prepare_source_only_2d(art, tmp_path / "result", asset="face")
+
+
+def test_face_profile_canvas_mismatch_is_rejected(tmp_path):
+    art = tmp_path / "wrong_profile_size.zip"
+    _synthetic_face_input(art)
+    with ZipFile(art) as z:
+        files = {n: z.read(n) for n in z.namelist()}
+    canvas_wrong = Image.new("RGB", (896, 1280), (242, 212, 190))
+    buffer = io.BytesIO()
+    canvas_wrong.save(buffer, "PNG")
+    files["reference_views/head_profile_R.png"] = buffer.getvalue()
+    with ZipFile(art, "w", ZIP_DEFLATED) as z:
+        for name, contents in files.items():
+            z.writestr(name, contents)
+    with pytest.raises(RuntimeError, match="MULTIVIEW_RIG_ALIGNMENT_CANVAS_MISMATCH"):
+        prepare_source_only_2d(art, tmp_path / "result", asset="face")
+
+
 def test_face_mouth_expression_missing_is_rejected(tmp_path):
     art = tmp_path / "no_open_mouth.zip"
     _synthetic_face_input(art, missing="expression_refs/mouth_open.png")
