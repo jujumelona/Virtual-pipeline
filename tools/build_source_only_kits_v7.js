@@ -1,5 +1,6 @@
 function generate(mode,asset){
   const M={
+    face:["공통 FACE (제작 모드·프레이밍 독립)","얼굴·귀·턱·목까지만. 바스트업·상반신·전신·2D 엔진별 FACE 재생성 없음"],
     live2d_bust_up:["Live2D 방송 바스트업","머리부터 상복부까지, 양어깨·팔·양손 손가락 끝 포함. 골반·다리·발 제외"],
     live2d_upper:["Live2D 상반신","머리부터 허리 윗부분까지, 어깨·양팔·양손 포함. 다리·발 제외"],
     live2d_full:["Live2D 전신","머리부터 발끝까지, 6등신 애니풍 비율. 양팔·양손·다리·발 모두 포함"],
@@ -13,7 +14,7 @@ function generate(mode,asset){
     outfit:["OUTFIT 착의 몸통·팔·손 원화","선택된 의상을 입은 몸통·양어깨·상완·전완·양손을 제작한다. 전신 모드라면 옷을 입은 다리와 신발까지 포함한다. 얼굴·눈·귀·민머리 두상·헤어·독립 소품은 생성하지 않는다.","기준 FACE 목 끝에 옷깃을 정렬한다. 기본 의상은 불투명 무광 긴팔 작업복. 몸통·팔은 모두 옷감이 덮고, 손 피부만 FACE_SKIN_BASE=#F2D4BE 색상을 사용한다.","실제 옷깃·소매·손목·옷감 가림을 그린다. 몸통 정면 고정, 얼굴 고개만 45도 돌릴 때 목과 의상 연결이 끊기지 않도록 여유를 둔다. 의상을 벗은 신체 원화는 만들지 않는다"],
     accessory:["ACCESSORY 단일 소품 원화","사용자가 지정한 한 종류 소품만. 피부·얼굴·헤어·의복·요청하지 않은 다른 소품 제외.","FACE와 HAIR의 부착 앵커 위치를 참고한다. 기준 인물 이미지 픽셀은 결과 PNG에 포함하지 않는다.","요청 소품의 실제 옆 두께, 고정부, 가려진 후면, 이동하는 날개·가닥이 있다면 각도별 참조 원화에서 보여준다"]
   };
-  if(!M[mode]||!A[asset])throw Error("Invalid kit "+mode+"/"+asset);
+  if(!M[mode]||!A[asset] || (mode==="face")!==(asset==="face"))throw Error("Invalid kit "+mode+"/"+asset);
   const [title,scope]=M[mode], [label,owned,palette,detail]=A[asset],is3d=mode==="3d";
   const v2={
     face:["face_front","head_three_quarter_L","head_three_quarter_R","head_profile_L","head_profile_R","head_pitch_up","head_pitch_down","neck_underpaint","face_neck_overlap"],
@@ -22,18 +23,23 @@ function generate(mode,asset){
     accessory:["accessory_front","accessory_three_quarter_L","accessory_three_quarter_R","accessory_profile_L","accessory_profile_R","accessory_back","accessory_attachment_anchor","accessory_occlusion"]
   };
   const v3=["front","front_three_quarter_L","left","back_three_quarter_L","back","back_three_quarter_R","right","front_three_quarter_R","detail_occlusion"];
-  const files=is3d?v3.map(x=>"views/"+asset+"_"+x+".png"):["outputs/master.png",...v2[asset].map(x=>"reference_views/"+x+".png"),...(asset==="face"?["expression_refs/mouth_closed.png","expression_refs/mouth_open.png"]:[])];
-  const fl=files.map(s=>"- `"+s+"`").join("\n"),result=mode+"__"+asset+"__ARTWORK.zip";
+  const files=mode==="face"
+    ? ["outputs/master.png",...v2.face.map(x=>"reference_views/"+x+".png"),
+       "expression_refs/mouth_closed.png","expression_refs/mouth_open.png",
+       ...v3.map(x=>"views/face_"+x+".png")]
+    : is3d?v3.map(x=>"views/"+asset+"_"+x+".png")
+    : ["outputs/master.png",...v2[asset].map(x=>"reference_views/"+x+".png")];
+  const fl=files.map(s=>"- `"+s+"`").join("\n"),result=mode==="face"?"face__ARTWORK.zip":mode+"__"+asset+"__ARTWORK.zip";
   const context=`**선택:** ${title} / ${label}\n\n**구도:** ${asset==="face"?"두상에서 목 끝까지만. 몸통·어깨·팔·손 제외":scope}.\n\n**자산 경계:** ${owned}\n\n**색·위치:** ${palette}\n\n**원화 세부:** ${detail}`;
   const stage="**SOURCE_ART_ONLY_V7 — 이미지 생성 AI 전용.** 이 ZIP에서는 완성 원화와 여러 시점의 참고 원화 PNG만 제작한다. 잘라낸 파츠 PNG, 각 파츠별 재생성, 마스크, 레이어 PSD, 메시, 리깅, MOC3, VRM 완성을 이미지 생성 AI에 절대 요구하지 않는다. **실제 파츠 분리·PSD 생성·리깅은 후속 Colab 노트북의 책임**이며, 노트북의 미구현 기능을 성공으로 표시해서는 안 된다.";
-  const composition=is3d?"각 참조 PNG는 실제 다른 방향에서 그린 그림이어야 하며 정면 복사·거울 반전으로 방향을 위조하지 않는다. 8방향 및 가려진 부분 참조 한 장을 각각 저장한다.":"한 파일에 한 방향의 원화만 담는다. 정면 마스터와 정면·3/4·측면·상하 고개 참고는 **동일 크기 캔버스·동일 머리/몸 스케일·같은 중심 앵커**를 유지한다. `reference_views`는 움직임·가림의 참고 그림이며 파츠 이미지가 아니다.";
+  const composition=mode==="face"?"공통 FACE 원화는 얼굴·귀·턱·목만 생성하며, 2D용 outputs/master.png와 reference_views/ 9개·입표정 2개 및 3D 헤드용 views/ 9개를 담는다. 3D 쪽도 머리와 목만 보여주며 몸·의복은 포함하지 않는다. 한 PNG 한 시점, 공통 얼굴 정체성과 동일 피부색 유지. 공통 2D 캔버스와 3D 헤드 시점의 좌표 차이는 후속 합성/3D 작업에서 별도 정렬한다.":is3d?"각 참조 PNG는 실제 다른 방향에서 그린 그림이어야 하며 정면 복사·거울 반전으로 방향을 위조하지 않는다. 8방향 및 가려진 부분 참조 한 장을 각각 저장한다.":"한 파일에 한 방향의 원화만 담는다. 정면 마스터와 정면·3/4·측면·상하 고개 참고는 **동일 크기 캔버스·동일 머리 스케일·같은 중심 앵커**를 유지한다. `reference_views`는 움직임·가림의 참고 그림이며 파츠 이미지가 아니다.";
   const bg="실제 RGBA 투명 배경을 만들 수 있으면 사용한다. 불가능하면 균일한 흰색/단색 배경과 충분한 테두리 여백을 사용한다. 정면/참고 그림에 텍스트·워터마크·도형 표식·콜라주·빛 장식과 다른 자산 픽셀을 넣지 않는다.";
-  const ref=is3d?"VRoid Studio https://vroid.com/en/studio : 형태·시점 참고만. VRM 생성은 이미지 AI의 산출 요구가 아니다.":mode.startsWith("inochi2d")?"Inochi2D 공식 문서 https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html 및 예제 https://github.com/Inochi2D/example-models : 시각 참고만.":"Live2D 공식 예제 https://www.live2d.com/en/learn/sample/haru-receptionist/ 와 원화 안내 https://docs.live2d.com/en/cubism-editor-tutorials/psd/ : 선화·구도·연결을 참고하고 기존 캐릭터를 복제하지 않는다.";
+  const ref=mode==="face"?"Live2D https://docs.live2d.com/en/cubism-editor-tutorials/psd/ · Inochi2D https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html · VRoid https://vroid.com/en/studio . 공통 얼굴 원화는 어느 구도에도 종속되지 않는다.":is3d?"VRoid Studio https://vroid.com/en/studio : 형태·시점 참고만. VRM 생성은 이미지 AI의 산출 요구가 아니다.":mode.startsWith("inochi2d")?"Inochi2D 공식 문서 https://docs.inochi2d.com/en/latest/creator/first-model/tutorial01.html 및 예제 https://github.com/Inochi2D/example-models : 시각 참고만.":"Live2D 공식 예제 https://www.live2d.com/en/learn/sample/haru-receptionist/ 와 원화 안내 https://docs.live2d.com/en/cubism-editor-tutorials/psd/ : 선화·구도·연결을 참고하고 기존 캐릭터를 복제하지 않는다.";
   const titles=["00_MASTER_FIRST.md","00_DELIVERY_AND_RECHECK.md","00_READ_FIRST.md","01_COMMON_RULES.md","02_ADVANCED_PARTS.md","03_MODE_RULES.md","04_OUTPUT_FILES.md","05_OFFICIAL_REFERENCES.md","06_ADVANCED_OFFICIAL_COMMUNITY.md","07_REVIEW_BEFORE_FINAL_ZIP.md","08_PRACTICAL_TIPS.md","09_VISUAL_ART_QUALITY.md","10_ANIME_STYLE.md","11_OFFICIAL_IMAGE_EXAMPLES.md"];
   const out=[
     `# 마스터 제작 계약\n\n${stage}\n\n${context}\n\n${composition}\n\n원화 결과 ZIP은 \`${result}\`.`,
     `# 납품과 재검사\n\n${stage}\n\n허용되는 실제 PNG 파일:\n\n${fl}\n\n동일 원화를 여러 각도로 이름만 바꿔 납품하지 않는다. 부족한 이미지만 다시 그린다. 최종 ZIP 이름은 \`${result}\`.`,
-    `# 생성 시작 전 확인\n\n${stage}\n\n${context}\n\n사용자가 준 이미지가 있다면 그 캐릭터의 얼굴·눈·기본색·디자인을 우선 확인한다. 기존 BODY 참조가 없는 신규 자산은 새 디자인으로 생성 가능하지만 기존 몸체와 정확히 맞는다고 주장하지 않는다.`,
+    `# 생성 시작 전 확인\n\n${stage}\n\n${context}\n\n사용자가 준 이미지가 있다면 그 캐릭터의 얼굴·눈·기본색·디자인을 우선 확인한다. 기존 FACE 기준이 없는 신규 자산은 새 디자인으로 생성 가능하지만 기존 몸체와 정확히 맞는다고 주장하지 않는다.`,
     `# 공통 원화 규칙\n\n${context}\n\n${composition}\n\n${bg}\n\n${stage}`,
     `# 원화 형태·정밀 표현 규칙\n\n${detail}\n\n${palette}\n\n${composition}\n\n한 장의 완성 그림에서 윤곽·색면·접합 관계가 자연스럽게 보이도록 그린다. 눈·소매·모발을 분리 PNG처럼 따로 나열하지 않는다.`,
     `# 구도 규칙\n\n${context}\n\n각 시점이 같은 캐릭터의 같은 자산을 보여야 한다. 몸은 정면이고 고개만 회전한 참고 그림을 요청한 경우 몸통까지 뒤집거나 회전하지 않는다. 배경·다른 자산은 제거한다.`,
@@ -72,19 +78,25 @@ if (typeof require !== 'undefined' && require.main === module) {
   const fs = require('fs'), path = require('path');
   const root = path.join(__dirname, '..', 'docs', 'image_ai_kits_v2', 'zips');
   const modes = ['live2d_bust_up', 'live2d_upper', 'live2d_full', 'inochi2d_upper', 'inochi2d_full', '3d'];
-  const assets = ['face', 'hair', 'outfit', 'accessory'];
+  const assets = ['hair', 'outfit', 'accessory'];
+  const targets = [['face','face'], ...modes.flatMap(mode=>assets.map(asset=>[mode,asset]))];
   const check = process.argv.includes('--check');
   if (!check) fs.mkdirSync(root, {recursive: true});
   let validated = 0;
-  for (const mode of modes) for (const asset of assets) {
+  for (const [mode,asset] of targets) {
     const art = generate(mode, asset);
     if (art.doc_count !== 14) throw Error('incorrect document count: ' + art.zip);
     const bytes = Buffer.from(art.b64, 'base64');
-    const target = path.join(root, mode + '__' + asset + '.zip');
+    const target = path.join(root, mode === 'face' ? 'face.zip' : mode + '__' + asset + '.zip');
     if (check) {
       if (!fs.existsSync(target) || !fs.readFileSync(target).equals(bytes)) throw Error('stale instruction ZIP: ' + target);
     } else fs.writeFileSync(target, bytes);
     validated += 1;
   }
+  const published = fs.readdirSync(root).filter(name=>name.endsWith('.zip'));
+  const required = new Set(targets.map(([mode,asset])=>mode==='face'?'face.zip':mode+'__'+asset+'.zip'));
+  const stale = published.filter(name=>!required.has(name));
+  if (check && (stale.length || published.length!==required.size)) throw Error('stale/duplicate kit ZIPs: '+stale.join(', '));
+  if (!check) for (const name of stale) fs.unlinkSync(path.join(root,name));
   console.log((check ? 'PASS reproducible' : 'Generated') + ': ' + validated + ' source-only ZIPs / ' + validated * 14 + ' MDs');
 }
