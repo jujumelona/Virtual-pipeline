@@ -22,6 +22,9 @@ REPO_URL = "https://github.com/Wzhang3912/image2live2d.git"
 REPO_COMMIT = "714e7cc9191f1ef6c9a1732c80e8b566ec127d6b"
 
 VIEW_SETS = {
+    "face": ("face_front", "head_three_quarter_L", "head_three_quarter_R",
+             "head_profile_L", "head_profile_R", "head_pitch_up",
+             "head_pitch_down", "neck_underpaint", "face_neck_overlap"),
     # Exact image-AI source contracts authored by
     # tools/apply_image_ai_multiview_briefs.py (all 20 2D ZIPs).
     "body": ("body_front", "head_three_quarter_L", "head_three_quarter_R",
@@ -41,12 +44,16 @@ VIEW_SETS = {
 VIEWS_FOR_3D = ("front", "front_three_quarter_L", "left", "back_three_quarter_L",
                 "back", "back_three_quarter_R", "right", "front_three_quarter_R")
 PART_FAMILIES = {
+    "face": {"face", "head", "eyes", "eye", "brow", "eyebrow", "nose", "mouth",
+             "eyewhite", "eyelash", "irides", "pupil", "blush", "neck",
+             "ear", "skin", "scalp", "jaw"},
     "body": {"face", "head", "eyes", "eye", "brow", "eyebrow", "nose", "mouth",
              "eyewhite", "eyelash", "irides", "pupil", "blush",
              "neck", "torso", "body", "arm", "hand", "ear", "pelvis", "leg", "foot",
              "skin", "scalp", "jaw", "shoulder", "forearm"},
     "hair": {"hair"},
-    "outfit": {"outfit", "cloth", "sleeve", "clothing", "garment"},
+    "outfit": {"outfit", "cloth", "sleeve", "clothing", "garment",
+               "torso", "arm", "forearm", "hand", "leg", "foot", "shoe"},
     "accessory": {"accessory", "ornament", "object", "prop"},
 }
 
@@ -722,6 +729,31 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
     select_source_segmentation(mode, asset)
     profile = write_segmentation_plan(mode, asset,
                                       output / "segmentation_plan.json")
+    if asset == "face":
+        # FACE is a separate asset. Do NOT feed a face-only image into the
+        # full-body PSD2Live/torso-underpaint production path.
+        from tools.vts_source_only_pack import is_source_only_zip, prepare_source_only_2d
+        if not is_source_only_zip(source):
+            raise ValueError("FACE_REQUIRES_SOURCE_ONLY_MASTER_AND_VIEWS")
+        qa = prepare_source_only_2d(source, output / "face_preflight", asset="face")
+        package = output / "face_artwork_unrigged.zip"
+        with ZipFile(package, "w") as z:
+            z.write(Path(qa["master"]), "artwork/face_master.png")
+            for name, entry in qa["views"].get("found", {}).items():
+                if isinstance(entry, dict) and entry.get("file"):
+                    z.write(Path(entry["file"]), "reference_views/" + name + ".png")
+        result = {
+            "schema": "vtuber/face-source-only-handoff-v1",
+            "asset": "face", "stage": "FACE_ART_VERIFIED_NOT_SEGMENTED",
+            "source_artwork": str(qa["master"]), "source_art_only": True,
+            "native": {"package": str(package), "moc3_generated": False,
+                       "state": "FACE_ART_ONLY_NEEDS_EYE_MOUTH_SEGMENTATION"},
+            "source_qa": qa, "segmentation_profile": profile,
+            "multiview_reference_keyforms_bound": False,
+            "moc3_application_verified": False, "pose_qa": None,
+        }
+        _write_json(output / "pipeline_result.json", result)
+        return result
     from tools.vts_source_only_pack import is_source_only_zip, prepare_source_only_2d
     source_only = is_source_only_zip(source)
     if source_only:
