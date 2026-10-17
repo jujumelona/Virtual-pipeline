@@ -114,6 +114,6 @@ def test_colab_ui_selects_assets_without_downloading_split_models():
     assert len(cells) >= 9
     for i, code in enumerate(cells):
         ast.parse(code, filename=f"{notebook_path.name}:cell:{i}")
-    assert len(TOP_MODE_CHOICES) == 6 and len(ASSET_KINDS) == 4
+    assert len(TOP_MODE_CHOICES) == 7 and len(ASSET_KINDS) == 4
     assert all(t not in "\n".join(cells[:4]) for t in ("vts_setup", "See-through",
                "SAM", "MODEL_DOWNLOAD", "colab_mode_prepare"))
