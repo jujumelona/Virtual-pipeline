@@ -12,7 +12,7 @@ def _identity():
     )
 
 
-def test_2d_generated_prompts_use_skin_not_an_underlayer():
+def test_2d_generated_prompts_use_contrasting_clothed_suit():
     data = build_prompts("inochi2d", _identity())
     assert data["image_count"] == 21
     prompts = {item["filename"]: item["prompt"] for item in data["images"]}
@@ -26,17 +26,23 @@ def test_2d_generated_prompts_use_skin_not_an_underlayer():
         assert "opaque" in prompt.lower(), name
         assert "neutral_underlayer:" not in prompt, name
         assert "integrated_default_outfit:" not in prompt, name
-    assert "production cover" in prompts["body.png"].lower()
+    assert "blue-gray" in master.lower()
+    assert "#526B83" in master
+    assert "neckline" in master.lower()
+    assert "sleeve cuffs" in master.lower()
+    assert "working suit" in prompts["body.png"].lower()
 
 
-def test_3d_generated_prompts_stay_outfit_free_in_all_views():
+def test_3d_generated_prompts_have_visible_cover_all_views():
     identity = _identity()
     data = build_prompts("3d", identity)
     assert data["image_count"] == 5
-    assert "fully covered skin-tone basewear" in data["packaging"].lower()
+    assert "blue-gray full-coverage production suit" in data["packaging"].lower()
     for item in data["images"]:
         prompt = item["prompt"]
         assert "#EBC9B8" in prompt
+        assert "#526B83" in prompt
+        assert "neckline" in prompt.lower()
         assert "PROFESSIONAL FULLY COVERED ADULT ANIME VTUBER" in prompt
         assert "same hairstyle" in prompt.lower()
         assert "DEFAULT INTEGRATED COSTUME" not in prompt
@@ -68,3 +74,5 @@ def test_all_generated_briefs_prohibit_exposed_torso_and_keep_wardrobe_separate(
             assert "underwear" not in prompt
             assert "{skin_color}" not in prompt
             assert "fashion garments are independent future assets" in prompt
+            assert "#526b83" in prompt
+            assert "sleeve cuffs" in prompt
