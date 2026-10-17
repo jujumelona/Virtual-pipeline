@@ -12,7 +12,7 @@ import json
 MODES_2D = ("live2d_bust_up", "live2d_upper", "live2d_full",
             "inochi2d_upper", "inochi2d_full")
 MODES_3D = ("3d",)
-ASSETS = ("face", "body", "hair", "outfit", "accessory")  # body remains a legacy backend key only
+ASSETS = ("face", "body", "hair", "outfit", "accessory", "character")  # body remains a legacy backend key only
 
 # Verified against upstream common/live2d/scrap_model.py VALID_BODY_PARTS_V3.
 SEE_THROUGH_V3_TAGS = (
@@ -23,6 +23,7 @@ SEE_THROUGH_V3_TAGS = (
 )
 
 ASSET_TAGS = {
+    "character": (),
     "face": ("face", "irides", "eyebrow", "eyewhite", "eyelash", "ears", "nose", "mouth", "neck"),
     "body": ("face", "irides", "eyebrow", "eyewhite", "eyelash",
              "ears", "nose", "mouth", "neck"),
@@ -36,6 +37,7 @@ ASSET_TAGS = {
 # Additional actual separate RGBA layers required by the artwork use case;
 # the V3 tags alone do not prove that these layers exist.
 FINE_LAYERS = {
+    "character": (),
     "face": ("eye_L_white", "eye_L_iris", "eye_L_upper_lash", "eye_R_white", "eye_R_iris", "eye_R_upper_lash", "brow_L", "brow_R", "mouth_closed", "mouth_open", "face_without_eyes", "ear_L", "ear_R", "neck_extended"),
     "body": ("eye_L_white", "eye_L_iris", "eye_L_upper_lash",
              "eye_R_white", "eye_R_iris", "eye_R_upper_lash",
@@ -51,6 +53,7 @@ FINE_LAYERS = {
                   "hidden_attachment_surface"),
 }
 FULL_BODY_EXTRA = {
+    "character": (),
     "face": (),
     "body": ("pelvis", "thigh_L", "thigh_R", "shin_L", "shin_R",
              "foot_L", "foot_R"),
@@ -61,6 +64,7 @@ FULL_BODY_EXTRA = {
 
 # This is not a claim that V3 can split individual fingers or rig keyforms.
 NOT_NATIVE_V3 = {
+    "character": (),
     "face": ("independent_eye_components", "hidden_face_paint", "jaw_neck_overlap", "mouth_inner"),
     "body": ("separate_left_right_eye_layers", "upper_arm",
              "forearm", "bare_hand", "fingers", "eyelids",
@@ -87,11 +91,17 @@ def get_segmentation_profile(mode: str, asset: str) -> dict:
     """Return routing for one shared FACE or one of 18 framed assets."""
     if (mode == "face") != (asset == "face"):
         raise ValueError("FACE_NEVER_REQUIRES_FRAMING")
+    if mode == "3d" and asset not in ("character","accessory"):
+        raise ValueError("3D_REQUIRES_FULL_2D_CHARACTER_OR_ACCESSORY")
+    if mode not in ("face","3d") and asset == "character":
+        raise ValueError("2D_CHARACTER_ASSET_NOT_SEPARATELY_CREATED")
     if mode not in MODE_SPECS or asset not in ASSETS:
         raise ValueError("UNKNOWN_24_ASSET_PROFILE: " + str((mode, asset)))
     engine, frame, is_full = MODE_SPECS[mode]
     if mode == "3d":
-        if asset == "face":
+        if asset == "character":
+            route = "3d_multiview_complete_2d_character_to_vrm"
+        elif asset == "face":
             route = "3d_face_reference_only_no_native_vrm"
         elif asset == "body":
             route = "3d_multiview_body_mesh"
