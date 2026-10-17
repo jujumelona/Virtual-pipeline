@@ -25,7 +25,7 @@ def code_cells():
 def test_six_top_modes_and_four_shared_assets():
     assert tuple(TOP_MODE_CHOICES) == (
         "live2d_bust_up", "live2d_upper", "live2d_full", "inochi2d_upper", "inochi2d_full", "3d")
-    assert tuple(ASSET_KINDS) == ("body", "hair", "accessory", "outfit")
+    assert tuple(ASSET_KINDS) == ("face", "hair", "accessory", "outfit")
     assert {select_mode(m, a).asset_kind for m in TOP_MODE_CHOICES
             for a in ASSET_KINDS} == set(ASSET_KINDS)
 
@@ -49,7 +49,7 @@ def test_mode_routes_are_exact(mode, family, framing):
 @pytest.mark.parametrize("mode", ["", "live2d", "inochi2d", "accessory", "unknown"])
 def test_deprecated_modes_are_not_accepted(mode):
     with pytest.raises(ValueError):
-        select_mode(mode, "body")
+        select_mode(mode, "face")
 
 
 @pytest.mark.parametrize("asset", ["", "free", "pro", "automatic", "other"])
@@ -86,8 +86,8 @@ def test_shared_submode_must_be_reapplied_after_parent_change():
     state = {"TOP_MODE": "live2d_upper"}
     begin_mode_selection(state)
     assert state["ASSET_KIND"] is None
-    assert apply_submode(state, "live2d_upper", {"ASSET_KIND": "body"})
-    assert require_submode_config(state).asset_kind == "body"
+    assert apply_submode(state, "live2d_upper", {"ASSET_KIND": "face"})
+    assert require_submode_config(state).asset_kind == "face"
     state["TOP_MODE"] = "inochi2d_full"
     with pytest.raises(RuntimeError):
         require_submode_config(state)
