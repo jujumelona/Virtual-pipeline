@@ -48,12 +48,14 @@ def test_shared_face_and_scoped_artwork_instructions():
 
 def test_readme_lists_shared_face_once_and_18_other_kits():
     index=(ROOT.parent/"README.md").read_text(encoding="utf-8")
-    assert index.count("(zips/face.zip)") == 1
+    assert index.count("(zips/face.zip)") == 6  # one standalone link + five links to the SAME FACE ZIP
     for mode in MODES:
         assert f"zips/{mode}__face.zip" not in index
         assert f"zips/{mode}__body.zip" not in index
         allowed=("character","accessory") if mode=="3d" else ASSETS
         for asset in allowed:
             assert f"zips/{mode}__{asset}.zip" in index
+    assert "FACE 열의 다섯 링크는 모두 동일한" in index
+    assert "완성 캐릭터에 얼굴 포함" in index
     assert "zips/3d__hair.zip" not in index
     assert "zips/3d__outfit.zip" not in index
