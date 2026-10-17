@@ -16,7 +16,7 @@ TOP_MODE_CHOICES = {
     "3d": ("3D", "3d", "full"),
 }
 ASSET_KINDS = {
-    "body": "신체만",
+    "face": "얼굴만",
     "hair": "헤어만",
     "accessory": "액세서리만",
     "outfit": "의상만",
@@ -56,7 +56,7 @@ def select_mode(top_mode: str, asset_kind: str) -> AssetSelection:
     if top_mode not in TOP_MODE_CHOICES:
         raise ValueError("상위 제작 모드는 Live2D 바스트업/상반신/전신, Inochi2D 상반신/전신, 3D 중 선택하세요.")
     if asset_kind not in ASSET_KINDS:
-        raise ValueError("하위 자산은 신체/헤어/액세서리/의상 중 하나를 선택하세요.")
+        raise ValueError("하위 자산은 얼굴/헤어/액세서리/의상 중 하나를 선택하세요.")
     _, family, framing = TOP_MODE_CHOICES[top_mode]
     return AssetSelection(top_mode=top_mode, family=family, framing=framing,
                           asset_kind=asset_kind)
