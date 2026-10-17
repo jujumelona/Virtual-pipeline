@@ -22,6 +22,7 @@ REPO_URL = "https://github.com/Wzhang3912/image2live2d.git"
 REPO_COMMIT = "714e7cc9191f1ef6c9a1732c80e8b566ec127d6b"
 
 VIEW_SETS = {
+    "character": (),  # 3D complete-character PNG turnaround; views listed by VIEWS_FOR_3D
     "face": ("face_front", "head_three_quarter_L", "head_three_quarter_R",
              "head_profile_L", "head_profile_R", "head_pitch_up",
              "head_pitch_down", "neck_underpaint", "face_neck_overlap"),
