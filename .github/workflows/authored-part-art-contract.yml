@@ -7,7 +7,9 @@ on:
       - "tools/vts_source_only_pack.py"
       - "tools/vts_multiview_runtime.py"
       - "tools/image_ai_source_only_contract.py"
-      - "tools/update_source_only_body_kits.py"
+      - "tools/build_source_only_kits_v7.js"
+      - "docs/image_ai_kits_v2/zips/**"
+      - "tools/audit_24_image_kits.py"
       - "tools/vts_artwork_export.py"
       - "tests/test_vts_authored_part_art.py"
       - ".github/workflows/authored-part-art-contract.yml"
@@ -28,5 +30,7 @@ jobs:
         run: python -m pip install -q pytest Pillow numpy psd-tools
       - name: Verify each PNG is independent, neutral safe, source template contract
         run: python -m pytest -q tests/test_vts_authored_part_art.py
-      - name: Verify all nineteen current ZIPs match canonical source
-        run: node tools/build_source_only_kits_v7.js --check\n          python -m tools.audit_24_image_kits --strict
+      - name: Verify all 18 current ZIPs match canonical source
+        run: |
+          node tools/build_source_only_kits_v7.js --check
+          python -m tools.audit_24_image_kits --strict
