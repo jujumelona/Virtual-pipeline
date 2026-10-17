@@ -29,6 +29,8 @@ jobs:
             click psd-tools==1.14.2 pygltflib==1.16.5 \
             'opencv-python-headless>=4.10,<5'
           python -m pip install --disable-pip-version-check -e . --no-deps
+      # Retired 2026 BODY ZIP/AI-generated PSD tests are superseded by the
+      # FACE-first ZIP audit and CPU preflight. Other rig/native tests remain.
       - name: Verify recently changed production seams
         run: |
           python -m pytest -q \
@@ -41,14 +43,7 @@ jobs:
             tests/test_visual_alignment.py \
             tests/test_cubism_export_validation.py \
             tests/test_image_ai_kits_v2.py \
-            tests/test_image_ai_layer_order_delivery.py \
-            tests/test_image_ai_kits_scope_contract.py \
-            tests/test_image_ai_kits_cross_contamination.py \
-            tests/test_image_ai_geometry_guidance.py \
-            tests/test_image_ai_bustup_face_first.py \
-            tests/test_image_ai_advanced_craft_guidance.py \
-            tests/test_image_ai_kits_full_scope_audit.py \
-            tests/test_live2d_bust_up_kits.py \
+            tests/test_face_first_runtime_contract.py \
             tests/test_vts_mode_contract.py \
             tests/test_vts_production_contract.py \
             tests/test_vts_artwork_export.py \
