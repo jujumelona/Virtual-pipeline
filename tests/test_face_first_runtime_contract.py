@@ -13,7 +13,7 @@ from tools.vts_segmentation_profiles import get_segmentation_profile
 
 
 def test_face_is_visible_and_no_body_choice():
-    assert tuple(ASSET_KINDS) == ("face", "hair", "accessory", "outfit")
+    assert tuple(ASSET_KINDS) == ("face", "character", "hair", "accessory", "outfit")
     assert select_mode("face", "face").asset_label == "얼굴만"
     assert "body" not in ASSET_KINDS
     face = get_segmentation_profile("face", "face")
