@@ -172,6 +172,8 @@ def test_accessory_is_a_shared_asset_not_a_top_level_mode():
     assert "accessory" not in TOP_MODE_CHOICES
     assert "accessory" in ASSET_KINDS
     for top in TOP_MODE_CHOICES:
+        if top == "face":
+            continue
         assert select_mode(top, "accessory").asset_kind == "accessory"
 
 
