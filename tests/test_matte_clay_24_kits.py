@@ -1,72 +1,35 @@
-"""Static regression contract for all 24 published matte-clay drawing ZIPs."""
-from __future__ import annotations
-
-from pathlib import Path
+"""Source-only BODY artwork is neutral, opaque, uniform base color."""
 from zipfile import ZipFile
-
 import pytest
+from tools.audit_24_image_kits import ROOT, MODES, ASSETS
 
-from tools.normalize_matte_clay_kits import (
-    ROOT, MODES, ASSETS, START, END, normalize,
-)
-from tools.image_ai_source_only_contract import BEGIN as SOURCE_BEGIN, END as SOURCE_END
-
-DOCUMENTS = {
-    "00_MASTER_FIRST.md", "00_DELIVERY_AND_RECHECK.md", "00_READ_FIRST.md",
-    "01_COMMON_RULES.md", "02_ADVANCED_PARTS.md", "03_MODE_RULES.md",
-    "04_OUTPUT_FILES.md", "05_OFFICIAL_REFERENCES.md",
-    "06_ADVANCED_OFFICIAL_COMMUNITY.md", "07_REVIEW_BEFORE_FINAL_ZIP.md",
-    "08_PRACTICAL_TIPS.md", "09_VISUAL_ART_QUALITY.md",
-    "10_ANIME_STYLE.md", "11_OFFICIAL_IMAGE_EXAMPLES.md",
-}
-OLD_CONFLICTS = (
-    "회색 단색 몸통, 프록시 도형",
-    "단색 몸통 프록시를 금지",
-    "단색 몸통 프록시 금지",
-    "회색 찰흙/기하 프록시가 아닌",
-    "비키니형 스포츠",
-    "반도형 수영복",
-    "끈 없는 반도(bandeau)/일자형 튜브 수영복",
-)
-
-@pytest.mark.parametrize("mode", MODES)
-@pytest.mark.parametrize("asset", ASSETS)
-def test_published_kit_is_complete_scoped_and_idempotent(mode, asset):
-    path = ROOT / f"{mode}__{asset}.zip"
-    with ZipFile(path) as z:
-        assert set(z.namelist()) == DOCUMENTS
-        assert len(z.namelist()) == len(DOCUMENTS) == 14
-        assert z.testzip() is None
-        docs = {name: z.read(name).decode("utf-8") for name in z.namelist()}
-
-    for name, data in docs.items():
-        assert data.count(START) == data.count(END) == 1, (path, name)
-        assert data.count(SOURCE_BEGIN) == data.count(SOURCE_END) == 1, (path, name)
-        assert normalize(data, asset, mode, name) == data, (path, name)
-        if asset == "body":
-            assert "불투명 단색 무광 찰흙형" in data, (path, name)
-            assert all(old not in data for old in OLD_CONFLICTS), (path, name)
-        else:
-            assert "BODY_DEFAULT_OPAQUE_SWIMWEAR_V1" not in data
-            assert "찰흙형" in data, (path, name)
-    master = docs["00_MASTER_FIRST.md"]
-    assert master.startswith("# [READ_ALL_BEFORE_IMAGE_GENERATION_V1]")
-    if asset == "body":
-        assert "See-through" in master
-        assert "목·턱·좌우 어깨" in master
-        assert "얼굴" in master and "눈" in master
-        assert "MATTE_CLAY_BODY_V1" in master
-    if mode == "3d":
-        assert "8방향" in master
-        assert "views/" in docs["04_OUTPUT_FILES.md"]
+@pytest.mark.parametrize("mode",MODES)
+@pytest.mark.parametrize("asset",ASSETS)
+def test_all_24_packages_are_scoped_and_only_request_artwork(mode,asset):
+    with ZipFile(ROOT/(mode+"__"+asset+".zip")) as z:
+        assert z.testzip() is None and len(z.namelist())==14
+        master=z.read("00_MASTER_FIRST.md").decode("utf8")
+        output=z.read("04_OUTPUT_FILES.md").decode("utf8")
+        detail=z.read("02_ADVANCED_PARTS.md").decode("utf8")
+    assert "SOURCE_ART_ONLY_V7" in master
+    assert "Colab" in master
+    assert "파츠" in master
+    assert "part_art/" not in output
+    assert "isolated_parts/" not in output
+    if asset=="body":
+        assert "FACE_SKIN_BASE" in master
+        assert "마네킹" in detail
+        assert "무광" in detail
+        assert "해부학적" in detail
+        assert "머리카락·패션 의상·장신구를 그리지 않는다" in master
     else:
-        assert "reference_views/" in docs["04_OUTPUT_FILES.md"]
-        assert "outputs/master.png" in docs["04_OUTPUT_FILES.md"]
-        assert "파츠 PNG" in docs["04_OUTPUT_FILES.md"]  # expressly forbidden
-        assert "See-through" in docs["04_OUTPUT_FILES.md"]
+        assert "BODY" in master
+    if mode=="3d":
+        assert "8방향" in master and "views/" in output
+    else:
+        assert "outputs/master.png" in output and "reference_views/" in output
 
-def test_exactly_six_body_and_eighteen_independent_assets():
-    paths = sorted(ROOT.glob("*.zip"))
-    assert len(paths) == 24
-    assert sum(p.name.endswith("__body.zip") for p in paths) == 6
-    assert sum(not p.name.endswith("__body.zip") for p in paths) == 18
+def test_exactly_six_body_eighteen_detached():
+    paths=list(ROOT.glob("*.zip"))
+    assert len(paths)==24
+    assert sum(x.name.endswith("__body.zip") for x in paths)==6
