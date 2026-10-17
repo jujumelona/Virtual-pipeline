@@ -28,5 +28,5 @@ jobs:
         run: python -m pip install -q pytest Pillow numpy psd-tools
       - name: Verify each PNG is independent, neutral safe, source template contract
         run: python -m pytest -q tests/test_vts_authored_part_art.py
-      - name: Verify all twenty 2D kit contracts match current source
-        run: python -m tools.update_source_only_body_kits --check
+      - name: Verify all nineteen current ZIPs match canonical source
+        run: node tools/build_source_only_kits_v7.js --check\n          python -m tools.audit_24_image_kits --strict
