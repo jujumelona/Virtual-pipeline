@@ -1,4 +1,4 @@
-"""Audit 19 source-only kits: one common FACE plus 18 scoped assets."""
+"""Audit 18 source-only kits: 2D FACE, 15 scoped 2D, 3D character and accessory."""
 from __future__ import annotations
 from pathlib import Path
 from zipfile import ZipFile
@@ -7,7 +7,7 @@ import argparse, json
 ROOT=Path(__file__).resolve().parents[1]/"docs/image_ai_kits_v2/zips"
 MODES=("live2d_bust_up","live2d_upper","live2d_full","inochi2d_upper","inochi2d_full","3d")
 ASSETS=("hair","outfit","accessory")
-TARGETS=(("face","face"),)+tuple((m,a) for m in MODES for a in ASSETS)
+TARGETS=(("face","face"),)+tuple((m,a) for m in MODES if m!="3d" for a in ASSETS)+(("3d","character"),("3d","accessory"))
 DOCUMENTS={
  "00_MASTER_FIRST.md","00_DELIVERY_AND_RECHECK.md","00_READ_FIRST.md",
  "01_COMMON_RULES.md","02_ADVANCED_PARTS.md","03_MODE_RULES.md",
@@ -75,9 +75,11 @@ def scan():
                     fail(kit,"04_OUTPUT_FILES.md","required_artwork_png_missing",expected)
             if asset=="face" and ("#F2D4BE" not in master or "몸통" not in master):
                 fail(kit,"00_MASTER_FIRST.md","face_scope_or_palette_missing")
+            if asset=="character" and ("전신" not in master or "의상" not in master):
+                fail(kit,"00_MASTER_FIRST.md","complete_clothed_3d_turnaround_missing")
             if asset=="outfit" and ("옷" not in master or "양손" not in master):
                 fail(kit,"00_MASTER_FIRST.md","clothed_torso_hands_missing")
-    wanted={"face.zip"} | {m+"__"+a+".zip" for m in MODES for a in ASSETS}
+    wanted={"face.zip"} | {m+"__"+a+".zip" for m,a in TARGETS if m!="face"}
     extras={p.name for p in ROOT.glob("*.zip")}-wanted
     for name in sorted(extras):fail(name,"","stale_or_duplicate_published_zip")
 
@@ -93,6 +95,6 @@ def main():
         a.output.parent.mkdir(parents=True,exist_ok=True)
         a.output.write_text(json.dumps(r,ensure_ascii=False,indent=2),encoding="utf-8")
     print(json.dumps({k:v for k,v in r.items() if k!="issues"},ensure_ascii=False,indent=2))
-    if a.strict and (r["blockers"] or r["kits"]!=19 or r["documents"]!=266):
-        raise SystemExit("SOURCE_ART_ONLY_19_KIT_CONTRACT_FAIL")
+    if a.strict and (r["blockers"] or r["kits"]!=18 or r["documents"]!=252):
+        raise SystemExit("SOURCE_ART_ONLY_18_KIT_CONTRACT_FAIL")
 if __name__=="__main__":main()
