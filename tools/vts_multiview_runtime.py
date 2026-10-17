@@ -743,13 +743,19 @@ def process_completed_ai_2d_zip(source: Path, output: Path, *,
             for name, entry in qa["views"].get("observed", {}).items():
                 if isinstance(entry, dict) and entry.get("file"):
                     z.write(Path(entry["file"]), "reference_views/" + name + ".png")
+            # Both FACE mouth states are mandatory and must survive the handoff.
+            with ZipFile(source) as original:
+                for mouth in ("mouth_closed", "mouth_open"):
+                    name = "expression_refs/" + mouth + ".png"
+                    z.writestr(name, original.read(name))
         result = {
             "schema": "vtuber/face-source-only-handoff-v1",
-            "asset": "face", "stage": "FACE_ART_VERIFIED_NOT_SEGMENTED",
+            "asset": "face", "stage": "FACE_STRUCTURE_VALID_VISUAL_REVIEW_REQUIRED",
             "source_artwork": str(qa["master"]), "source_art_only": True,
             "native": {"package": str(package), "moc3_generated": False,
                        "state": "FACE_ART_ONLY_NEEDS_EYE_MOUTH_SEGMENTATION"},
             "source_qa": qa, "segmentation_profile": profile,
+            "visual_quality_verified": False, "manual_visual_review_required": True,
             "multiview_reference_keyforms_bound": False,
             "moc3_application_verified": False, "pose_qa": None,
         }
