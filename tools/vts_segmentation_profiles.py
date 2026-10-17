@@ -1,4 +1,4 @@
-"""Canonical 24-mode routing contract for completed GPT artwork ZIPs.
+"""Canonical shared FACE + mode-scoped asset routing contract.
 
 See-through V3 has FIXED upstream tag prompts. These profiles select a safe
 consumer route; they do not change pretrained prompts or pretend that one
@@ -74,6 +74,7 @@ NOT_NATIVE_V3 = {
 }
 
 MODE_SPECS = {
+    "face": ("face", "head", False),
     "live2d_bust_up": ("live2d", "bust_up", False),
     "live2d_upper": ("live2d", "upper", False),
     "live2d_full": ("live2d", "full", True),
@@ -83,7 +84,9 @@ MODE_SPECS = {
 }
 
 def get_segmentation_profile(mode: str, asset: str) -> dict:
-    """Return explicit instructions for one of exactly 24 ZIP selections."""
+    """Return routing for one shared FACE or one of 18 framed assets."""
+    if (mode == "face") != (asset == "face"):
+        raise ValueError("FACE_NEVER_REQUIRES_FRAMING")
     if mode not in MODE_SPECS or asset not in ASSETS:
         raise ValueError("UNKNOWN_24_ASSET_PROFILE: " + str((mode, asset)))
     engine, frame, is_full = MODE_SPECS[mode]
