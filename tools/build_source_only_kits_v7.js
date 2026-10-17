@@ -58,7 +58,68 @@ function generate(mode,asset){
     : asset==="outfit"
     ? "\n\n## OUTFIT_CLOTHED_BODY_V1\n얼굴을 제외한 몸통·양팔·양손을 실제 의상을 착용한 모습으로 그린다. 의복은 불투명하고 목깃과 소매가 확실하다. 신체를 벗겨낸 원화는 만들지 않는다.\n"
     : "\n\n## ASSET_ONLY_V1\nFACE·OUTFIT을 복제하지 않고 선택한 자산만 그린다.\n";
-  const docs=out.map((text,i)=>({name:titles[i],text:text+extra+"\n"}));
+
+  const facePrompt = [
+    "【PRIMARY MASTER IMAGE PROMPT / 최우선】",
+    "Professional original Japanese anime VTuber character concept art, premium 2D Live2D-ready adult anime face and neck ONLY, elegant youthful adult expression, clean bald scalp as a base for separate hair, beautifully drawn rounded short U-shaped face and natural chin, gorgeous large amber-orange anime eyes containing detailed sclera, eyelid shapes, refined upper and lower eyelashes, layered irises, pupils and reflective highlights, subtle natural eyebrows, delicate anime nose and soft expressive mouth, realistically structured-in-anime ears, well-proportioned jaw-to-neck connection, subtle peach blush, uniform soft-peach skin #F2D4BE on head, ears and neck, polished thin line art with graceful tapered stroke weights and carefully controlled two-to-three-tone cel shading. High-end streaming anime avatar illustration, NOT a diagram.",
+    "Negative: kindergarten clipart, minimalist icon, flat oval head with sticker eyes, stick or cylindrical neck, primitive SVG circles, generic mannequin, plastic 3D render, photoreal skin, simple line smile, emoji, cartoon mascot, sloppy profiles, detached ears, hair, clothes, shoulders, torso, arms, multiple panels, labels or watermarks.",
+    "정면 outputs/master.png를 **한 장의 고품질 애니 원화**로 먼저 그린다. 실제로 이 품질이 합격하기 전에는 나머지 11장의 제작을 시작하지 않는다."
+  ].join("\n\n");
+  const faceDesign = [
+    "【VTUBER_FACE_ART_QUALITY_V2】 '버추얼'은 방송에서 얼굴·눈·입이 움직이는 아름다운 2D 일본 애니 캐릭터를 뜻한다. 동그라미·타원·직선 도형을 합성한 교육용 대머리 마네킹이 아니다.",
+    "미형: 자연스러운 이마·두상·뒷통수, 짧고 부드러운 U형 턱, 균형 잡힌 눈의 크기와 간격, 작은 코·입, 실제 구조를 이해한 귀와 턱 아래로 유기적으로 이어지는 목. 성인 애니 VTuber 얼굴 원화의 유려한 곡선과 아름다운 비율을 유지.",
+    "눈 필수: 양눈 각각 흰자·윗/아랫 눈꺼풀·속눈썹·다층 황금 주황색 홍채·동공·빛 반사 하이라이트. 주황 점 두 개나 정면 눈 스티커로 대체하지 않는다.",
+    "선화: 가늘고 깨끗한 선 + 위치별 굵기 변화/끝의 테이퍼링, 볼의 은은한 홍조, 얼굴·두피·귀·목에 같은 피부색 #F2D4BE와 세련된 2~3단계 셀 쉐이딩. 실사·해부학적 목근육 디테일 금지.",
+    "얼굴만 그리되 머리가 빠진 인형처럼 보여서는 안 된다. 후속 HAIR를 얹을 두상 볼륨은 자연스럽고, 목은 후속 OUTFIT 목깃으로 이어질 수 있게 그린다.",
+    "출력은 image generation으로 실제 일러스트를 제작한다. Python/SVG/Cairo 원/타원/사각형/펜선 도형을 조립해 그럴듯한 아바타처럼 꾸미는 것은 **제작 실패**.",
+    "FACE 원화에는 어깨·몸통·팔·손·옷·헤어·액세서리가 없어야 한다. 파츠 분리·PSD·마스크·리깅은 후속 Colab의 책임이다."
+  ].join("\n- ");
+  const faceAngles = [
+    "master/front: 실제 같은 인물의 정면 애니 얼굴·목. master 합격 원화를 face_front 기준으로 재사용할 수 있지만 해상도/배치/캐릭터 정체성은 바꾸지 않는다.",
+    "three_quarter_L/R: 두개골·코·턱·귀가 실제 약 45도 회전. 가까운 눈과 먼 눈의 크기/형태가 바뀐다. 정면 그림에서 눈/코 위치만 옮기거나 단순 거울반전하면 실패.",
+    "profile_L/R: 약 90도 측면. 한쪽 눈만 측면 형태로 보이고 이마/코끝/입/턱/귀/뒤통수 실루엣이 실제 애니 측면으로 바뀐다. 눈이 두 개 보이거나 옆으로 움직인 정면 얼굴이면 실패.",
+    "pitch_up: 턱밑 면과 코/눈 원근이 변하는 실제 상향 회전. pitch_down: 정수리와 이마 면적·눈·턱 원근이 변하는 실제 하향 회전. 이미지를 위아래 이동만 시킨 형태면 실패.",
+    "neck_underpaint: 얼굴과 턱 뒤 목이 실제로 이어지는 완성 원화 참고. 단색 마스크 아님. face_neck_overlap: 3/4 턱과 목의 자연스러운 전후 가림 완성 원화. 원통형 목 금지.",
+    "mouth_closed / mouth_open: 같은 정면 얼굴의 입만 자연스러운 다문/벌린 발화 형태로 다르고 얼굴형·눈매·눈동자·피부색은 일관. 벌린 입에는 자연스러운 입안·혀를 그린다."
+  ].join("\n- ");
+  const faceWorkflow = [
+    "【작업 순서】 master.png 한 장 제작 → 시각적 미형/애니 품질 합격 → 동일 인물 시점별 한 장씩 독립 제작 → 모든 12장 확인 → ZIP 납품.",
+    "12칸 컨택트시트를 만들어 잘라서 PNG 파일 수를 맞추거나 같은 그림을 이름만 바꾸는 것 금지. 한 파일=한 고해상도 시점. 권장 단일 캔버스 1200×1600 이상, 동일 두상 크기/중심 앵커, 머리와 목 전체가 크게 보이도록.",
+    "원화 12장의 파일명·색상·해상도가 맞아도 화풍이 '단순 벡터 얼굴'이면 전체 제작 실패. 선화/눈/턱/목이 전문 VTuber 수준이 아니라면 다른 시점을 만들지 말고 마스터부터 다시 생성한다.",
+    "PNG 배경은 실제 투명 RGBA를 우선. 투명 출력이 안 되면 균일 단색으로 두고 투명하다고 주장하지 않는다."
+  ].join("\n- ");
+  const faceQC = [
+    "[ ] 마스터의 얼굴이 전문 VTuber 캐릭터로 보이고, 저품질 타원형 교육용 캐릭터·도형 클립아트가 아닌가?",
+    "[ ] 양눈의 흰자·속눈썹·눈꺼풀·다층 주황 홍채·동공·하이라이트가 실제로 정교하게 보이는가?",
+    "[ ] 귀·턱·목·뒤통수가 조형적으로 자연스럽고, 목이 잘린 직사각 기둥이 아닌가?",
+    "[ ] 좌우 45°·90°와 상하 회전이 실제 두개골/안면 원근을 바꾸는가?",
+    "[ ] 표정 2장도 같은 얼굴/눈매를 유지하는가? 모든 파일이 독립적인 고해상도 단일 원화인가?",
+    "[ ] FACE 외 자산 픽셀 없음, 기준 피부색 통일, 생성 AI가 파츠 분리/PSD/리깅 완료했다고 주장하지 않음?",
+    "하나라도 실패라면 최종 ZIP 완성 선언 금지. 컴퓨터로 파일 개수·CRC만 검사한 것은 화풍 검증이 아니다."
+  ].join("\n- ");
+  const focus = [
+    [facePrompt,faceDesign,faceWorkflow,faceQC],
+    [faceWorkflow,faceAngles,faceQC],
+    [facePrompt,faceDesign],
+    [faceDesign,faceWorkflow],
+    [faceDesign,faceAngles],
+    [faceAngles,faceDesign],
+    [faceWorkflow,faceAngles],
+    [facePrompt,faceDesign],
+    [faceAngles,faceDesign],
+    [faceQC,faceAngles],
+    [facePrompt,faceWorkflow],
+    [faceDesign,faceQC],
+    [facePrompt,faceDesign],
+    [faceDesign,faceQC]
+  ];
+  const docs=out.map((text,i)=>({
+    name:titles[i],
+    text:(asset==="face" ?
+      "# 고품질 애니 VTuber FACE 원화 필수 — 원시 도형 얼굴 금지\n\n"+
+      focus[i].join("\n\n---\n\n")+"\n\n---\n\n" : "")+text+extra+"\n"
+  }));
+
   const enc=s=>{const a=unescape(encodeURIComponent(s)),b=new Uint8Array(a.length);for(let i=0;i<a.length;i++)b[i]=a.charCodeAt(i);return b};
   const table=new Uint32Array(256);for(let i=0;i<256;i++){let v=i;for(let j=0;j<8;j++)v=v&1?0xedb88320^(v>>>1):v>>>1;table[i]=v>>>0}
   const crc=a=>{let v=0xffffffff;for(let x of a)v=table[(v^x)&255]^(v>>>8);return (v^0xffffffff)>>>0};
