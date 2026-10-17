@@ -101,19 +101,40 @@ def prepare_source_only_2d(source: Path, output: Path, *, asset: str) -> dict:
     views = _check_view_members(source, asset=asset,
                                 output=output / "reference_views", required=True,
                                 master_canvas=canvas)
+    # The FACE artwork contract requires a finished high-resolution
+    # illustration AND both mouth expression references. Do not mistake a
+    # syntactically valid PNG (including a simplistic vector placeholder)
+    # for professionally approved VTuber artwork.
+    if asset == "face":
+        if min(canvas) < 768:
+            raise ValueError("FACE_SOURCE_ART_MASTER_TOO_SMALL_FOR_PRODUCTION_REVIEW")
+        for name, info in views["observed"].items():
+            if tuple(info["size"]) != canvas:
+                raise ValueError("FACE_REFERENCE_CANVAS_MISMATCH: " + name)
+        with Image.open(io.BytesIO(data)) as original:
+            import hashlib
+            master_pixel_hash = hashlib.sha256(
+                original.convert("RGBA").tobytes()).hexdigest()
+        for name, info in views["observed"].items():
+            if name != "face_front" and info["pixel_sha256"] == master_pixel_hash:
+                raise ValueError("FACE_REFERENCE_COPIED_FROM_MASTER: " + name)
     from tools.vts_authored_part_art import has_authored_parts
     authored_parts_present = has_authored_parts(source)
     expressions = (validate_authored_mouth_reference_states(source, canvas)
-                   if authored_parts_present and asset == "body" else None)
+                   if asset == "face" or
+                   (authored_parts_present and asset == "body") else None)
     return {
         "schema": "vtuber/image-ai-source-only-v2",
         "asset": asset, "master": str(target),
         "canvas": canvas, "views": views,
-        "parts": {"status": "SOURCE_ONLY_NEEDS_SEETHROUGH", "count": 0,
-                  "visual_quality_verified": False},
+        "parts": {"status": ("FACE_SOURCE_NEEDS_EYE_MOUTH_SEGMENTATION"
+                             if asset == "face" else "SOURCE_ONLY_NEEDS_SEETHROUGH"),
+                  "count": 0, "visual_quality_verified": False},
         "authored_parts_present": authored_parts_present,
         "mouth_expression_reference_qa": expressions,
         "source_only": True,
         "multiview_reference_applied_to_native_keyforms": False,
-        "state": "SOURCE_ART_CHECKED_NOT_RIGGED",
+        "state": ("FACE_STRUCTURE_VALID_VISUAL_REVIEW_REQUIRED"
+                  if asset == "face" else "SOURCE_ART_CHECKED_NOT_RIGGED"),
+        "visual_review_required": asset == "face",
     }
