@@ -18,39 +18,33 @@ CANVAS_FACE = (2048, 2048)
 # Filenames are direct semantic keys read by two_d.build.KNOWN. Variants are
 # supplied independently; every file is a full-canvas RGBA image.
 LAYER_PARTS = (
-    ("body", "Fully covered adult VTuber torso wearing an opaque matte blue-gray (#526B83) working suit with a clearly visible neckline and sleeves, simplified for later independent wardrobe layers."),
-    ("neck", "Natural-skin-color neck from jaw to shoulders, complete underneath the face and hairstyle."),
-    ("ear_left", "Character's left ear, fully drawn behind hair."),
-    ("ear_right", "Character's right ear, fully drawn behind hair."),
-    ("face", "Facial skin and jaw without eyes, brows, lips or bangs; include whole forehead for later separate hair."),
-    ("eye_left_white", "Left eye sclera and complete outline footprint."),
-    ("eye_left_iris", "Left iris and pupil colored surface, fully drawn circular disc."),
-    ("eye_left_lid", "Left top and bottom visible eyelids with blink-ready closed lid geometry."),
-    ("eye_right_white", "Right eye sclera and complete outline footprint."),
-    ("eye_right_iris", "Right iris and pupil colored surface, fully drawn circular disc."),
-    ("eye_right_lid", "Right top and bottom visible eyelids with blink-ready closed lid geometry."),
-    ("brow_left", "Whole left eyebrow including segment hidden by bangs."),
-    ("brow_right", "Whole right eyebrow including segment hidden by bangs."),
-    ("nose", "Nose line and shadow on transparent canvas; only nose pixels."),
-    ("mouth_closed", "Closed mouth lip outline in resting pose."),
-    ("mouth_open", "Open mouth shape including teeth, tongue and interior; separate animation variant."),
-    ("arm_left", "Character-left arm in matching opaque blue-gray (#526B83) working suit; complete hidden shoulder with a clearly visible sleeve cuff at the wrist."),
-    ("arm_right", "Character-right arm in matching opaque blue-gray (#526B83) working suit; complete hidden shoulder with a clearly visible sleeve cuff at the wrist."),
-    ("hand_left", "Character-left natural-skin-color hand, fully drawn past the wrist for later wardrobe layers."),
-    ("hand_right", "Character-right natural-skin-color hand, fully drawn past the wrist for later wardrobe layers."),
+    ("neck", "Neck skin only, same natural skin color as face and ears; extends below jaw for a clothing collar overlap."),
+    ("ear_left", "Character-left ear, fully drawn at correct head anchor."),
+    ("ear_right", "Character-right ear, fully drawn at correct head anchor."),
+    ("face", "Bald head with short round jaw, forehead and facial skin without eyes, nose or mouth; no shoulders or torso."),
+    ("eye_left_white", "Left eye sclera on transparent head canvas."),
+    ("eye_left_iris", "Left iris and pupil, bright orange anime eye."),
+    ("eye_left_lid", "Left eyelids with closed-lid blink geometry."),
+    ("eye_right_white", "Right eye sclera on transparent head canvas."),
+    ("eye_right_iris", "Right iris and pupil, bright orange anime eye."),
+    ("eye_right_lid", "Right eyelids with closed-lid blink geometry."),
+    ("brow_left", "Whole left eyebrow."),
+    ("brow_right", "Whole right eyebrow."),
+    ("nose", "Small stylized anime nose only."),
+    ("mouth_closed", "Closed mouth line only."),
+    ("mouth_open", "Open mouth with inside, top teeth and tongue; separate animation reference."),
 )
 REQUIRED_2D = (
-    "body", "face", "eye_left_white",
-    "eye_left_iris", "eye_right_white", "eye_right_iris",
-    "brow_left", "brow_right", "mouth_closed", "mouth_open",
-    "neck", "arm_left", "arm_right",
+    "face", "neck", "eye_left_white", "eye_left_iris",
+    "eye_right_white", "eye_right_iris", "brow_left", "brow_right",
+    "mouth_closed", "mouth_open",
 )
 OPTIONAL_VARIANTS = frozenset(("mouth_open",))
 VIEWS_3D = (
-    ("front", "Entire character facing camera, feet to crown, straight orthographic front."),
-    ("back", "Same character rotated exactly 180 degrees, rear orthographic view."),
-    ("left", "Same character rotated 90 degrees to character-left, left side orthographic."),
-    ("right", "Same character rotated 90 degrees to character-right, right side orthographic."),
+    ("front", "Bald face and neck facing camera, top of head to neck end."),
+    ("back", "Back of the same bald head and neck, orthographic rear."),
+    ("left", "Same bald face and neck rotated to exact left profile."),
+    ("right", "Same bald face and neck rotated to exact right profile."),
     ("face", "Front orthographic close-up of the same head and facial features, no perspective."),
 )
 
@@ -85,43 +79,21 @@ class Identity:
 
 
 def _common(identity: Identity, *, mode: str = "2d") -> str:
-    base_cover = (
-        "PROFESSIONAL FULLY COVERED ADULT ANIME VTUBER MODEL: "
-        "A family-friendly adult animation character wearing a plainly visible "
-        "opaque matte blue-gray (#526B83) full-coverage production suit over "
-        "the shoulders, chest, abdomen, arms, hips and legs where visible. "
-        "The suit is distinct from the face and hands' natural skin tone. "
-        "Include a clearly drawn crew neckline, sleeve cuffs and ankle hems "
-        "so the full-coverage garment is visually unambiguous in every view. "
-        "The face, neck and hands share the requested skin color. "
-        "Keep anatomy stylized and the covered silhouette simple, with "
-        "professional cel-shaded VTuber artwork rather than plain geometry. "
-        "This is an animation rigging reference, not a human anatomy study. "
-        "Hairstyle and fashion garments are independent future assets. "
+    face_brief = (
+        "PROFESSIONAL ADULT ANIME VTUBER FACE ASSET ONLY: "
+        "Draw only a bald anime head, expressive orange irises, ears, "
+        "small nose and mouth, and a natural neck extended just enough to "
+        "connect inside a separately generated outfit collar. "
+        "Natural skin color must match on face, ears, scalp and neck. "
+        "No shoulders, arms, hands, torso, chest, abdomen, legs, clothing, "
+        "hair, accessories or body-only reference artwork in this image. "
+        "Do not render a clothed or unclothed body. "
+        "Professional 2-3 tone cel-shaded adult VTuber face art. "
+        "The separately generated OUTFIT asset will supply clothed shoulders "
+        "torso and arms, while HAIR remains a separate asset. "
+        "ONE image per request; no text or watermarks. "
     )
-    if mode == "3d":
-        return (
-            "CRITICAL 3D VTUBER IDENTITY LOCK: The SAME adult anime "
-            "character wearing identical matte blue-gray opaque "
-            "production basewear in EVERY orthographic view. "
-            "Keep the SAME hairstyle in the 3D views for reconstruction; "
-            "automatic 3D wardrobe switching is not supported. "
-            "Use the actual front view as reference for later views. "
-            "Never mirror to fake a different camera angle. "
-            + base_cover + "\n" + identity.describe() + "\n"
-            "ONE IMAGE PER REQUEST; no text, labels or watermarks. "
-            "Use native resolution and preserve aspect ratios."
-        )
-    return (
-        "CRITICAL 2D VTUBER IDENTITY LOCK: ONE fully covered adult anime "
-        "avatar with the same visible blue-gray full-coverage suit in each "
-        "reference, and a smooth scalp without attached hair. "
-        "Keep face/body proportions consistent and use front_master.png "
-        "for independent rigging part registration. "
-        + base_cover + "\n" + identity.describe() + "\n"
-        "ONE IMAGE PER REQUEST; no text, labels or watermarks. "
-        "Do not mirror or recenter part positions."
-    )
+    return face_brief + "\\n" + identity.describe() + "\\n"
 
 def build_prompts(mode: str, identity: Identity) -> dict:
     """Emit explicit per-file instructions with fixed pixel anchors and counts."""
@@ -137,15 +109,15 @@ def build_prompts(mode: str, identity: Identity) -> dict:
             "HEAD CENTER x=1024; crown y=240; eyes center y=1110; "
             "nose y=1280; mouth y=1380; jaw y=1510; neck y=1590; "
             "shoulders y=1730; torso centerline x=1024; "
-            "waist y=2700; no features cropped. "
+            "neck end y=1950; no features cropped. "
             "All layers must match the front master at the SAME absolute pixel "
             "coordinates; never center the isolated part within its canvas. "
         )
         master = (
             "OUTPUT front_master.png. Render ONE complete clean front-view, "
-            "neutral anime bust/upper-body reference, mouth CLOSED, eyes OPEN, "
+            "neutral anime face and neck only, mouth CLOSED, eyes OPEN, "
             "arms neutral and consistent. Fully antialiased edges; full visible "
-             "uncovered scalp, clearly visible blue-gray full-coverage suit, and face. "
+             "uncovered scalp, face and neck only; NO torso or wardrobe. "
             + geometry
             + " Master may use a solid neutral background for visual reference; "
             "all part layers MUST be transparent."
@@ -173,7 +145,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
                            "purpose": "part", "semantic_id": key,
                            "prompt": general + "\n" + prompt})
         packaging = (
-             "Deliver 21 separate PNG images: front_master.png and the 20 "
+             "Deliver 16 separate PNG images: front_master.png and the 15 "
             "named RGBA semantic layers. Every layer uses the same 2048x3072 "
             "full canvas and exact origin. No sprite sheet. Complete all "
             "occluded areas; JPEG is not accepted."
@@ -184,13 +156,11 @@ def build_prompts(mode: str, identity: Identity) -> dict:
         # Views depict a fully covered blue-gray production rigging suit.
         geometry = (
             "PORTRAIT width:height=2:3, render at native image AI quality. "
-            "Same character center, head-to-foot framing, body height, "
-            "body proportions and feet positions across views. "
-            "The shoulders, chest, torso, arms, hips, legs and feet "
-            "are covered by the SAME opaque blue-gray full-coverage "
-            "production basewear in every view. "
+            "Same character face center, head-and-neck-only framing, head height, "
+            "head proportions and neck position across views. "
+            "Face/neck only; never generate torso, arms, clothing or legs. "
             "Orthographic eye-level camera, neutral symmetric A-pose with "
-            "arms slightly separated, visible hands and feet. "
+            "face forward, neck ends within frame. "
             "Do not mirror images or redesign basewear between views. "
         )
         for key, description in VIEWS_3D:
@@ -212,13 +182,13 @@ def build_prompts(mode: str, identity: Identity) -> dict:
                 "fixed lighting and character details in every view.",
             })
         packaging = (
-            "Legacy single-view upload: exactly FIVE separate PNG files: "
+            "FACE REFERENCES ONLY — not a riggable VRM input. Exactly FIVE PNG files: "
             "front.png, back.png, left.png, right.png (portrait 2:3) "
             "and face.png (square 1:1). Save exact filenames. "
             "For default Colab 3D v8 use TWO paired-view sheets "
             "(sheet_front_back.png, sheet_side_views.png; each 4:3) "
             "plus face.png, zipped as character_3d_sheet_pack.zip. "
-            "ALL views show the SAME adult avatar in a blue-gray full-coverage production suit."
+            "ALL views depict one adult anime head and neck, not a complete VRM avatar."
         )
     return {
         "schema": "vtuber-external-image-contract-v1", "mode": mode,
