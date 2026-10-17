@@ -35,7 +35,7 @@ PDF/PSD 편집 자산과 방송용 실제 네이티브 모델은 구분합니다
 
 **①~④는 모드 선택 셀입니다.** Live2D 전용 ⑤~⑨에서 입력 업로드, 필요한 모델 준비, PSD 제작·검증·다운로드를 수행합니다. 신체의 PSD2Live CLI 시도는 명시적인 `RIGGING=auto` 선택일 때만 가능합니다. Inochi2D/3D는 상단 통합 노트북을 사용합니다. 실제 Colab/방송 앱 구동 품질은 별도 확인이 필요합니다.
 
-### 제작 선택 (FACE는 엔진·구도 공통)
+### 제작 선택 (FACE는 2D에서만 구도 공통)
 
 | 선택 | 적용 엔진 | 캐릭터 범위 |
 |---|---|---|
@@ -46,6 +46,19 @@ PDF/PSD 편집 자산과 방송용 실제 네이티브 모델은 구분합니다
 | **Inochi2D 상반신** | Inochi2D | upper |
 | **Inochi2D 전신** | Inochi2D | full |
 | **3D** | 3D | **전체 캐릭터**(얼굴·헤어·착의 전신)의 다각도 2D 원화 → 3D 복원 또는 액세서리 추가 |
+
+### 실제 생성 ZIP 표 — FACE 포함
+
+| 제작 모드 | FACE | HAIR | OUTFIT | ACCESSORY |
+|---|---|---|---|---|
+| Live2D 바스트업 | [공통 FACE](docs/image_ai_kits_v2/zips/face.zip) | [HAIR](docs/image_ai_kits_v2/zips/live2d_bust_up__hair.zip) | [OUTFIT](docs/image_ai_kits_v2/zips/live2d_bust_up__outfit.zip) | [ACCESSORY](docs/image_ai_kits_v2/zips/live2d_bust_up__accessory.zip) |
+| Live2D 상반신 | [공통 FACE](docs/image_ai_kits_v2/zips/face.zip) | [HAIR](docs/image_ai_kits_v2/zips/live2d_upper__hair.zip) | [OUTFIT](docs/image_ai_kits_v2/zips/live2d_upper__outfit.zip) | [ACCESSORY](docs/image_ai_kits_v2/zips/live2d_upper__accessory.zip) |
+| Live2D 전신 | [공통 FACE](docs/image_ai_kits_v2/zips/face.zip) | [HAIR](docs/image_ai_kits_v2/zips/live2d_full__hair.zip) | [OUTFIT](docs/image_ai_kits_v2/zips/live2d_full__outfit.zip) | [ACCESSORY](docs/image_ai_kits_v2/zips/live2d_full__accessory.zip) |
+| Inochi2D 상반신 | [공통 FACE](docs/image_ai_kits_v2/zips/face.zip) | [HAIR](docs/image_ai_kits_v2/zips/inochi2d_upper__hair.zip) | [OUTFIT](docs/image_ai_kits_v2/zips/inochi2d_upper__outfit.zip) | [ACCESSORY](docs/image_ai_kits_v2/zips/inochi2d_upper__accessory.zip) |
+| Inochi2D 전신 | [공통 FACE](docs/image_ai_kits_v2/zips/face.zip) | [HAIR](docs/image_ai_kits_v2/zips/inochi2d_full__hair.zip) | [OUTFIT](docs/image_ai_kits_v2/zips/inochi2d_full__outfit.zip) | [ACCESSORY](docs/image_ai_kits_v2/zips/inochi2d_full__accessory.zip) |
+| 3D | **캐릭터 원화에 얼굴 포함** ([전체 캐릭터](docs/image_ai_kits_v2/zips/3d__character.zip)) | 전체 캐릭터에 포함 | 전체 캐릭터에 포함 | [3D 액세서리](docs/image_ai_kits_v2/zips/3d__accessory.zip) |
+
+**2D FACE는 모든 구도에서 동일한 `face.zip` 한 개를 사용합니다.** 3D는 별도 FACE를 만들지 않고 얼굴·머리·의상이 모두 그려진 완성 2D 캐릭터 원화를 복원합니다. 총 18개 ZIP입니다.
 
 ### FACE를 제외한 제작 모드의 하위 자산
 
