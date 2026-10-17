@@ -108,7 +108,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
             "Origin (0,0) TOP LEFT; +X right, +Y down. "
             "HEAD CENTER x=1024; crown y=240; eyes center y=1110; "
             "nose y=1280; mouth y=1380; jaw y=1510; neck y=1590; "
-            "shoulders y=1730; torso centerline x=1024; "
+            "face-only crop; shoulders and torso absent; "
             "neck end y=1950; no features cropped. "
             "All layers must match the front master at the SAME absolute pixel "
             "coordinates; never center the isolated part within its canvas. "
@@ -116,7 +116,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
         master = (
             "OUTPUT front_master.png. Render ONE complete clean front-view, "
             "neutral anime face and neck only, mouth CLOSED, eyes OPEN, "
-            "arms neutral and consistent. Fully antialiased edges; full visible "
+            "face and neck in stable reference positions. Fully antialiased edges; full visible "
              "uncovered scalp, face and neck only; NO torso or wardrobe. "
             + geometry
             + " Master may use a solid neutral background for visual reference; "
@@ -159,7 +159,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
             "Same character face center, head-and-neck-only framing, head height, "
             "head proportions and neck position across views. "
             "Face/neck only; never generate torso, arms, clothing or legs. "
-            "Orthographic eye-level camera, neutral symmetric A-pose with "
+            "Orthographic eye-level camera, symmetric face profile with "
             "face forward, neck ends within frame. "
             "Do not mirror images or redesign basewear between views. "
         )
@@ -185,7 +185,7 @@ def build_prompts(mode: str, identity: Identity) -> dict:
             "FACE REFERENCES ONLY — not a riggable VRM input. Exactly FIVE PNG files: "
             "front.png, back.png, left.png, right.png (portrait 2:3) "
             "and face.png (square 1:1). Save exact filenames. "
-            "For default Colab 3D v8 use TWO paired-view sheets "
+            "FACE-only references cannot produce a VRM directly; legacy sheet names: "
             "(sheet_front_back.png, sheet_side_views.png; each 4:3) "
             "plus face.png, zipped as character_3d_sheet_pack.zip. "
             "ALL views depict one adult anime head and neck, not a complete VRM avatar."
