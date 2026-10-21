@@ -31,7 +31,8 @@ def test_modern_cli_no_legacy_launcher_and_structural_validation(tmp_path, monke
     from tools.vts_psd2live_modern import run_modern_psd2live
     import tools.vts_psd2live as legacy
     root = _source(tmp_path)
-    psd = tmp_path / "source.psd"
+    (tmp_path / "artwork").mkdir()
+    psd = tmp_path / "artwork" / "source.psd"
     psd.write_bytes(b"8BPS" + b"0" * 100)
     monkeypatch.setattr(legacy, "_java_env", lambda: {})
     validated = []
@@ -62,7 +63,8 @@ def test_modern_cli_no_legacy_launcher_and_structural_validation(tmp_path, monke
 def test_modern_refuses_reusing_existing_output(tmp_path):
     from tools.vts_psd2live_modern import run_modern_psd2live
     root = _source(tmp_path)
-    psd = tmp_path / "source.psd"
+    (tmp_path / "artwork").mkdir()
+    psd = tmp_path / "artwork" / "source.psd"
     psd.write_bytes(b"8BPS" + b"0" * 100)
     out = tmp_path / "output"
     out.mkdir()
