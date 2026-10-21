@@ -32,8 +32,11 @@ def test_finished_zip_is_consumed_without_regenerating_artwork():
         "validate_vrm", "files.download(", "native_files_created",
     ):
         assert required in code, required
-    for forbidden in ("write_prompt_package(", "build_prompts(", "run_see_through("):
+    for forbidden in ("write_prompt_package(", "build_prompts("):
         assert forbidden not in code, forbidden
+    # Source-only Inochi BODY legitimately invokes See-through.
+    # Pre-partitioned Live2D input must keep its authored PSD unchanged.
+    assert "if not MODE.startswith('live2d'):" in code
 
 
 def test_native_and_detached_paths_have_explicit_outcome():
