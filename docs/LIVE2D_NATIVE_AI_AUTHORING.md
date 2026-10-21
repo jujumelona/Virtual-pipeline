@@ -28,6 +28,23 @@ generation+pose-validation attempts. Running that many jobs may be expensive.
 
 Successful native QA is **not** VTube Studio / OBS face-tracking acceptance.
 
+## Critical version boundary: v3.3.1 CLI rigging versus modern MCP editing
+
+The production auto-rig CLI is **pinned to PSD2Live v3.3.1**. Its
+`mcp_proxy.py` **does not provide** the `call <operation> ... --edit`
+interface used by this AI keyform authoring flow. Therefore, the old
+checkout cannot act as the MCP editor. The authoring code now checks for
+the supported proxy command **before modifying any project** and raises
+`PSD2LIVE_MCP_CLI_UNSUPPORTED` when missing.
+
+The MCP refinement stage needs a **separate compatible newer PSD2Live
+desktop editor and matching source tree**, with the actual generated
+project loaded, an enabled local MCP endpoint and the real Warp IDs
+verified. Compatibility when opening old v3.3.1-authored `.psd2live`
+files in newer releases remains a separate, unverified runtime
+requirement. Do not assume that installing the newest source by itself
+proves project compatibility or native posing quality.
+
 ## 2. Local AI: native 3/4 keyform improvements
 
 This phase requires both reference artwork and rendered poses from the **same
