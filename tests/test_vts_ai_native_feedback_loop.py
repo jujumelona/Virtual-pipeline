@@ -71,3 +71,53 @@ def test_no_observed_improvement_does_not_claim_ai_success(tmp_path):
             max_rounds=2, observer=observer, author=author)
     verdict = json.loads((tmp_path / "failed/feedback_verdict.json").read_text())
     assert verdict["accepted"] is False
+
+
+def test_real_editable_feedback_rounds_reopen_latest_saved_project(tmp_path):
+    src = tmp_path / "start.psd2live"
+    src.write_bytes(b"actual-project-fixture")
+    native = tmp_path / "native"
+    native.mkdir()
+    checked = []
+    obs_count = [0]
+
+    def observer(reference_dir, native_dir, output, *, bindings, model, endpoint):
+        output.mkdir(parents=True)
+        err = (30, 20, 1)[min(obs_count[0], 2)]
+        obs_count[0] += 1
+        (output / "vision_reference_manifest.json").write_text(
+            json.dumps(_sample_manifest(err)))
+        return {"canvas": [320, 320], "changes": [{"test": 1}]}, output
+
+    def author(plan, *, proxy_root, work, export_to, source_project):
+        checked.append(str(source_project))
+        work.mkdir(parents=True)
+        saved = work / "updated.psd2live"
+        saved.write_bytes(b"another-real-project-fixture")
+        return {
+            "native_pose_qa": {"pose_activity_passed": True},
+            "exported_model3": str(export_to / "avatar.model3.json"),
+            "editable_project_copy": str(saved),
+        }
+
+    result = run_ai_native_feedback_loop(
+        reference_dir=tmp_path, initial_native_dir=native,
+        bindings={}, model="local-vlm",
+        endpoint="http://127.0.0.1:8000/v1/chat/completions",
+        psd2live_source=tmp_path, output=tmp_path / "iteration",
+        max_rounds=3, source_project=src, observer=observer, author=author)
+    assert result["accepted"]
+    assert checked[0] == str(src)
+    assert checked[1].endswith("round_00/mcp/updated.psd2live")
+    assert checked[1] != checked[0]
+
+
+def test_production_author_must_explicitly_select_project(tmp_path):
+    native = tmp_path / "native"
+    native.mkdir()
+    with pytest.raises(ValueError, match="EXPLICIT_EDITABLE_PROJECT"):
+        run_ai_native_feedback_loop(
+            reference_dir=tmp_path, initial_native_dir=native,
+            bindings={}, model="local-vlm",
+            endpoint="http://127.0.0.1:8000/v1/chat/completions",
+            psd2live_source=tmp_path, output=tmp_path / "invalid")
