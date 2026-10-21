@@ -29,7 +29,7 @@ def test_local_ai_feedback_accepts_only_converged_native_export(tmp_path):
     calls = []
     def observer(reference_dir, native_dir, output, *, bindings, model, endpoint):
         output.mkdir(parents=True)
-        error = [25, 2][len(calls)]
+        error = [25, 2][sum(item == "observe" for item in calls)]
         (output / "vision_reference_manifest.json").write_text(
             json.dumps(_sample_manifest(error)))
         calls.append("observe")
