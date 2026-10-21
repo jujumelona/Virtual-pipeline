@@ -52,3 +52,57 @@ def test_refuse_opaque_and_misaligned_inputs(tmp_path):
     a["face"] = _archive(tmp_path / "face.zip", size=(512, 512))
     with pytest.raises(ValueError, match="register artworks manually"):
         composite_2d(a["face"], a["outfit"], a["hair"], tmp_path / "bad2")
+
+
+def test_explicit_psd2live_requires_a_completed_artwork_zip(tmp_path):
+    from tools.vts_see_through_only import rig_see_through_artwork
+    with pytest.raises(ValueError, match="completed See-through"):
+        rig_see_through_artwork({"state": "failed"}, tmp_path)
+    with pytest.raises(FileNotFoundError, match="layered PSD"):
+        rig_see_through_artwork({
+            "state": "artwork_ready_editor_rig_required",
+            "package": str(tmp_path / "not-created.zip"),
+        }, tmp_path)
+
+
+def test_explicit_psd2live_reuses_validated_psd_without_gpu_split(tmp_path, monkeypatch):
+    from tools.vts_see_through_only import rig_see_through_artwork
+    import tools.vts_psd2live as psd2live
+    input_zip = tmp_path / "layered.zip"
+    with ZipFile(input_zip, "w") as archive:
+        archive.writestr("avatar.psd", b"TEST_LAYERED_ARTWORK")
+    calls = []
+    def fake_prepare():
+        calls.append("prepare")
+    def fake_rig(artwork_zip, output, *, edition, scope):
+        assert artwork_zip == input_zip
+        assert edition == "free"
+        assert scope == "upper"
+        assert output == tmp_path / "rig" / "psd2live_result"
+        calls.append("rig-existing-psd")
+        return {"state": "psd2live_rigged_unverified",
+                "moc3_generated": True, "package": str(tmp_path / "rigged.zip")}
+    monkeypatch.setattr(psd2live, "prepare_psd2live", fake_prepare)
+    monkeypatch.setattr(psd2live, "rig_existing_artwork_zip", fake_rig)
+    result = rig_see_through_artwork({
+        "state": "artwork_ready_editor_rig_required",
+        "package": str(input_zip),
+    }, tmp_path / "rig")
+    assert calls == ["prepare", "rig-existing-psd"]
+    assert result["moc3_generated"] is True
+
+
+def test_see_through_notebook_has_separate_explicit_native_stage():
+    import ast
+    import json
+    notebook_path = Path(__file__).resolve().parents[1] / (
+        "notebooks/VTuber_SeeThrough_Only_Source_ZIPs.ipynb")
+    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+    code = ["".join(cell["source"]) for cell in notebook["cells"]
+            if cell["cell_type"] == "code"]
+    for index, cell in enumerate(code):
+        ast.parse(cell, filename=f"see-through-cell-{index}")
+    assert len(code) == 6
+    assert 'RIGGING = "artwork_only"' in code[-2]
+    assert "rig_see_through_artwork(SEPARATION" in code[-2]
+    assert "files.download(str(PACKAGE))" in code[-1]
