@@ -20,8 +20,8 @@ from tools.vts_reference_keyform_author import (
 )
 
 VIEW_NATIVE = {
-    "head_three_quarter_L": "yaw_left.png",
-    "head_three_quarter_R": "yaw_right.png",
+    "head_three_quarter_L": "yaw_left_45.png",
+    "head_three_quarter_R": "yaw_right_45.png",
 }
 
 PROMPT = """Return JSON only, without code fences. Analyze TWO images:
@@ -141,7 +141,7 @@ def create_vision_reference_manifest(reference_dir: Path, native_dir: Path,
         (pose_root / (view + ".png")).write_bytes(pose_data)
         observed = _vision_request(pose_data, ref_data, model=model,
                                    url=endpoint, transport=transport)
-        angle = -30 if view.endswith("_L") else 30
+        angle = -45 if view.endswith("_L") else 45
         poses.append({"view": view, "angle_x": angle,
                       "observed": observed["observed"],
                       "desired": observed["desired"]})
