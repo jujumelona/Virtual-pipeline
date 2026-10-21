@@ -147,12 +147,14 @@ def _require_mcp_cli(proxy_root: Path) -> Path:
     return proxy
 
 
-# --edit injects state. Do NOT pass it to save/open/read-only operations;
-# upstream strict schemas reject unknown fields, including unexpected state.
+# Upstream v3.6 MCP requires a fresh opaque state on document mutations,
+# including saving and opening projects. Read-only mesh previews do not.
+# Verified in actual v3.6 headless MCP against project_save_as.
 _STATE_REQUIRED = frozenset({
     "rig_deform", "workspace_preview_edits", "workspace_apply_edits",
-    "project_export_model", "layer_mesh_structure", "rig_update_generation",
-    "settings_update",
+    "project_export_model", "project_save_as", "project_save",
+    "project_open", "project_import_psd", "rig_generate",
+    "layer_mesh_structure", "rig_update_generation", "settings_update",
 })
 
 
