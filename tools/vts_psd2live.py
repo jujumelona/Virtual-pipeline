@@ -179,10 +179,15 @@ def validate_psd2live_output(folder: Path, *, edition: str | None = None) -> dic
 
 def run_psd2live(psd: Path, output: Path, *, edition: str,
                  third_party: Path | None = None, timeout_seconds: int = 7200,
-                 runner=None) -> dict:
+                 runner=None, *, head_strength: float = 1.0,
+                 body_strength: float = 1.0, mesh_spacing: int = 40) -> dict:
     """Run the pinned official pipeline with an explicit atlas generation budget."""
     if edition not in ("free", "pro"):
         raise ValueError("invalid Cubism edition")
+    if not (0.6 <= head_strength <= 1.5 and 0.6 <= body_strength <= 1.5):
+        raise ValueError("PSD2LIVE_RIG_STRENGTH_OUT_OF_RANGE")
+    if isinstance(mesh_spacing, bool) or not isinstance(mesh_spacing, int) or not 20 <= mesh_spacing <= 80:
+        raise ValueError("PSD2LIVE_MESH_SPACING_OUT_OF_RANGE")
     psd = Path(psd).expanduser().resolve(strict=True)
     if psd.suffix.lower() != ".psd" or psd.stat().st_size < 26:
         raise ValueError("PSD2Live input must be a nonempty layered PSD")
@@ -204,7 +209,6 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
     # (2048-reference) units so huge source raster sizes do not explode
     # the mesh budget. The upstream CLI has no maxPages flag; our small
     # launcher supplies the official AtlasBudget API before generation.
-    mesh_spacing = 40
     # PSD2Live v3.3.1 uses actual nunif/waifu2x neural SR for scale > 1.
     # Unlike ordinary resizing, this fails without explicitly configured Art weights.
     nunif_dir = os.environ.get("VTS_PSD2LIVE_NUNIF_DIR", "").strip()
@@ -235,7 +239,7 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
             f"--output {shlex.quote(str(output))} "
             f"--atlas {atlas} --atlas-pages {atlas_pages} --lang en "
             f"--mesh-spacing {mesh_spacing} --mesh-wrap 0 "
-            f"--head-strength 1.0 --body-strength 1.0 --mouth-outline false "
+            f"--head-strength {head_strength:.4f} --body-strength {body_strength:.4f} --mouth-outline false "
             f"--upscale {upscale_factor}"
             f"{upscale_args}")
     cmd = _gradle_bridge(root, "vtsRig") + [f"--args={args}"]
@@ -283,7 +287,7 @@ def run_psd2live(psd: Path, output: Path, *, edition: str,
             "mesh_spacing_basis": "GUI PipelineConfig=40; CLI default=64",
             "mesh_units": "document_2048_reference",
             "mesh_wrap": 0,
-            "head_strength": 1.0, "body_strength": 1.0,
+            "head_strength": head_strength, "body_strength": body_strength,
             "upscale_factor": upscale_factor,
             "upscale_backend": "PSD2Live nunif/waifu2x neural SR" if upscale_args else "disabled (upstream default)",
             "mouth_outline_generated": False,
