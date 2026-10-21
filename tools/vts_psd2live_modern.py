@@ -17,8 +17,13 @@ PSD2LIVE_MODERN_URL = "https://github.com/tsunehimatoi/psd2live.git"
 
 
 def _modern_root(override: Path | None) -> Path:
+    # Colab mounts /content writable; CI/desktop users do not. Never attempt
+    # to create a privileged /content folder on ordinary Linux runners.
+    default = (Path("/content/vtuber_builder/third_party/psd2live-v3.6.0")
+               if Path("/content").is_dir() and os.access("/content", os.W_OK)
+               else Path.home() / ".cache" / "vtuber-pipeline" / "psd2live-v3.6.0")
     return Path(override or os.environ.get("VTS_PSD2LIVE_MODERN_HOME")
-                or "/content/vtuber_builder/third_party/psd2live-v3.6.0").expanduser().resolve()
+                or default).expanduser().resolve()
 
 
 def ensure_modern_psd2live(root: Path | None = None, *,
