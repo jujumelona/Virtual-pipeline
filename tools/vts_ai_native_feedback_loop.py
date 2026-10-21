@@ -40,6 +40,7 @@ def run_ai_native_feedback_loop(*, reference_dir: Path, initial_native_dir: Path
                                 psd2live_source: Path, output: Path,
                                 max_rounds: int = 3,
                                 target_residual: float = 0.018,
+                                require_pixel_improvement: bool = False,
                                 observer=None, author=None) -> dict:
     """Build and test real native keyforms, stopping on lack of convergence.
 
@@ -91,6 +92,21 @@ def run_ai_native_feedback_loop(*, reference_dir: Path, initial_native_dir: Path
                            work=round_dir / "mcp", export_to=export_to)
             if not result.get("native_pose_qa", {}).get("pose_activity_passed"):
                 raise RuntimeError("Native pose failed after authoring")
+            if require_pixel_improvement:
+                # Numeric facial landmarks alone can improve while the
+                # silhouette/paint tears. Compare real native frames before
+                # and after, with no resize or fabricated background masks.
+                from tools.vts_native_visual_benchmark import evaluate_native_visual_change
+                pixel = evaluate_native_visual_change(
+                    reference_dir, round_dir / "mcp" / "native_validation",
+                    round_dir / "pixel_quality",
+                    previous_native_dir=current_native)
+                if not pixel["pixel_improvement_verified"]:
+                    raise RuntimeError("Native pixel correspondence did not improve")
+                attempt["pixel_quality"] = {
+                    "status": pixel["status"],
+                    "relative_comparison": pixel["relative_comparison"],
+                }
             attempt["native_export_verified"] = True
             attempt["exported_model3"] = result["exported_model3"]
             accepted = attempt
@@ -117,6 +133,10 @@ def run_ai_native_feedback_loop(*, reference_dir: Path, initial_native_dir: Path
                "accepted": passed, "native_reference_keyforms_verified": passed,
                "actual_vtube_studio_tracking_verified": False,
                "full_90_degree_profile_verified": False,
+               "native_pixel_comparison_required": require_pixel_improvement,
+               "native_pixel_comparison_verified": bool(
+                   passed and require_pixel_improvement and
+                   accepted.get("pixel_quality")) if accepted else False,
                "target_error": target_residual,
                "rounds": history,
                "winning_export": accepted["exported_model3"] if passed else None}
@@ -138,13 +158,16 @@ def main():
     parser.add_argument("--model", required=True)
     parser.add_argument("--endpoint", default="http://127.0.0.1:8000/v1/chat/completions")
     parser.add_argument("--rounds", type=int, default=3)
+    parser.add_argument("--require-pixel-improvement", action="store_true",
+                        help="Reject edits that fail genuine transparent native pose comparison")
     args = parser.parse_args()
     result = run_ai_native_feedback_loop(
         reference_dir=args.reference_dir, initial_native_dir=args.native_dir,
         bindings=json.loads(args.warp_bindings.read_text(encoding="utf-8")),
         model=args.model, endpoint=args.endpoint,
         psd2live_source=args.psd2live_source, output=args.output,
-        max_rounds=args.rounds)
+        max_rounds=args.rounds,
+        require_pixel_improvement=args.require_pixel_improvement)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
