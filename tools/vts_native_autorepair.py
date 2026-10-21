@@ -44,7 +44,6 @@ def search_native_rig(psd: Path, output: Path, *, edition: str = "free",
     """
     from tools.vts_psd2live import run_psd2live
     from tools.vts_multiview_runtime import render_actual_native_moc3
-    from tools.vts_psd2live import validate_psd2live_output
 
     build = build or run_psd2live
     render = render or render_actual_native_moc3
@@ -67,6 +66,7 @@ def search_native_rig(psd: Path, output: Path, *, edition: str = "free",
         trial = output / f"trial_{index:02d}"
         data = {"index": index, "config": dict(config), "accepted": False}
         result = None
+        render_returned_success = False
         try:
             result = build(psd, trial / "model", edition=edition, **config)
             # The genuine production build returns structurally checked MOC3
@@ -76,6 +76,7 @@ def search_native_rig(psd: Path, output: Path, *, edition: str = "free",
                 raise RuntimeError("Candidate model path escaped isolated trial")
             native = render(model3, trial / "poses")
             data["render_report"] = native
+            render_returned_success = True
         except Exception as exc:
             data["error"] = f"{type(exc).__name__}: {exc}"
             report_path = trial / "poses" / "native_pose_report.json"
@@ -84,7 +85,7 @@ def search_native_rig(psd: Path, output: Path, *, edition: str = "free",
         score, gates = _pose_score(data.get("render_report"))
         data["score"] = score
         data["gates"] = gates
-        data["accepted"] = bool(result and score == 4)
+        data["accepted"] = bool(result and render_returned_success and score == 4)
         history.append(data)
         if data["accepted"] and score > best_score:
             best, best_score = (result, index), score
