@@ -172,14 +172,27 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model", required=True)
     parser.add_argument("--endpoint", default="http://127.0.0.1:8000/v1/chat/completions")
+    parser.add_argument("--apply", action="store_true",
+                        help="Apply the vision-derived warp keyforms in a running local PSD2Live editor")
+    parser.add_argument("--proxy-root", type=Path)
+    parser.add_argument("--export-to", type=Path)
     args = parser.parse_args()
+    if args.apply and (args.proxy_root is None or args.export_to is None):
+        parser.error("--apply requires --proxy-root and --export-to")
     bindings = json.loads(args.bindings.read_text(encoding="utf-8"))
     plan, root = create_vision_reference_manifest(
         args.reference_dir, args.native_dir, args.output, bindings=bindings,
         model=args.model, endpoint=args.endpoint)
+    executed = False
+    if args.apply:
+        from tools.vts_reference_keyform_author import apply_reference_keyforms
+        apply_reference_keyforms(plan, proxy_root=args.proxy_root,
+                                 work=root / "mcp",
+                                 export_to=args.export_to)
+        executed = True
     print(json.dumps({"planned_warps": len(plan["changes"]),
                       "manifest": str(root / "vision_reference_manifest.json"),
-                      "executed": False}, ensure_ascii=False))
+                      "executed": executed}, ensure_ascii=False))
 
 
 if __name__ == "__main__":
