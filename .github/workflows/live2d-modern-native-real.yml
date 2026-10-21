@@ -51,6 +51,22 @@ jobs:
               "artistic_quality_verified": False,
           }, indent=2))
           PY
+      - name: Import the SAME real PSD into the v3.6 headless MCP and save an editable rig
+        run: |
+          python -m tools.vts_modern_editable_project \
+            --psd /tmp/psd2live-cc0/case/ds/psd-input/ds.psd \
+            --source "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
+            --output /tmp/psd2live-editable-real
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("/tmp/psd2live-editable-real/editable_project_report.json").read_text())
+          assert report["source_imported"] is True
+          assert report["rig_generate_committed"] is True
+          assert report["saved_project_produced"] is True
+          assert Path(report["editable_project"]).stat().st_size > 1024
+          print("REAL_V360_EDITABLE_PROJECT_VERIFIED", report["editable_project"])
+          PY
       - name: Upload logs, artifacts and native rejection evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -59,6 +75,7 @@ jobs:
           path: |
             /tmp/psd2live_modern_cli.log
             /tmp/modern-real-output/**
+            /tmp/psd2live-editable-real/**
             /content/vtuber_builder/third_party/modern_psd2live_clone.log
           if-no-files-found: ignore
           retention-days: 5
