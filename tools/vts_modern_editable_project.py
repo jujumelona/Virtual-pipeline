@@ -113,8 +113,11 @@ def build_editable_project(psd: Path, output: Path, *, source: Path | None = Non
             generated = editor.edit("rig_generate")
             if not generated.get("state"):
                 raise RuntimeError("PSD2LIVE_NATIVE_RIG_GENERATION_NOT_COMMITTED")
-            saved = editor.call("project_save_as",
-                                {"path": str(editable)})[0]
+            # The v3.6 MCP business schema requires the LIVE opaque state
+            # for project_save_as too; plain Client.call lacks it.
+            saved = editor.edit("project_save_as", path=str(editable))
+            if not saved.get("state"):
+                raise RuntimeError("PSD2LIVE_EDITABLE_SAVE_NOT_COMMITTED")
             if not editable.is_file() or editable.stat().st_size < 1024:
                 raise RuntimeError("PSD2LIVE_EDITABLE_PROJECT_NOT_SAVED")
             after = editor.project()
