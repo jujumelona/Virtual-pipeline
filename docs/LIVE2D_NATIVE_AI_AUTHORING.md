@@ -102,6 +102,39 @@ incorrect. The current native QA checks geometry and parameter activity; it
 does not yet prove pixel-level similarity to the reference. An observed pass
 does not imply accurate 90-degree anatomy.
 
+## 2.1 Autonomous visual feedback (bounded)
+
+Instead of a single visual correction, the local AI agent can repeat
+**native render → VLM landmark re-observation → MCP warp edit → native render**
+(up to three rounds by default), keeping the source project's initial file
+unchanged. Launch a saved PSD2Live project in the desktop editor first, with
+MCP active, then run:
+
+```bash
+python -m tools.vts_ai_native_feedback_loop \
+  --reference-dir /path/to/references \
+  --native-dir /path/to/first/native_moc3_pose \
+  --warp-bindings /path/to/real_warp_bindings.json \
+  --psd2live-source /path/to/psd2live_source \
+  --model YOUR_LOCAL_VISION_MODEL \
+  --endpoint http://127.0.0.1:8000/v1/chat/completions \
+  --rounds 3 --output /path/to/feedback_run
+```
+
+Each application invokes PSD2Live `workspace_preview_edits` before the actual
+`rig_deform`. Its first step saves a **new `.psd2live` authoring copy**.
+The native exported model must pass Cubism pose QA on each authoring pass; a
+new VLM observation must also show measurable landmark improvement and a
+normalized residual ≤0.018 by the end. If the model doesn't converge,
+`feedback_verdict.json` records failure and a winning model is not certified.
+The locally saved draft may contain failed experiments; return to the
+unmodified original project to restart.
+
+This is a **geometry/landmark-assisted** agent, not an AI that understands
+every hair strand, hand, mask occlusion or artist's style. The local model
+must be vision-capable, and manually reviewing correspondence and complex
+occlusion is still necessary.
+
 ## 3. Full 90-degree profile
 
 No current generic, reliable mapping from a single frontal PSD plus a profile
