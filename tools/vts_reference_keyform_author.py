@@ -126,6 +126,27 @@ def compile_native_reference_edits(manifest: dict, root: Path) -> dict:
     }
 
 
+
+def _require_mcp_cli(proxy_root: Path) -> Path:
+    """Refuse an outdated PSD2Live checkout before any editor mutation."""
+    import ast
+    proxy = Path(proxy_root).resolve() / "mcp_proxy.py"
+    if not proxy.is_file():
+        raise FileNotFoundError("PSD2Live MCP proxy missing: " + str(proxy))
+    try:
+        tree = ast.parse(proxy.read_text(encoding="utf-8"), filename=str(proxy))
+    except (SyntaxError, UnicodeError) as exc:
+        raise RuntimeError("PSD2Live MCP proxy has invalid Python source") from exc
+    commands = {node.name for node in tree.body
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    if "_cli" not in commands:
+        raise RuntimeError(
+            "PSD2LIVE_MCP_CLI_UNSUPPORTED: pinned PSD2Live v3.3.1 has no "
+            "'mcp_proxy.py call' command. Use a compatible newer PSD2Live "
+            "desktop editor and matching source for native keyform authoring.")
+    return proxy
+
+
 def _run_mcp(proxy_root: Path, operation: str, request: dict,
              work: Path, executor=None) -> dict:
     """Invoke upstream MCP proxy against a *running local* PSD2Live editor."""
@@ -134,9 +155,7 @@ def _run_mcp(proxy_root: Path, operation: str, request: dict,
         raise ValueError("MCP proxy expects business fields directly, not nested request")
     request_path = work / (operation + "_request.json")
     request_path.write_text(json.dumps(request, ensure_ascii=False), encoding="utf-8")
-    proxy = proxy_root / "mcp_proxy.py"
-    if not proxy.is_file():
-        raise FileNotFoundError("PSD2Live official MCP proxy missing: " + str(proxy))
+    proxy = _require_mcp_cli(proxy_root)
     cmd = [sys.executable, str(proxy), "call", operation,
            "@" + str(request_path), "--edit", "--out", str(work)]
     runner = executor or subprocess.run
@@ -181,6 +200,8 @@ def apply_reference_keyforms(plan: dict, *, proxy_root: Path, work: Path,
                                   (proxy_root, work, export_to))
     if export_to.exists() and any(export_to.iterdir()):
         raise ValueError("Native export directory must be empty")
+    _require_mcp_cli(proxy_root)
+    work.mkdir(parents=True, exist_ok=True)
     log = []
     # Work on a separate project copy: never overwrite the user's original.
     # PSD2Live MCP save_as changes the active workspace path to this copy.
