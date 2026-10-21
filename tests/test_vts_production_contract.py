@@ -533,37 +533,15 @@ def test_opaque_pro_outfit_rejects_ambiguous_border(tmp_path, monkeypatch, touch
 
 
 def test_opaque_detached_asset_uses_only_qwen_foreground_alpha_and_original_rgb(tmp_path, monkeypatch):
-    import json
-    from io import BytesIO
-    from tools import vts_production as production, vts_qwen_refine as qwen
-    master = tmp_path / 'accessory.png'
-    image = Image.new('RGB', (256, 384), 'white')
-    image.paste((120, 30, 220), (60, 40, 160, 180)); image.save(master)
-    base = tmp_path / 'base.png'; Image.new('RGBA', image.size).save(base)
-    calls = []
-    def infer(source, output, **kwargs):
-        calls.append(kwargs)
-        output.mkdir(parents=True)
-        background = output / 'layer_0.png'
-        foreground = output / 'layer_1.png'
-        Image.new('RGBA', image.size, (0, 0, 0, 255)).save(background)
-        mask = Image.new('RGBA', image.size)
-        mask.paste((0, 255, 0, 128), (60, 40, 160, 180)); mask.save(foreground)
-        return {'layers': [str(background), str(foreground)]}
-    monkeypatch.setattr(qwen, 'infer', infer)
-    monkeypatch.setattr(production, 'run_see_through', lambda *a, **k: pytest.fail('wrong model'))
-    result = production.make_cubism_handoff(master, tmp_path / 'out', edition='pro',
-        scope='full', asset_kind='accessory', reference_image=base, qwen=True,
-        qwen_passes=1, qwen_layers=4)
-    assert len(calls) == 1  # initial extraction counts against the pass budget
-    with ZipFile(result['package']) as z:
-        final = Image.open(BytesIO(z.read('preview/composite.png'))).convert('RGBA')
-        assert final.getpixel((80, 80)) == (120, 30, 220, 128)
-        assert final.getpixel((0, 0))[3] == 0
-        preparation = json.loads(z.read('metadata/asset_preparation.json'))
-        assert preparation['method'] == 'qwen_foreground_mask_original_rgb'
-        assert preparation['mask_visual_accuracy_verified'] is False
-
+    from tools import vts_production as production, vts_qwen_refine
+    # Deprecated backend must fail before model load or PSD extraction.
+    monkeypatch.setattr(vts_qwen_refine, "infer",
+                        lambda *a, **kw: pytest.fail("Qwen inference must not run"))
+    with pytest.raises(ValueError, match="SEE_THROUGH_ONLY"):
+        production.make_cubism_handoff(
+            tmp_path / "missing_source.png", tmp_path / "out",
+            edition="pro", scope="upper", asset_kind="accessory",
+            qwen=True)
 
 def test_external_psd_cannot_silently_relabel_an_incompatible_icc_profile(tmp_path):
     from PIL import ImageCms
@@ -738,19 +716,14 @@ def test_depth_success_without_sidecars_still_attempts_lr_and_preserves_best(
 
 def test_pro_outfit_qwen_request_is_disabled_before_any_model_load(tmp_path, monkeypatch):
     from tools import vts_production as production, vts_qwen_refine
-    image = Image.new("RGBA", (256, 384))
-    image.paste((90, 50, 130, 255), (40, 40, 160, 220))
-    master = tmp_path / "outfit.png"
-    image.save(master)
-    body = tmp_path / "body.png"
-    image.save(body)
+    # Deprecated backend must fail before model load or PSD extraction.
     monkeypatch.setattr(vts_qwen_refine, "infer",
-                        lambda *args, **kwargs: pytest.fail("outfit must not load Qwen"))
-    result = production.make_cubism_handoff(
-        master, tmp_path / "result", edition="pro", scope="upper",
-        asset_kind="outfit", reference_image=body, qwen=True)
-    assert result["qwen_attempts"] == []
-
+                        lambda *a, **kw: pytest.fail("Qwen inference must not run"))
+    with pytest.raises(ValueError, match="SEE_THROUGH_ONLY"):
+        production.make_cubism_handoff(
+            tmp_path / "missing_source.png", tmp_path / "out",
+            edition="pro", scope="upper", asset_kind="outfit",
+            qwen=True)
 
 def test_registered_ai_png_names_preserve_anatomy_side_and_iris(tmp_path):
     """External authored L/R layer names must survive PSD registration."""
