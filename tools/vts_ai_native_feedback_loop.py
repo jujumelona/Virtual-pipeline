@@ -65,12 +65,9 @@ def run_ai_native_feedback_loop(*, reference_dir: Path, initial_native_dir: Path
         plan, _ = observe(reference_dir, current_native, round_dir / "ai",
                           bindings=bindings, model=model, endpoint=endpoint)
         # A running PSD2Live project must have real, distinct warped objects.
-        current_error = _residual({
-            "canvas": plan["canvas"],
-            "poses": json.loads(
-                (round_dir / "ai" / "vision_reference_manifest.json")
-                .read_text(encoding="utf-8"))["poses"],
-        })
+        current_error = _residual(json.loads(
+            (round_dir / "ai" / "vision_reference_manifest.json")
+            .read_text(encoding="utf-8")))
         attempt = {"round": iteration, "before_error": current_error,
                    "accepted": False, "native_export_verified": False}
         history.append(attempt)
@@ -83,6 +80,7 @@ def run_ai_native_feedback_loop(*, reference_dir: Path, initial_native_dir: Path
                 # Native model may be acceptable, but this routine did not edit.
                 break
             attempt["accepted"] = True
+            accepted["accepted"] = True
             accepted["after_error"] = current_error
             break
         previous = current_error
