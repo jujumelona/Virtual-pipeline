@@ -2,6 +2,16 @@
 
 **2D See-through 전용 파츠 분리:** 2D 생성 ZIP 16개는 고품질 원화와 다각도 참고 PNG만 생성합니다. 분리에는 See-through(LayerDiff/Marigold 및 공식 SemanticSAM 후처리)만 사용하며 Qwen/Stable-Layers는 비활성화했습니다. 독립 FACE/HAIR/OUTFIT 결과는 그대로 See-through에 넣을 수 없으므로 진짜 RGBA와 같은 크기·원점으로 정렬·합성한 뒤 실행합니다. 합성 CLI: `python -m tools.vts_see_through_only --face face__ARTWORK.zip --outfit live2d_upper__outfit__ARTWORK.zip --hair live2d_upper__hair__ARTWORK.zip --output /content/merged`; 실제 GPU 분리는 `--run-see-through`를 명시해야 합니다. 정렬 프리뷰는 사람이 검수해야 합니다. 같은 CLI에서 자동 리깅까지 시도하려면 `--run-see-through --run-psd2live`를 함께 지정하세요. GPU PSD 분리 없이 `--run-psd2live` 단독 실행은 차단합니다. [2D ZIP 지침](docs/image_ai_kits_v2/README.md).
 
+## AI 네이티브 Live2D 리깅 자동 보정 (실제 포즈 기반)
+
+[**AI + PSD2Live 자동 리깅/참고 원화 키폼 사용법**](docs/LIVE2D_NATIVE_AI_AUTHORING.md)
+
+기존 See-through 전용 Colab은 PSD 이후 `RIGGING=auto_repair`를 지원합니다. 동일 PSD로 메쉬·머리/몸체 변형 설정을 달리한 후보를 제한적으로 생성하고, 실제 Cubism MOC3 포즈 검사에 **전부 통과한 후보만** 내보냅니다. 원본 PSD의 의미 파츠 복구 경로를 재사용하며 분리 모델을 다시 추론하지 않습니다.
+
+독립적인 로컬 데스크톱 단계에서는 `tools/vts_ai_landmark_pairs.py`로 이미지 입력이 가능한 **로컬 VLM**이 3/4 참고 원화와 실제 MOC3 포즈의 대응점을 추출합니다. `tools/vts_reference_keyform_author.py`가 PSD2Live의 MCP `rig_deform`을 통해 실제 `ParamAngleX` 키폼을 보정하고, `tools/vts_ai_native_feedback_loop.py`가 다시 네이티브 프레임을 렌더링해 오차를 재측정하며 제한된 횟수로 보정을 반복합니다. 원본 프로젝트를 덮어쓰지 않고 별도 `.psd2live` 사본에 기록합니다. 출력 성공은 VTube Studio 면부 추적 합격을 보증하지 않습니다.
+
+현재 이 경로는 **±30° 3/4 머리 회전의 기존 Warp 보정**만 처리합니다. 완전한 ±90° 프로필은 교체 원화, 가림/그리기 순서, 전체 목·얼굴 결합과 실제 키폼 검증이 따로 필요하므로 자동 완성으로 표기하지 않습니다. 실제 GPU·MCP·VTube Studio 실물 통합 검증은 별도입니다.
+
 ## See-through 단독 Live2D 원화 ZIP 합성 → 분리 PSD
 
 [**전용 Colab 열기**](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_SeeThrough_Only_Source_ZIPs.ipynb) — FACE, OUTFIT, HAIR 원화 ZIP(+선택 ACCESSORY)을 실제 투명 RGBA로 합성한 다음, 시각 검수를 거쳐 See-through + 공식 SemanticSAM 파츠 PSD를 생성합니다. `Qwen=False`이고 3D/VRM은 수행하지 않습니다. 기본 모드는 PSD 제작(`RIGGING=artwork_only`)이지만 ⑤ 셀에서 `RIGGING=auto`를 명시하면 기존 PSD를 재분해하지 않고 PSD2Live MOC3/CMO3 제작을 추가로 시도합니다. ⑥ 셀의 `VERIFY_NATIVE_POSES=True`를 선택하면 **실제 MOC3** 포즈 프레임과 JSON 검사 기록을 출력 ZIP에 넣으며, 검사가 실패하면 성공으로 처리하지 않습니다. 네이티브 포즈 검사가 통과하더라도 VTube Studio 실제 얼굴 추적과 방송 품질은 별도 확인이 필요합니다. 현재 통합 노트북의 개별 FACE/HAIR/OUTFIT 모드는 전체 캐릭터 합성 경로가 아니므로, 이 전용 노트북을 사용하세요. **알파와 캔버스가 맞아도 시각적 정렬은 자동 보장되지 않습니다.**
