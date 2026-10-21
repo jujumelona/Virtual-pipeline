@@ -273,6 +273,7 @@ def apply_reference_keyforms(plan: dict, *, proxy_root: Path, work: Path,
         "reference_landmark_fidelity_verified": False,
         "mcp_receipts": log, "native_pose_qa": native,
         "exported_model3": str(models[0]),
+        "editable_project_copy": str(copy),
     }
     (work / "native_reference_binding.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2, default=str),
