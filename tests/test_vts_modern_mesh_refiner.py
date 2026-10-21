@@ -59,10 +59,10 @@ def test_v360_texture_structure_actual_mcp_sequence_and_pose(tmp_path):
     assert result["targets"][0]["texture_guides"] == 1
     assert not result["artistic_quality_verified"]
     assert [(x[0], x[2]) for x in ops] == [
-        ("project_save_as", False),
+        ("project_save_as", True),
         ("layer_mesh_structure_preview", False),
         ("layer_mesh_structure", True),
-        ("project_save", False),
+        ("project_save", True),
         ("project_export_model", True),
     ]
 
