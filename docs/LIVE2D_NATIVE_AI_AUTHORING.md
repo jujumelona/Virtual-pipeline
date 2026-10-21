@@ -32,7 +32,7 @@ Successful native QA is **not** VTube Studio / OBS face-tracking acceptance.
 
 This phase requires both reference artwork and rendered poses from the **same
 character** and a running local PSD2Live desktop editor/project with MCP enabled.
-Only existing \`ParamAngleX=-30,+30\` yaw references are supported.
+The local VLM defaults to matching 45-degree references with actual \`ParamAngleX=-45,+45\` native yaw frames. Explicit matching \`-30,+30\` reference/native pairs are also accepted by the keyform compiler.
 
 Prerequisites:
 
@@ -142,7 +142,7 @@ PNG into perfect native ±90° keyforms has been validated. Proper native
 support needs extra painted profile ArtMeshes, occlusion/order, attached
 face/neck/hood geometry, layer switching, and parameter ranges beyond basic
 frontal head yaw. This workflow **rejects** 90° requests rather than
-mislabeling ±30° warps as a complete profile.
+mislabeling ±30°/±45° frontal warps as a complete profile.
 
 ## 4. Failure states and acceptance
 
