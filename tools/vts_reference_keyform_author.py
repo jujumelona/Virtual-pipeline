@@ -196,7 +196,8 @@ def _run_mcp(proxy_root: Path, operation: str, request: dict,
 
 
 def apply_reference_keyforms(plan: dict, *, proxy_root: Path, work: Path,
-                             export_to: Path, executor=None) -> dict:
+                             export_to: Path, source_project: Path | None = None,
+                             executor=None) -> dict:
     """Write keyforms, persist the PSD2Live project, and export native model.
 
     No success unless the model actually exports and native pose QA passes.
@@ -215,6 +216,18 @@ def apply_reference_keyforms(plan: dict, *, proxy_root: Path, work: Path,
     _require_mcp_cli(proxy_root)
     work.mkdir(parents=True, exist_ok=True)
     log = []
+    if source_project is not None:
+        source_project = Path(source_project).resolve(strict=True)
+        if source_project.suffix != ".psd2live":
+            raise ValueError("Authoring requires an existing PSD2Live editable project")
+        # Explicitly open the actual generated rig instead of implicitly
+        # modifying whichever model happens to be active in the GUI.
+        loaded = _run_mcp(proxy_root, "project_open",
+                          {"path": str(source_project)},
+                          work / "mcp", executor)
+        if not loaded["response"].get("project_id") and not loaded["response"].get("state"):
+            raise RuntimeError("PSD2Live editor did not confirm project open")
+        log.append(loaded)
     # Work on a separate project copy: never overwrite the user's original.
     # PSD2Live MCP save_as changes the active workspace path to this copy.
     copy = work / "reference_authoring_copy.psd2live"
@@ -272,6 +285,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--proxy-root", type=Path)
+    parser.add_argument("--source-project", type=Path)
     parser.add_argument("--export-to", type=Path)
     args = parser.parse_args()
     data = json.loads(args.manifest.read_text(encoding="utf-8"))
@@ -284,7 +298,8 @@ def main() -> None:
             parser.error("--apply requires --proxy-root and --export-to")
         apply_reference_keyforms(plan, proxy_root=args.proxy_root,
                                  work=args.output / "mcp",
-                                 export_to=args.export_to)
+                                 export_to=args.export_to,
+                                 source_project=args.source_project)
     else:
         print("Reference keyform plan written; no native model modified.")
     print(args.output / "native_reference_plan.json")
