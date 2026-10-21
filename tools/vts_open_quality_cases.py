@@ -98,6 +98,7 @@ def fetch_case(case: str, output: Path, *, download=None) -> dict:
                     sink.write(data)
     models = sorted(target.rglob("*.model3.json"))
     projects = sorted(target.rglob("*.psd2live"))
+    psds = sorted(target.rglob("*.psd"))
     report = {
         "schema": "vtuber/public-quality-reference-case-v1",
         "case": case, "license": spec["license"],
@@ -106,14 +107,18 @@ def fetch_case(case: str, output: Path, *, download=None) -> dict:
         "validated_archive_sha256": actual_sha,
         "source_artifact_dir": str(target),
         "editable_projects": [str(path) for path in projects],
+        "original_layered_psds": [str(path) for path in psds],
         "native_models": [str(path) for path in models],
+        "editable_project_available": bool(projects),
         "runtime_quality_verified": False,
         "reference_character_artistic_quality_verified": False,
     }
     (output / "case_report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    if not models or not projects:
-        raise RuntimeError("PUBLIC_QUALITY_CASE_NO_REAL_MODEL_OR_EDITABLE_PROJECT")
+    # Older official CC0 examples supply a PSD plus native export but NOT
+    # an editable .psd2live project. Never invent the missing project.
+    if not models or not psds:
+        raise RuntimeError("PUBLIC_QUALITY_CASE_NO_REAL_PSD_OR_NATIVE_MODEL")
     return report
 
 
