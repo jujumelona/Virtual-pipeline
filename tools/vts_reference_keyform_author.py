@@ -147,9 +147,24 @@ def _run_mcp(proxy_root: Path, operation: str, request: dict,
                "stderr": (proc.stderr or "")[-4000:]}
     (work / (operation + "_receipt.json")).write_text(
         json.dumps(receipt, ensure_ascii=False, indent=2), encoding="utf-8")
-    if proc.returncode:
-        raise RuntimeError("PSD2Live MCP rejected "+operation+": "+
-                           str(work / (operation+"_receipt.json")))
+    # CLI stdout may contain structured MCP failure despite a successful
+    # HTTP/proxy process exit. Check it before treating edits as committed.
+    structured_failure = False
+    try:
+        body = json.loads((proc.stdout or "").strip())
+        if isinstance(body, dict):
+            payload = body.get("result", body)
+            structured_failure = (
+                body.get("isError") is True or
+                isinstance(body.get("error"), (str, dict)) or
+                (isinstance(payload, dict) and (
+                    payload.get("isError") is True or
+                    payload.get("status") in ("failed", "cancelled"))))
+    except (TypeError, json.JSONDecodeError):
+        pass  # Non-JSON console output is governed by process exit status.
+    if proc.returncode or structured_failure:
+        raise RuntimeError("PSD2Live MCP rejected " + operation + ": " +
+                           str(work / (operation + "_receipt.json")))
     return receipt
 
 
