@@ -49,6 +49,27 @@ def test_proxy_cli_sends_bare_business_fields(tmp_path):
     assert len(observed) == 1
 
 
+def test_proxy_state_flag_matches_strict_upstream_schema(tmp_path):
+    proxy = _proxy(tmp_path / "psd2live")
+    observed = []
+    def executor(cmd, **kwargs):
+        observed.append((cmd[3], "--edit" in cmd))
+        return _reply({"state": "version-1"})
+    for op, request in (
+            ("project_save_as", {"path": str(tmp_path / "saved.psd2live")}),
+            ("workspace_inspect", {"scope": "project"}),
+            ("workspace_preview_edits", {"edits": []}),
+            ("rig_deform", {"changes": []}),
+            ("project_save", {}),
+            ("project_export_model", {"output_directory": str(tmp_path)})):
+        _run_mcp(proxy, op, request, tmp_path / op, executor)
+    assert observed == [
+        ("project_save_as", False), ("workspace_inspect", False),
+        ("workspace_preview_edits", True), ("rig_deform", True),
+        ("project_save", False), ("project_export_model", True),
+    ]
+
+
 def test_proxy_rejects_double_request_envelope(tmp_path):
     proxy = _proxy(tmp_path / "psd2live")
     with pytest.raises(ValueError, match="nested request"):
@@ -73,6 +94,10 @@ def test_reference_editor_preview_save_export_uses_real_tool_shapes(tmp_path, mo
     operations = []
     def executor(cmd, **kwargs):
         op = cmd[3]
+        # Strict upstream MCP schemas do not allow injected state on save or
+        # read-only operations. Only actual version-bound mutations use --edit.
+        assert ("--edit" in cmd) is (op in {
+            "workspace_preview_edits", "rig_deform", "project_export_model"})
         business = json.loads(Path(cmd[4][1:]).read_text())
         assert "request" not in business
         operations.append(op)
