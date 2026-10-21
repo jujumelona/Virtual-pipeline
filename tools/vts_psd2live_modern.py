@@ -104,3 +104,23 @@ def run_modern_psd2live(psd: Path, output: Path, *, edition: str,
         "log": str(log),
     })
     return checked
+
+
+def main() -> None:
+    import argparse
+    import json
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--psd", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--edition", choices=("free", "pro"), default="pro")
+    parser.add_argument("--source", type=Path)
+    parser.add_argument("--clone", action="store_true")
+    args = parser.parse_args()
+    result = run_modern_psd2live(
+        args.psd, args.output, edition=args.edition,
+        source=args.source, clone=args.clone)
+    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+
+
+if __name__ == "__main__":
+    main()
