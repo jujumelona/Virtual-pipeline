@@ -71,6 +71,24 @@ SHA-256을 고정하고 검사하는 다운로드 도구:
 
 Live2D 공식 Hiyori, Kei, Miara 등 샘플은 메쉬·표정·물리 구조 참고용으로 좋지만 CC0가 아닙니다. 공식 이용 조건을 준수해야 합니다.
 
+## 6. 최신 PSD2Live 편집 프로젝트 자동 생성
+
+PSD2Live v3.6 CLI는 네이티브 MOC3·CMO3를 내보내지만, 복잡한 MCP 메쉬 보정을 위해 별도의 **실제 편집 가능한 .psd2live 프로젝트**도 필요합니다. 다음 새 경로는 v3.6 headless MCP를 별도 격리 저장소에서 실행합니다.
+
+    python -m tools.vts_modern_editable_project --psd /path/to/layered.psd --source /path/to/psd2live-v3.6.0 --output /path/to/fresh-editable-dir
+
+실제 프로젝트를 가져온 뒤 rig_generate를 호출하고, 프로젝트를 디스크에 저장한 뒤 파일이 존재하는지 확인합니다. MCP 서버가 죽거나 실행이 중단되면 원본 프로젝트를 성공적으로 편집했다고 기록하지 않습니다. 이것을 다시 --source-project로 넘겨 Warp 또는 메쉬 MCP 편집을 이어갈 수 있습니다.
+
+공개 CC0 ds PSD로 v3.6 CLI 실제 .moc3 + .cmo3가 성공한 증거: https://github.com/jujumelona/Virtual-pipeline/actions/runs/39651136521 . **이 실행은 headless 편집 프로젝트 생성 성공의 증거는 아닙니다.** 그 경로는 별도 통합 CI에서 검증합니다.
+
+## 7. 로컬 비전 AI 품질 진단
+
+아래 명령으로 실제 MOC3 native_pose_report.json + yaw_left_45.png / yaw_right_45.png와 원화 head_three_quarter_L.png / R.png를 로컬 이미지 인식 모델에 넣어 부위별 결함을 진단합니다.
+
+    python -m tools.vts_local_visual_critique --reference-dir /path/to/reference_views --native-dir /path/to/native_poses --model your-local-vlm --output /path/to/visual-review
+
+이미지는 127.0.0.1 또는 localhost OpenAI 호환 /v1/chat/completions 엔드포인트에만 전송합니다. 진단 범주는 눈·입·목·머리카락·의상·가림·선화·얼굴 정체성입니다. 유효한 JSON만 받아 수정 도구 후보를 만들며 모델 제안 코드를 실행하지 않습니다. 비전 모델의 진단만으로 미적 완성도를 인증하지 않습니다.
+
 ## 현재 미완료인 고급 제작 요건
 
 1. 실제 복잡한 한 캐릭터에 대해 파츠 생성·가림면 재작화·독립 의상 결합까지 완전 자동으로 고품질 완료
