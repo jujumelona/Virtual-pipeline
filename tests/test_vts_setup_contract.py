@@ -49,23 +49,15 @@ def snapshot_download(*args, **kwargs):
 
 
 def test_prefetch_only_models_consumed_by_actual_vts_entrypoints(tmp_path, monkeypatch):
-    monkeypatch.setattr(setup, 'ROOT', tmp_path)
-    monkeypatch.setattr(setup, 'checkout', lambda url, dest, sha: dest)
+    monkeypatch.setattr(setup, "ROOT", tmp_path)
+    monkeypatch.setattr(setup, "checkout",
+                        lambda *args: pytest.fail("No checkout for disabled backend"))
     downloaded = []
-    def download(model, **kwargs):
-        downloaded.append(model)
-        return '/cache/' + model.replace('/', '--')
-    monkeypatch.setattr(setup, 'download_snapshot', download)
-    manifest = setup.prepare(qwen=True, install=False)
-    assert downloaded == [
-        '24yearsold/seethroughv0.0.2_layerdiff3d_nf4',
-        '24yearsold/seethroughv0.0.1_marigold_nf4',
-        '24yearsold/l2d_sam_iter2',
-        'OzzyGT/qwen-image-layered-bnb-4bit-transformer',
-        'StabilityLabs/Stable-Layers',
-        'Qwen/Qwen-Image-Layered',
-    ]
-    assert [x['model'] for x in json.loads(manifest.read_text())['snapshots']] == downloaded
+    monkeypatch.setattr(setup, "download_snapshot",
+                        lambda model, **kwargs: downloaded.append(model))
+    with pytest.raises(ValueError, match="SEE_THROUGH_ONLY"):
+        setup.prepare(qwen=True, install=False)
+    assert downloaded == []
 
 
 def test_see_through_venv_never_invokes_ensurepip(tmp_path, monkeypatch):
