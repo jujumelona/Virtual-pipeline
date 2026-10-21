@@ -10,7 +10,7 @@
 
 독립적인 로컬 데스크톱 단계에서는 `tools/vts_ai_landmark_pairs.py`로 이미지 입력이 가능한 **로컬 VLM**이 3/4 참고 원화와 실제 MOC3 포즈의 대응점을 추출합니다. `tools/vts_reference_keyform_author.py`가 PSD2Live의 MCP `rig_deform`을 통해 실제 `ParamAngleX` 키폼을 보정하고, `tools/vts_ai_native_feedback_loop.py`가 다시 네이티브 프레임을 렌더링해 오차를 재측정하며 제한된 횟수로 보정을 반복합니다. 원본 프로젝트를 덮어쓰지 않고 별도 `.psd2live` 사본에 기록합니다. 출력 성공은 VTube Studio 면부 추적 합격을 보증하지 않습니다.
 
-현재 이 경로는 **±30° 3/4 머리 회전의 기존 Warp 보정**만 처리합니다. 완전한 ±90° 프로필은 교체 원화, 가림/그리기 순서, 전체 목·얼굴 결합과 실제 키폼 검증이 따로 필요하므로 자동 완성으로 표기하지 않습니다. 실제 GPU·MCP·VTube Studio 실물 통합 검증은 별도입니다.
+현재 이 경로는 **±45° 3/4 참고 원화(기본)와 명시된 ±30° 렌더의 기존 Warp 보정**만 처리합니다. 완전한 ±90° 프로필은 교체 원화, 가림/그리기 순서, 전체 목·얼굴 결합과 실제 키폼 검증이 따로 필요하므로 자동 완성으로 표기하지 않습니다. 실제 GPU·MCP·VTube Studio 실물 통합 검증은 별도입니다.
 
 ## See-through 단독 Live2D 원화 ZIP 합성 → 분리 PSD
 
