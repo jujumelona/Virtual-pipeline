@@ -102,9 +102,11 @@ def test_see_through_notebook_has_separate_explicit_native_stage():
             if cell["cell_type"] == "code"]
     for index, cell in enumerate(code):
         ast.parse(cell, filename=f"see-through-cell-{index}")
-    assert len(code) == 6
-    assert 'RIGGING = "artwork_only"' in code[-2]
-    assert "rig_see_through_artwork(SEPARATION" in code[-2]
+    assert len(code) == 7
+    assert 'RIGGING = "artwork_only"' in code[-3]
+    assert "rig_see_through_artwork(SEPARATION" in code[-3]
+    assert "render_actual_native_moc3" in code[-2]
+    assert "VERIFY_NATIVE_POSES = False" in code[-2]
     assert "files.download(str(PACKAGE))" in code[-1]
 
 
