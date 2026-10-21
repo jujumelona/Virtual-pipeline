@@ -34,6 +34,7 @@ def refine_texture_meshes(*, proxy_root: Path, mesh_targets: list[str],
                           output: Path, sensitivity: float = 0.65,
                           min_length: float = 8.0,
                           max_vertices: int = 6000,
+                          source_project: Path | None = None,
                           executor=None, render=None) -> dict:
     """Remesh loaded modern-editor project; reject empty lines, no-op and bad poses."""
     root = Path(proxy_root).resolve()
@@ -49,6 +50,16 @@ def refine_texture_meshes(*, proxy_root: Path, mesh_targets: list[str],
         raise ValueError("Texture remesh output directory must be fresh")
     output.mkdir(parents=True, exist_ok=True)
     log = []
+    if source_project is not None:
+        source_project = Path(source_project).resolve(strict=True)
+        if source_project.suffix != ".psd2live":
+            raise ValueError("Expected a real editable PSD2Live project")
+        loaded = _run_mcp(root, "project_open",
+                          {"path": str(source_project)},
+                          output / "mcp", executor)
+        if not loaded["response"].get("state") and not loaded["response"].get("project_id"):
+            raise RuntimeError("PSD2Live did not open the selected project")
+        log.append(loaded)
     copy = output / "texture_refined.psd2live"
     log.append(_run_mcp(root, "project_save_as", {"path": str(copy)},
                         output / "mcp", executor))
@@ -112,6 +123,8 @@ def refine_texture_meshes(*, proxy_root: Path, mesh_targets: list[str],
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--psd2live-source", type=Path, required=True)
+    parser.add_argument("--source-project", type=Path,
+                        help="Open this exact PSD2Live project before changing actual meshes")
     parser.add_argument("--mesh-targets", type=Path, required=True,
                         help="JSON list of actual inspected mesh:<id> handles")
     parser.add_argument("--output", type=Path, required=True)
@@ -123,7 +136,8 @@ def main() -> None:
         proxy_root=args.psd2live_source,
         mesh_targets=json.loads(args.mesh_targets.read_text(encoding="utf-8")),
         output=args.output, sensitivity=args.sensitivity,
-        min_length=args.min_length, max_vertices=args.max_vertices)
+        min_length=args.min_length, max_vertices=args.max_vertices,
+        source_project=args.source_project)
     print(json.dumps(verdict, ensure_ascii=False, indent=2, default=str))
 
 
