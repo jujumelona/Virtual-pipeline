@@ -1,5 +1,7 @@
 # Virtual-pipeline
 
+**2D 제작 자산 선택:** Live2D 및 Inochi2D는 신체만(BODY)·헤어만·의상만·액세서리만을 지원합니다. 공통 FACE는 독립 원화이며, 3D는 전체 캐릭터 또는 액세서리만 지원합니다.
+
 **2D See-through 전용 파츠 분리:** 2D 생성 ZIP 16개는 고품질 원화와 다각도 참고 PNG만 생성합니다. 분리에는 See-through(LayerDiff/Marigold 및 공식 SemanticSAM 후처리)만 사용하며 Qwen/Stable-Layers는 비활성화했습니다. 독립 FACE/HAIR/OUTFIT 결과는 그대로 See-through에 넣을 수 없으므로 진짜 RGBA와 같은 크기·원점으로 정렬·합성한 뒤 실행합니다. 합성 CLI: `python -m tools.vts_see_through_only --face face__ARTWORK.zip --outfit live2d_upper__outfit__ARTWORK.zip --hair live2d_upper__hair__ARTWORK.zip --output /content/merged`; 실제 GPU 분리는 `--run-see-through`를 명시해야 합니다. 정렬 프리뷰는 사람이 검수해야 합니다. 같은 CLI에서 자동 리깅까지 시도하려면 `--run-see-through --run-psd2live`를 함께 지정하세요. GPU PSD 분리 없이 `--run-psd2live` 단독 실행은 차단합니다. [2D ZIP 지침](docs/image_ai_kits_v2/README.md).
 
 ## AI 네이티브 Live2D 리깅 자동 보정 (실제 포즈 기반)
