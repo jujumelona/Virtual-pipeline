@@ -193,13 +193,19 @@ def apply_reference_keyforms(plan: dict, *, proxy_root: Path, work: Path,
         raise RuntimeError("PSD2Live did not create a separate editable project copy")
     # --edit obtains the current project state; changes target actual Warp IDs.
     # Preview the exact same edits first, before modifying workspace history.
-    log.append(_run_mcp(proxy_root, "workspace_preview_edits",
-                        {"edits": [
-                            {"operation": "rig_deform",
-                             "request": {"changes": changes}}
-                        ]}, work, executor))
-    log.append(_run_mcp(proxy_root, "rig_deform",
-                        {"changes": changes}, work, executor))
+    preview = _run_mcp(proxy_root, "workspace_preview_edits",
+                       {"edits": [{"operation": "rig_deform",
+                                   "request": {"changes": changes}}]},
+                       work, executor)
+    if (preview["response"].get("dry_run") is not True
+            or preview["response"].get("would_commit") is not True):
+        raise RuntimeError("MCP preview did not confirm a valid keyform change")
+    log.append(preview)
+    changed = _run_mcp(proxy_root, "rig_deform",
+                       {"changes": changes}, work, executor)
+    if changed["response"].get("state") is None:
+        raise RuntimeError("MCP did not return a committed state token")
+    log.append(changed)
     log.append(_run_mcp(proxy_root, "project_save",
                         {}, work, executor))
     log.append(_run_mcp(proxy_root, "project_export_model",
