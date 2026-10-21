@@ -64,9 +64,9 @@ def test_proxy_state_flag_matches_strict_upstream_schema(tmp_path):
             ("project_export_model", {"output_directory": str(tmp_path)})):
         _run_mcp(proxy, op, request, tmp_path / op, executor)
     assert observed == [
-        ("project_save_as", False), ("workspace_inspect", False),
+        ("project_save_as", True), ("workspace_inspect", False),
         ("workspace_preview_edits", True), ("rig_deform", True),
-        ("project_save", False), ("project_export_model", True),
+        ("project_save", True), ("project_export_model", True),
     ]
 
 
@@ -94,10 +94,11 @@ def test_reference_editor_preview_save_export_uses_real_tool_shapes(tmp_path, mo
     operations = []
     def executor(cmd, **kwargs):
         op = cmd[3]
-        # Strict upstream MCP schemas do not allow injected state on save or
-        # read-only operations. Only actual version-bound mutations use --edit.
+        # Actual upstream v3.6 rejects project_save_as without the
+        # current state. Read-only operations do not require it.
         assert ("--edit" in cmd) is (op in {
-            "workspace_preview_edits", "rig_deform", "project_export_model"})
+            "project_save_as", "workspace_preview_edits",
+            "rig_deform", "project_save", "project_export_model"})
         business = json.loads(Path(cmd[4][1:]).read_text())
         assert "request" not in business
         operations.append(op)
