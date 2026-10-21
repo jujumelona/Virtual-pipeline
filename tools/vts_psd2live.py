@@ -179,7 +179,7 @@ def validate_psd2live_output(folder: Path, *, edition: str | None = None) -> dic
 
 def run_psd2live(psd: Path, output: Path, *, edition: str,
                  third_party: Path | None = None, timeout_seconds: int = 7200,
-                 runner=None, *, head_strength: float = 1.0,
+                 runner=None, head_strength: float = 1.0,
                  body_strength: float = 1.0, mesh_spacing: int = 40) -> dict:
     """Run the pinned official pipeline with an explicit atlas generation budget."""
     if edition not in ("free", "pro"):
