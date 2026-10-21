@@ -55,48 +55,13 @@ def test_pro_one_independent_asset_not_batch(tmp_path):
 
 
 def test_qwen_splits_use_original_high_resolution_rgba(tmp_path):
-    from psd_tools import PSDImage
-    archive = make_layers(tmp_path / "in")
-    before = Image.open(tmp_path / "in/part0.png").convert("RGBA")
-    def fake_infer(source, output, **kwargs):
-        assert kwargs["layer_count"] == 4
-        output.mkdir(parents=True)
-        path = []
-        # Source is the bbox crop; all four layers preserve its aspect.
-        base = Image.open(source).convert("RGBA")
-        for i in range(4):
-            out = Image.new("RGBA", base.size, (0, 0, 0, 0))
-            x0 = base.width * i // 4
-            x1 = base.width * (i + 1) // 4
-            out.paste((100, 100, 100, 255), (x0, 0, x1, base.height))
-            p = output / ("q%d.png" % i)
-            out.save(p)
-            path.append(str(p))
-        return {"layers": path}
-    p = build_artwork_package(archive, tmp_path / "out", edition="pro", scope="upper",
-                              asset_kind="hair", qwen=True, max_qwen_passes=1,
-                              qwen_infer=fake_infer)
-    assert p["qwen_splits_accepted"] == ["hair.front.000"]
-    assert p["layer_count"] == 5
-    out = PSDImage.open(p["art_psd"])
-    children = [x for x in out.descendants() if not x.is_group()
-                and x.name.startswith("hair.front")]
-    assert len(children) == 4
-    # psd-tools uses USER_LAYER_MASK for RGBA in RGB PSDs. Use the
-    # production importer that restores that native mask, not topil alone.
-    from io import BytesIO
-    from tools.vts_production import psd_to_registered_rgba
-    _, layer_zip, _ = psd_to_registered_rgba(
-        Path(p["art_psd"]), tmp_path / "verified", artmesh_max=None)
-    canvas = Image.new("RGBA", before.size, (0, 0, 0, 0))
-    with ZipFile(layer_zip) as z:
-        names = [n for n in z.namelist() if n.startswith("hair.front")]
-        assert len(names) == 4
-        for name in reversed(names):
-            canvas.alpha_composite(Image.open(BytesIO(z.read(name))).convert("RGBA"))
-    from PIL import ImageChops
-    assert ImageChops.difference(canvas, before).getbbox() is None
-
+    from tools.vts_artwork_export import build_artwork_package
+    # The production pipeline is intentionally See-through-only.  Qwen
+    # request must be rejected before touching an input ZIP or GPU model.
+    with pytest.raises(ValueError, match="SEE_THROUGH_ONLY"):
+        build_artwork_package(tmp_path / "must_not_read.zip", tmp_path / "out",
+                              edition="pro", scope="upper",
+                              asset_kind="hair", qwen=True)
 
 def test_free_rejects_more_than_100_parts(tmp_path):
     archive = make_layers(tmp_path / "in", 101)
@@ -115,33 +80,13 @@ def test_pro_keeps_incorrectly_classified_pixels_without_mixing_other_assets(tmp
     assert len([x for x in actual.descendants() if not x.is_group()]) == 2
 
 def test_background_opaque_does_not_consume_foreground(tmp_path):
-    archive = make_layers(tmp_path / "in", count=2)
-
-    def infer(source, output, **kw):
-        output.mkdir(parents=True, exist_ok=True)
-        crop = Image.open(source).convert("RGBA")
-        w, h = crop.size
-        bg = Image.new("RGBA", (w, h), (0, 0, 0, 255))
-        masks = [bg]
-        for i in range(3):
-            part = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-            x0, x1 = w * i // 3, w * (i + 1) // 3
-            part.paste((220, 120, 50, 255), (x0, 0, x1, h))
-            masks.append(part)
-        paths = []
-        for n, image in enumerate(masks):
-            path = output / f"layer_{n}.png"
-            image.save(path)
-            paths.append(str(path))
-        return {"layers": paths}
-
-    out = build_artwork_package(archive, tmp_path / "out", edition="pro",
-                                scope="upper", asset_kind="hair", qwen=True,
-                                max_qwen_passes=1, qwen_infer=infer)
-    assert out["qwen_splits_accepted"] == ["hair.front.000"]
-    assert out["layer_count"] >= 4
-
-
+    from tools.vts_artwork_export import build_artwork_package
+    # The production pipeline is intentionally See-through-only.  Qwen
+    # request must be rejected before touching an input ZIP or GPU model.
+    with pytest.raises(ValueError, match="SEE_THROUGH_ONLY"):
+        build_artwork_package(tmp_path / "must_not_read.zip", tmp_path / "out",
+                              edition="pro", scope="upper",
+                              asset_kind="hair", qwen=True)
 
 def test_companion_files_are_real_and_coordinates_match(tmp_path):
     import hashlib
@@ -202,57 +147,22 @@ def test_observed_anatomy_is_eligible_for_refinement(family):
 
 
 def test_free_optional_qwen_adds_real_psd_layers_with_original_pixels(tmp_path):
-    from psd_tools import PSDImage
-    archive = make_layers(tmp_path / "in")
-    def fake_infer(source, output, **kwargs):
-        assert kwargs["layer_count"] == 4
-        output.mkdir(parents=True)
-        original = Image.open(source).convert("RGBA")
-        paths = []
-        for i in range(4):
-            mask = Image.new("RGBA", original.size, (0, 0, 0, 0))
-            mask.paste((255, 255, 255, 255),
-                       (original.width * i // 4, 0,
-                        original.width * (i + 1) // 4, original.height))
-            path = output / f"candidate_{i}.png"
-            mask.save(path)
-            paths.append(str(path))
-        return {"layers": paths}
-    result = build_artwork_package(
-        archive, tmp_path / "out", edition="free", scope="upper",
-        qwen=True, max_qwen_passes=1, qwen_infer=fake_infer)
-    assert result["layer_count"] == 5
-    assert result["qwen_splits_accepted"] == ["hair.front.000"]
-    assert len([layer for layer in PSDImage.open(result["art_psd"]).descendants()
-                if not layer.is_group()]) == 5
-    with ZipFile(result["package"]) as package:
-        manifest = __import__("json").loads(package.read("metadata/layer_manifest.json"))
-        assert manifest["drawable_layer_count"] == 5
-        assert len([name for name in package.namelist()
-                    if name.startswith("layers_png/")]) == 5
-        assert len([name for name in package.namelist()
-                    if name.startswith("alpha_masks/")]) == 5
-        assert any(layer["semantic_name"].startswith("hair.front.000.q")
-                   for layer in manifest["layers"])
-
+    from tools.vts_artwork_export import build_artwork_package
+    # The production pipeline is intentionally See-through-only.  Qwen
+    # request must be rejected before touching an input ZIP or GPU model.
+    with pytest.raises(ValueError, match="SEE_THROUGH_ONLY"):
+        build_artwork_package(tmp_path / "must_not_read.zip", tmp_path / "out",
+                              edition="free", scope="upper",
+                              qwen=True)
 
 def test_official_four_layer_default_applies_to_eyebrow_parts(tmp_path):
-    archive = tmp_path / "eyebrows.zip"
-    from io import BytesIO
-    with ZipFile(archive, "w") as z:
-        for name in ("eyebrow.left", "face"):
-            data = BytesIO()
-            Image.new("RGBA", (32, 48), (90, 120, 180, 255)).save(data, "PNG")
-            z.writestr(name + ".png", data.getvalue())
-    def infer(source, output, **kw):
-        # Real orchestration records the requested setting; no model inference claim.
-        return {"layers": [str(source)] * kw["layer_count"]}
-    result = build_artwork_package(archive, tmp_path / "out", edition="pro",
-                                   scope="upper", asset_kind="hair",
-                                   qwen=True, qwen_infer=infer, max_qwen_passes=2)
-    assert result["qwen_attempts"]
-    assert all(a["requested_count"] == 4 for a in result["qwen_attempts"])
-
+    from tools.vts_artwork_export import build_artwork_package
+    # The production pipeline is intentionally See-through-only.  Qwen
+    # request must be rejected before touching an input ZIP or GPU model.
+    with pytest.raises(ValueError, match="SEE_THROUGH_ONLY"):
+        build_artwork_package(tmp_path / "must_not_read.zip", tmp_path / "out",
+                              edition="pro", scope="upper",
+                              asset_kind="hair", qwen=True)
 
 def test_free_texture_budget_measures_cropped_layers_and_warns_without_resizing(tmp_path):
     import json
@@ -290,23 +200,13 @@ def test_pro_texture_budget_does_not_apply_free_ceiling(tmp_path):
 
 
 def test_qwen_runtime_logs_are_in_final_package(tmp_path):
-    source = make_layers(tmp_path / "in")
-    def infer(src, output, **kwargs):
-        output.mkdir(parents=True)
-        log = output / "stable_layers_full.log"
-        log.write_text("model completed: native worker evidence\n")
-        image = Image.open(src).convert("RGBA")
-        paths = []
-        for i in range(2):
-            path = output / f"layer_{i}.png"; image.save(path); paths.append(str(path))
-        return {"layers": paths, "log": str(log)}
-    result = build_artwork_package(source, tmp_path / "out", edition="pro",
-                                   scope="upper", asset_kind="hair",
-                                   qwen=True, qwen_infer=infer, max_qwen_passes=1)
-    with ZipFile(result["package"]) as z:
-        assert z.read("logs/qwen_000.log") == b"model completed: native worker evidence\n"
-    assert "logs/qwen_000.log" in result["supporting_files"]
-
+    from tools.vts_artwork_export import build_artwork_package
+    # The production pipeline is intentionally See-through-only.  Qwen
+    # request must be rejected before touching an input ZIP or GPU model.
+    with pytest.raises(ValueError, match="SEE_THROUGH_ONLY"):
+        build_artwork_package(tmp_path / "must_not_read.zip", tmp_path / "out",
+                              edition="pro", scope="upper",
+                              asset_kind="hair", qwen=True)
 
 def test_thin_part_accepts_published_16_pixel_inference_rounding(tmp_path):
     from tools.vts_artwork_export import _partition_part
@@ -345,31 +245,13 @@ def test_foreground_proposal_wins_equal_alpha_overlap(tmp_path):
 
 
 def test_pro_hair_recursion_attempts_only_eligible_hair_parts(tmp_path):
-    from io import BytesIO
-    source = tmp_path / "regions.zip"
-    with ZipFile(source, "w") as z:
-        for name, box in [("hair.front", (0, 0, 200, 100)),
-                          ("hair.back", (10, 110, 40, 130)),
-                          ("hair.strand", (10, 140, 30, 160))]:
-            image = Image.new("RGBA", (256, 384))
-            image.paste((90, 80, 70, 255), box)
-            buf = BytesIO(); image.save(buf, format="PNG")
-            z.writestr(name + ".png", buf.getvalue())
-    def infer(src, output, **kwargs):
-        output.mkdir(parents=True)
-        size = Image.open(src).size
-        paths = []
-        for index in range(2):
-            image = Image.new("RGBA", size)
-            image.paste((0, 0, 0, 255), (index * size[0] // 2, 0, (index + 1) * size[0] // 2, size[1]))
-            path = output / f"layer{index}.png"; image.save(path); paths.append(path)
-        return {"layers": paths}
-    result = build_artwork_package(source, tmp_path / "out", edition="pro",
-                                   scope="upper", asset_kind="hair",
-                                   qwen=True, qwen_infer=infer, max_qwen_passes=3)
-    assert len(result["qwen_attempts"]) == 3
-    assert all(x["source_layer"].startswith("hair.") for x in result["qwen_attempts"])
-
+    from tools.vts_artwork_export import build_artwork_package
+    # The production pipeline is intentionally See-through-only.  Qwen
+    # request must be rejected before touching an input ZIP or GPU model.
+    with pytest.raises(ValueError, match="SEE_THROUGH_ONLY"):
+        build_artwork_package(tmp_path / "must_not_read.zip", tmp_path / "out",
+                              edition="pro", scope="upper",
+                              asset_kind="hair", qwen=True)
 
 def test_free_single_flattened_character_is_not_reported_as_separated_artwork(tmp_path):
     source = make_layers(tmp_path / "in", count=1)
@@ -718,22 +600,13 @@ def test_bilateral_splits_are_exported_to_real_psd_and_trace(tmp_path):
 
 
 def test_qwen_request_never_silently_passes_without_any_model_attempt(tmp_path):
-    from io import BytesIO
-    source = tmp_path / "unknown.zip"
-    with ZipFile(source, "w") as z:
-        for i in range(2):
-            data = BytesIO()
-            im = Image.new("RGBA", (256, 384))
-            im.paste((30, 40, 50, 255), (0, 0, 4, 4))
-            im.save(data, "PNG")
-            z.writestr(f"unknown.{i}.png", data.getvalue())
-    def must_run(*args, **kwargs):
-        raise AssertionError("No semantic candidate should reach the model")
-    with pytest.raises(RuntimeError, match="no eligible part"):
-        build_artwork_package(source, tmp_path / "out",
-                              edition="pro", asset_kind="hair", scope="upper", qwen=True,
-                              max_qwen_passes=2, qwen_infer=must_run)
-
+    from tools.vts_artwork_export import build_artwork_package
+    # The production pipeline is intentionally See-through-only.  Qwen
+    # request must be rejected before touching an input ZIP or GPU model.
+    with pytest.raises(ValueError, match="SEE_THROUGH_ONLY"):
+        build_artwork_package(tmp_path / "must_not_read.zip", tmp_path / "out",
+                              edition="pro", scope="upper",
+                              asset_kind="hair", qwen=True)
 
 def test_qwen_partition_accepts_invisible_rgb_from_actual_psd_roundtrip(tmp_path):
     """Alpha-zero RGB is not a visible-pixel error and must not reject splitting."""
