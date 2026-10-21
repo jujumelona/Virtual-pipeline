@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 from io import BytesIO
 import json
+import math
 from pathlib import Path
 from zipfile import ZipFile
 from PIL import Image
@@ -39,6 +40,108 @@ def _read_master(path: Path, asset: str) -> Image.Image:
         return image.convert("RGBA")
 
 
+
+def _read_registration_anchors(path: Path, asset: str,
+                               canvas: tuple[int, int]) -> dict:
+    """Optional image-AI-supplied pixel landmarks; never invent landmarks."""
+    with ZipFile(path) as archive:
+        name = "metadata/registration_anchors.json"
+        if name not in archive.namelist():
+            return {}
+        if archive.namelist().count(name) != 1:
+            raise ValueError(f"{asset}: duplicate registration anchors")
+        info = archive.getinfo(name)
+        if not 0 < info.file_size <= 32768:
+            raise ValueError(f"{asset}: invalid anchor manifest size")
+        data = json.loads(archive.read(name).decode("utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("anchors"), dict):
+        raise ValueError(f"{asset}: expected {{'anchors': {{name: [x,y]}}}}")
+    points = {}
+    for label, pair in data["anchors"].items():
+        if (not isinstance(label, str) or not label or
+                not isinstance(pair, list) or len(pair) != 2 or
+                any(isinstance(v, bool) or not isinstance(v, (int, float)) or
+                    not math.isfinite(v) for v in pair)):
+            raise ValueError(f"{asset}: invalid landmark {label!r}")
+        x, y = pair
+        if not 0 <= x < canvas[0] or not 0 <= y < canvas[1]:
+            raise ValueError(f"{asset}: landmark outside canvas: {label}")
+        points[label] = (x, y)
+    return points
+
+
+def _register_image(image: Image.Image, shift: tuple[int, int], asset: str) -> Image.Image:
+    dx, dy = shift
+    bounds = image.getchannel("A").getbbox()
+    if bounds is None:
+        raise ValueError(f"{asset}: empty alpha during landmark registration")
+    if (bounds[0] + dx < 0 or bounds[1] + dy < 0 or
+            bounds[2] + dx > image.width or bounds[3] + dy > image.height):
+        raise ValueError(f"{asset}: anchor translation would crop visible artwork")
+    if not dx and not dy:
+        return image
+    registered = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    registered.alpha_composite(image, (dx, dy))
+    return registered
+
+
+def _register_landmark_layers(images: dict, anchors: dict) -> tuple[dict, dict]:
+    """Translation-only part registration. Reject scale/rotation conflicts.
+
+    The anchor names must refer to the same *physical* point in both assets.
+    Example: outfit and face share neck_joint; face and hair share hairline_center.
+    """
+    translations = {"outfit": (0, 0)}
+    report = {}
+    for asset, parents, priority in (
+        ("face", ("outfit",), ("neck_joint", "neck_center")),
+        ("hair", ("face",), ("hairline_center", "temple_left")),
+        ("accessory", ("hair", "face", "outfit"),
+         ("head_attachment", "ear_left", "ear_right", "chest_attachment")),
+    ):
+        if asset not in images:
+            continue
+        registration = None
+        for parent in parents:
+            matched = set(anchors.get(asset, {})) & set(anchors.get(parent, {}))
+            if not matched:
+                continue
+            preferred = next((name for name in priority if name in matched),
+                             sorted(matched)[0])
+            parent_shift = translations[parent]
+            px, py = anchors[parent][preferred]
+            sx, sy = anchors[asset][preferred]
+            dx, dy = (round(px + parent_shift[0] - sx),
+                      round(py + parent_shift[1] - sy))
+            disagreements = {
+                name: round(math.hypot(
+                    anchors[asset][name][0] + dx -
+                    (anchors[parent][name][0] + parent_shift[0]),
+                    anchors[asset][name][1] + dy -
+                    (anchors[parent][name][1] + parent_shift[1])), 2)
+                for name in sorted(matched)
+            }
+            if any(distance > 6.0 for distance in disagreements.values()):
+                raise ValueError(
+                    f"{asset}: inconsistent registration landmarks vs {parent}: "
+                    + str(disagreements) + "; redraw/realign source instead of scaling it")
+            registration = (parent, preferred, (dx, dy), disagreements)
+            break
+        if registration is None:
+            translations[asset] = (0, 0)
+            report[asset] = {"status": "no_common_anchors_visual_review_required",
+                             "translation_xy": [0, 0]}
+            continue
+        parent, landmark, shift, errors = registration
+        images[asset] = _register_image(images[asset], shift, asset)
+        translations[asset] = shift
+        report[asset] = {"status": "translation_registered", "parent": parent,
+                         "primary_landmark": landmark,
+                         "translation_xy": list(shift),
+                         "shared_anchor_error_px": errors}
+    return images, report
+
+
 def composite_2d(face: Path, outfit: Path, hair: Path, output: Path,
                  accessory: Path | None = None) -> dict:
     """Fail on canvas mismatch; never hallucinate alignment with arbitrary resize."""
@@ -51,6 +154,9 @@ def composite_2d(face: Path, outfit: Path, hair: Path, output: Path,
         if image.size != canvas:
             raise ValueError(f"{name}: size {image.size} != OUTFIT {canvas}; "
                              "register artworks manually before See-through")
+    anchors = {name: _read_registration_anchors(Path(path), name, canvas)
+               for name, path in inputs.items()}
+    images, registration = _register_landmark_layers(images, anchors)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     merged = Image.new("RGBA", canvas, (0, 0, 0, 0))
@@ -66,10 +172,12 @@ def composite_2d(face: Path, outfit: Path, hair: Path, output: Path,
         "source_masters": {name: str(path) for name, path in inputs.items()},
         "composite_png": str(master.resolve()), "canvas": list(canvas),
         "alpha_present": True, "visual_alignment_verified": False,
+        "landmark_registration": registration,
+        "landmark_anchors_provided": {name: sorted(a) for name, a in anchors.items()},
         "manual_visual_review_required": True,
         "segmentation_provider": "see-through",
         "other_generating_splitters": [],
-        "warning": "Same canvas does not prove face-neck/hair/collar alignment. Inspect the actual composite before GPU inference."
+        "warning": "Landmark translations are positional checks, not proof of body geometry, paint continuity or overall composition. Inspect the composite before GPU inference."
     }
     (output / "composition_report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
