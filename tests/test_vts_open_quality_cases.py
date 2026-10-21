@@ -26,6 +26,7 @@ def _catalog(monkeypatch, data):
 def test_true_case_project_and_native_files_preserved(tmp_path, monkeypatch):
     data = _fixture({
         "case/project/main.psd2live": b"real-editable-format-fixture",
+        "case/psd-input/real-art.psd": b"8BPSsource-artwork",
         "case/export/model.model3.json": b"{}",
         "case/export/model.moc3": b"MOC3example",
     })
@@ -36,6 +37,7 @@ def test_true_case_project_and_native_files_preserved(tmp_path, monkeypatch):
     assert report["license"] == "CC0-1.0"
     assert len(report["editable_projects"]) == 1
     assert len(report["native_models"]) == 1
+    assert len(report["original_layered_psds"]) == 1
     assert not report["runtime_quality_verified"]
 
 
@@ -57,3 +59,17 @@ def test_zip_traversal_is_rejected_even_if_archive_sha_matches(tmp_path, monkeyp
         cases.fetch_case("test", tmp_path / "public",
                          download=lambda url, dest: dest.write_bytes(data))
     assert not (tmp_path / "escape.txt").exists()
+
+
+def test_older_cc0_public_case_may_have_no_editable_project(tmp_path, monkeypatch):
+    data = _fixture({
+        "case/psd-input/real.psd": b"8BPSsource",
+        "case/export/model.model3.json": b"{}",
+        "case/export/model.moc3": b"MOC3fixture",
+    })
+    _catalog(monkeypatch, data)
+    report = cases.fetch_case("test", tmp_path / "public",
+                              download=lambda url, dest: dest.write_bytes(data))
+    assert not report["editable_project_available"]
+    assert report["editable_projects"] == []
+    assert len(report["original_layered_psds"]) == 1
