@@ -90,11 +90,17 @@ def search_native_rig(psd: Path, output: Path, *, edition: str = "free",
         if data["accepted"] and score > best_score:
             best, best_score = (result, index), score
             break  # No point regenerating a fully verified native rig.
+    # Raw retry counts are not explanations. Provide actionable categories
+    # for source-paint, actual mesh, keyed Warp and mouth-shape repair.
+    from tools.vts_native_repair_plan import quality_repair_plan
+    failure_observation = (history[-1].get("render_report") or {}) if history else {}
+    next_actions = quality_repair_plan(failure_observation)
     report_path = output / "autorig_search.json"
     report_path.write_text(json.dumps({
         "schema": "vtuber/native-rig-search-v1",
         "source_psd": str(psd), "edition": edition,
         "trials": history, "accepted": best is not None,
+        "next_quality_repair_actions": next_actions,
         "winner": best[1] if best else None,
         "application_tracking_verified": False,
     }, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
