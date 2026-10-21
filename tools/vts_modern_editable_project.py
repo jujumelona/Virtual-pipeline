@@ -144,16 +144,83 @@ def build_editable_project(psd: Path, output: Path, *, source: Path | None = Non
     return report
 
 
+
+def import_native_cmo3_as_editable(cmo3: Path, output: Path, *,
+                                   source: Path | None = None,
+                                   clone: bool = False,
+                                   connect=None) -> dict:
+    """Continue EXACT v3.6 CMO3 native rig in new project (no regeneration).
+
+    Unlike generating another model from the same PSD, project_import_cmo3
+    brings already authored mesh/keyform hierarchy into the editing workspace.
+    """
+    cmo3 = Path(cmo3).expanduser().resolve(strict=True)
+    if cmo3.suffix.lower() != ".cmo3" or cmo3.stat().st_size < 1024:
+        raise ValueError("PSD2LIVE_EDITABLE_NATIVE_SOURCE_MUST_BE_REAL_CMO3")
+    output = Path(output).expanduser().resolve()
+    if output.is_relative_to(cmo3.parent):
+        raise ValueError("Native editable output must not overlap source CMO3")
+    if output.exists() and any(output.iterdir()):
+        raise ValueError("Native editable output must be a fresh directory")
+    root = ensure_modern_psd2live(source, clone=clone)
+    output.mkdir(parents=True, exist_ok=True)
+    editable = output / (cmo3.stem + ".psd2live")
+    with _serve_local_mcp(root, output / "mcp") as (endpoint, token, log):
+        connection = connect or _external_client
+        client = connection(root / "mcp_proxy.py", endpoint, token)
+        with client as editor:
+            inspection = editor.project()
+            if not inspection.get("state"):
+                raise RuntimeError("PSD2Live MCP project inspection missing state")
+            imported = editor.edit("project_import_cmo3",
+                                   path=str(cmo3), mode="new")
+            if not imported.get("project_id") or not imported.get("state"):
+                raise RuntimeError("PSD2LIVE_CMO3_IMPORT_NOT_COMMITTED")
+            # Never call rig_generate: this would replace carefully authored
+            # mesh/keyforms, defeating exact native rig preservation.
+            saved = editor.edit("project_save_as", path=str(editable))
+            if not saved.get("state") or not editable.is_file() \
+                    or editable.stat().st_size < 1024:
+                raise RuntimeError("PSD2LIVE_IMPORTED_CMO3_NOT_SAVED")
+            after = editor.project()
+            if not after.get("project_id") or not after.get("state"):
+                raise RuntimeError("PSD2LIVE_IMPORTED_CMO3_NOT_LOADED")
+            report = {
+                "schema": "vtuber/psd2live-v360-native-cmo3-editable-project-v1",
+                "version": "v3.6.0",
+                "source_cmo3": str(cmo3),
+                "editable_project": str(editable),
+                "source_native_rig_imported": True,
+                "rig_regeneration_performed": False,
+                "saved_project_produced": True,
+                "project_id": after["project_id"],
+                "native_keyform_quality_verified": False,
+                "actual_vtube_studio_tracking_verified": False,
+                "artistic_quality_verified": False,
+                "headless_mcp_log": str(log),
+            }
+            (output / "editable_project_report.json").write_text(
+                json.dumps(report, ensure_ascii=False, indent=2),
+                encoding="utf-8")
+    return report
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--psd", type=Path, required=True)
+    source_group = p.add_mutually_exclusive_group(required=True)
+    source_group.add_argument("--psd", type=Path)
+    source_group.add_argument("--cmo3", type=Path,
+                              help="Import existing native CMO3 and preserve rig")
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--source", type=Path)
     p.add_argument("--clone", action="store_true")
     args = p.parse_args()
-    print(json.dumps(build_editable_project(
-        args.psd, args.output, source=args.source, clone=args.clone),
-        ensure_ascii=False, indent=2))
+    result = (import_native_cmo3_as_editable(
+        args.cmo3, args.output, source=args.source, clone=args.clone)
+        if args.cmo3 is not None else
+        build_editable_project(
+            args.psd, args.output, source=args.source, clone=args.clone))
+    print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
