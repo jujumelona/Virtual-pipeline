@@ -252,9 +252,12 @@ def _write_psd(parts, target: Path, *, free: bool, compact_for_atlas: bool = Fal
         # psd-tools 1.14.x exposes PixelLayer.frompil(parent=group).
         # Some versions do not expose Group.create_pixel_layer.
         step("create_layer", name=part['name'])
-        create_import_layer(part["image"], parent=group,
-                            name=part["name"], top=part["_origin"][1],
-                            left=part["_origin"][0], checkpoint=step)
+        layer = create_import_layer(part["image"], parent=group,
+                                    name=part["name"], top=part["_origin"][1],
+                                    left=part["_origin"][0], checkpoint=step)
+        # Expression alternatives are editable layers, not neutral artwork.
+        if part.get("hidden_neutral"):
+            layer.visible = False
     target.parent.mkdir(parents=True, exist_ok=True)
     step("save", note="bounded Pillow preview + PSD format writer; no float compositor")
     save_import_psd(psd, target, checkpoint=step)
@@ -286,6 +289,8 @@ def _write_psd(parts, target: Path, *, free: bool, compact_for_atlas: bool = Fal
             problems.append(f"origin={(actual.left, actual.top)} expected={expected['_origin']}")
         if actual.opacity != 255:
             problems.append(f"opacity={actual.opacity} expected=255")
+        if actual.is_visible() == bool(expected.get("hidden_neutral")):
+            problems.append("neutral visibility mismatch: " + actual.name)
         if actual.blend_mode.name != "NORMAL":
             problems.append(f"blend={actual.blend_mode.name} expected=NORMAL")
         if pixels is None:
