@@ -187,6 +187,16 @@ def composite_2d(face: Path, outfit: Path, hair: Path, output: Path,
 def run_see_through(art: dict, output: Path, scope: str = "upper") -> dict:
     if scope not in ("upper", "full"):
         raise ValueError("Scope must be upper or full")
+    # Prefer intact, independently painted source layers.  Running See-through
+    # on a flattened composite would throw away face/eye/mouth/hair detail.
+    from tools.vts_preserved_source_parts import compose_preserved_parts
+    sources = art.get("source_masters")
+    if isinstance(sources, dict) and {"face", "hair", "outfit"} <= set(sources):
+        preserved = compose_preserved_parts(
+            {k: Path(v) for k, v in sources.items()},
+            Path(output) / "preserved_parts", scope=scope)
+        if preserved is not None:
+            return preserved
     from tools.vts_setup import prepare
     from tools.vts_production import make_cubism_handoff
     import os
