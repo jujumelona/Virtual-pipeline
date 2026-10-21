@@ -1,0 +1,64 @@
+name: PSD2Live 3.6 genuine native model trial
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/vts_psd2live_modern.py"
+      - "tools/vts_open_quality_cases.py"
+      - ".github/workflows/live2d-modern-native-real.yml"
+  workflow_dispatch:
+
+jobs:
+  public-art-real-modern-cli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install PSD, Cubism export and quality gate dependencies
+        run: |
+          python -m pip install "Pillow>=11,<13" "numpy>=2,<3" "psd-tools>=1.14,<2" "pygltflib>=1.16,<2"
+      - name: Fetch independently authored public CC0 model source (SHA-256 verified)
+        run: |
+          python -m tools.vts_open_quality_cases --case ds --output /tmp/psd2live-cc0
+      - name: Convert genuine PSD with official PSD2Live v3.6.0 Gradle app
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from tools.vts_psd2live_modern import run_modern_psd2live
+          base = Path("/tmp/psd2live-cc0/case")
+          candidates = sorted(base.rglob("psd-input/*.psd"))
+          if len(candidates) != 1:
+              raise RuntimeError("PUBLIC_CASE_AMBIGUOUS_PSD_SOURCE: " + str(candidates))
+          report = run_modern_psd2live(
+              candidates[0], Path("/tmp/modern-real-output"),
+              edition="pro", clone=True, timeout_seconds=1800)
+          assert report["runtime_references_valid"] is True
+          assert report["cmo3"] and report["model3_json"]
+          assert report["version_ref"] == "v3.6.0"
+          print(json.dumps({
+              "state": "REAL_PSD2LIVE_V360_ARTIFACTS_VERIFIED",
+              "model3": report["model3_json"], "cmo3": report["cmo3"],
+              "native_runtime_pose_verified": False,
+              "artistic_quality_verified": False,
+          }, indent=2))
+          PY
+      - name: Upload logs, artifacts and native rejection evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psd2live-v360-real-logs
+          path: |
+            /tmp/psd2live_modern_cli.log
+            /tmp/modern-real-output/**
+            /content/vtuber_builder/third_party/modern_psd2live_clone.log
+          if-no-files-found: ignore
+          retention-days: 5
