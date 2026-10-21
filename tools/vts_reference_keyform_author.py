@@ -130,6 +130,8 @@ def _run_mcp(proxy_root: Path, operation: str, request: dict,
              work: Path, executor=None) -> dict:
     """Invoke upstream MCP proxy against a *running local* PSD2Live editor."""
     work.mkdir(parents=True, exist_ok=True)
+    if "request" in request:
+        raise ValueError("MCP proxy expects business fields directly, not nested request")
     request_path = work / (operation + "_request.json")
     request_path.write_text(json.dumps(request, ensure_ascii=False), encoding="utf-8")
     proxy = proxy_root / "mcp_proxy.py"
@@ -190,22 +192,22 @@ def apply_reference_keyforms(plan: dict, *, proxy_root: Path, work: Path,
     if copy.exists():
         raise ValueError("Refuse to overwrite a previous reference authoring copy")
     log.append(_run_mcp(proxy_root, "project_save_as",
-                        {"request": {"path": str(copy)}}, work, executor))
+                        {"path": str(copy)}, work, executor))
     if not copy.is_file():
         raise RuntimeError("PSD2Live did not create a separate editable project copy")
     # --edit obtains the current project state; changes target actual Warp IDs.
     # Preview the exact same edits first, before modifying workspace history.
     log.append(_run_mcp(proxy_root, "workspace_preview_edits",
-                        {"request": {"edits": [
+                        {"edits": [
                             {"operation": "rig_deform",
                              "request": {"changes": changes}}
-                        ]}}, work, executor))
+                        ]}, work, executor))
     log.append(_run_mcp(proxy_root, "rig_deform",
-                        {"request": {"changes": changes}}, work, executor))
+                        {"changes": changes}, work, executor))
     log.append(_run_mcp(proxy_root, "project_save",
-                        {"request": {}}, work, executor))
+                        {}, work, executor))
     log.append(_run_mcp(proxy_root, "project_export_model",
-                        {"request": {"output_directory": str(export_to)}},
+                        {"output_directory": str(export_to)},
                         work, executor))
     models = list(export_to.rglob("*.model3.json"))
     if len(models) != 1:
