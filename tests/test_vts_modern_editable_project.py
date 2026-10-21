@@ -27,14 +27,14 @@ class Editor:
                     "layers": [{"id": "source-layer"}]}
         if op == "rig_generate":
             return {"state": "st3" if self.real_commit else None}
+        if op == "project_save_as":
+            Path(args["path"]).write_bytes(b"PSD2LIVE_EDITOR_ARCHIVE" * 60)
+            return {"state": "st4"}
         raise AssertionError(op)
 
     def call(self, op, args):
         self.calls.append((op, args))
-        assert op == "project_save_as"
-        path = Path(args["path"])
-        path.write_bytes(b"PSD2LIVE_EDITOR_ARCHIVE" * 60)
-        return {"state": "st4"}, []
+        raise AssertionError("project_save_as must use state-aware Client.edit")
 
 
 def _setup(tmp_path, monkeypatch):
