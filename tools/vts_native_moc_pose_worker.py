@@ -40,6 +40,22 @@ POSES = (
     ("yaw_right_gaze_right", {"ParamAngleX": 30, "ParamEyeBallX": 1}),
 )
 
+
+# Optional expression controls are never inferred to exist; only render these
+# combinations when the actual MOC3 exposes the parameter.
+OPTIONAL_MOUTH_FORM_POSES = (
+    ("smile_closed", {"ParamMouthForm": 1, "ParamMouthOpenY": 0}),
+    ("smile_talking", {"ParamMouthForm": 1, "ParamMouthOpenY": 0.5}),
+    ("smile_open", {"ParamMouthForm": 1, "ParamMouthOpenY": 1}),
+    ("frown", {"ParamMouthForm": -1, "ParamMouthOpenY": 0}),
+    ("smile_yaw_left", {"ParamMouthForm": 1, "ParamAngleX": -30,
+                        "ParamMouthOpenY": 0.5}),
+    ("smile_yaw_right", {"ParamMouthForm": 1, "ParamAngleX": 30,
+                         "ParamMouthOpenY": 0.5}),
+    ("smile_blink", {"ParamMouthForm": 1, "ParamEyeLOpen": 0,
+                     "ParamEyeROpen": 0}),
+)
+
 def run(model3: Path, output: Path, *, size: int = 768) -> dict:
     import pygame
     from pygame.locals import DOUBLEBUF, OPENGL
@@ -90,7 +106,15 @@ def run(model3: Path, output: Path, *, size: int = 768) -> dict:
             "ParamEyeLOpen": 1, "ParamEyeROpen": 1, "ParamMouthOpenY": 0,
             "ParamEyeBallX": 0, "ParamEyeBallY": 0,
         }
-        for label, params in POSES:
+        advanced = OPTIONAL_MOUTH_FORM_POSES if "ParamMouthForm" in available else ()
+        if advanced:
+            defaults["ParamMouthForm"] = 0
+        report["advanced_expression_coverage"] = {
+            "mouth_form_available": "ParamMouthForm" in available,
+            "sampled_complex_expression_poses": [name for name, _ in advanced],
+            "complex_expression_visual_quality_verified": False,
+        }
+        for label, params in (*POSES, *advanced):
             for key, value in {**defaults, **params}.items():
                 # Persist across Model.Update(): SetParamById may otherwise be reset.
                 model.SetSaveParamById(key, value, 1)
@@ -146,7 +170,7 @@ def run(model3: Path, output: Path, *, size: int = 768) -> dict:
                 "code": "NATIVE_GAZE_NOT_ANIMATED",
                 "gaze_changed_pixels": isolation["gaze_changed_pixels"],
             })
-        report["native_pose_rendered"] = len(report["frames"]) == len(POSES)
+        report["native_pose_rendered"] = len(report["frames"]) == len(POSES) + len(advanced)
         report["pose_activity_passed"] = not report["failures"]
         (output / "native_pose_report.json").write_text(
             json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
