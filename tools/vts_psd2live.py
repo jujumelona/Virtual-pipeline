@@ -360,7 +360,8 @@ def package_psd2live(result: dict, artwork_zip: Path, output_zip: Path) -> Path:
 
 def rig_existing_artwork_zip(artwork_zip: Path, output: Path, *,
                              edition: str, scope: str = "upper",
-                             auto_repair: bool = False) -> dict:
+                             auto_repair: bool = False,
+                             backend: str = "pinned") -> dict:
     """Resume an already-made PSD ZIP directly into real PSD2Live CLI export.
 
     The user's finished artwork ZIP already includes a true layered PSD.
@@ -369,6 +370,10 @@ def rig_existing_artwork_zip(artwork_zip: Path, output: Path, *,
     """
     if edition not in ("free", "pro"):
         raise ValueError("Invalid Cubism edition")
+    if backend not in ("pinned", "modern"):
+        raise ValueError("Invalid PSD2Live backend")
+    if backend == "modern" and auto_repair:
+        raise ValueError("PSD2LIVE_MODERN_REPAIR_USES_MCP: legacy strength-only retry not supported")
     artwork_zip = Path(artwork_zip).expanduser().resolve(strict=True)
     if artwork_zip.suffix.lower() != ".zip":
         raise ValueError("Existing artwork input must be a ZIP")
@@ -472,6 +477,10 @@ def rig_existing_artwork_zip(artwork_zip: Path, output: Path, *,
         native_search = search_native_rig(
             source, output / "native_search", edition=edition)
         rig = native_search["model"]
+    elif backend == "modern":
+        from tools.vts_psd2live_modern import run_modern_psd2live
+        rig = run_modern_psd2live(
+            source, output / "native_model", edition=edition, clone=True)
     else:
         rig = run_psd2live(source, output / "native_model", edition=edition)
     native_zip = output / "Live2D_PSD2Live_From_Existing_Artwork.zip"
@@ -495,6 +504,7 @@ def rig_existing_artwork_zip(artwork_zip: Path, output: Path, *,
         "source_artwork": str(artwork_zip), "reused_existing_psd": True,
         "runtime_verified_in_app": False,
         "bilateral_semantics_restored": restored_semantics,
+        "selected_rig_backend": backend,
         "native_pose": native_search["pose_report"] if native_search else None,
         "model_verified_by_native_pose": native_search is not None,
         "search_report": native_search["search_report"] if native_search else None,
