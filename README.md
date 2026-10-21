@@ -4,6 +4,18 @@
 
 **2D See-through 전용 파츠 분리:** 2D 생성 ZIP 16개는 고품질 원화와 다각도 참고 PNG만 생성합니다. 분리에는 See-through(LayerDiff/Marigold 및 공식 SemanticSAM 후처리)만 사용하며 Qwen/Stable-Layers는 비활성화했습니다. 독립 FACE/HAIR/OUTFIT 결과는 그대로 See-through에 넣을 수 없으므로 진짜 RGBA와 같은 크기·원점으로 정렬·합성한 뒤 실행합니다. 합성 CLI: `python -m tools.vts_see_through_only --face face__ARTWORK.zip --outfit live2d_upper__outfit__ARTWORK.zip --hair live2d_upper__hair__ARTWORK.zip --output /content/merged`; 실제 GPU 분리는 `--run-see-through`를 명시해야 합니다. 정렬 프리뷰는 사람이 검수해야 합니다. 같은 CLI에서 자동 리깅까지 시도하려면 `--run-see-through --run-psd2live`를 함께 지정하세요. GPU PSD 분리 없이 `--run-psd2live` 단독 실행은 차단합니다. [2D ZIP 지침](docs/image_ai_kits_v2/README.md).
 
+## 고품질 공개 프로젝트 활용: 원본 파츠 보존 + PSD2Live v3.6 (선택형)
+
+[고품질 제작·실행 방법·공개 모델 사례와 실제 QA](docs/HIGH_QUALITY_OPEN_SOURCE_LIVE2D_2026-10-22.md)
+
+- **원본 파츠 보존:** 각 FACE/OUTFIT/HAIR/ACCESSORY 원화 ZIP이 독립 RGBA 파츠와 part_art/_order.txt를 **모두** 포함하면 See-through 재분해를 생략하고 진짜 레이어 PSD를 만듭니다. 부분적인 입력은 실패 처리합니다. 눈 감음·입 열림 등 중립 이외의 파츠도 숨김 레이어로 보관합니다.
+- **주의:** 기존 18개 공식 이미지 지침 ZIP은 독립 파츠를 의무화하지 않으므로, 기본 입력만으로는 이 고품질 경로가 자동 활성화되지 않습니다. 고품질을 원하면 별도의 실제 파츠 원화가 필요합니다.
+- **PSD2Live v3.6.0:** Colab RIGGING=modern으로 별도 설치한 최신 상위 프로젝트의 공식 CLI를 선택할 수 있습니다. 기존 v3.3.1 백엔드를 무검증 교체하지 않습니다.
+- **실제 편집:** tools/vts_modern_mesh_refiner.py는 v3.6 MCP의 텍스처 구조 메쉬·가중치/Glue 유지 보정, tools/vts_reference_keyform_author.py는 실제 Warp 키폼 수정을 수행합니다. 두 경로 모두 열린 원본 프로젝트/실제 객체 ID와 렌더·저장 증거가 필요합니다.
+- **시각 품질:** tools/vts_native_visual_benchmark.py는 실제 MOC3 45° 포즈와 원화의 실루엣·색상·정렬을 비교하며, tools/vts_native_repair_plan.py는 오류 유형별 보정 도구를 지정합니다.
+- **공개 사례:** tools/vts_open_quality_cases.py에서 kirishima-mio / hiakari-inori / star_lan / ds 실제 PSD2Live 모델을 SHA-256 검증 후 가져올 수 있습니다. 사용 가능한 편집 프로젝트는 사례마다 다릅니다.
+- **검증 한계:** CI 코드 테스트는 상업용 미적 품질의 증거가 아닙니다. 실제 v3.6 CLI 실행, 실시간 VTube Studio, 고급 90° 측면, 별도 3D VRM 제작은 추가 실측/구현이 필요합니다.
+
 ## AI 네이티브 Live2D 리깅 자동 보정 (실제 포즈 기반)
 
 [**AI + PSD2Live 자동 리깅/참고 원화 키폼 사용법**](docs/LIVE2D_NATIVE_AI_AUTHORING.md)
