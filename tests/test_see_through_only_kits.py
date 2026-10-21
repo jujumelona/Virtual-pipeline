@@ -106,3 +106,51 @@ def test_see_through_notebook_has_separate_explicit_native_stage():
     assert 'RIGGING = "artwork_only"' in code[-2]
     assert "rig_see_through_artwork(SEPARATION" in code[-2]
     assert "files.download(str(PACKAGE))" in code[-1]
+
+
+def _register_zip_anchors(archive_path, anchors):
+    import json
+    with ZipFile(archive_path, "a") as archive:
+        archive.writestr("metadata/registration_anchors.json",
+                         json.dumps({"anchors": anchors}))
+
+
+def test_shared_landmarks_translate_layers_without_resizing(tmp_path):
+    sources = {name: _archive(tmp_path / f"{name}.zip")
+               for name in ("face", "hair", "outfit")}
+    _register_zip_anchors(sources["outfit"], {"neck_joint": [155, 158]})
+    _register_zip_anchors(sources["face"], {
+        "neck_joint": [145, 158], "hairline_center": [145, 105]})
+    _register_zip_anchors(sources["hair"], {"hairline_center": [135, 105]})
+    report = composite_2d(
+        sources["face"], sources["outfit"], sources["hair"], tmp_path / "merged")
+    assert report["landmark_registration"]["face"]["translation_xy"] == [10, 0]
+    assert report["landmark_registration"]["hair"]["translation_xy"] == [20, 0]
+    assert report["visual_alignment_verified"] is False
+    with Image.open(report["composite_png"]) as image:
+        assert image.size == (320, 320)
+        assert image.getpixel((150, 100))[3] != 0
+
+
+def test_conflicting_anchors_fail_instead_of_warping_art(tmp_path):
+    sources = {name: _archive(tmp_path / f"{name}.zip")
+               for name in ("face", "hair", "outfit")}
+    _register_zip_anchors(sources["outfit"], {
+        "neck_joint": [155, 158], "second_point": [180, 130]})
+    _register_zip_anchors(sources["face"], {
+        "neck_joint": [145, 158], "second_point": [180, 130]})
+    with pytest.raises(ValueError, match="inconsistent registration landmarks"):
+        composite_2d(
+            sources["face"], sources["outfit"], sources["hair"],
+            tmp_path / "failed")
+
+
+def test_anchor_translation_cannot_crop_opaque_pixels(tmp_path):
+    sources = {name: _archive(tmp_path / f"{name}.zip")
+               for name in ("face", "hair", "outfit")}
+    _register_zip_anchors(sources["outfit"], {"neck_joint": [290, 160]})
+    _register_zip_anchors(sources["face"], {"neck_joint": [60, 160]})
+    with pytest.raises(ValueError, match="crop visible artwork"):
+        composite_2d(
+            sources["face"], sources["outfit"], sources["hair"],
+            tmp_path / "failed")
