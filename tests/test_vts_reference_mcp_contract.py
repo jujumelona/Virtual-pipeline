@@ -15,12 +15,21 @@ from tools.vts_reference_keyform_author import (
 
 def _proxy(root):
     root.mkdir(parents=True)
-    (root / "mcp_proxy.py").write_text("# fake proxy path for adapter tests\n")
+    (root / "mcp_proxy.py").write_text("def _cli(args):\n    return 0\n")
     return root
 
 
 def _reply(data, *, exit_code=0):
     return SimpleNamespace(returncode=exit_code, stdout=json.dumps(data), stderr="")
+
+
+def test_old_v331_proxy_is_refused_before_any_write(tmp_path):
+    from tools.vts_reference_keyform_author import _require_mcp_cli
+    proxy = tmp_path / "old"
+    proxy.mkdir()
+    (proxy / "mcp_proxy.py").write_text("def main():\n    return 0\n")
+    with pytest.raises(RuntimeError, match="PSD2LIVE_MCP_CLI_UNSUPPORTED"):
+        _require_mcp_cli(proxy)
 
 
 def test_proxy_cli_sends_bare_business_fields(tmp_path):
