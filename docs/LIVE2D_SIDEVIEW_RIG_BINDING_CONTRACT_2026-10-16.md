@@ -12,7 +12,7 @@
 
 기존 BODY Colab에서 측면 참고 PNG를 자동 키폼으로 사용하지 않는다는 사실은 그대로다. **추가한 독립 로컬 경로**에서는 `tools/vts_ai_landmark_pairs.py`가 이미지 입력 가능한 로컬 VLM으로 원화 3/4 시점과 실제 MOC3 -30/+30 렌더의 동일 얼굴 지점을 비교하고, `tools/vts_reference_keyform_author.py`가 관찰한 차이를 PSD2Live의 실제 `warp:...` 객체에 `ParamAngleX` 키폼으로 작성한다. 데스크톱 MCP가 적용/내보내기를 성공시키고 실제 MOC3 포즈 QA를 통과한 경우에만 `reference_angles_used_as_rig_keyforms=True`를 보고한다. `tools/vts_ai_native_feedback_loop.py`는 같은 관찰-편집-렌더 루프를 제한 횟수 반복하면서 실제 랜드마크 오차의 수렴도 요구한다. 상세 실행법: [LIVE2D_NATIVE_AI_AUTHORING.md](LIVE2D_NATIVE_AI_AUTHORING.md).
 
-**지원 범위는 ±30° 기존 Warp의 국소 이동 보정이며, 네이티브 90° 옆얼굴 ArtMesh 교체·완전 재구성 또는 모든 각도의 시각 품질 인증이 아니다.** 원본 `.psd2live`는 보존하고 별도 사본에서 편집한다. 메쉬 형태·그리기 순서·목 깊이·마스크 등 복잡한 문제는 여전히 독립적인 리깅 검증을 요구한다.
+**지원 범위는 ±45°(기본) 또는 명시된 ±30° 기존 Warp의 국소 이동 보정이며, 네이티브 90° 옆얼굴 ArtMesh 교체·완전 재구성 또는 모든 각도의 시각 품질 인증이 아니다.** 원본 `.psd2live`는 보존하고 별도 사본에서 편집한다. 메쉬 형태·그리기 순서·목 깊이·마스크 등 복잡한 문제는 여전히 독립적인 리깅 검증을 요구한다.
 
 ## 제작 데이터 분리 (이미지 AI ZIP과 Colab 엔진의 책임 구분)
 
