@@ -7,12 +7,18 @@ on:
       - "tools/colab_mode_ui.py"
       - "tools/vts_see_through_only.py"
       - "tools/vts_psd2live.py"
+      - "tools/vts_native_autorepair.py"
+      - "tools/vts_reference_keyform_author.py"
+      - "tools/vts_ai_landmark_pairs.py"
       - "notebooks/VTuber_Finished_AI_ZIP_All_Modes.ipynb"
       - "notebooks/VTuber_SeeThrough_Only_Source_ZIPs.ipynb"
       - "notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb"
       - "tests/test_colab_mode_ui.py"
       - "tests/test_see_through_only_kits.py"
       - "tests/test_finished_ai_zip_all_modes_contract.py"
+      - "tests/test_vts_native_autorepair.py"
+      - "tests/test_vts_reference_keyform_author.py"
+      - "tests/test_vts_ai_landmark_pairs.py"
       - ".github/workflows/live2d-source-rig-contract.yml"
   workflow_dispatch:
 
@@ -29,7 +35,7 @@ jobs:
         run: python -m pip install "pytest>=8,<10" "Pillow>=11,<13"
       - name: Compile entrypoints and parse notebooks
         run: |
-          python -m py_compile tools/colab_mode_ui.py tools/vts_see_through_only.py tools/vts_psd2live.py
+          python -m py_compile tools/colab_mode_ui.py tools/vts_see_through_only.py tools/vts_psd2live.py tools/vts_native_autorepair.py tools/vts_reference_keyform_author.py tools/vts_ai_landmark_pairs.py
           python - <<'PY'
           import ast, json
           from pathlib import Path
@@ -48,4 +54,7 @@ jobs:
           python -m pytest -q \
             tests/test_colab_mode_ui.py \
             tests/test_see_through_only_kits.py \
-            tests/test_finished_ai_zip_all_modes_contract.py
+            tests/test_finished_ai_zip_all_modes_contract.py \
+            tests/test_vts_native_autorepair.py \
+            tests/test_vts_reference_keyform_author.py \
+            tests/test_vts_ai_landmark_pairs.py
