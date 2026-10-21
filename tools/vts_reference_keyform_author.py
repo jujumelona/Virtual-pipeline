@@ -172,6 +172,12 @@ def apply_reference_keyforms(plan: dict, *, proxy_root: Path, work: Path,
         raise ValueError("Native export directory must be empty")
     log = []
     # --edit obtains the current project state; changes target actual Warp IDs.
+    # Preview the exact same edits first, before modifying workspace history.
+    log.append(_run_mcp(proxy_root, "workspace_preview_edits",
+                        {"request": {"edits": [
+                            {"operation": "rig_deform",
+                             "request": {"changes": changes}}
+                        ]}}, work, executor))
     log.append(_run_mcp(proxy_root, "rig_deform",
                         {"request": {"changes": changes}}, work, executor))
     log.append(_run_mcp(proxy_root, "project_save",
@@ -190,6 +196,7 @@ def apply_reference_keyforms(plan: dict, *, proxy_root: Path, work: Path,
         **plan, "reference_angles_used_as_rig_keyforms": True,
         "native_execution_required": False,
         "full_90_degree_profile_verified": False,
+        "reference_landmark_fidelity_verified": False,
         "mcp_receipts": log, "native_pose_qa": native,
         "exported_model3": str(models[0]),
     }
