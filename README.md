@@ -4,7 +4,17 @@
 
 ## See-through 단독 Live2D 원화 ZIP 합성 → 분리 PSD
 
-[**전용 Colab 열기**](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_SeeThrough_Only_Source_ZIPs.ipynb) — FACE, OUTFIT, HAIR 원화 ZIP(+선택 ACCESSORY)을 실제 투명 RGBA로 합성한 다음, 시각 검수를 거쳐 See-through + 공식 SemanticSAM 파츠 PSD를 생성합니다. `Qwen=False`이며 3D/VRM 및 네이티브 리깅은 수행하지 않습니다. 현재 통합 노트북의 개별 FACE/HAIR/OUTFIT 모드는 전체 캐릭터 합성 경로가 아니므로, 이 전용 노트북을 사용하세요. **알파와 캔버스가 맞아도 시각적 정렬은 자동 보장되지 않습니다.**
+[**전용 Colab 열기**](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_SeeThrough_Only_Source_ZIPs.ipynb) — FACE, OUTFIT, HAIR 원화 ZIP(+선택 ACCESSORY)을 실제 투명 RGBA로 합성한 다음, 시각 검수를 거쳐 See-through + 공식 SemanticSAM 파츠 PSD를 생성합니다. `Qwen=False`이고 3D/VRM은 수행하지 않습니다. 기본 모드는 PSD 제작(`RIGGING=artwork_only`)이지만 ⑤ 셀에서 `RIGGING=auto`를 명시하면 기존 PSD를 재분해하지 않고 PSD2Live MOC3/CMO3 제작을 추가로 시도합니다. 네이티브 파일 생성만으로 방송 동작이 인증되는 것은 아닙니다. 현재 통합 노트북의 개별 FACE/HAIR/OUTFIT 모드는 전체 캐릭터 합성 경로가 아니므로, 이 전용 노트북을 사용하세요. **알파와 캔버스가 맞아도 시각적 정렬은 자동 보장되지 않습니다.**
+
+### 독립 원화의 자동 위치 등록 (선택 사항)
+
+FACE/OUTFIT/HAIR/ACCESSORY의 투명 원화 ZIP에 `metadata/registration_anchors.json`을 함께 제공하면, See-through 전용 합성 엔진이 **실제 같은 신체 위치를 나타내는 이름의 좌표**를 비교하여 필요한 PNG를 평행 이동시킵니다. 등록 정보가 없으면 원본 픽셀을 보존하고 시각 검수로 넘깁니다. 허위 앵커를 추정하거나 임의 스케일 변경·회전으로 원화를 왜곡하지 않습니다.
+
+```json
+{"anchors": {"neck_joint": [1024, 930], "hairline_center": [1024, 420]}}
+```
+
+좌표는 각 ZIP의 `outputs/master.png` 픽셀 좌표입니다. FACE와 OUTFIT은 `neck_joint`, FACE와 HAIR는 `hairline_center`처럼 같은 물리적 부위의 키를 공유합니다. 여러 기준점의 위치가 서로 6px 이상 모순되거나, 이동으로 불투명 원화가 화면 밖으로 잘리면 중단합니다. 좌표 등록은 합성 위치만 보정하며 미적 일치·가려진 형태·리깅 성공까지 검증하지 않습니다. 합성 미리보기는 여전히 육안 확인해야 합니다.
 
 ## 이미 완성한 이미지 AI 원화 ZIP을 처리하는 Colab
 
