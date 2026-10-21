@@ -171,6 +171,15 @@ def apply_reference_keyforms(plan: dict, *, proxy_root: Path, work: Path,
     if export_to.exists() and any(export_to.iterdir()):
         raise ValueError("Native export directory must be empty")
     log = []
+    # Work on a separate project copy: never overwrite the user's original.
+    # PSD2Live MCP save_as changes the active workspace path to this copy.
+    copy = work / "reference_authoring_copy.psd2live"
+    if copy.exists():
+        raise ValueError("Refuse to overwrite a previous reference authoring copy")
+    log.append(_run_mcp(proxy_root, "project_save_as",
+                        {"request": {"path": str(copy)}}, work, executor))
+    if not copy.is_file():
+        raise RuntimeError("PSD2Live did not create a separate editable project copy")
     # --edit obtains the current project state; changes target actual Warp IDs.
     # Preview the exact same edits first, before modifying workspace history.
     log.append(_run_mcp(proxy_root, "workspace_preview_edits",
