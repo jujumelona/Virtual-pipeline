@@ -93,6 +93,33 @@ def run_see_through(art: dict, output: Path, scope: str = "upper") -> dict:
     return result
 
 
+
+def rig_see_through_artwork(separation: dict, output: Path,
+                            scope: str = "upper") -> dict:
+    """Continue a completed See-through artwork ZIP into PSD2Live without re-splitting.
+
+    Native model artifacts are real but their artistic and VTube Studio behavior
+    are not certified by producing the MOC3/CMO3 files.
+    """
+    if scope not in ("upper", "full"):
+        raise ValueError("Scope must be upper or full")
+    if separation.get("state") != "artwork_ready_editor_rig_required":
+        raise ValueError("PSD2Live requires a completed See-through artwork handoff")
+    package_value = separation.get("package")
+    if not isinstance(package_value, str) or not package_value:
+        raise ValueError("See-through result has no packaged PSD")
+    package = Path(package_value)
+    if not package.is_file() or package.suffix.lower() != ".zip":
+        raise FileNotFoundError("Completed layered PSD artwork ZIP not found: " + str(package))
+    from tools.vts_psd2live import prepare_psd2live, rig_existing_artwork_zip
+    prepare_psd2live()
+    rig = rig_existing_artwork_zip(
+        package, Path(output) / "psd2live_result", edition="free", scope=scope)
+    if rig.get("state") != "psd2live_rigged_unverified" or not rig.get("moc3_generated"):
+        raise RuntimeError("PSD2Live did not produce its native model contract")
+    return rig
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--face", type=Path, required=True)
@@ -102,10 +129,17 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--scope", choices=("upper", "full"), default="upper")
     parser.add_argument("--run-see-through", action="store_true")
+    parser.add_argument("--run-psd2live", action="store_true",
+                        help="After See-through PSD, explicitly create native MOC3/CMO3")
     args = parser.parse_args()
+    if args.run_psd2live and not args.run_see_through:
+        parser.error("--run-psd2live requires --run-see-through")
     report = composite_2d(args.face, args.outfit, args.hair, args.output, args.accessory)
     if args.run_see_through:
         report["separation"] = run_see_through(report, args.output, args.scope)
+    if args.run_psd2live:
+        report["rigging"] = rig_see_through_artwork(
+            report["separation"], args.output, args.scope)
     print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
 
 
