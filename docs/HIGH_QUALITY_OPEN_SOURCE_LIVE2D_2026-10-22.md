@@ -79,6 +79,13 @@ PSD2Live v3.6 CLI는 네이티브 MOC3·CMO3를 내보내지만, 복잡한 MCP �
 
 실제 프로젝트를 가져온 뒤 rig_generate를 호출하고, 프로젝트를 디스크에 저장한 뒤 파일이 존재하는지 확인합니다. MCP 서버가 죽거나 실행이 중단되면 원본 프로젝트를 성공적으로 편집했다고 기록하지 않습니다. 이것을 다시 --source-project로 넘겨 Warp 또는 메쉬 MCP 편집을 이어갈 수 있습니다.
 
+**이미 생성된 리그를 보존하려면:** 아래처럼 MOC3가 포함된 네이티브 CMO3 편집 프로젝트를 직접 가져옵니다. 이 경로는 v3.6 MCP project_import_cmo3(mode=new)와 project_save_as를 사용하며 rig_generate를 다시 호출하지 않습니다.
+
+    python -m tools.vts_modern_editable_project --cmo3 /path/to/rig.cmo3 --source /path/to/psd2live-v3.6.0 --output /path/to/fresh-native-editable
+
+입력 CMO3의 원래 ArtMesh·키폼 구조가 임의 재생성으로 덮어써지지 않도록 분리한 경로입니다. 통합 검증이 없는 시점에 Cubism Editor의 호환성이나 시각 품질이 동일하다고 선언하지 않습니다.
+
+
 공개 CC0 ds PSD로 v3.6 CLI 실제 .moc3 + .cmo3가 성공한 증거: https://github.com/jujumelona/Virtual-pipeline/actions/runs/39651136521 . **이 실행은 headless 편집 프로젝트 생성 성공의 증거는 아닙니다.** 그 경로는 별도 통합 CI에서 검증합니다.
 
 ## 7. 로컬 비전 AI 품질 진단
