@@ -14,10 +14,12 @@ import pytest
 from tools.vts_segmentation_profiles import get_segmentation_profile
 
 
-def test_face_is_visible_and_no_body_choice():
-    assert tuple(ASSET_KINDS) == ("face", "character", "hair", "accessory", "outfit")
+def test_face_is_independent_even_though_body_mode_is_available():
+    assert tuple(ASSET_KINDS) == ("face", "character", "body", "hair", "accessory", "outfit")
     assert select_mode("face", "face").asset_label == "얼굴만"
-    assert "body" not in ASSET_KINDS
+    assert ASSET_KINDS["body"] == "신체만"
+    with pytest.raises(ValueError):
+        select_mode("face", "body")
     face = get_segmentation_profile("face", "face")
     assert face["requires_reference_body"] is False
     assert face["route"] == "face_source_needs_eye_mouth_segmentation"
