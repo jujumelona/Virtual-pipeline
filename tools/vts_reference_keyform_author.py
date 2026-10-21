@@ -147,6 +147,15 @@ def _require_mcp_cli(proxy_root: Path) -> Path:
     return proxy
 
 
+# --edit injects state. Do NOT pass it to save/open/read-only operations;
+# upstream strict schemas reject unknown fields, including unexpected state.
+_STATE_REQUIRED = frozenset({
+    "rig_deform", "workspace_preview_edits", "workspace_apply_edits",
+    "project_export_model", "layer_mesh_structure", "rig_update_generation",
+    "settings_update",
+})
+
+
 def _run_mcp(proxy_root: Path, operation: str, request: dict,
              work: Path, executor=None) -> dict:
     """Invoke upstream MCP proxy against a *running local* PSD2Live editor."""
@@ -157,7 +166,10 @@ def _run_mcp(proxy_root: Path, operation: str, request: dict,
     request_path.write_text(json.dumps(request, ensure_ascii=False), encoding="utf-8")
     proxy = _require_mcp_cli(proxy_root)
     cmd = [sys.executable, str(proxy), "call", operation,
-           "@" + str(request_path), "--edit", "--out", str(work)]
+           "@" + str(request_path)]
+    if operation in _STATE_REQUIRED:
+        cmd.append("--edit")
+    cmd.extend(["--out", str(work)])
     runner = executor or subprocess.run
     proc = runner(cmd, cwd=str(proxy_root),
                   capture_output=True, text=True, timeout=240, check=False)
