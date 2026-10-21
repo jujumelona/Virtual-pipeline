@@ -41,6 +41,7 @@ def run_ai_native_feedback_loop(*, reference_dir: Path, initial_native_dir: Path
                                 max_rounds: int = 3,
                                 target_residual: float = 0.018,
                                 require_pixel_improvement: bool = False,
+                                source_project: Path | None = None,
                                 observer=None, author=None) -> dict:
     """Build and test real native keyforms, stopping on lack of convergence.
 
@@ -51,6 +52,12 @@ def run_ai_native_feedback_loop(*, reference_dir: Path, initial_native_dir: Path
         raise ValueError("Feedback budget must be 1..4")
     if not 0.001 <= target_residual <= 0.08:
         raise ValueError("Invalid target landmark error")
+    if author is None and source_project is None:
+        raise ValueError("REAL_NATIVE_FEEDBACK_REQUIRES_EXPLICIT_EDITABLE_PROJECT")
+    current_project = (Path(source_project).resolve(strict=True)
+                       if source_project is not None else None)
+    if current_project is not None and current_project.suffix != ".psd2live":
+        raise ValueError("Expected actual generated .psd2live project")
     output = Path(output).resolve()
     if output.exists() and any(output.iterdir()):
         raise ValueError("Feedback output must be a fresh directory")
@@ -88,8 +95,11 @@ def run_ai_native_feedback_loop(*, reference_dir: Path, initial_native_dir: Path
         export_to = round_dir / "native_export"
         try:
             # Apply and export actual native keyforms, then render native QA.
-            result = apply(plan, proxy_root=psd2live_source,
-                           work=round_dir / "mcp", export_to=export_to)
+            arguments = {"proxy_root": psd2live_source,
+                         "work": round_dir / "mcp", "export_to": export_to}
+            if current_project is not None:
+                arguments["source_project"] = current_project
+            result = apply(plan, **arguments)
             if not result.get("native_pose_qa", {}).get("pose_activity_passed"):
                 raise RuntimeError("Native pose failed after authoring")
             if require_pixel_improvement:
@@ -110,6 +120,10 @@ def run_ai_native_feedback_loop(*, reference_dir: Path, initial_native_dir: Path
             attempt["native_export_verified"] = True
             attempt["exported_model3"] = result["exported_model3"]
             accepted = attempt
+            if result.get("editable_project_copy"):
+                current_project = Path(result["editable_project_copy"])
+                if not current_project.is_file():
+                    raise RuntimeError("Edited project was not actually saved")
             current_native = round_dir / "mcp" / "native_validation"
         except Exception as exc:
             attempt["reason"] = f"{type(exc).__name__}: {exc}"
@@ -157,6 +171,8 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model", required=True)
     parser.add_argument("--endpoint", default="http://127.0.0.1:8000/v1/chat/completions")
+    parser.add_argument("--source-project", type=Path, required=True,
+                        help="Explicit generated .psd2live project; round N edits round N-1 saved copy")
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--require-pixel-improvement", action="store_true",
                         help="Reject edits that fail genuine transparent native pose comparison")
@@ -167,7 +183,8 @@ def main():
         model=args.model, endpoint=args.endpoint,
         psd2live_source=args.psd2live_source, output=args.output,
         max_rounds=args.rounds,
-        require_pixel_improvement=args.require_pixel_improvement)
+        require_pixel_improvement=args.require_pixel_improvement,
+        source_project=args.source_project)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
