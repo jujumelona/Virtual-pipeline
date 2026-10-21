@@ -32,8 +32,8 @@ def test_notebook_reuses_exact_semantic_preflight_neck_report(capsys):
 
     # Run the actual body post-preflight block rather than accepting a
     # comment-only workaround or duplicating the legacy geometry test.
-    start = src.index("    if MODE.startswith('live2d') and ASSET=='body':\n")
-    end = src.index("    print('독립 원화 파츠:'", start)
+    start = src.index("    if MODE.startswith('live2d') and ASSET=='body' and not SOURCE_ONLY:\n")
+    end = src.index("    if SOURCE_ONLY:\n", start)
     block = textwrap.dedent(src[start:end])
     verified = {
         "status": "EXPLICIT_HIDDEN_NECK_BRIDGE_PRESENT_RIG_VISUAL_REVIEW_REQUIRED",
@@ -44,7 +44,7 @@ def test_notebook_reuses_exact_semantic_preflight_neck_report(capsys):
         "editor_review_required": True,
     }
     namespace = {
-        "MODE": "live2d_bust_up", "ASSET": "body",
+        "MODE": "live2d_bust_up", "ASSET": "body", "SOURCE_ONLY": False,
         "SOURCE_QA": {"parts": {
             "status": "SEMANTIC_SOURCE_PREFLIGHT_PASS", "neck": verified}},
     }
@@ -55,10 +55,10 @@ def test_notebook_reuses_exact_semantic_preflight_neck_report(capsys):
 
 def test_failed_semantic_preflight_does_not_become_success():
     src = notebook_validation_source()
-    start = src.index("    if MODE.startswith('live2d') and ASSET=='body':\n")
-    end = src.index("    print('독립 원화 파츠:'", start)
+    start = src.index("    if MODE.startswith('live2d') and ASSET=='body' and not SOURCE_ONLY:\n")
+    end = src.index("    if SOURCE_ONLY:\n", start)
     namespace = {
-        "MODE": "live2d_bust_up", "ASSET": "body",
+        "MODE": "live2d_bust_up", "ASSET": "body", "SOURCE_ONLY": False,
         "SOURCE_QA": {"parts": {
             "status": "INVALID", "neck": {"status": "REQUIRES_REGENERATION"}}},
     }
