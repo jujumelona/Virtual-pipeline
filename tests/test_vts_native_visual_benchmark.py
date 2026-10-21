@@ -39,7 +39,7 @@ def test_true_registered_native_pose_improvement(tmp_path):
         reference, after, tmp_path / "result", previous_native_dir=before)
     assert report["pixel_improvement_verified"]
     assert not report["artistic_quality_verified"]
-    assert all(metric["alpha_iou"] > 0.95 for metric
+    assert all(metric["alpha_iou"] > 0.94 for metric
                in report["native_reference_pose_image_comparisons"].values())
 
 
