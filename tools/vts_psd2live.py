@@ -359,7 +359,8 @@ def package_psd2live(result: dict, artwork_zip: Path, output_zip: Path) -> Path:
     return output_zip
 
 def rig_existing_artwork_zip(artwork_zip: Path, output: Path, *,
-                             edition: str, scope: str = "upper") -> dict:
+                             edition: str, scope: str = "upper",
+                             auto_repair: bool = False) -> dict:
     """Resume an already-made PSD ZIP directly into real PSD2Live CLI export.
 
     The user's finished artwork ZIP already includes a true layered PSD.
@@ -463,15 +464,40 @@ def rig_existing_artwork_zip(artwork_zip: Path, output: Path, *,
         else:
             print("[PSD2Live] Semantic source not pixel-equivalent or not bilateral; "
                   "using original final PSD without guessing layer identity", flush=True)
-    rig = run_psd2live(source, output / "native_model", edition=edition)
+    native_search = None
+    if auto_repair:
+        from tools.vts_native_autorepair import search_native_rig
+        # This sees the SAME semantic PSD selected by the existing recovery
+        # path, rather than silently discarding the original bilateral parts.
+        native_search = search_native_rig(
+            source, output / "native_search", edition=edition)
+        rig = native_search["model"]
+    else:
+        rig = run_psd2live(source, output / "native_model", edition=edition)
     native_zip = output / "Live2D_PSD2Live_From_Existing_Artwork.zip"
     package_psd2live(rig, artwork_zip, native_zip)
+    if native_search is not None:
+        with ZipFile(native_zip, "a", ZIP_DEFLATED) as archive:
+            archive.write(native_search["search_report"],
+                          "qa/native_autorepair_search.json")
+            pose_dir = output / "native_search" / (
+                f"trial_{native_search['winner']:02d}") / "poses"
+            for pose in sorted(pose_dir.glob("*.png")):
+                archive.write(pose, "qa/native_pose/" + pose.name)
+            receipt = pose_dir / "native_pose_report.json"
+            if receipt.is_file():
+                archive.write(receipt, "qa/native_pose/native_pose_report.json")
     return {
-        "state": "psd2live_rigged_unverified", "package": str(native_zip),
+        "state": ("psd2live_rigged_native_pose_verified" if auto_repair
+                  else "psd2live_rigged_unverified"),
+        "package": str(native_zip),
         "moc3_generated": True, "psd2live": rig, "layer_count": len(leaves),
         "source_artwork": str(artwork_zip), "reused_existing_psd": True,
         "runtime_verified_in_app": False,
         "bilateral_semantics_restored": restored_semantics,
+        "native_pose": native_search["pose_report"] if native_search else None,
+        "model_verified_by_native_pose": native_search is not None,
+        "search_report": native_search["search_report"] if native_search else None,
     }
 
 
