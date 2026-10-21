@@ -1,10 +1,10 @@
 # Virtual-pipeline
 
-**2D See-through 전용 파츠 분리:** 2D 생성 ZIP 16개는 고품질 원화와 다각도 참고 PNG만 생성합니다. 분리에는 See-through(LayerDiff/Marigold 및 공식 SemanticSAM 후처리)만 사용하며 Qwen/Stable-Layers는 비활성화했습니다. 독립 FACE/HAIR/OUTFIT 결과는 그대로 See-through에 넣을 수 없으므로 진짜 RGBA와 같은 크기·원점으로 정렬·합성한 뒤 실행합니다. 합성 CLI: `python -m tools.vts_see_through_only --face face__ARTWORK.zip --outfit live2d_upper__outfit__ARTWORK.zip --hair live2d_upper__hair__ARTWORK.zip --output /content/merged`; 실제 GPU 분리는 `--run-see-through`를 명시해야 합니다. 정렬 프리뷰는 사람이 검수해야 합니다. [2D ZIP 지침](docs/image_ai_kits_v2/README.md).
+**2D See-through 전용 파츠 분리:** 2D 생성 ZIP 16개는 고품질 원화와 다각도 참고 PNG만 생성합니다. 분리에는 See-through(LayerDiff/Marigold 및 공식 SemanticSAM 후처리)만 사용하며 Qwen/Stable-Layers는 비활성화했습니다. 독립 FACE/HAIR/OUTFIT 결과는 그대로 See-through에 넣을 수 없으므로 진짜 RGBA와 같은 크기·원점으로 정렬·합성한 뒤 실행합니다. 합성 CLI: `python -m tools.vts_see_through_only --face face__ARTWORK.zip --outfit live2d_upper__outfit__ARTWORK.zip --hair live2d_upper__hair__ARTWORK.zip --output /content/merged`; 실제 GPU 분리는 `--run-see-through`를 명시해야 합니다. 정렬 프리뷰는 사람이 검수해야 합니다. 같은 CLI에서 자동 리깅까지 시도하려면 `--run-see-through --run-psd2live`를 함께 지정하세요. GPU PSD 분리 없이 `--run-psd2live` 단독 실행은 차단합니다. [2D ZIP 지침](docs/image_ai_kits_v2/README.md).
 
 ## See-through 단독 Live2D 원화 ZIP 합성 → 분리 PSD
 
-[**전용 Colab 열기**](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_SeeThrough_Only_Source_ZIPs.ipynb) — FACE, OUTFIT, HAIR 원화 ZIP(+선택 ACCESSORY)을 실제 투명 RGBA로 합성한 다음, 시각 검수를 거쳐 See-through + 공식 SemanticSAM 파츠 PSD를 생성합니다. `Qwen=False`이고 3D/VRM은 수행하지 않습니다. 기본 모드는 PSD 제작(`RIGGING=artwork_only`)이지만 ⑤ 셀에서 `RIGGING=auto`를 명시하면 기존 PSD를 재분해하지 않고 PSD2Live MOC3/CMO3 제작을 추가로 시도합니다. 네이티브 파일 생성만으로 방송 동작이 인증되는 것은 아닙니다. 현재 통합 노트북의 개별 FACE/HAIR/OUTFIT 모드는 전체 캐릭터 합성 경로가 아니므로, 이 전용 노트북을 사용하세요. **알파와 캔버스가 맞아도 시각적 정렬은 자동 보장되지 않습니다.**
+[**전용 Colab 열기**](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_SeeThrough_Only_Source_ZIPs.ipynb) — FACE, OUTFIT, HAIR 원화 ZIP(+선택 ACCESSORY)을 실제 투명 RGBA로 합성한 다음, 시각 검수를 거쳐 See-through + 공식 SemanticSAM 파츠 PSD를 생성합니다. `Qwen=False`이고 3D/VRM은 수행하지 않습니다. 기본 모드는 PSD 제작(`RIGGING=artwork_only`)이지만 ⑤ 셀에서 `RIGGING=auto`를 명시하면 기존 PSD를 재분해하지 않고 PSD2Live MOC3/CMO3 제작을 추가로 시도합니다. ⑥ 셀의 `VERIFY_NATIVE_POSES=True`를 선택하면 **실제 MOC3** 포즈 프레임과 JSON 검사 기록을 출력 ZIP에 넣으며, 검사가 실패하면 성공으로 처리하지 않습니다. 네이티브 포즈 검사가 통과하더라도 VTube Studio 실제 얼굴 추적과 방송 품질은 별도 확인이 필요합니다. 현재 통합 노트북의 개별 FACE/HAIR/OUTFIT 모드는 전체 캐릭터 합성 경로가 아니므로, 이 전용 노트북을 사용하세요. **알파와 캔버스가 맞아도 시각적 정렬은 자동 보장되지 않습니다.**
 
 ### 독립 원화의 자동 위치 등록 (선택 사항)
 
