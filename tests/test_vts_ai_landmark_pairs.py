@@ -52,7 +52,7 @@ def test_local_vision_pairs_compile_without_claiming_native_execution(tmp_path):
     ref.mkdir()
     native.mkdir()
     Image.new("RGB", (320, 320)).save(ref / "head_three_quarter_R.png")
-    Image.new("RGB", (320, 320)).save(native / "yaw_right.png")
+    Image.new("RGB", (320, 320)).save(native / "yaw_right_45.png")
     def fake(req, timeout):
         return FakeResponse(_model_reply())
     bindings = {name: "warp:" + name for name in (
@@ -63,6 +63,7 @@ def test_local_vision_pairs_compile_without_claiming_native_execution(tmp_path):
         endpoint="http://127.0.0.1:8000/v1/chat/completions",
         max_side=320, transport=fake)
     assert len(plan["changes"]) == 4
+    assert all(change["key"] == {"ParamAngleX": 45} for change in plan["changes"])
     assert plan["reference_angles_used_as_rig_keyforms"] is False
     assert (folder / "vision_reference_manifest.json").is_file()
     audit = json.loads((folder / "vision_reference_audit.json").read_text())
