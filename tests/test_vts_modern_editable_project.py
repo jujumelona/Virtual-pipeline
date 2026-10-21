@@ -25,6 +25,8 @@ class Editor:
         if op == "project_import_psd":
             return {"state": "st2", "project_id": "loaded-project",
                     "layers": [{"id": "source-layer"}]}
+        if op == "project_import_cmo3":
+            return {"state": "cmo3-imported", "project_id": "native-rig-project"}
         if op == "rig_generate":
             return {"state": "st3" if self.real_commit else None}
         if op == "project_save_as":
@@ -87,3 +89,30 @@ def test_refuse_output_below_source_dir(tmp_path, monkeypatch):
     mod, root, psd = _setup(tmp_path, monkeypatch)
     with pytest.raises(ValueError, match="overlap"):
         mod.build_editable_project(psd, psd.parent / "out")
+
+
+def test_real_native_cmo3_is_imported_without_rebuilding_keyforms(tmp_path, monkeypatch):
+    mod, root, psd = _setup(tmp_path, monkeypatch)
+    native_dir = tmp_path / "native"
+    native_dir.mkdir()
+    cmo3 = native_dir / "original.cmo3"
+    cmo3.write_bytes(b"CMO3_NATIVE_EDITABLE_FIXTURE" * 80)
+    editor = Editor(tmp_path)
+    result = mod.import_native_cmo3_as_editable(
+        cmo3, tmp_path / "imported", source=root,
+        connect=lambda proxy, endpoint, token: editor)
+    assert result["source_native_rig_imported"]
+    assert result["rig_regeneration_performed"] is False
+    assert Path(result["editable_project"]).is_file()
+    assert [name for name, kwargs in editor.calls] == [
+        "workspace_inspect", "project_import_cmo3",
+        "project_save_as", "workspace_inspect"]
+    assert editor.calls[1][1]["mode"] == "new"
+    assert not result["artistic_quality_verified"]
+
+
+def test_native_cmo3_import_refuses_invalid_source(tmp_path):
+    from tools.vts_modern_editable_project import import_native_cmo3_as_editable
+    missing = tmp_path / "does-not-exist.cmo3"
+    with pytest.raises(FileNotFoundError):
+        import_native_cmo3_as_editable(missing, tmp_path / "out")
