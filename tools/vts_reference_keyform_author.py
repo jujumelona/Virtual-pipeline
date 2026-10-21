@@ -17,10 +17,8 @@ import sys
 from PIL import Image
 
 SUPPORTED = {
-    "head_three_quarter_L": -30,
-    "head_three_quarter_R": 30,
-    "head_pitch_up": None,
-    "head_pitch_down": None,
+    "head_three_quarter_L": (-45, -30),
+    "head_three_quarter_R": (30, 45),
 }
 REQUIRED_SHAPE = {"face_contour", "nose_tip", "jaw", "eye_left"}
 
@@ -73,7 +71,7 @@ def compile_native_reference_edits(manifest: dict, root: Path) -> dict:
             raise ValueError(
                 "90-degree and pitch profile require separate native art/keyforms; "
                 "the frontal-warp reference adapter only supports +/-30 yaw")
-        if angle != SUPPORTED[view] or (view in used):
+        if angle not in SUPPORTED[view] or (view in used):
             raise ValueError("Incorrect or duplicate signed yaw reference")
         used.add(view)
         ref = root / "reference_views" / (view + ".png")
