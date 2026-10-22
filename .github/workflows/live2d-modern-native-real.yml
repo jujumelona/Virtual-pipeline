@@ -107,6 +107,24 @@ jobs:
           assert Path(d["model3_json"]).is_file()
           print("REAL_V360_CMO3_MESH_EDIT_AND_EXPORT_VERIFIED", d["selected_target"])
           PY
+      - name: Render actually modified native Cubism Core MOC3 poses in headless OpenGL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from tools.vts_multiview_runtime import render_actual_native_moc3
+          result_path=Path("/tmp/psd2live-real-mesh-trial/real_mesh_trial.json")
+          edited=json.loads(result_path.read_text())
+          assert edited["mesh_changes_committed"] and edited["model_exported"]
+          model=Path(edited["model3_json"])
+          native=render_actual_native_moc3(model, Path("/tmp/psd2live-real-native-poses"), timeout_seconds=600)
+          assert native["source"] == "live2d_py_cubism_native_runtime"
+          assert native["native_pose_rendered"] and native["pose_activity_passed"]
+          assert native.get("native_pose_geometry_passed"), native
+          print("REAL_V360_EDITED_MOC3_CUBISM_CORE_POSES_VERIFIED")
+          PY
       - name: Upload logs, artifacts and native rejection evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -119,6 +137,7 @@ jobs:
             /tmp/psd2live-imported-cmo3/**
             /tmp/psd2live-edit-probe/**
             /tmp/psd2live-real-mesh-trial/**
+            /tmp/psd2live-real-native-poses/**
             /content/vtuber_builder/third_party/modern_psd2live_clone.log
           if-no-files-found: ignore
           retention-days: 5
