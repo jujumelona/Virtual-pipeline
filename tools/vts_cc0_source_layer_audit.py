@@ -17,7 +17,7 @@ GROUP_KEYS={
   "mouth":("mouth","lip","teeth","tongue"),
   "hair":("hair","bang","twin","pony","tail","fringe","ahoge","headwear"),
   "cloth":("sleeve","skirt","dress","coat","shirt","bow","topwear",
-           "bottomwear","handwear","neckwear","arm","hand","ribbon","collar"),
+           "bottomwear","handwear","neckwear","legwear","footwear","arm","hand","ribbon","collar"),
   "head_neck":("face","neck","nose","jaw","head"),
   "ears":(),
   "appendage":(),
