@@ -17,7 +17,7 @@ from tools.vts_rearchive_native_iris_trial import _pages,sha
 COSTUME_HAIR = ("front hair","front hair 2","back hair 3",
                 "topwear","bottomwear 2","handwear 1-r","handwear 1-l",
                 "headwear 1","headwear 2")
-OPTIONAL_ADDITIONS = ("neckwear","handwear 2-r","handwear 2-l")
+OPTIONAL_ADDITIONS = ("neckwear","handwear 2-r","handwear 2-l","bottomwear","legwear 2-l","legwear 2-r")
 
 def stage2(source_project: Path, edited_zip: Path, dest: Path, *, editor_root=None,
            connect=None,serve=None,layer_names=None) -> dict:
