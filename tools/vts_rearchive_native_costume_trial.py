@@ -63,7 +63,7 @@ def stage2(source_project: Path, edited_zip: Path, dest: Path, *, editor_root=No
                 client.edit("project_save_as",path=str(clone))
                 if not clone.is_file():raise RuntimeError("No cloned native project")
                 actual=_pages(client,"layers")
-                for name in COSTUME_HAIR:
+                for name in names:
                     matches=[x for x in actual if x.get("name","").strip().lower()==name.lower()]
                     if len(matches)!=1:raise RuntimeError("No unique real layer "+name)
                     row=matches[0]
