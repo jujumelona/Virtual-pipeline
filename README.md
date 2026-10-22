@@ -4,6 +4,35 @@
 
 **2D See-through 전용 파츠 분리:** 2D 생성 ZIP 16개는 고품질 원화와 다각도 참고 PNG만 생성합니다. 분리에는 See-through(LayerDiff/Marigold 및 공식 SemanticSAM 후처리)만 사용하며 Qwen/Stable-Layers는 비활성화했습니다. 독립 FACE/HAIR/OUTFIT 결과는 그대로 See-through에 넣을 수 없으므로 진짜 RGBA와 같은 크기·원점으로 정렬·합성한 뒤 실행합니다. 합성 CLI: `python -m tools.vts_see_through_only --face face__ARTWORK.zip --outfit live2d_upper__outfit__ARTWORK.zip --hair live2d_upper__hair__ARTWORK.zip --output /content/merged`; 실제 GPU 분리는 `--run-see-through`를 명시해야 합니다. 정렬 프리뷰는 사람이 검수해야 합니다. 같은 CLI에서 자동 리깅까지 시도하려면 `--run-see-through --run-psd2live`를 함께 지정하세요. GPU PSD 분리 없이 `--run-psd2live` 단독 실행은 차단합니다. [2D ZIP 지침](docs/image_ai_kits_v2/README.md).
 
+## Cubism PRO 모델 템플릿 우선 제작 (새 기본 경로, 2026-10-23)
+
+**출발점은 기존 이미지 제작 지침 ZIP입니다.** `docs/image_ai_kits_v2/zips/face.zip` +
+Live2D 바스트업·상반신·전신별 HAIR/OUTFIT/ACCESSORY 총 **10개** 지침 ZIP을
+모델 템플릿 재사용에 유리하게 다시 생성했습니다. Inochi2D 및 3D 지침은 변경하지 않습니다.
+가장 먼저 완성 마스터 원화가 승인되어야 하며 원본 PNG를 파츠처럼 잘라서 저품질 리깅을 강행하지 않습니다.
+새 지침에는 민트색 눈, 얼굴/목 기준점, 헤어·소매 물리, 독립 DNA 이중나선 캡슐 디자인 기준이 추가되었습니다.
+
+- **1. 원화:** `face.zip` + 프레임별 HAIR/OUTFIT/ACCESSORY 원화를 승인하고 동일 캔버스로 정합합니다.
+  독립 RGBA 파츠가 실제로 제작되어 있다면 보존하고, 그렇지 않으면 합성된 전체 그림에서
+  See-through + SemanticSAM 분리를 실행합니다. 단독 FACE/HAIR ZIP을 바로 See-through에 넣지 않습니다.
+- **2. Colab:** [See-through 원화 ZIP 합성 Colab](notebooks/VTuber_SeeThrough_Only_Source_ZIPs.ipynb),
+  [완성 캐릭터 정면 Colab](notebooks/FACE_SeeThrough_OfficialAligned_v3.ipynb),
+  [Live2D 모드별 v8 Colab](notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb) 모두
+  `DELIVERY_TARGET=cubism_pro`를 기본 인계 대상으로 제공합니다.
+  각 노트북은 PSD·PNG·참고·QA 자료를 넣은 PRO용 ZIP을 내려받게 합니다.
+- **3. PRO Editor:** `tools/vts_cubism_pro.py`는 PSD ZIP의 정확한 파츠 자료를 보존해
+  `avatar.psd`, `artwork/`, `cubism_pro/START_HERE.md`,
+  `cubism_pro/rig_transfer_plan.json`을 만듭니다.
+  선택적으로 권한이 있는 원본 `.cmo3`를 함께 포장합니다.
+  Cubism PRO에서는 **모델 템플릿 적용 → 아트메시 대응 → 키폼·디포머·물리 수정 → CMO3 저장/MOC3 내보내기**를 직접 수행해야 합니다.
+  이 ZIP은 리깅된 모델이나 네이티브 앱 QA 완료가 아닙니다.
+- **4. 다른 경로:** PSD2Live v3.3.1/v3.6 자동 리깅은 `RIGGING=auto`·`modern` 등
+  명시적으로 선택할 때만 사용합니다. Cubism 5.4 alpha 편집 API는 2026-10-18 종료된
+  평가판이므로 이 파이프라인의 자동 편집 백엔드로 사용하지 않습니다.
+- **재현 및 검증:** `python tools/rebuild_cubism_pro_zips.py`로 해당 10개 지침 ZIP을 재생성할 수 있습니다.
+  `pytest -q tests/test_cubism_pro_handoff.py`는 14개 지침 파일 보존, PSD 헤더,
+  PRO 인계 ZIP 및 허위 MOC3 방지를 검사합니다. PRO GUI에서의 예술적 품질/물리 적용은 별도 실기 검사입니다.
+
 ## 고품질 공개 프로젝트 활용: 원본 파츠 보존 + PSD2Live v3.6 (선택형)
 
 [고품질 제작·실행 방법·공개 모델 사례와 실제 QA](docs/HIGH_QUALITY_OPEN_SOURCE_LIVE2D_2026-10-22.md)
