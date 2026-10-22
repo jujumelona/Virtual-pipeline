@@ -1,5 +1,8 @@
 name: REARCHIVE stage6 actually recolor main skirt and long sleeves
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/rearchive-real-costume-stage6.yml']
   workflow_run:
     workflows:
       - "REARCHIVE real independent twin tail meshes and sway"
@@ -7,7 +10,7 @@ on:
   workflow_dispatch:
 jobs:
   actual-cloth-native:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions: {actions: read, contents: read}
@@ -23,7 +26,7 @@ jobs:
         run: python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3'
       - name: Load successfully rigged twin-tail parent
         env:
-          PARENT_RUN: ${{ github.event.workflow_run.id }}
+          PARENT_RUN: ${{ github.event.workflow_run.id || '39786689164' }}
         run: |
           test -n "$PARENT_RUN"
           mkdir -p "$RUNNER_TEMP/parent"
@@ -55,7 +58,7 @@ jobs:
             --source-project "$RUNNER_TEMP/parent/REARCHIVE_STAGE5_REAL_TWIN_TAILS.psd2live" \
             --edited-zip "$RUNNER_TEMP/source-art/REARCHIVE_ACTUAL_33_LAYER_PAINTINGS.zip" \
             --editor "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
-            --layers bottomwear "handwear 2-r" "handwear 2-l" \
+            --layers bottomwear "handwear 1-r" "handwear 1-l" \
             --out "$RUNNER_TEMP/stage6"
       - name: Validate actual new MOC3 multiple head, eye and mouth poses
         run: |
@@ -68,7 +71,7 @@ jobs:
           p=Path(os.environ['RUNNER_TEMP'])/'stage6'
           d=json.loads((p/'STATUS.json').read_text())
           assert d['native_export_verified']
-          assert {x['name'] for x in d['replaced_layers']}=={'bottomwear','handwear 2-r','handwear 2-l'}
+          assert {x['name'] for x in d['replaced_layers']}=={'bottomwear','handwear 1-r','handwear 1-l'}
           verdict=render_actual_native_moc3(Path(d['exported_model3']),p/'poses')
           assert all(verdict.get(k) is True for k in
             ('native_pose_rendered','pose_activity_passed','native_pose_geometry_passed'))
