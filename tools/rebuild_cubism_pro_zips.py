@@ -106,7 +106,7 @@ Cubism 템플릿에서 같은 이름 우선 매핑을 활용하도록
 이 이미지 생성 ZIP은 기존 필수 outputs/master.png 및 reference_views/
 expression_refs PNG를 그대로 납품한다. 원화 ZIP 자체에 허위 CMO3,
 MOC3 또는 미생성 PSD를 넣지 않는다. 실제 파츠를 제공하는 경우에만
-등록 캔버스가 같은 part_art/*.png + part_art/_order.txt를 별도로
+등록 캔버스가 같은 실제 독립 RGBA 파츠와 순서 정보를 별도로
 정확히 제공한다. PSD 단계에서는 반드시 원화 픽셀을 보존한다.
 
 Colab 기본 최종 출력은 Cubism PRO 입력 번들:
