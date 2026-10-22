@@ -96,6 +96,33 @@ PSD2Live v3.6 CLI는 네이티브 MOC3·CMO3를 내보내지만, 복잡한 MCP �
 
 이미지는 127.0.0.1 또는 localhost OpenAI 호환 /v1/chat/completions 엔드포인트에만 전송합니다. 진단 범주는 눈·입·목·머리카락·의상·가림·선화·얼굴 정체성입니다. 유효한 JSON만 받아 수정 도구 후보를 만들며 모델 제안 코드를 실행하지 않습니다. 비전 모델의 진단만으로 미적 완성도를 인증하지 않습니다.
 
+## 8. 실제 공개 캐릭터의 네이티브 편집 검증 완료
+
+- 실제 PSD2Live v3.6 CLI → 실제 CMO3 → 실제 headless MCP → 새 편집 프로젝트까지 검증했습니다.
+- 실제 ArtMeshLegwear를 대상으로 layer_mesh_structure_preview 후 layer_mesh_structure 명령이 성공했고, 이전과 다른 편집 상태 토큰을 검증한 뒤 실제 MOC3/CMO3를 다시 내보냈습니다.
+- 실물 CI: https://github.com/jujumelona/Virtual-pipeline/actions/runs/39713390755
+- 결과는 메쉬 수정/새 네이티브 파일의 존재와 참조의 합격입니다. 원화 대비 미적 품질이 개선됐다는 뜻은 아닙니다.
+- 현재 공개 테스트 모델의 실제 ParamAngleX는 -45부터 +45입니다. 90도 측면은 지원하지 않으며, 90도 양방향 실제 원화 및 파츠, 새로운 파라미터 범위·키폼이 필요합니다.
+- 90도 범위는 tools.vts_modern_mcp_probe의 full_90_parameter_range_verified로 실제 편집기의 파라미터 값을 검사합니다.
+
+## 9. VTube Studio 앱 내 실사용 확인
+
+VTube Studio 데스크톱 애플리케이션이 사용자의 컴퓨터에서 실행 중이고 모델이 로딩되어 있어야 합니다. GitHub CI에서 독립 Cubism Core가 렌더되었다고 VTube Studio 연결/추적을 인증해서는 안 됩니다.
+
+공식 API 기반 read-only 확인 도구:
+
+    python -m pip install "websockets>=13,<17"
+    export VTS_API_AUTH_TOKEN="VTS에서 승인받아 따로 보관한 토큰"
+    python -m tools.vts_real_app_acceptance --expected-model3 ds.model3.json --output /path/to/app-qa
+
+VTube Studio의 Allow Plugin API access가 활성화되어 있고 플러그인 권한을 명시적으로 승인해야 합니다. ws://127.0.0.1:8001만 사용하며 임의 원격 서버에 얼굴/모델 데이터를 보내지 않습니다. 실제 로딩된 정확한 model3.json, ArtMesh 수, FPS, FaceFound 연속 표본을 확인하고 증거를 JSON으로 보관합니다. 인증 토큰은 기록하지 않습니다.
+
+이 확인만으로 입·눈·물리의 미적 품질은 증명되지 않습니다. 추적이 실제 움직임에 연동되는 정도와 시각적인 품질은 별도 평가가 필요합니다. 프로젝트에 VTube Studio가 없는 환경에서 성공 결과를 만들지 않습니다.
+
+## 10. 3D VRM 실제 네이티브 제작 범위
+
+기존 blender-vrm-native.yml은 Blender 실물 바이너리 + 공식 VRM extension으로 GLB → 스킨 → VRM → Blender 재가져오기/저장, 필수 3D VRM 검사 경로를 가지고 있습니다. 이 검증에 최종 VRM의 humanBones, 표정 프리셋, SpringBone 체인, 실제 스킨 메쉬를 다시 검사하는 절차를 추가했습니다. 테스트 소스는 합성 3D 구체이므로 특정 2D 캐릭터를 고품질 3D로 복원했다고 주장해서는 안 됩니다. 별도 3D 헤어·의상 자동 정합과 방송용 실제 3D 결과는 여전히 남아 있습니다.
+
 ## 현재 미완료인 고급 제작 요건
 
 1. 실제 복잡한 한 캐릭터에 대해 파츠 생성·가림면 재작화·독립 의상 결합까지 완전 자동으로 고품질 완료
