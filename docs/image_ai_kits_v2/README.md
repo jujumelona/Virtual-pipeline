@@ -1,5 +1,27 @@
 # 버추얼 원화 제작 ZIP — 18개
 
+## Live2D용 Cubism PRO 템플릿 우선 지침 (2026-10-23)
+
+18개 중 **Live2D 제작에 사용하는 10개**(공통 FACE 1 + 바스트업·상반신·전신별 HAIR/OUTFIT/ACCESSORY 9)의
+기존 ZIP 14개 문서에 PRO용 템플릿 대응 지침을 추가했습니다.
+원화의 눈·입·얼굴·목, 트윈테일, 큰 소매, DNA 캡슐과 헬릭스를 **기존 고급 리깅 모델의
+ArtMesh/디포머를 재사용하기 쉬운 형태**로 설계하도록 했습니다. 실제 부위 연결과 그림 품질을 먼저 승인합니다.
+
+이미지 AI가 만든 원화 ZIP 자체의 납품 규칙은 이전과 같습니다. 원화가 합격하면
+Colab에서 기존 파츠를 보존하거나 See-through를 사용해 PSD로 분리한 뒤,
+**Cubism PRO 모델 템플릿을 적용하기 위한 PSD + PNG + 검사자료 ZIP**을 만듭니다.
+Cubism PRO에서의 모델 템플릿 매핑·키폼·물리 및 CMO3/MOC3 출력은 에디터 단계이며,
+Colab에서 자동 완료했다고 주장하지 않습니다. 사용 허가받은 .cmo3 원본 템플릿을
+선택적으로 인계 ZIP에 포함할 수 있습니다.
+
+[**PRO용 기본 Colab**](../../notebooks/VTuber_SeeThrough_Only_Source_ZIPs.ipynb) ·
+[완성 캐릭터 1장용 Colab](../../notebooks/FACE_SeeThrough_OfficialAligned_v3.ipynb) ·
+[Live2D v8](../../notebooks/VTuber_Commercial_Pipeline_Colab_v8.ipynb)
+
+`python tools/rebuild_cubism_pro_zips.py --check` 또는
+`node tools/build_source_only_kits_v7.js --check`로 재현성을 검사할 수 있습니다.
+3D 2개와 Inochi2D 전용 지침 6개는 PRO 출력 경로로 변경하지 않았습니다.
+
 ## See-through 전용 2D 생성 지침 (2026-10-17)
 
 **2D 원화 지침 ZIP 16개**의 각 14개 문서에 See-through 전용 계약을 삽입했습니다. 3D용 2개 ZIP은 변경하지 않습니다. 이미지 생성 AI에는 **자산별 원화와 시점·입 표정 참고 PNG만** 요구하고 파츠 분리, PSD, 리깅을 요구하지 않습니다.
@@ -25,7 +47,7 @@
 
 이 ZIP을 외부 이미지 생성 AI에 입력하는 목적은 **실제 방송용 2D 애니 VTuber 얼굴 원화**입니다. 파일 수만 맞춘 기본 벡터 얼굴이나 타원·선·원통 목으로 조합한 프록시 캐릭터를 제출해서는 안 됩니다.
 
-`00_MASTER_FIRST.md`에 바로 사용할 수 있는 영어 **PRIMARY MASTER IMAGE PROMPT**를 넣었습니다. 따뜻한 주황 홍채·동공·빛 반사·개별 속눈썹·눈꺼풀, 둥근 성인 애니 얼굴, 귀·턱·목 곡선, 섬세한 선 굵기 변화와 2~3단계 전문 셀 명암을 요구합니다.
+`00_MASTER_FIRST.md`에 바로 사용할 수 있는 영어 **PRIMARY MASTER IMAGE PROMPT**를 넣었습니다. 다층 민트색 홍채·동공·빛 반사·개별 속눈썹·눈꺼풀, 둥근 성인 애니 얼굴, 귀·턱·목 곡선, 섬세한 선 굵기 변화와 2~3단계 전문 셀 명암을 요구합니다.
 
 **작업 순서:** 먼저 `outputs/master.png` 정면 고품질 원화를 **한 장만** 완성·검수 → 합격한 동일 캐릭터로 45°/90°/상하 회전과 표정 참고 PNG 개별 제작 → 총 12개 PNG 검수 후 `face__ARTWORK.zip` 납품. 단순 그림 12칸을 한 번에 만들고 잘라내는 방식은 금지합니다.
 
