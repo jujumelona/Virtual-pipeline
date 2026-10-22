@@ -16,6 +16,8 @@ on:
       - "tools/vts_native_moc_pose_worker.py"
       - "tools/vts_native_repair_plan.py"
       - "tools/vts_local_visual_critique.py"
+      - "tools/vts_real_app_acceptance.py"
+      - "tools/vts_modern_real_mesh_trial.py"
       - "tools/vts_open_quality_cases.py"
       - "tools/vts_native_autorepair.py"
       - "tools/vts_reference_keyform_author.py"
@@ -36,6 +38,7 @@ on:
       - "tests/test_vts_native_advanced_expressions.py"
       - "tests/test_vts_native_repair_plan.py"
       - "tests/test_vts_local_visual_critique.py"
+      - "tests/test_vts_real_app_acceptance.py"
       - "tests/test_vts_open_quality_cases.py"
       - "tests/test_vts_reference_keyform_author.py"
       - "tests/test_vts_reference_mcp_contract.py"
@@ -57,7 +60,7 @@ jobs:
         run: python -m pip install "pytest>=8,<10" "Pillow>=11,<13" "psd-tools>=1.14,<2" "numpy>=2,<3"
       - name: Compile entrypoints and parse notebooks
         run: |
-          python -m py_compile tools/colab_mode_ui.py tools/vts_see_through_only.py tools/vts_preserved_source_parts.py tools/vts_artwork_export.py tools/vts_psd2live.py tools/vts_psd2live_modern.py tools/vts_modern_editable_project.py tools/vts_modern_mesh_refiner.py tools/vts_native_visual_benchmark.py tools/vts_native_moc_pose_worker.py tools/vts_native_repair_plan.py tools/vts_local_visual_critique.py tools/vts_open_quality_cases.py tools/vts_native_autorepair.py tools/vts_reference_keyform_author.py tools/vts_ai_landmark_pairs.py tools/vts_ai_native_feedback_loop.py
+          python -m py_compile tools/colab_mode_ui.py tools/vts_see_through_only.py tools/vts_preserved_source_parts.py tools/vts_artwork_export.py tools/vts_psd2live.py tools/vts_psd2live_modern.py tools/vts_modern_editable_project.py tools/vts_modern_mesh_refiner.py tools/vts_native_visual_benchmark.py tools/vts_native_moc_pose_worker.py tools/vts_native_repair_plan.py tools/vts_local_visual_critique.py tools/vts_real_app_acceptance.py tools/vts_modern_real_mesh_trial.py tools/vts_open_quality_cases.py tools/vts_native_autorepair.py tools/vts_reference_keyform_author.py tools/vts_ai_landmark_pairs.py tools/vts_ai_native_feedback_loop.py
           python - <<'PY'
           import ast, json
           from pathlib import Path
@@ -86,6 +89,7 @@ jobs:
             tests/test_vts_native_advanced_expressions.py \
             tests/test_vts_native_repair_plan.py \
             tests/test_vts_local_visual_critique.py \
+            tests/test_vts_real_app_acceptance.py \
             tests/test_vts_open_quality_cases.py \
             tests/test_vts_reference_keyform_author.py \
             tests/test_vts_reference_mcp_contract.py \
