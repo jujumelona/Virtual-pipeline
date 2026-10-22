@@ -7,6 +7,9 @@ from tools import vts_cc0_source_layer_audit as audit
 def test_roles_are_hints_only():
     assert audit.classify("eyeWhite-L")=="eyes"
     assert audit.classify("left sleeve big")=="cloth"
+    assert audit.classify("bottomwear")=="cloth"
+    assert audit.classify("neckwear")=="cloth"
+    assert audit.classify("headwear 1")=="hair"
     assert audit.classify("back_hair")=="hair"
     assert audit.classify("unlabeled")=="other"
 
