@@ -1,0 +1,23 @@
+name: REARCHIVE CC0 retarget safety
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/vts_cc0_rig_retarget.py'
+      - 'tools/vts_reference_keyform_author.py'
+      - 'tests/test_cc0_rig_retarget.py'
+      - '.github/workflows/rearchive-cc0-retarget-gate.yml'
+  workflow_dispatch:
+jobs:
+  retarget-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dependencies
+        run: python -m pip install --disable-pip-version-check Pillow pytest
+      - name: Non-destructive native retarget contract
+        run: python -m pytest tests/test_cc0_rig_retarget.py -q
