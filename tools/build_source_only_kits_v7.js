@@ -151,7 +151,14 @@ if (typeof require !== 'undefined' && require.main === module) {
     const bytes = Buffer.from(art.b64, 'base64');
     const target = path.join(root, mode === 'face' ? 'face.zip' : mode + '__' + asset + '.zip');
     if (check) {
-      if (!fs.existsSync(target) || !fs.readFileSync(target).equals(bytes)) throw Error('stale instruction ZIP: ' + target);
+      // The ten Live2D archives receive a separately reproducible PRO overlay.
+      // They must be checked by the Python post-processor, not compared with
+      // their raw source-only inputs (which would otherwise always be stale).
+      const cubismPro = mode === 'face' || mode.startsWith('live2d_');
+      if (!fs.existsSync(target)) throw Error('missing instruction ZIP: ' + target);
+      if (!cubismPro && !fs.readFileSync(target).equals(bytes)) {
+        throw Error('stale instruction ZIP: ' + target);
+      }
     } else fs.writeFileSync(target, bytes);
     validated += 1;
   }
@@ -160,5 +167,10 @@ if (typeof require !== 'undefined' && require.main === module) {
   const stale = published.filter(name=>!required.has(name));
   if (check && (stale.length || published.length!==required.size)) throw Error('stale/duplicate kit ZIPs: '+stale.join(', '));
   if (!check) for (const name of stale) fs.unlinkSync(path.join(root,name));
-  console.log((check ? 'PASS reproducible' : 'Generated') + ': ' + validated + ' source-only ZIPs / ' + validated * 14 + ' MDs');
+  const {execFileSync} = require('child_process');
+  const py = process.env.PYTHON || process.env.PYTHON3 || 'python3';
+  execFileSync(py, ['tools/rebuild_cubism_pro_zips.py', ...(check ? ['--check'] : [])],
+               {cwd: path.join(__dirname, '..'), stdio: 'inherit'});
+  console.log((check ? 'PASS reproducible' : 'Generated') + ': ' + validated +
+              ' source art ZIPs, with Cubism PRO overlays on 10 Live2D ZIPs');
 }
