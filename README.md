@@ -26,6 +26,12 @@
 
 현재 이 경로는 **±45° 3/4 참고 원화(기본)와 명시된 ±30° 렌더의 기존 Warp 보정**만 처리합니다. 완전한 ±90° 프로필은 교체 원화, 가림/그리기 순서, 전체 목·얼굴 결합과 실제 키폼 검증이 따로 필요하므로 자동 완성으로 표기하지 않습니다. 실제 GPU·MCP·VTube Studio 실물 통합 검증은 별도입니다.
 
+## 공식 See-through 설정 정합 검사 노트북
+
+[**공식 설정 검사 Colab 바로 열기**](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/FACE_SeeThrough_OfficialAligned_v3.ipynb) · [GitHub 원본](notebooks/FACE_SeeThrough_OfficialAligned_v3.ipynb)
+
+이 노트북은 FACE/OUTFIT/HAIR를 정렬한 완성 정면 RGBA 캐릭터를 대상으로 공식 `shitagaki-lab/see-through` 저장소의 추론 CLI, GPU VRAM별 실행 설정, 입력 시각 승인, PSD 구조 및 로그를 검사합니다. **FACE 단독 ZIP을 See-through에 입력하지 않습니다.** 실행은 명시적으로 프리뷰를 승인한 경우에만 진행되며, 실제 Colab GPU 추론 성공과 Cubism 리깅은 **아직 검증되지 않았습니다**. 자산별 ZIP의 기존 제작/선택형 리깅 흐름은 아래 [See-through 단독 원화 ZIP 합성 Colab](notebooks/VTuber_SeeThrough_Only_Source_ZIPs.ipynb)을 유지합니다.
+
 ## See-through 단독 Live2D 원화 ZIP 합성 → 분리 PSD
 
 [**전용 Colab 열기**](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/VTuber_SeeThrough_Only_Source_ZIPs.ipynb) — FACE, OUTFIT, HAIR 원화 ZIP(+선택 ACCESSORY)을 실제 투명 RGBA로 합성한 다음, 시각 검수를 거쳐 See-through + 공식 SemanticSAM 파츠 PSD를 생성합니다. `Qwen=False`이고 3D/VRM은 수행하지 않습니다. 기본 모드는 PSD 제작(`RIGGING=artwork_only`)이지만 ⑤ 셀에서 `RIGGING=auto`를 명시하면 기존 PSD를 재분해하지 않고 PSD2Live MOC3/CMO3 제작을 추가로 시도합니다. ⑥ 셀의 `VERIFY_NATIVE_POSES=True`를 선택하면 **실제 MOC3** 포즈 프레임과 JSON 검사 기록을 출력 ZIP에 넣으며, 검사가 실패하면 성공으로 처리하지 않습니다. 네이티브 포즈 검사가 통과하더라도 VTube Studio 실제 얼굴 추적과 방송 품질은 별도 확인이 필요합니다. 현재 통합 노트북의 개별 FACE/HAIR/OUTFIT 모드는 전체 캐릭터 합성 경로가 아니므로, 이 전용 노트북을 사용하세요. **알파와 캔버스가 맞아도 시각적 정렬은 자동 보장되지 않습니다.**
