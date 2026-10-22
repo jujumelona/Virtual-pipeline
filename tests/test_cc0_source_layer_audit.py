@@ -9,8 +9,12 @@ def test_roles_are_hints_only():
     assert audit.classify("left sleeve big")=="cloth"
     assert audit.classify("bottomwear")=="cloth"
     assert audit.classify("neckwear")=="cloth"
-    assert audit.classify("headwear 1")=="hair"
+    assert audit.classify("headwear 1")=="ornament"
     assert audit.classify("back_hair")=="hair"
+    assert audit.classify("tail 2")=="appendage"
+    assert audit.classify("ears-l")=="ears"
+    assert audit.classify("legwear")=="cloth"
+    assert audit.classify("footwear")=="cloth"
     assert audit.classify("unlabeled")=="other"
 
 def test_nonexistent_case_dir_rejected(tmp_path):
