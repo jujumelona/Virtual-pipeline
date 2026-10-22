@@ -13,17 +13,21 @@ from tools.vts_psd2live_modern import ensure_modern_psd2live
 from tools.vts_psd2live import validate_psd2live_output
 from tools.vts_rearchive_native_iris_trial import _pages,sha
 
-# Do not attempt animal tails, ears, composite neckwear, split hair layers.
+# Explicit source-geometry only; no animal ears or tails and no undocumented mesh remapping.
 COSTUME_HAIR = ("front hair","front hair 2","back hair 3",
                 "topwear","bottomwear 2","handwear 1-r","handwear 1-l",
                 "headwear 1","headwear 2")
+OPTIONAL_ADDITIONS = ("neckwear","handwear 2-r","handwear 2-l")
 
 def stage2(source_project: Path, edited_zip: Path, dest: Path, *, editor_root=None,
-           connect=None,serve=None) -> dict:
+           connect=None,serve=None,layer_names=None) -> dict:
     project=Path(source_project).resolve(strict=True)
     dest=Path(dest).resolve()
     if project.suffix!=".psd2live":raise ValueError("Existing editable native project required")
     if dest.exists() and any(dest.iterdir()):raise ValueError("Destination must be empty")
+    names=tuple(COSTUME_HAIR if layer_names is None else layer_names)
+    if not names or len(names)!=len(set(names)) or any(n not in COSTUME_HAIR+OPTIONAL_ADDITIONS for n in names):
+        raise ValueError("Unknown, duplicated or missing texture layers")
     original=sha(project)
     root=ensure_modern_psd2live(editor_root)
     dest.mkdir(parents=True)
@@ -41,7 +45,7 @@ def stage2(source_project: Path, edited_zip: Path, dest: Path, *, editor_root=No
         manifest=json.loads(z.read("01_LAYER_MAPPING_TEMPLATE.json"))
         if manifest.get("canvas")!=[2048,3072]:raise ValueError("Wrong source canvas")
         parts={item["source_layer_name"]:item for item in manifest["template_layers"]}
-        for name in COSTUME_HAIR:
+        for name in names:
             if name not in parts:raise ValueError("Missing original source layer "+name)
             image=dest/(name.replace(" ","_")+".png")
             image.write_bytes(z.read(parts[name]["guide"]))
@@ -102,7 +106,8 @@ def main():
     p.add_argument("--edited-zip",type=Path,required=True)
     p.add_argument("--editor",type=Path,required=True)
     p.add_argument("--out",type=Path,required=True)
+    p.add_argument("--layers",nargs="+",default=None,help="Exact native layer names; default is nine safe source-geometry layers")
     a=p.parse_args()
-    print(json.dumps(stage2(a.source_project,a.edited_zip,a.out,editor_root=a.editor),
+    print(json.dumps(stage2(a.source_project,a.edited_zip,a.out,editor_root=a.editor,layer_names=a.layers),
                     ensure_ascii=False,indent=2))
 if __name__=="__main__":main()
