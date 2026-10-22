@@ -100,10 +100,18 @@ def retarget(source_project,edited_zip,output,*,editor_root=None,connect=None,se
                     if isinstance(rect,dict):
                         rect=[rect.get(k) for k in ("left","top","width","height")]
                     expected=[xyxy[0],xyxy[1],xyxy[2]-xyxy[0],xyxy[3]-xyxy[1]]
-                    if not isinstance(rect,list) or len(rect)!=4 or any(x is None for x in rect) or any(
-                        abs(float(a)-float(b))>3 for a,b in zip(rect,expected)
-                    ):
-                        raise RuntimeError(f"Real mesh registration mismatch {name} {rect} vs {expected}")
+                    if not isinstance(rect,list) or len(rect)!=4 or any(x is None for x in rect):
+                        raise RuntimeError("Native layer rectangle missing for "+name)
+                    # The original exported PSD crop can include an extra
+                    # 1–6px transparent fringe that the saved rig auto-trimmed.
+                    # Keep the RIG's real canvas_rect authoritative; never
+                    # move/deform its mesh to fake source guide alignment.
+                    drift=[round(float(a)-float(b),3) for a,b in zip(rect,expected)]
+                    if abs(drift[0])>8 or abs(drift[1])>8 or abs(drift[2])>4 or abs(drift[3])>4:
+                        raise RuntimeError(f"Native layer diverges too far {name} {rect} vs {expected}")
+                    verdict.setdefault("source_crop_to_native_rect_drifts",[]).append(
+                        {"layer":name,"native_canvas_rect":rect,"guide_rect":expected,
+                         "delta":drift,"artist_registration_verified":False})
                     before=editor.state()
                     editor.edit("layer_replace_image",layer_id=handle,path=str(png),
                                 fit="contain",rebuild_mesh=False)
