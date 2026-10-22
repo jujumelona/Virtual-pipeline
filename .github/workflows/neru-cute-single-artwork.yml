@@ -1,0 +1,48 @@
+name: NERU Cute Single Artwork Input
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "assets/user_character/neru_cute_anime/character_master_cutout.png.b64"
+      - ".github/workflows/neru-cute-single-artwork.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  png-input-verification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install image validator
+        run: python -m pip install --disable-pip-version-check "Pillow>=11,<13"
+      - name: Decode and verify original transparent artwork
+        run: |
+          mkdir -p /tmp/neru-original
+          base64 -d assets/user_character/neru_cute_anime/character_master_cutout.png.b64 > /tmp/neru-original/character_master_cutout.png
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          path=Path('/tmp/neru-original/character_master_cutout.png')
+          with Image.open(path) as im:
+              assert im.format=='PNG' and im.mode=='RGBA', (im.format,im.mode)
+              assert min(im.size) >= 1024, im.size
+              lo, hi=im.getchannel('A').getextrema()
+              assert lo==0 and hi==255, (lo,hi)
+              box=im.getchannel('A').getbbox()
+              assert box and box[2]-box[0]>800 and box[3]-box[1]>1000
+              print('ACTUAL_CHARACTER_RGBA_CUTOUT_VALID',im.size,box,path.stat().st_size)
+          PY
+      - name: Upload actual artwork bytes
+        uses: actions/upload-artifact@v4
+        with:
+          name: neru-cute-single-original-rgba
+          path: /tmp/neru-original/character_master_cutout.png
+          retention-days: 30
+          if-no-files-found: error
