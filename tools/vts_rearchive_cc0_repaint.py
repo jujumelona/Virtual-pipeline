@@ -26,7 +26,7 @@ def _hue(im: Image.Image, role: str, name: str) -> Image.Image:
         x=np.arange(im.width)[None,:]
         half=x>im.width//2
         half=np.repeat(half,im.height,axis=0)
-        dark=alpha & (half | name in ("back hair 2","front hair 2"))
+        dark=alpha & (half | (name in ("back hair 2","front hair 2")))
         v[dark]=np.clip(v[dark]*.23+20,0,255)
         s[dark]=np.clip(s[dark]*.48+10,0,255)
         red=((h<20)|(h>230))&(s>65)&alpha&~dark
