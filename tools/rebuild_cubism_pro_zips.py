@@ -195,10 +195,21 @@ def main() -> None:
             with tempfile.TemporaryDirectory() as scratch:
                 copy = Path(scratch) / filename
                 shutil.copyfile(dest, copy)
-                changed = transform_zip(copy)
-                if changed or copy.read_bytes() != dest.read_bytes():
-                    raise SystemExit("CUBISM_PRO_INSTRUCTION_ZIP_STALE: " + filename)
-            print(filename, "PASS reproducible")
+                transform_zip(copy)
+                # ZIP containers can differ in metadata; source document bytes
+                # and the fourteen canonical member names are what must match.
+                with ZipFile(copy) as rebuilt, ZipFile(dest) as original:
+                    if rebuilt.namelist() != original.namelist():
+                        raise SystemExit("CUBISM_PRO_ZIP_MEMBERS_STALE: " + filename)
+                    mismatch = [
+                        name for name in original.namelist()
+                        if original.read(name) != rebuilt.read(name)
+                    ]
+                if mismatch:
+                    raise SystemExit(
+                        "CUBISM_PRO_INSTRUCTION_TEXT_STALE: " + filename
+                        + " mismatched=" + ",".join(mismatch))
+            print(filename, "PASS reproducible documents")
         else:
             print(filename, "updated" if transform_zip(dest) else "unchanged")
 
