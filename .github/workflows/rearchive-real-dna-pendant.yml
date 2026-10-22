@@ -1,0 +1,103 @@
+name: REARCHIVE actual DNA capsule native texture and pose check
+on:
+  workflow_run:
+    workflows:
+      - "REARCHIVE remove original animal ears and tails in actual MOC3"
+    types: [completed]
+  workflow_dispatch:
+jobs:
+  real-dna-pendant:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Python / rig input dependencies
+        run: python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3'
+      - name: Load the SUCCESSFUL animal-free native project only
+        shell: bash
+        env:
+          SOURCE_RUN: ${{ github.event.workflow_run.id }}
+        run: |
+          test -n "$SOURCE_RUN"
+          mkdir -p "$RUNNER_TEMP/animal-free"
+          gh run download "$SOURCE_RUN" --repo "${{ github.repository }}" \
+            --name rearchive-animal-free-real-native-trial \
+            --dir "$RUNNER_TEMP/animal-free"
+          test -s "$RUNNER_TEMP/animal-free/REARCHIVE_NO_ANIMAL_PARTS_EDITABLE.psd2live"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          status=json.loads((Path(os.environ['RUNNER_TEMP'])/'animal-free/STATUS.json').read_text())
+          assert status['native_export_verified']
+          assert status['native_pose_qa_passed']
+          assert status['source_unchanged']
+          assert {x['name'] for x in status['deleted_real_layer_ids']}=={
+            'ears-r','ears-l','tail 1','tail 2-t','tail 2-b','tail 3'}
+          print('REAL_ANIMAL_FREE_RIG_AS_PARENT_VERIFIED')
+          PY
+      - name: Get 33 real painted CC0 source layer images, not a contact sheet
+        run: |
+          mkdir -p "$RUNNER_TEMP/paint"
+          gh run download 39759387454 --repo "${{ github.repository }}" \
+            --name rearchive-edited-33-source-parts-unrigged --dir "$RUNNER_TEMP/paint"
+          test -s "$RUNNER_TEMP/paint/REARCHIVE_ACTUAL_33_LAYER_PAINTINGS.zip"
+      - name: Install official v3.6 headless rig editor
+        run: |
+          python - <<'PY'
+          from tools.vts_psd2live_modern import ensure_modern_psd2live
+          print(ensure_modern_psd2live(None,clone=True))
+          PY
+      - name: Paint and actually insert double-helix capsule on native neckline
+        run: |
+          python -m tools.vts_rearchive_native_dna_capsule \
+            --source "$RUNNER_TEMP/animal-free/REARCHIVE_NO_ANIMAL_PARTS_EDITABLE.psd2live" \
+            --painted-zip "$RUNNER_TEMP/paint/REARCHIVE_ACTUAL_33_LAYER_PAINTINGS.zip" \
+            --editor "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
+            --out "$RUNNER_TEMP/dna"
+      - name: Render actual modified DNA and no-animal MOC3 through Cubism Core
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          from tools.vts_multiview_runtime import render_actual_native_moc3
+          base=Path(os.environ['RUNNER_TEMP'])/'dna'
+          status=json.loads((base/'STATUS.json').read_text())
+          assert status['capsule_texture_inserted_into_actual_front_neckwear_layer']
+          assert status['native_export_verified']
+          n=render_actual_native_moc3(Path(status['model3_json']),base/'poses')
+          status['pose_test_passed']=all(n.get(x) is True for x in
+            ('native_pose_rendered','pose_activity_passed','native_pose_geometry_passed'))
+          (base/'STATUS.json').write_text(json.dumps(status,ensure_ascii=False,indent=2))
+          if not status['pose_test_passed']:
+              raise RuntimeError('DNA native avatar pose validation failed')
+          print('REAL_DNA_CAPSULE_MODEL_RENDER_SUCCEEDED_NOT_FULL_REARCHIVE_ART')
+          PY
+      - name: Preserve actual DNA-edited model and exact native screens or failure reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-animal-free-dna-texture-real-model-not-final
+          path: |
+            ${{ runner.temp }}/dna/STATUS.json
+            ${{ runner.temp }}/dna/REARCHIVE_DNA_CAPSULE_FRONT.png
+            ${{ runner.temp }}/dna/*.psd2live
+            ${{ runner.temp }}/dna/native/**
+            ${{ runner.temp }}/dna/poses/**
+            ${{ runner.temp }}/dna/mcp/**/headless_mcp.log
+          if-no-files-found: ignore
+          retention-days: 14
