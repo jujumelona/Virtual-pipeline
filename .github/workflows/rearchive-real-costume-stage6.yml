@@ -52,13 +52,13 @@ jobs:
           from tools.vts_psd2live_modern import ensure_modern_psd2live
           print(ensure_modern_psd2live(None,clone=True))
           PY
-      - name: Replace actual main skirt and long sleeves into cloned native project
+      - name: Replace genuinely altered main red skirt in cloned native project
         run: |
           python -m tools.vts_rearchive_native_costume_trial \
             --source-project "$RUNNER_TEMP/parent/REARCHIVE_STAGE5_REAL_TWIN_TAILS.psd2live" \
             --edited-zip "$RUNNER_TEMP/source-art/REARCHIVE_ACTUAL_33_LAYER_PAINTINGS.zip" \
             --editor "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
-            --layers bottomwear "handwear 1-r" "handwear 1-l" \
+            --layers bottomwear \
             --out "$RUNNER_TEMP/stage6"
       - name: Validate actual new MOC3 multiple head, eye and mouth poses
         run: |
@@ -71,7 +71,7 @@ jobs:
           p=Path(os.environ['RUNNER_TEMP'])/'stage6'
           d=json.loads((p/'STATUS.json').read_text())
           assert d['native_export_verified']
-          assert {x['name'] for x in d['replaced_layers']}=={'bottomwear','handwear 1-r','handwear 1-l'}
+          assert {x['name'] for x in d['replaced_layers']}=={'bottomwear'}
           verdict=render_actual_native_moc3(Path(d['exported_model3']),p/'poses')
           assert all(verdict.get(k) is True for k in
             ('native_pose_rendered','pose_activity_passed','native_pose_geometry_passed'))
