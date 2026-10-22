@@ -1,4 +1,4 @@
-"""Remove five genuinely imported animal-ear/tail layers from the cloned RE:ARCHIVE trial.
+"""Remove six genuinely imported animal-ear/tail layers from the cloned RE:ARCHIVE trial.
 
 This invokes upstream PSD2Live 3.6 "layer_delete" against ACTUAL named
 layers in a source CC0 rig, not an alpha-paint mock. Preserves original
@@ -13,7 +13,7 @@ from tools.vts_modern_editable_project import _external_client,_serve_local_mcp
 from tools.vts_psd2live_modern import ensure_modern_psd2live
 from tools.vts_psd2live import validate_psd2live_output
 
-DELETE = ("ears-r","ears-l","tail 1","tail 2","tail 3")
+DELETE = ("ears-r","ears-l","tail 1","tail 2-t","tail 2-b","tail 3")
 
 def remove_animals(source_project:Path,output:Path,*,editor_root=None,connect=None,serve=None):
     src=Path(source_project).resolve(strict=True)
