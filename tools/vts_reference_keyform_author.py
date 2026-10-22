@@ -184,7 +184,14 @@ def _run_mcp(proxy_root: Path, operation: str, request: dict,
     # The upstream CLI waits for job completion and prints a JSON result.
     # Do not accept blank output, queued jobs or a returned business error.
     try:
-        payload = json.loads((proc.stdout or "").strip())
+        # Official proxy appends 'image /path/file.png' after a JSON result
+        # for commands such as layer_get_texture. Consume one JSON document
+        # and reject anything other than documented image output lines.
+        printed = (proc.stdout or "").strip()
+        payload, offset = json.JSONDecoder().raw_decode(printed)
+        extra = printed[offset:].strip()
+        if extra and not all(line.startswith("image ") for line in extra.splitlines()):
+            payload = None
     except (ValueError, TypeError):
         payload = None
     receipt["response"] = payload
