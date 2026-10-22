@@ -15,11 +15,23 @@ python -m tools.vts_open_quality_cases --case star_lan --output /workspace/cc0-s
 
 These examples have **CC0 1.0** assets according to their individual upstream manifest and licenses; the source **PSD2Live software is GPL-3.0, separately licensed**. Every download checks the exact archive size and SHA-256 and rejects unsafe extraction. A CC0 example does **not** prove its original art quality is good enough for a high-end finished avatar.
 
-- [Hiakari Inori](https://github.com/tsunehimatoi/psd2live-examples/tree/main/cases/hiakari-inori): **primary rig topology** for long sleeves, collar and hair, seven confirmed simulation groups and original editable `.psd2live` / PSD. Upstream example guide records **41 recognized layer roles**. Its preview records observed motion/physics activity, not actual broadcasting certification. Original archive ~659.7 MB.
+- [Hiakari Inori](https://github.com/tsunehimatoi/psd2live-examples/tree/main/cases/hiakari-inori): **primary rig topology** for long sleeves, collar and hair, seven confirmed simulation groups and original editable `.psd2live` / PSD. Upstream workflow guide refers to **41 production layers**, but the actual pinned final PSD has **33**. Its preview records observed motion/physics activity, not actual broadcasting certification. **Actual pinned final PSD audit: 33 painted raster layers at 2048×3072**; the older production guide discusses 41 intermediate layers and must not be treated as final. Original archive ~659.7 MB. **Animal ears and three animal tails cannot be transplanted as head-attached twin tails without new geometry, anchors and physics.**
 - [Kirishima Mio](https://github.com/tsunehimatoi/psd2live-examples/tree/main/cases/kirishima-mio): facial registration, eye/mouth/neck seam examples, original PSD and editable project; upstream author reports 27 PSD layers; avoid transferring its simpler art in place of RE:ARCHIVE.
 - [star_lan](https://github.com/tsunehimatoi/psd2live-examples/tree/main/cases/star_lan): joint deformation / texture density / atlas techniques and editor project; not a female eye/cloth replacement base.
 
 **One source rig, multiple reusable techniques.** Never merge incompatible MOC3 files or copy raw physics IDs across characters.
+
+## Three independently inspected real final PSDs (2026-10-22)
+
+SHA-pinned GitHub Actions downloads and PSD parsing succeeded for **all three** CC0 cases. These are actual source PSD counts, **not** ArtMesh counts:
+
+| Original source | Canvas | Actual raster leaf layers | Main reusable structure | Incompatible features |
+| --- | --- | ---: | --- | --- |
+| Hiakari Inori | 2048×3072 | 33 | eyes ×8, mouth ×2, outfit ×8, head/neck + long sleeve simulation | animal ears / three animal tails, no native RE:ARCHIVE twin-tail geometry |
+| Kirishima Mio | 2048×3072 | 27 | human face/eyes/mouth/neck, simple cloth registration | basic hair and clothing, not premium sleeves |
+| star_lan | 1280×1280 | 24 | multi-atlas/raster-scale and joint texture workflow | only one mouth raster, less suitable for lip-sync source |
+
+The real original transparent PSD raster layer crops and bounding rectangles are available as verified CC0 GitHub Actions artifacts (see `.github/workflows/rearchive-cc0-real-source-audit.yml`). Their **source sprites are templates, not new high-quality RE:ARCHIVE artwork**. We retain the user's four sheet illustrations only in their local package, not in the public repository.
 
 ## Art-first high-end identity
 
