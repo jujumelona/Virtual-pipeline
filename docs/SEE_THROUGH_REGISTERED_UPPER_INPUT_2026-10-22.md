@@ -21,6 +21,18 @@
 - 등록 이후 **얼굴·눈·귀·턱·목을 다른 모델로 새로 그리거나 이 FACE를 이동·리사이즈하지 않습니다.**
 - 원본 FACE 12장 참고 원화는 변하지 않습니다. 등록된 FACE는 **상반신 합성용 사본**입니다. 바스트업/전신에서 동일 위치라고 주장하지 않습니다.
 
+## GitHub에서 동일한 생성 지침 ZIP 재생성
+
+지침 ZIP은 **완성 그림이 아니며** FACE ZIP을 소스로 만들어지는 원화 생성용 기준/참고팩입니다. 기존 민트색 FACE 최종 ZIP 파일을 준비한 뒤, GitHub 저장소 `main`에서:
+
+```bash
+python -m tools.build_face_upper_alignment_kits --face-zip face__ARTWORK.zip --output-dir output_alignment
+```
+
+결과: `face_registered_upper.png`, `registration_contract.json`, `GENERATOR_COMPLETE_CHARACTER_UPPER_REFERENCE.zip`, `GENERATOR_OUTFIT_UPPER_REFERENCE.zip`, `GENERATOR_HAIR_UPPER_REFERENCE.zip`, `GENERATOR_ACCESSORY_UPPER_REFERENCE.zip`.
+
+모든 생성 ZIP에 **같은 등록 FACE 원본 바이트와 같은 픽셀 캔버스**를 넣습니다. FACE 원본 그림이 다르면 등록 좌표/해시가 달라질 수 있어, 이번 민트 FACE에 계산한 좌표를 모든 다른 캐릭터에 그대로 적용했다고 주장하지 않습니다.
+
 ## 외부 이미지 생성 단계 — 무엇을 어떤 순서로 만드는가
 
 기존 FACE ZIP을 다시 만들 필요는 없습니다. 이 대화에서 제공한 `UPPER_ALIGNED_IMAGE_GENERATION_PACK.zip`에 고정 기준 `face_registered_upper.png`, 기준 그림, `registration_contract.json`, 4개 제작 지침 ZIP, 검증/포장 스크립트가 들어 있습니다.
