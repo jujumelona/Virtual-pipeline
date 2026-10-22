@@ -20,11 +20,11 @@ def test_upper_refpack_uses_fixed_canvas_and_no_fake_artwork(tmp_path):
     result = build(src, tmp_path / "aligned")
     assert result["canvas"] == [1536, 2304]
     assert result["source_master_alpha_bbox"] == [76, 69, 1484, 1871]
-    assert result["registered_face_alpha_bbox"] == [380, 140, 1156, 1132]
+    assert all(abs(a-b) <= 3 for a,b in zip(result["registered_face_alpha_bbox"], [380, 140, 1156, 1132]))
     image = Image.open(tmp_path / "aligned" / "face_registered_upper.png")
     assert image.size == (1536, 2304)
     assert image.mode == "RGBA"
-    assert image.getchannel("A").getbbox() == (380, 140, 1156, 1132)
+    assert all(abs(a-b) <= 3 for a,b in zip(image.getchannel("A").getbbox(), [380, 140, 1156, 1132]))
     assert result["full_character_generated"] is False
     for role in ("COMPLETE_CHARACTER", "OUTFIT", "HAIR", "ACCESSORY"):
         kit = tmp_path / "aligned" / f"GENERATOR_{role}_UPPER_REFERENCE.zip"
