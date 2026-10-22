@@ -1,0 +1,52 @@
+name: REARCHIVE transparent original front See-through source ZIP
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/vts_rearchive_single_master_pack.py'
+      - 'rearchive_temp_assets/MASTER_FRONT_TRANSPARENT_RGBA_BASE64.txt'
+      - '.github/workflows/rearchive-transparent-master-seethrough-package.yml'
+  workflow_dispatch:
+jobs:
+  make-real-transparent-source-zip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check 'Pillow>=11,<13'
+      - name: Decode real Adobe-edited transparent RGBA master and create normalized zip
+        run: |
+          python -m tools.vts_rearchive_single_master_pack \
+            --rgba-base64 rearchive_temp_assets/MASTER_FRONT_TRANSPARENT_RGBA_BASE64.txt \
+            --output "$RUNNER_TEMP/master"
+      - name: Independently examine alpha and archive source binding
+        run: |
+          python - <<'PY'
+          import json,os,hashlib,zipfile
+          from pathlib import Path
+          from io import BytesIO
+          from PIL import Image
+          base=Path(os.environ['RUNNER_TEMP'])/'master'
+          status=json.loads((base/'INPUT_STATUS.json').read_text())
+          with zipfile.ZipFile(base/'REARCHIVE_SINGLE_ARTWORK_FOR_SEETHROUGH.zip') as z:
+            assert z.testzip() is None
+            img=Image.open(BytesIO(z.read('outputs/master.png')))
+            img.load()
+            assert img.mode=='RGBA' and img.size==(1536,2304)
+            assert img.getchannel('A').getextrema()==(0,255)
+            assert hashlib.sha256(z.read('outputs/master.png')).hexdigest()==status['master_png_sha256']
+          assert status['ready_for_gpu_see_through']
+          assert not status['parts_really_separated']
+          assert not status['native_rigged_with_this_master']
+          print('ACTUAL_TRANSPARENT_SEETHROUGH_ART_MASTER_READY_NOT_SPLIT_OR_RIGGED')
+          PY
+      - name: Publish actual source PNG and verified See-through input ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-transparent-single-character-seethrough-input-not-PSD
+          path: ${{ runner.temp }}/master/**
+          if-no-files-found: error
+          retention-days: 14
