@@ -9,6 +9,7 @@ on:
       - "tools/vts_reference_keyform_author.py"
       - "tools/vts_modern_mcp_probe.py"
       - "tools/vts_modern_real_mesh_trial.py"
+      - "tools/vts_multiview_runtime.py"
       - "tools/vts_open_quality_cases.py"
       - ".github/workflows/live2d-modern-native-real.yml"
   workflow_dispatch:
@@ -28,7 +29,7 @@ jobs:
           java-version: "21"
       - name: Install PSD, Cubism export and quality gate dependencies
         run: |
-          python -m pip install "Pillow>=11,<13" "numpy>=2,<3" "psd-tools>=1.14,<2" "pygltflib>=1.16,<2"
+          python -m pip install "Pillow>=11,<13" "numpy>=2,<3" "scipy>=1.14,<2" "psd-tools>=1.14,<2" "pygltflib>=1.16,<2"
       - name: Fetch independently authored public CC0 model source (SHA-256 verified)
         run: |
           python -m tools.vts_open_quality_cases --case ds --output /tmp/psd2live-cc0
