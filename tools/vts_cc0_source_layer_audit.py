@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 import hashlib
+import re
 from pathlib import Path
 
 from tools.vts_open_quality_cases import fetch_case, CATALOG
@@ -17,12 +18,23 @@ GROUP_KEYS={
   "hair":("hair","bang","twin","pony","tail","fringe","ahoge","headwear"),
   "cloth":("sleeve","skirt","dress","coat","shirt","bow","topwear",
            "bottomwear","handwear","neckwear","arm","hand","ribbon","collar"),
-  "head_neck":("face","neck","ear","nose","jaw","head"),
+  "head_neck":("face","neck","nose","jaw","head"),
+  "ears":(),
+  "appendage":(),
+  "ornament":(),
   "other":()
 }
 
 def classify(name: str) -> str:
-    text=name.lower().replace(" ","").replace("_","").replace("-","")
+    literal=name.lower().strip()
+    # A 'tail 1' in the real Hiakari PSD is an animal tail, NOT a hair lock.
+    if re.fullmatch(r"tail(?:\\s*\\d+)?", literal):
+        return "appendage"
+    if re.fullmatch(r"ears?[-_][lr]",literal):
+        return "ears"  # human vs animal anatomy needs source-image review
+    if literal.startswith(("headwear","earwear")):
+        return "ornament"
+    text=literal.replace(" ","").replace("_","").replace("-","")
     for role,terms in GROUP_KEYS.items():
         if any(term in text for term in terms):return role
     return "other"
