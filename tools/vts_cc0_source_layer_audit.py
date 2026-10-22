@@ -39,10 +39,13 @@ def summarize_psd(psd_path: Path, *, limit=500):
             if layer.is_group():
                 walk(layer,path,depth+1)
                 continue
-            b=layer.bbox
+            b=tuple(layer.bbox)
+            if len(b)!=4:
+                raise ValueError("Invalid PSD layer bbox")
+            x1,y1,x2,y2=(int(v) for v in b)
             leaf.append({"name":name,"path":path,
-                         "bbox_xyxy":[b.x1,b.y1,b.x2,b.y2],
-                         "width":b.width,"height":b.height,
+                         "bbox_xyxy":[x1,y1,x2,y2],
+                         "width":x2-x1,"height":y2-y1,
                          "visible":bool(layer.is_visible()),
                          "inferred_role":classify(path)})
             if len(leaf)>limit:raise ValueError("Too many PSD layers to audit")
