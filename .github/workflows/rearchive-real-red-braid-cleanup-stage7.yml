@@ -35,7 +35,7 @@ jobs:
           import os,json
           d=json.loads((Path(os.environ['RUNNER_TEMP'])/'parent/STATUS.json').read_text())
           assert d['native_pose_qa_passed'] and d['native_export_verified']
-          assert {x['name'] for x in d['replaced_layers']}=={'bottomwear','handwear 2-r','handwear 2-l'}
+          assert {x['name'] for x in d['replaced_layers']}=={'bottomwear','handwear 1-r','handwear 1-l'}
           PY
       - name: Provision actual PSD2Live 3.6 edit project runtime
         run: |
