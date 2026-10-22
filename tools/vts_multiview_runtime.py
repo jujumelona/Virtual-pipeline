@@ -521,10 +521,17 @@ def render_actual_native_moc3(model3: Path, output: Path, *,
                               timeout=timeout_seconds, check=False)
     path = output / "native_pose_report.json"
     if not path.is_file():
-        raise RuntimeError(f"NATIVE_POSE_RUNTIME_FAILED: exit={proc.returncode}; log={log}")
+        # Temporary CI folders disappear as soon as the job fails; keep the
+        # REAL stderr traceback in the central workflow log.
+        tail = log.read_text(encoding="utf-8", errors="replace").splitlines()[-48:]
+        raise RuntimeError(
+            f"NATIVE_POSE_RUNTIME_FAILED: exit={proc.returncode}; log={log}; "
+            + " | ".join(tail))
     report = json.loads(path.read_text(encoding="utf-8"))
     if proc.returncode or not report.get("native_pose_rendered") or not report.get("pose_activity_passed"):
-        raise RuntimeError(f"NATIVE_POSE_QA_FAILED: exit={proc.returncode}; log={log}")
+        tail = log.read_text(encoding="utf-8", errors="replace").splitlines()[-48:]
+        raise RuntimeError(f"NATIVE_POSE_QA_FAILED: exit={proc.returncode}; log={log}; "
+                           + " | ".join(tail))
     return report
 
 
