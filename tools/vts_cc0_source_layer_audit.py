@@ -28,7 +28,7 @@ GROUP_KEYS={
 def classify(name: str) -> str:
     literal=name.lower().strip()
     # A 'tail 1' in the real Hiakari PSD is an animal tail, NOT a hair lock.
-    if re.fullmatch(r"tail(?:\\s*\\d+)?", literal):
+    if re.fullmatch(r"tail(?:\s*\d+)?", literal):
         return "appendage"
     if re.fullmatch(r"ears?[-_][lr]",literal):
         return "ears"  # human vs animal anatomy needs source-image review
