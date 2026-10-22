@@ -182,12 +182,25 @@ def transform_zip(path: Path) -> bool:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument("--check", action="store_true",
+                        help="Verify every ZIP is already the reproducible PRO version")
     args = parser.parse_args()
     for filename in KIT_NAMES:
         dest = args.root / filename
         if not dest.is_file():
             raise FileNotFoundError(dest)
-        print(filename, "updated" if transform_zip(dest) else "unchanged")
+        if args.check:
+            import shutil
+            import tempfile
+            with tempfile.TemporaryDirectory() as scratch:
+                copy = Path(scratch) / filename
+                shutil.copyfile(dest, copy)
+                changed = transform_zip(copy)
+                if changed or copy.read_bytes() != dest.read_bytes():
+                    raise SystemExit("CUBISM_PRO_INSTRUCTION_ZIP_STALE: " + filename)
+            print(filename, "PASS reproducible")
+        else:
+            print(filename, "updated" if transform_zip(dest) else "unchanged")
 
 
 if __name__ == "__main__":
