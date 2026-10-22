@@ -399,8 +399,10 @@ class VRMValidator:
                     if not valid_morphs:
                         invalid_binds.append(name)
                         continue
-                elif self.product_contract:
-                    # Our required product presets are morph-driven.
+                elif self.product_contract and name in REQUIRED_EXPRESSIONS:
+                    # Product-required expressive presets must visibly deform,
+                    # but VRM 1.0 also permits optional empty look-direction/
+                    # neutral presets when the model uses bone-driven gaze.
                     invalid_binds.append(name)
                     continue
                 elif not material_binds and not texture_binds:
