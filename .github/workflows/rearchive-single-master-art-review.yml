@@ -1,0 +1,65 @@
+name: REARCHIVE standalone front master artwork artifact
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'rearchive_temp_assets/MASTER_FRONT_REFERENCE_JPEG_BASE64.txt'
+      - '.github/workflows/rearchive-single-master-art-review.yml'
+  workflow_dispatch:
+jobs:
+  artwork-reference-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check Pillow
+      - name: Decode actual one-character source image and inspect
+        run: |
+          mkdir -p "$RUNNER_TEMP/rearchive-art"
+          base64 --decode rearchive_temp_assets/MASTER_FRONT_REFERENCE_JPEG_BASE64.txt > "$RUNNER_TEMP/rearchive-art/REARCHIVE_NEW_FRONT_MASTER_DRAFT.jpg"
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          import json,os
+          base=Path(os.environ["RUNNER_TEMP"])/"rearchive-art"
+          artwork=Image.open(base/"REARCHIVE_NEW_FRONT_MASTER_DRAFT.jpg")
+          artwork.load()
+          w,h=artwork.size
+          assert w>=1700 and h>=1000, (w,h)
+          # Crops are review previews only. NOT individual PSD layers.
+          bbox=(int(w*.31),int(h*.02),int(w*.70),int(h*.44))
+          artwork.crop(bbox).save(base/"FACE_AND_HAIR_REVIEW_NOT_LAYER.jpg",quality=94)
+          bbox=(int(w*.24),int(h*.18),int(w*.77),int(h*.83))
+          artwork.crop(bbox).save(base/"OUTFIT_AND_DNA_REVIEW_NOT_LAYER.jpg",quality=94)
+          status={
+             "schema":"rearchive/full-front-recreation-artwork-v1",
+             "source":"2026-10-22 illustrated from user's fourth RE:ARCHIVE setting sheet reference",
+             "size":[w,h],"true_anime_master_image_present":True,
+             "single_front_view":True,
+             "character":"female adult, black/silver twin tails, mint eyes, black-white cyber-gothic costume, DNA chest archive",
+             "unmodified_reference_sheet_look_approved":False,
+             "background_removed":False,
+             "live2d_layers_separated":False,
+             "rigged_into_stage8_model":False,
+             "actual_ArtMesh_keyform_bound":False,
+             "usable_as_see_through_input_after_quality_review":True,
+             "status":"SINGLE_FRONT_ART_MASTER_DRAFT_NOT_LIVE2D_MODEL"
+          }
+          (base/"STATUS.json").write_text(json.dumps(status,ensure_ascii=False,indent=2))
+          (base/"README_KO.txt").write_text(
+            "RE:ARCHIVE 실제 정면 원화 초안. 원본 4번째 설정 시트에서 색·외형 콘셉트를 참고해 "
+            "단일 캐릭터로 재생성했습니다. 2048x1370으로 축소된 Adobe 편집 이미지의 "
+            "열람용 JPEG이며, 투명 분리 PNG / PSD / 실제 리깅 완료본이 아닙니다. "
+            "사진 크롭 두 장은 검수용 미리보기일 뿐 파츠가 아닙니다.",
+            encoding="utf-8")
+          PY
+      - name: Upload visual master draft, not a rig
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-reconstructed-front-master-draft-not-rig
+          path: ${{ runner.temp }}/rearchive-art/
+          if-no-files-found: error
+          retention-days: 14
