@@ -1,0 +1,82 @@
+name: REARCHIVE stage7 remove legacy red braided hair ArtMeshes
+on:
+  workflow_run:
+    workflows:
+      - "REARCHIVE stage6 actually recolor main skirt and long sleeves"
+    types: [completed]
+  workflow_dispatch:
+jobs:
+  clean-old-braid:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions: {actions: read, contents: read}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21'}
+      - name: Python dependencies
+        run: python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3'
+      - name: Retrieve real dark dress with dual independent twin tails
+        env:
+          PARENT_RUN: ${{ github.event.workflow_run.id }}
+        run: |
+          test -n "$PARENT_RUN"
+          mkdir -p "$RUNNER_TEMP/parent"
+          gh run download "$PARENT_RUN" --repo "${{ github.repository }}" \
+            --name rearchive-real-hair-and-dress-rig-stage6-not-final --dir "$RUNNER_TEMP/parent"
+          test -s "$RUNNER_TEMP/parent/REARCHIVE_MINT_AND_COSTUME_TRIAL.psd2live"
+          python - <<'PY'
+          from pathlib import Path
+          import os,json
+          d=json.loads((Path(os.environ['RUNNER_TEMP'])/'parent/STATUS.json').read_text())
+          assert d['native_pose_qa_passed'] and d['native_export_verified']
+          assert {x['name'] for x in d['replaced_layers']}=={'bottomwear','handwear 2-r','handwear 2-l'}
+          PY
+      - name: Provision actual PSD2Live 3.6 edit project runtime
+        run: |
+          python - <<'PY'
+          from tools.vts_psd2live_modern import ensure_modern_psd2live
+          print(ensure_modern_psd2live(None,clone=True))
+          PY
+      - name: Replace all four old red-braid native textures with RGBA transparent
+        run: |
+          python -m tools.vts_rearchive_native_remove_red_braid \
+            --source "$RUNNER_TEMP/parent/REARCHIVE_MINT_AND_COSTUME_TRIAL.psd2live" \
+            --editor "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
+            --out "$RUNNER_TEMP/stage7"
+      - name: Independently render edited MOC3 and verify face and head motion
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
+          python - <<'PY'
+          from pathlib import Path
+          import os,json
+          from tools.vts_multiview_runtime import render_actual_native_moc3
+          p=Path(os.environ['RUNNER_TEMP'])/'stage7'
+          d=json.loads((p/'STATUS.json').read_text())
+          assert d['native_export_verified'] and len(d['replaced_native_split_layers'])==4
+          result=render_actual_native_moc3(Path(d['model3_json']),p/'poses')
+          d['native_pose_qa_passed']=all(result.get(k) is True for k in
+            ('native_pose_rendered','pose_activity_passed','native_pose_geometry_passed'))
+          (p/'STATUS.json').write_text(json.dumps(d,ensure_ascii=False,indent=2))
+          assert d['native_pose_qa_passed']
+          print('ACTUAL_4_RED_BRAID_SPLITS_CLEARED_MODEL_MOVEMENT_PASS_ART_NOT_FINAL')
+          PY
+      - name: Preserve exact edited project, MOC3 and true rendered evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-stage7-actual-twin-tail-dress-cleanup-not-final
+          path: |
+            ${{ runner.temp }}/stage7/STATUS.json
+            ${{ runner.temp }}/stage7/*.psd2live
+            ${{ runner.temp }}/stage7/native/**
+            ${{ runner.temp }}/stage7/poses/**
+            ${{ runner.temp }}/stage7/mcp/**/headless_mcp.log
+          if-no-files-found: ignore
+          retention-days: 14
