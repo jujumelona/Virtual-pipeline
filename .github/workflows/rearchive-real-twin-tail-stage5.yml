@@ -82,6 +82,7 @@ jobs:
           name: rearchive-real-twintails-rigged-stage5-not-final-art
           path: |
             ${{ runner.temp }}/stage5/STATUS.json
+            ${{ runner.temp }}/stage5/ACTUAL_STAGE4_SOURCE_LAYERS.json
             ${{ runner.temp }}/stage5/*.png
             ${{ runner.temp }}/stage5/*.psd2live
             ${{ runner.temp }}/stage5/native/**
