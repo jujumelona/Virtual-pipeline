@@ -124,3 +124,66 @@ def test_multiple_source_part_names_must_not_collide(tmp_path):
             z.writestr(name, body)
     with pytest.raises(ValueError, match="AUTHORED_PART_ID_COLLISION"):
         compose_preserved_parts(inputs, tmp_path / "result")
+
+
+
+def test_same_psd_global_layer_order_keeps_rear_hair_behind_face(tmp_path):
+    import hashlib
+    from psd_tools import PSDImage
+    from tools.vts_see_through_only import composite_2d, run_see_through
+    inputs = _inputs(tmp_path)
+    source_hash = hashlib.sha256(b"one-original-PSD-with-interleaved-parts").hexdigest()
+    positions = {
+        "face.detail": 0, "face.base": 1,
+        "hair.detail": 2, "hair.base": 3,
+        "outfit.detail": 4, "outfit.base": 5,
+        "mouth.open": 6,
+    }
+    for name, path in inputs.items():
+        with ZipFile(path, "r") as archive:
+            names = [x.removesuffix(".png").removeprefix("part_art/")
+                     for x in archive.namelist()
+                     if x.startswith("part_art/") and x.endswith(".png")]
+        manifest = {
+            "schema": "vtuber/source-psd-global-order-v1",
+            "original_psd_sha256": source_hash,
+            "top_first": {n: positions[n] for n in names},
+        }
+        with ZipFile(path, "a") as archive:
+            archive.writestr("metadata/global_layer_order.json",
+                             json.dumps(manifest))
+    comp = composite_2d(inputs["face"], inputs["outfit"],
+                        inputs["hair"], tmp_path / "composite")
+    assert comp["original_global_psd_z_order_used"] is True
+    from PIL import Image
+    with Image.open(comp["composite_png"]) as image:
+        # Hair crosses the face area, but back hair must remain behind skin.
+        assert image.convert("RGBA").getpixel((150, 80))[:3] == (50, 105, 190)
+    assembled = run_see_through(comp, tmp_path / "converted", "upper")
+    assert assembled["original_global_psd_z_order_used"]
+    assert assembled["preserved_authored_parts"]
+    with Image.open(assembled["art_psd"]) as actual:
+        assert actual.format == "PSD"
+    neutral = Image.open(tmp_path / "converted" / "neutral_preserved.png")
+    with Image.open(comp["composite_png"]) as reference:
+        from tools.vts_preserved_source_parts import _equivalent
+        assert _equivalent(neutral.convert("RGBA"), reference.convert("RGBA"))
+
+
+def test_source_psd_global_z_order_rejects_mixed_provenance(tmp_path):
+    import hashlib
+    from tools.vts_preserved_source_parts import compose_preserved_parts
+    inputs = _inputs(tmp_path)
+    for asset, path in inputs.items():
+        with ZipFile(path) as z:
+            entries = [x.rsplit("/", 1)[-1][:-4] for x in z.namelist()
+                       if x.startswith("part_art/") and x.endswith(".png")]
+        # Deliberately not the same character source: no silent mixing.
+        with ZipFile(path, "a") as z:
+            z.writestr("metadata/global_layer_order.json", json.dumps({
+                "schema": "vtuber/source-psd-global-order-v1",
+                "original_psd_sha256": hashlib.sha256(asset.encode()).hexdigest(),
+                "top_first": {name: i for i, name in enumerate(entries)}
+            }))
+    with pytest.raises(ValueError, match="GLOBAL_LAYER_ORDER_MIXED_CHARACTER_SOURCES"):
+        compose_preserved_parts(inputs, tmp_path / "out")
