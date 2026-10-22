@@ -38,7 +38,7 @@ jobs:
           from tools.vts_psd2live_modern import ensure_modern_psd2live
           print(ensure_modern_psd2live(None,clone=True))
           PY
-      - name: Remove all five actual animal ear/tail layers from cloned MOC3
+      - name: Remove all six actual animal ear/tail layers including split tail2 halves from cloned MOC3
         run: |
           python -m tools.vts_rearchive_native_remove_animal_parts \
             --source "$RUNNER_TEMP/stage2-source/REARCHIVE_MINT_AND_COSTUME_TRIAL.psd2live" \
@@ -55,14 +55,14 @@ jobs:
           out=Path(os.environ["RUNNER_TEMP"])/"stage3"
           report=json.loads((out/"STATUS.json").read_text())
           assert report['native_export_verified']
-          assert len(report['deleted_real_layer_ids'])==5
+          assert len(report['deleted_real_layer_ids'])==6
           result=render_actual_native_moc3(Path(report["model3_json"]),out/"poses")
           report['native_pose_qa_passed']=all(result.get(x) is True for x in
             ('native_pose_rendered','pose_activity_passed','native_pose_geometry_passed'))
           (out/'STATUS.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
           if not report['native_pose_qa_passed']:
               raise RuntimeError('Real pose failed after layer deletion')
-          print("REMOVED_5_REAL_ANIMAL_LAYERS_AND_RENDERED_NATIVE_MOC3")
+          print("REMOVED_6_REAL_ANIMAL_LAYERS_AND_RENDERED_NATIVE_MOC3")
           PY
       - name: Upload real editable rig, runtime model, pose screenshots and exact failure logs
         if: always()
