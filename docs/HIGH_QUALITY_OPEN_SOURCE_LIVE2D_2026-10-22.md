@@ -123,6 +123,26 @@ VTube Studio의 Allow Plugin API access가 활성화되어 있고 플러그인 �
 
 기존 blender-vrm-native.yml은 Blender 실물 바이너리 + 공식 VRM extension으로 GLB → 스킨 → VRM → Blender 재가져오기/저장, 필수 3D VRM 검사 경로를 가지고 있습니다. 이 검증에 최종 VRM의 humanBones, 표정 프리셋, SpringBone 체인, 실제 스킨 메쉬를 다시 검사하는 절차를 추가했습니다. 테스트 소스는 합성 3D 구체이므로 특정 2D 캐릭터를 고품질 3D로 복원했다고 주장해서는 안 됩니다. 별도 3D 헤어·의상 자동 정합과 방송용 실제 3D 결과는 여전히 남아 있습니다.
 
+## 11. 새로 완료된 실물 실행 증거
+
+**Blender 3D / VRM**: https://github.com/jujumelona/Virtual-pipeline/actions/runs/39715215819
+
+- 실제 Blender ARMATURE_AUTO 히트 가중치로 본체 정점 1,997개 재할당 확인
+- Blender 최종 VRM 재가져오기/내보내기에 휴머노이드 본 24개, 표정 프리셋 18개, SpringBone 체인 1개, 실제 GLB 스킨 보존 확인
+- 한 번은 여러 메쉬 중 본체 식별 실패, 그다음은 필수 표정과 bone-driven look/neutral 표현식의 계약 혼동으로 실패했으며 두 원인을 수정하고 통과
+- 3D 고품질 원화 복원 자체가 아닌 합성 메쉬 E2E
+
+**수정된 실제 Live2D MOC3 / Cubism Core**: https://github.com/jujumelona/Virtual-pipeline/actions/runs/39714969551
+
+- 실제 PSD→MOC3/CMO3→CMO3 재가져오기→실제 ArtMesh 텍스처 메쉬 수정→새 native export→Cubism SDK Core/live2d-py OpenGL 포즈 렌더
+- 네이티브 포즈 연결성 검사 및 parameter isolation, mouth interpolation의 합산 gate가 통과해 REAL_V360_EDITED_MOC3_CUBISM_CORE_POSES_VERIFIED 기록
+- 초기 실패는 네이티브 검사용 SciPy가 없는 실행환경 문제였음. 실제 31개 포즈 이미지의 연결 영역 검토 후 dependency를 설치해 전체 QA 재검증 성공
+- 이 결과도 실제 90도 파츠·가림면 재작화·VTube Studio 추적 앱 확인·최고급 미적 품질의 증거는 아님
+
+**계약 테스트**: https://github.com/jujumelona/Virtual-pipeline/actions/runs/39713648358 (129 passed).
+
+**전체 CI 미통과**: 상당수 구형 테스트가 폐기된 24-ZIP/BODY 자산 규격을 요구하는 반면 현행 배포는 18-ZIP 규격이므로 full CPU discovery는 별개로 실패합니다. 무시하거나 합격이라고 표시하지 않습니다.
+
 ## 현재 미완료인 고급 제작 요건
 
 1. 실제 복잡한 한 캐릭터에 대해 파츠 생성·가림면 재작화·독립 의상 결합까지 완전 자동으로 고품질 완료
