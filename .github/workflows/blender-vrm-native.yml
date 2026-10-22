@@ -11,6 +11,8 @@ on:
       - "vtuber_pipeline/avatar/skintokens_bridge.py"
       - "tests/production/test_blender_heat_bridge.py"
       - "vtuber_pipeline/avatar/vrm_export.py"
+      - "vtuber_pipeline/avatar/validator.py"
+      - "tests/test_vrm_optional_gaze_presets.py"
       - ".github/workflows/blender-vrm-native.yml"
   workflow_dispatch:
 permissions:
