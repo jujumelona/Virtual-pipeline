@@ -155,6 +155,7 @@ _STATE_REQUIRED = frozenset({
     "project_export_model", "project_save_as", "project_save",
     "project_open", "project_import_psd", "rig_generate",
     "layer_mesh_structure", "rig_update_generation", "settings_update",
+    "layer_replace_image",
 })
 
 
