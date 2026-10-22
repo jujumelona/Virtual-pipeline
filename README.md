@@ -26,6 +26,12 @@
 
 현재 이 경로는 **±45° 3/4 참고 원화(기본)와 명시된 ±30° 렌더의 기존 Warp 보정**만 처리합니다. 완전한 ±90° 프로필은 교체 원화, 가림/그리기 순서, 전체 목·얼굴 결합과 실제 키폼 검증이 따로 필요하므로 자동 완성으로 표기하지 않습니다. 실제 GPU·MCP·VTube Studio 실물 통합 검증은 별도입니다.
 
+## 고급 RE:ARCHIVE 모델: CC0 원본 리깅을 보존하며 외형 이식
+
+[**Hiakari Inori / Kirishima Mio / star_lan 실제 PSD2Live 리깅·메시·물리 재사용 파이프라인**](docs/REARCHIVE_CC0_HIGH_END_RETARGET.md) · [실제 이미지 교체 실행 코드](tools/vts_cc0_rig_retarget.py)
+
+**중요:** 기존 CC0 편집 프로젝트 하나를 주력으로 삼고, 새로 그린 RE:ARCHIVE 눈·헤어·의상 파츠를 `layer_replace_image(rebuild_mesh=false)`로 안전하게 교체합니다. 원본 프로젝트는 수정하지 않습니다. 그래픽과 메시 형상이 맞지 않는 신규 장식(DNA 캡슐 등)은 별도 메쉬·물리 추가가 필요합니다. 현재 단계는 **비파괴 리타게팅 도구와 검증 게이트**까지 구현되었으며, 새 캐릭터의 리깅 완성이나 VTube Studio 방송 합격을 주장하지 않습니다.
+
 ## RE:ARCHIVE 민트눈 캐릭터 — 실제 4장 설정 시트 참고
 
 [**4장 설정 시트 → 동일 캐릭터 정면 원화 생성 → See-through 입력 가이드**](docs/REARCHIVE_FOUR_SHEET_REFERENCE_WORKFLOW.md). 설정 시트는 레퍼런스이며 **실제 파츠 PNG나 완성된 상반신 원화가 아닙니다**. 원본 이미지는 공개 저장소에 업로드하지 않았고, 로컬 참조 ZIP에 그대로 보존합니다. FACE 등록 좌표 1536×2304를 유지하면서 머리와 의상을 같은 정면 마스터에서 제작해야 합니다. 완료된 `complete_character__ARTWORK.zip`만 GPU용 Colab에 업로드하세요.
