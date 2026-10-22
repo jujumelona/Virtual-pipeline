@@ -1,0 +1,55 @@
+name: Mint-eyed plague doctor OUTFIT artwork
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "assets/user_character/mint_plague_doctor/outfit_hoodie_transparent.png.b64"
+      - "tools/build_mint_plague_doctor_outfit.py"
+      - ".github/workflows/mint-plague-doctor-outfit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-outfit-artwork:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PNG packager
+        run: python -m pip install --disable-pip-version-check "Pillow>=11,<13"
+      - name: Build actual outfit source PNG and ZIP
+        run: python -m tools.build_mint_plague_doctor_outfit --output /tmp/mint-plague-doctor-outfit
+      - name: Validate actual ZIP can be consumed by See-through source loader
+        run: |
+          python - <<'PY'
+          import sys
+          import json
+          from pathlib import Path
+          from tools.vts_see_through_only import _read_master
+          p=Path("/tmp/mint-plague-doctor-outfit/outfit__ARTWORK.zip")
+          image=_read_master(p, "outfit")
+          assert image.size == (1536, 1920)
+          assert image.mode == "RGBA"
+          report=json.loads(Path("/tmp/mint-plague-doctor-outfit/outfit_report.json").read_text())
+          assert report["asset"]=="outfit"
+          assert not report["pixel_registered_to_existing_face"]
+          assert not report["real_live2d_rig_or_vtube_studio_verified"]
+          assert image.getchannel("A").getbbox()
+          print("REAL_MINT_OUTFIT_ZIP_ACCEPTED_BY_COLAB_LOADER", image.getchannel("A").getbbox())
+          PY
+      - name: Upload usable outfit.zip and actual PNG
+        uses: actions/upload-artifact@v4
+        with:
+          name: mint-eyed-plague-doctor-outfit
+          path: |
+            /tmp/mint-plague-doctor-outfit/outfit__ARTWORK.zip
+            /tmp/mint-plague-doctor-outfit/outfit.png
+            /tmp/mint-plague-doctor-outfit/outfit_report.json
+          retention-days: 30
+          if-no-files-found: error
