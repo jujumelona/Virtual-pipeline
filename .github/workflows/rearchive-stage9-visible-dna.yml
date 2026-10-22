@@ -1,0 +1,100 @@
+name: REARCHIVE stage9 visible independent DNA capsule
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/vts_rearchive_dna_visibility_fix.py'
+      - '.github/workflows/rearchive-stage9-visible-dna.yml'
+  workflow_dispatch:
+jobs:
+  actual-moc3-foreground-dna:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions: {actions: read, contents: read}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21'}
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3'
+      - name: Download stage8 verified DNA independent rig
+        run: |
+          mkdir -p "$RUNNER_TEMP/parent"
+          gh run download 39794094196 --repo "${{ github.repository }}" \
+            --name rearchive-stage8-independent-dna-rig-native-not-final-art \
+            --dir "$RUNNER_TEMP/parent"
+          test -s "$RUNNER_TEMP/parent/REARCHIVE_STAGE8_DNA_INDEPENDENT_EDITABLE.psd2live"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          report=json.loads((Path(os.environ['RUNNER_TEMP'])/'parent/STATUS.json').read_text())
+          assert report['native_pose_qa_passed'] and report['independent_dna_mesh_inserted']
+          assert report['independent_dna_physics_generated']
+          PY
+      - name: Start official PSD2Live v3.6 editor for real authoring
+        run: |
+          python - <<'PY'
+          from tools.vts_psd2live_modern import ensure_modern_psd2live
+          print(ensure_modern_psd2live(None,clone=True))
+          PY
+      - name: Set physical DNA mesh explicit draw order above clothing and hair
+        run: |
+          python -m tools.vts_rearchive_dna_visibility_fix \
+            --source "$RUNNER_TEMP/parent/REARCHIVE_STAGE8_DNA_INDEPENDENT_EDITABLE.psd2live" \
+            --editor "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
+            --out "$RUNNER_TEMP/stage9"
+      - name: Render actual modified capsule and test visible mint DNA pixels
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
+          python - <<'PY'
+          import json,os
+          import numpy as np
+          from pathlib import Path
+          from PIL import Image
+          from tools.vts_multiview_runtime import render_actual_native_moc3
+          p=Path(os.environ['RUNNER_TEMP'])/'stage9'
+          st=json.loads((p/'STATUS.json').read_text())
+          assert st['pendant_front_draw_order_committed'] and st['native_export_verified']
+          rendered=render_actual_native_moc3(Path(st['model3_json']),p/'poses')
+          st['native_pose_qa_passed']=all(rendered.get(x) is True for x in
+            ('native_pose_rendered','pose_activity_passed','native_pose_geometry_passed'))
+          # Actual side-by-side pixel comparison. A visible pendant must produce
+          # a substantial mint/pink/teal region near the chest, not just
+          # altering unrelated skin or antialias fringe.
+          src=Path(os.environ['RUNNER_TEMP'])/'parent/poses/neutral.png'
+          dst=p/'poses/neutral.png'
+          old=np.array(Image.open(src).convert('RGB')).astype('int16')
+          new=np.array(Image.open(dst).convert('RGB')).astype('int16')
+          assert old.shape==new.shape
+          h,w=old.shape[:2]
+          roi=(slice(int(h*.21),int(h*.54)),slice(int(w*.34),int(w*.67)))
+          change=np.max(np.abs(new[roi]-old[roi]),axis=2)
+          pixels=int((change>55).sum())
+          st['chest_roi_pixels_changed_gt55']=pixels
+          st['pendant_pixel_visibility_verified']=pixels>=240
+          st['actual_frame_size']=[w,h]
+          (p/'STATUS.json').write_text(json.dumps(st,ensure_ascii=False,indent=2))
+          if not (st['pendant_pixel_visibility_verified'] and st['native_pose_qa_passed']):
+             raise RuntimeError('DNA_PENDANT_NOT_VISIBLY_RENDERED_OR_POSE_FAILED '+str(pixels))
+          st['status']='VISIBLE_INDEPENDENT_DNA_CAPSULE_MOC3_RENDER_PASS_ART_NOT_FINAL'
+          (p/'STATUS.json').write_text(json.dumps(st,ensure_ascii=False,indent=2))
+          print(st['status'],pixels)
+          PY
+      - name: Preserve real editable rig native MOC3 physics and visibility comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-stage9-visible-dna-native-test
+          path: |
+            ${{ runner.temp }}/stage9/STATUS.json
+            ${{ runner.temp }}/stage9/*.psd2live
+            ${{ runner.temp }}/stage9/native/**
+            ${{ runner.temp }}/stage9/poses/**
+            ${{ runner.temp }}/stage9/mcp/**/headless_mcp.log
+          if-no-files-found: ignore
+          retention-days: 14
