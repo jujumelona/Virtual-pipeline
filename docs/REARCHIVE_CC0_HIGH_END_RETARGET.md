@@ -85,3 +85,11 @@ The user's target Cubism FREE budget (<=100 ArtMeshes, <=30 parts folders, <=50 
 7. Only then mark `BROADCAST_READY`. Code-level tests alone are NOT a visual acceptance.
 
 **Current verified scope:** code and reproducible tests for non-destructive retarget workflow, source examples and official MCP operation; no modified CC0 runtime model or completed RE:ARCHIVE mesh has been generated here.
+
+## Actual GitHub-native evidence (2026-10-22)
+
+- [Successful **real** eye-layer native retarget](https://github.com/jujumelona/Virtual-pipeline/actions/runs/39762583687): cloned the original Hiakari CC0 `.psd2live` project without changing its SHA-256, found `irides-r` and `irides-l` by true native layer IDs, used `layer_replace_image(rebuild_mesh=false)`, saved a new editable project and exported a valid MOC3/model3.json, physics and motions. The source PSD crop differs by up to six pixels from the rig layer: the original rig rect was retained rather than altering its mesh.
+- [Successful independent **modified MOC3** pose rendering](https://github.com/jujumelona/Virtual-pipeline/actions/runs/39765618353): actual Cubism Core wrapper rendered neutral, ±45 yaw, blinking, gaze, open/closed mouth, combined facial expressions. Activity and native connected-component geometry checks passed. **This is not a VTube Studio tracking test**.
+- **Visible art judgment: FAIL for the requested RE:ARCHIVE identity**. The model still has Hiakari's fox ears/tails and red costume, and only both irises are newly colored. Hair silhouette, face, DNA capsule and original 4-sheet look are not yet transplanted.
+- Actual stage-1 artifact is stored under the successful transplant run as `rearchive-real-iris-transplant-audit`, pose screens under `rearchive-actual-native-poses-not-final-art`. Original CC0 artwork remains identifiable and must not be presented as the user's final original character.
+- Stage 2 experiments on nine existing hair, ribbon and garment layers are in [the separate CI workflow](../.github/workflows/rearchive-real-costume-transplant.yml). That workflow may only call itself complete after a real project save, native export and independent MOC3 pose render. Even its success would only prove source-geometry texture compatibility, **not** high-end re-authoring, elimination of animal attributes, addition of genuine double twin-tails or DNA-cap physics.
