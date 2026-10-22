@@ -1,0 +1,78 @@
+name: REARCHIVE render verified native iris-transplant artifact
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'Successful real eye transplant run ID'
+        required: true
+        default: '39762583687'
+        type: string
+
+jobs:
+  real-native-poses:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install software OpenGL runtime for genuine Cubism MOC3 rendering
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
+      - name: Fetch real edited project and native MOC3 (no mock)
+        env:
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          python - <<'PY'
+          import os
+          s=os.environ['SOURCE_RUN_ID']
+          if not s.isdecimal() or len(s)>15: raise SystemExit('Run ID must be numeric')
+          print('SOURCE_RUN_ID',s)
+          PY
+          mkdir -p "$RUNNER_TEMP/edited"
+          gh run download "$SOURCE_RUN_ID" --repo "${{ github.repository }}" --name rearchive-real-iris-transplant-audit --dir "$RUNNER_TEMP/edited"
+          test -s "$RUNNER_TEMP/edited/native-trial/NATIVE_TRIAL_STATUS.json"
+          test -s "$RUNNER_TEMP/edited/native-trial/REARCHIVE_MINT_EYES_ACTUAL_RIG.psd2live"
+          test -s "$RUNNER_TEMP/edited/native-trial/native/hiakari_inori_layers_v3.moc3"
+      - name: Verify native export and render ACTUAL modified Cubism Core MOC3
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os,json
+          from tools.vts_multiview_runtime import render_actual_native_moc3
+          art=Path(os.environ['RUNNER_TEMP'])/'edited/native-trial'
+          previous=json.loads((art/'NATIVE_TRIAL_STATUS.json').read_text())
+          assert previous['source_project_unchanged'] is True
+          assert previous['native_export_verified'] is True
+          assert {x['source_layer_name'] for x in previous['replacements']}=={'irides-l','irides-r'}
+          model=art/'native/hiakari_inori_layers_v3.model3.json'
+          poses=Path(os.environ['RUNNER_TEMP'])/'actual_native_poses'
+          report=render_actual_native_moc3(model,poses,timeout_seconds=600)
+          print(json.dumps({'native_pose_rendered':report.get('native_pose_rendered'),
+            'pose_activity_passed':report.get('pose_activity_passed'),
+            'native_pose_geometry_passed':report.get('native_pose_geometry_passed'),
+            'native_mouth_interpolation_passed':report.get('native_mouth_interpolation_passed'),
+            'parameter_isolation':report.get('parameter_isolation'),
+            'full_rearchive_art_passed':False,'full_rearchive_model_passed':False},
+            ensure_ascii=False,indent=2,default=str))
+          if not all(report.get(k) is True for k in (
+             'native_pose_rendered','pose_activity_passed','native_pose_geometry_passed')):
+             raise RuntimeError('ACTUAL_NATIVE_POSE_GEOMETRY_FAILED')
+          PY
+      - name: Preserve actual pose screenshots and error report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-actual-native-poses-not-final-art
+          path: |
+            ${{ runner.temp }}/actual_native_poses/**
+            ${{ runner.temp }}/edited/native-trial/NATIVE_TRIAL_STATUS.json
+          if-no-files-found: ignore
+          retention-days: 14
