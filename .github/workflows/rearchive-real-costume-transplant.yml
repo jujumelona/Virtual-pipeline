@@ -1,0 +1,83 @@
+name: REARCHIVE real hair and costume texture transplant
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/vts_rearchive_native_costume_trial.py'
+      - '.github/workflows/rearchive-real-costume-transplant.yml'
+  workflow_dispatch:
+jobs:
+  patch-real-native-project:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install image validation dependencies
+        run: python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3' 'psd-tools==1.14.2'
+      - name: Download actual first-stage editable MOC3 source (existing native keyforms)
+        run: |
+          mkdir -p "$RUNNER_TEMP/eyes"
+          gh run download 39762583687 --repo "${{ github.repository }}" --name rearchive-real-iris-transplant-audit --dir "$RUNNER_TEMP/eyes"
+          test -s "$RUNNER_TEMP/eyes/native-trial/REARCHIVE_MINT_EYES_ACTUAL_RIG.psd2live"
+      - name: Download actual edited source sprites from verified CC0 PSD
+        run: |
+          mkdir -p "$RUNNER_TEMP/paint"
+          gh run download 39759387454 --repo "${{ github.repository }}" --name rearchive-edited-33-source-parts-unrigged --dir "$RUNNER_TEMP/paint"
+          test -s "$RUNNER_TEMP/paint/REARCHIVE_ACTUAL_33_LAYER_PAINTINGS.zip"
+      - name: Setup official PSD2Live 3.6 headless editor
+        run: |
+          python - <<'PY'
+          from tools.vts_psd2live_modern import ensure_modern_psd2live
+          print(ensure_modern_psd2live(None,clone=True))
+          PY
+      - name: Replace nine real hair, ribbon and garment textures without rebuilding mesh
+        run: |
+          python -m tools.vts_rearchive_native_costume_trial \
+            --source-project "$RUNNER_TEMP/eyes/native-trial/REARCHIVE_MINT_EYES_ACTUAL_RIG.psd2live" \
+            --edited-zip "$RUNNER_TEMP/paint/REARCHIVE_ACTUAL_33_LAYER_PAINTINGS.zip" \
+            --editor "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
+            --out "$RUNNER_TEMP/stage2"
+      - name: Prove real modified native MOC3 can render blink and yaw poses
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
+          python - <<'PY'
+          from pathlib import Path
+          import os,json
+          from tools.vts_multiview_runtime import render_actual_native_moc3
+          out=Path(os.environ["RUNNER_TEMP"])/"stage2"
+          state=json.loads((out/"STATUS.json").read_text())
+          assert state["native_export_verified"] and len(state["replaced_layers"])==9
+          actual=render_actual_native_moc3(Path(state["exported_model3"]),out/"poses")
+          assert actual["native_pose_rendered"] and actual["pose_activity_passed"]
+          assert actual["native_pose_geometry_passed"]
+          state["native_pose_qa_passed"]=True
+          state["status"]="REAL_NINE_COSTUME_HAIR_LAYER_TEXTURES_REPLACED_NATIVE_POSES_PASS_ART_NOT_FINAL"
+          (out/"STATUS.json").write_text(json.dumps(state,ensure_ascii=False,indent=2))
+          print(state["status"])
+          PY
+      - name: Deliver true edited project / exported MOC3 / source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-nine-cosmetic-native-retarget-not-final-art
+          path: |
+            ${{ runner.temp }}/stage2/STATUS.json
+            ${{ runner.temp }}/stage2/*.psd2live
+            ${{ runner.temp }}/stage2/native/**
+            ${{ runner.temp }}/stage2/poses/**
+            ${{ runner.temp }}/stage2/mcp/**/headless_mcp.log
+          if-no-files-found: ignore
+          retention-days: 14
