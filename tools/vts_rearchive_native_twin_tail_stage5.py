@@ -170,6 +170,10 @@ def build(source_project:Path,edited_parts_zip:Path,output:Path,*,
                     mesh=recognized[0].get("target")
                     if not isinstance(mesh,str) or not mesh.startswith("mesh:"):
                         raise RuntimeError("PSD2Live workspace_inspect did not provide a real mesh:<id> target for "+name)
+                    # workspace_inspect uses typed mesh:ID handles.
+                    # swing_put resolves RAW DrawableId ID in the puppet.
+                    mesh=mesh.split(":",1)[1]
+                    if not mesh:raise RuntimeError("Empty imported drawable ID")
                     swing_id="RearchiveTailWhite" if light else "RearchiveTailBlack"
                     swing=editor.edit("swing_put",id=swing_id,name=name+" swaying hair",
                          targets=[mesh],kind="lateral",segments=2,
