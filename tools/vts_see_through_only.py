@@ -160,9 +160,30 @@ def composite_2d(face: Path, outfit: Path, hair: Path, output: Path,
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     merged = Image.new("RGBA", canvas, (0, 0, 0, 0))
-    for name in ("outfit", "face", "hair", "accessory"):
-        if name in images:
-            merged.alpha_composite(images[name])
+    # Preserve interleaved original PSD order if the asset ZIPs provide a
+    # complete, same-PSD paint-order manifest. This is essential for hair
+    # that sits behind cheeks but in front of the headwear, and for raised
+    # hands placed in front of hair. Never merge entire HAIR above FACE.
+    from tools.vts_preserved_source_parts import (
+        _part_layers, _read_original_global_order)
+    authored = {name: _part_layers(Path(path), _read_master(Path(path), name), name)
+                for name, path in inputs.items()}
+    global_order = _read_original_global_order(inputs, authored)
+    if global_order is not None:
+        painted = []
+        for name, entries in authored.items():
+            shift = tuple(registration.get(name, {}).get("translation_xy", [0, 0]))
+            for entry in entries:
+                translated = _register_image(entry["image"], shift, name)
+                painted.append((global_order[entry["name"]], translated,
+                                entry["hidden_neutral"]))
+        for _, layer, hidden in sorted(painted, key=lambda item: item[0], reverse=True):
+            if not hidden:
+                merged.alpha_composite(layer)
+    else:
+        for name in ("outfit", "face", "hair", "accessory"):
+            if name in images:
+                merged.alpha_composite(images[name])
     if not merged.getchannel("A").getbbox():
         raise ValueError("Completed source character is empty")
     master = output / "complete_character_for_see_through.png"
@@ -172,6 +193,7 @@ def composite_2d(face: Path, outfit: Path, hair: Path, output: Path,
         "source_masters": {name: str(path) for name, path in inputs.items()},
         "composite_png": str(master.resolve()), "canvas": list(canvas),
         "alpha_present": True, "visual_alignment_verified": False,
+        "original_global_psd_z_order_used": global_order is not None,
         "landmark_registration": registration,
         "landmark_anchors_provided": {name: sorted(a) for name, a in anchors.items()},
         "manual_visual_review_required": True,
