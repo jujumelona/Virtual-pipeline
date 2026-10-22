@@ -22,11 +22,11 @@ jobs:
           python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3'
           sudo apt-get update -qq
           sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
-      - name: Download and verify real stage7 native model
+      - name: Download and verify actual stage8 independent DNA physics model
         run: |
           mkdir -p "$RUNNER_TEMP/source"
-          gh run download 39790304173 --repo "${{ github.repository }}" \
-            --name rearchive-stage7-actual-twin-tail-dress-cleanup-not-final \
+          gh run download 39794094196 --repo "${{ github.repository }}" \
+            --name rearchive-stage8-independent-dna-rig-native-not-final-art \
             --dir "$RUNNER_TEMP/source"
           python - <<'PY'
           import json,os
@@ -34,7 +34,7 @@ jobs:
           p=Path(os.environ['RUNNER_TEMP'])/'source/STATUS.json'
           s=json.loads(p.read_text())
           assert s['native_pose_qa_passed'] and s['native_export_verified']
-          assert len(s['replaced_native_split_layers'])==4
+          assert s['independent_dna_mesh_inserted'] and s['independent_dna_physics_generated']
           PY
       - name: Resize atlas and keep original native mesh and physics unchanged
         run: |
