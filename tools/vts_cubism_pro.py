@@ -85,18 +85,29 @@ def _unique_member(archive: zipfile.ZipFile) -> zipfile.ZipInfo:
         raise ValueError("CUBISM_PRO_UNSAFE_ZIP_MEMBER")
     psds = [m for m in entries if m.filename.lower().endswith(".psd")]
     if len(psds) != 1:
-        raise ValueError("CUBISM_PRO_EXPECTS_ONE_PSD: artwork ZIP must contain one PSD")
-    if psds[0].file_size < 26:
+        priority = [p for p in psds if p.filename == "avatar.psd"]
+        if len(priority) != 1:
+            priority = [p for p in psds if p.filename.startswith("artwork/")
+                        and p.filename.count("/") == 1]
+        if len(priority) != 1:
+            raise ValueError("CUBISM_PRO_AMBIGUOUS_PSD: choose one avatar or artwork PSD")
+        selected = priority[0]
+    else:
+        selected = psds[0]
+    if selected.file_size < 26:
         raise ValueError("CUBISM_PRO_PSD_TOO_SMALL")
-    return psds[0]
+    return selected
 
 
 def build_cubism_pro_handoff(artwork_zip: Path, output_zip: Path, *,
                             frame: str = "upper",
-                            template_cmo3: Path | None = None) -> dict:
+                            template_cmo3: Path | None = None,
+                            asset_kind: str = "full_character") -> dict:
     """Create a portable PSD + template work order; never emit fictional CMO3/MOC3."""
     if frame not in FRAMES:
         raise ValueError("CUBISM_PRO_FRAME_INVALID")
+    if asset_kind not in {"full_character", "body", "hair", "outfit", "accessory", "face"}:
+        raise ValueError("CUBISM_PRO_ASSET_KIND_INVALID")
     artwork_zip = Path(artwork_zip).expanduser().resolve(strict=True)
     output_zip = Path(output_zip).expanduser().resolve()
     if artwork_zip == output_zip:
@@ -122,6 +133,8 @@ def build_cubism_pro_handoff(artwork_zip: Path, output_zip: Path, *,
                 "state": "awaiting_cubism_pro_editor_template_application",
                 "source_psd_member": member.filename,
                 "frame": frame,
+                "asset_kind": asset_kind,
+                "standalone_face_tracked_avatar": asset_kind in {"full_character", "body"},
                 "psd_header": psd,
                 "template_strategy": "official_model_template_reuse",
                 "template_included": template is not None,
@@ -176,10 +189,14 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--frame", choices=sorted(FRAMES), default="upper")
     parser.add_argument("--template-cmo3", type=Path, default=None)
+    parser.add_argument("--asset-kind",
+                        choices=("full_character", "body", "hair", "outfit", "accessory", "face"),
+                        default="full_character")
     options = parser.parse_args(argv)
     result = build_cubism_pro_handoff(options.artwork_zip, options.output,
                                       frame=options.frame,
-                                      template_cmo3=options.template_cmo3)
+                                      template_cmo3=options.template_cmo3,
+                                      asset_kind=options.asset_kind)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
