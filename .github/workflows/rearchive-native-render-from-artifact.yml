@@ -31,7 +31,7 @@ jobs:
           sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
       - name: Fetch real edited project and native MOC3 (no mock)
         env:
-          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ID: ${{ github.event.inputs.source_run_id || '39762583687' }}
         run: |
           python - <<'PY'
           import os
