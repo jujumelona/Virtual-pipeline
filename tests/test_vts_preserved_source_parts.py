@@ -132,6 +132,32 @@ def test_same_psd_global_layer_order_keeps_rear_hair_behind_face(tmp_path):
     from psd_tools import PSDImage
     from tools.vts_see_through_only import composite_2d, run_see_through
     inputs = _inputs(tmp_path)
+    # Give back hair a DIFFERENT painted color so front/behind order is
+    # visibly testable, not merely inferred from metadata.
+    hair_zip = inputs["hair"]
+    with ZipFile(hair_zip) as archive:
+        data = {name: archive.read(name) for name in archive.namelist()}
+    from PIL import Image
+    import io
+    for member, fill in (("part_art/hair.base.png", (190, 40, 85)),
+                         ("part_art/hair.detail.png", (230, 130, 150))):
+        img = Image.open(io.BytesIO(data[member])).convert("RGBA")
+        a = img.getchannel("A")
+        painted = Image.new("RGBA", img.size, (*fill, 0))
+        painted.putalpha(a)
+        buf = io.BytesIO()
+        painted.save(buf, "PNG")
+        data[member] = buf.getvalue()
+    parts = [x.strip() for x in data["part_art/_order.txt"].decode().splitlines()]
+    neutral = Image.new("RGBA", (320, 320))
+    for member in reversed(parts):
+        neutral.alpha_composite(Image.open(io.BytesIO(data[member])).convert("RGBA"))
+    buf = io.BytesIO()
+    neutral.save(buf, "PNG")
+    data["outputs/master.png"] = buf.getvalue()
+    with ZipFile(hair_zip, "w") as archive:
+        for member, content in data.items():
+            archive.writestr(member, content)
     source_hash = hashlib.sha256(b"one-original-PSD-with-interleaved-parts").hexdigest()
     positions = {
         "face.detail": 0, "face.base": 1,
