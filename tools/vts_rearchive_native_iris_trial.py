@@ -23,7 +23,7 @@ def sha(path):
 def _pages(editor,scope):
     items=[];offset=0
     while True:
-        raw=editor.call("workspace_inspect",{"scope":scope,"offset":offset,"limit":100})[0]
+        raw=editor.call("workspace_inspect",{"scope":scope,"offset":offset,"limit":64})[0]
         if not isinstance(raw,dict) or not isinstance(raw.get("items"),list):
             raise RuntimeError("Expected real PSD2Live paginated "+scope+" inventory")
         items.extend(raw["items"])
