@@ -77,6 +77,21 @@ def main():
         assert report.get("passed") is True, report
         assert Path(final["blend"]).read_bytes().startswith(b"BLENDER")
         assert Path(final["vrm_path"]).read_bytes().startswith(b"glTF")
+        # Check actual round-tripped VRM extension data after Blender,
+        # not only the product validator's boolean or a source-side JSON.
+        from vtuber_pipeline.core.gltf import load_gltf
+        native_vrm = load_gltf(Path(final["vrm_path"]))
+        ext = native_vrm.extensions or {}
+        vrm_ext = ext.get("VRMC_vrm", {})
+        spring_ext = ext.get("VRMC_springBone", {})
+        humanoid = vrm_ext.get("humanoid", {}).get("humanBones", {})
+        expression_preset = vrm_ext.get("expressions", {}).get("preset", {})
+        native_springs = spring_ext.get("springs", [])
+        assert isinstance(humanoid, dict) and len(humanoid) >= 15, humanoid
+        assert isinstance(expression_preset, dict) and len(expression_preset) >= 8
+        assert isinstance(native_springs, list) and len(native_springs) >= 1, spring_ext
+        assert native_vrm.meshes and native_vrm.skins
+
         print(json.dumps({
             "REAL_BLENDER_NATIVE_VRM_E2E": "PASS",
             "REAL_BLENDER_BONE_HEAT_SKIN": "PASS",
@@ -84,6 +99,10 @@ def main():
             "blender": blender,
             "final_vrm_bytes": Path(final["vrm_path"]).stat().st_size,
             "editable_blend_bytes": Path(final["blend"]).stat().st_size,
+            "native_roundtrip_human_bones": len(humanoid),
+            "native_roundtrip_expression_presets": len(expression_preset),
+            "native_roundtrip_spring_chains": len(native_springs),
+            "source_character_art_quality_verified": False,
         }, indent=2), flush=True)
 
 
