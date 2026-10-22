@@ -32,6 +32,10 @@ jobs:
           python -m pip install --disable-pip-version-check -e . --no-deps
       # Retired 2026 BODY ZIP/AI-generated PSD tests are superseded by the
       # FACE-first ZIP audit and CPU preflight. Other rig/native tests remain.
+      - name: Check source ZIP semantics and PRO overlays
+        run: |
+          node tools/build_source_only_kits_v7.js --check
+          python -m tools.audit_24_image_kits --strict
       - name: Verify recently changed production seams
         run: |
           python -m pytest -q \
@@ -43,6 +47,7 @@ jobs:
             tests/production/test_uv_projection.py \
             tests/test_visual_alignment.py \
             tests/test_cubism_export_validation.py \
+            tests/test_cubism_pro_handoff.py \
             tests/test_image_ai_kits_v2.py \
             tests/test_face_first_runtime_contract.py \
             tests/test_vts_mode_contract.py \
