@@ -26,6 +26,14 @@
 
 현재 이 경로는 **±45° 3/4 참고 원화(기본)와 명시된 ±30° 렌더의 기존 Warp 보정**만 처리합니다. 완전한 ±90° 프로필은 교체 원화, 가림/그리기 순서, 전체 목·얼굴 결합과 실제 키폼 검증이 따로 필요하므로 자동 완성으로 표기하지 않습니다. 실제 GPU·MCP·VTube Studio 실물 통합 검증은 별도입니다.
 
+## 민트색 여성 FACE + OUTFIT + HAIR 실제 정렬 기준 (2026-10-22)
+
+**[정확한 그림 생성 순서·캔버스·필수 입력·마스크 제외 규칙](docs/SEE_THROUGH_REGISTERED_UPPER_INPUT_2026-10-22.md)**
+
+기존 1536×1920 FACE는 원화가 화면의 약 94%를 차지해 상반신 OUTFIT과 바로 합성할 수 없습니다. 상반신은 **1536×2304의 별도 등록 FACE**를 기준으로 생성합니다. 이미지 제작 도구에는 전체 캐릭터 편집용 생성 지침(또는 FACE에 정합된 의상·헤어 오버레이)을 주고, **See-through Colab에는 완성 정면 `complete_character__ARTWORK.zip` 한 개**를 업로드하는 방식이 기본입니다. 원화 지침 ZIP을 See-through에 직접 업로드하지 않습니다. 마스크는 눈·입 분리 이후 별도 액세서리로 취급합니다.
+
+[정합 검사 Colab에서 바로 실행](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/FACE_SeeThrough_OfficialAligned_v3.ipynb). 프리뷰의 수동 육안 승인과 GPU 추론 성공은 별도 단계입니다.
+
 ## 공식 See-through 설정 정합 검사 노트북
 
 [**공식 설정 검사 Colab 바로 열기**](https://colab.research.google.com/github/jujumelona/Virtual-pipeline/blob/main/notebooks/FACE_SeeThrough_OfficialAligned_v3.ipynb) · [GitHub 원본](notebooks/FACE_SeeThrough_OfficialAligned_v3.ipynb)
