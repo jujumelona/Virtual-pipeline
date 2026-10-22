@@ -490,7 +490,7 @@ def render_actual_native_moc3(model3: Path, output: Path, *,
         raise RuntimeError("NATIVE_POSE_RENDER_DISABLED_BY_USER")
     requirements = (
         ("live2d", "live2d-py"), ("pygame", "pygame"),
-        ("OpenGL", "PyOpenGL"),
+        ("OpenGL", "PyOpenGL"), ("scipy", "scipy"),
     )
     to_install = [package for module, package in requirements
                   if importlib.util.find_spec(module) is None]
