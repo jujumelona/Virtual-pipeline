@@ -14,10 +14,10 @@ from tools.vts_open_quality_cases import fetch_case, CATALOG
 GROUP_KEYS={
   "eyes":("iris","irides","eye","pupil","white","lash","eyebrow","eyewhite"),
   "mouth":("mouth","lip","teeth","tongue"),
-  "hair":("hair","bang","twin","pony","tail","fringe","ahoge"),
-  "head_neck":("face","neck","ear","nose","jaw","head"),
+  "hair":("hair","bang","twin","pony","tail","fringe","ahoge","headwear"),
   "cloth":("sleeve","skirt","dress","coat","shirt","bow","topwear",
-           "bottomwear","arm","hand","ribbon","collar"),
+           "bottomwear","handwear","neckwear","arm","hand","ribbon","collar"),
+  "head_neck":("face","neck","ear","nose","jaw","head"),
   "other":()
 }
 
