@@ -72,6 +72,60 @@ def _part_layers(source: Path, master: Image.Image, asset: str) -> list[dict] | 
         return layers
 
 
+def _read_original_global_order(inputs: dict[str, Path],
+                                authored: dict[str, list[dict] | None]) -> dict[str, int] | None:
+    """Recover interleaved original PSD paint order from matched asset ZIPs.
+
+    A hair strand may be behind the FACE while another is in front. Flattening
+    each asset into an arbitrary FACE->HAIR composite erases this relationship.
+    Only accept a complete, traceable ordered stack from the SAME source PSD.
+    """
+    import re
+    path = "metadata/global_layer_order.json"
+    manifests = {}
+    for asset, source in inputs.items():
+        with ZipFile(source) as archive:
+            if path not in archive.namelist():
+                continue
+            if archive.namelist().count(path) != 1:
+                raise ValueError("GLOBAL_LAYER_ORDER_DUPLICATE_MANIFEST")
+            info = archive.getinfo(path)
+            if not 0 < info.file_size <= 32768:
+                raise ValueError("GLOBAL_LAYER_ORDER_INVALID_MANIFEST_SIZE")
+            manifests[asset] = json.loads(archive.read(path).decode("utf-8"))
+    if not manifests:
+        return None
+    if set(manifests) != set(inputs):
+        raise ValueError("GLOBAL_LAYER_ORDER_PARTIAL_ASSET_SET")
+    order = {}
+    origins = set()
+    for asset, manifest in manifests.items():
+        if not isinstance(manifest, dict) or manifest.get("schema") != "vtuber/source-psd-global-order-v1":
+            raise ValueError("GLOBAL_LAYER_ORDER_INVALID_SCHEMA")
+        origin = manifest.get("original_psd_sha256")
+        if not isinstance(origin, str) or not re.fullmatch(r"[0-9a-f]{64}", origin):
+            raise ValueError("GLOBAL_LAYER_ORDER_SOURCE_PROVENANCE_MISSING")
+        origins.add(origin)
+        positions = manifest.get("top_first")
+        expected = {layer["name"] for layer in (authored.get(asset) or [])}
+        if not isinstance(positions, dict) or set(positions) != expected:
+            raise ValueError("GLOBAL_LAYER_ORDER_PART_NAMES_MISMATCH: " + asset)
+        for name, z in positions.items():
+            if isinstance(z, bool) or not isinstance(z, int) or not 0 <= z <= 10000:
+                raise ValueError("GLOBAL_LAYER_ORDER_BAD_Z_VALUE: " + name)
+            if name in order:
+                raise ValueError("GLOBAL_LAYER_ORDER_DUPLICATE_PART_ID: " + name)
+            order[name] = z
+    if len(origins) != 1:
+        raise ValueError("GLOBAL_LAYER_ORDER_MIXED_CHARACTER_SOURCES")
+    values = list(order.values())
+    if len(values) != len(set(values)):
+        raise ValueError("GLOBAL_LAYER_ORDER_COLLIDING_POSITIONS")
+    if sorted(values) != list(range(len(values))):
+        raise ValueError("GLOBAL_LAYER_ORDER_HAS_GAPS_OR_EXTRAS")
+    return order
+
+
 def compose_preserved_parts(inputs: dict[str, Path], output: Path,
                             *, scope: str = "upper") -> dict | None:
     """Return a *real* PSD package if every asset supplies genuine part art.
@@ -99,7 +153,9 @@ def compose_preserved_parts(inputs: dict[str, Path], output: Path,
                          "do not discard existing authored layers in See-through")
     if sum(len(v) for v in authored.values()) > 100:
         raise ValueError("AUTHORED_PART_COUNT_EXCEEDS_FREE_LIMIT")
-    # Same drawing order as composite_2d: accessory, hair, face, outfit on top.
+    # Honor cross-asset original PSD order, when ALL ZIPs came from one
+    # verified layer stack. Otherwise retain the historical asset-level stack.
+    global_order = _read_original_global_order(inputs, authored)
     ordered_assets = [n for n in ("accessory", "hair", "face", "outfit") if n in inputs]
     parts = []
     seen = set()
@@ -114,14 +170,24 @@ def compose_preserved_parts(inputs: dict[str, Path], output: Path,
             parts.append({"name": entry["name"], "image": registered_layer,
                           "source_name": entry["name"], "depth": 0,
                           "hidden_neutral": entry["hidden_neutral"]})
+    if global_order is not None:
+        parts.sort(key=lambda part: global_order[part["name"]])
     reconstructed = Image.new("RGBA", canvas)
     for part in reversed(parts):
         if not part["hidden_neutral"]:
             reconstructed.alpha_composite(part["image"])
     expected = Image.new("RGBA", canvas)
-    for asset in ("outfit", "face", "hair", "accessory"):
-        if asset in registered:
-            expected.alpha_composite(registered[asset])
+    if global_order is not None:
+        # The source ZIPs have already been individually reconstructed and
+        # checked on black/white mattes by _part_layers. Rebuild the original
+        # interleaved neutral order without grouping hair above face.
+        for part in reversed(parts):
+            if not part["hidden_neutral"]:
+                expected.alpha_composite(part["image"])
+    else:
+        for asset in ("outfit", "face", "hair", "accessory"):
+            if asset in registered:
+                expected.alpha_composite(registered[asset])
     if not _equivalent(reconstructed, expected):
         raise ValueError("AUTHORED_COMPOSITE_MISMATCH: source part pixels drifted")
     output = Path(output).resolve()
@@ -141,6 +207,7 @@ def compose_preserved_parts(inputs: dict[str, Path], output: Path,
         "segmentation_provider": "none-original-authored-rgba",
         "see_through_inference_executed": False,
         "neutral_exact_same_as_composite": True,
+        "original_global_psd_z_order_used": global_order is not None,
         "source_assets": list(inputs), "registered_assets": registration,
         "hidden_alternates": [p["name"] for p in parts if p["hidden_neutral"]],
         "visual_quality_verified": False,
