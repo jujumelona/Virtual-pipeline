@@ -1,0 +1,88 @@
+name: REARCHIVE stage9 visible DNA 2048 atlas runtime QA
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/vts_native_runtime_2048.py'
+      - '.github/workflows/rearchive-stage9-2048-native-qa.yml'
+  workflow_dispatch:
+jobs:
+  verified-original-moc3-lite-atlas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions: {actions: read, contents: read}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install image and native rendering dependencies
+        run: |
+          python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3'
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
+      - name: Download and verify actual stage8 independent DNA physics model
+        run: |
+          mkdir -p "$RUNNER_TEMP/source"
+          gh run download 39799469580 --repo "${{ github.repository }}" \
+            --name rearchive-stage9-visible-dna-native-test \
+            --dir "$RUNNER_TEMP/source"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'source/STATUS.json'
+          s=json.loads(p.read_text())
+          assert s['native_pose_qa_passed'] and s['native_export_verified']
+          assert s['pendant_front_draw_order_committed'] and s['pendant_pixel_visibility_verified'] and s['existing_pendant_physics_retained']
+          PY
+      - name: Resize atlas and keep original native mesh and physics unchanged
+        run: |
+          python -m tools.vts_native_runtime_2048 \
+            --model3 "$RUNNER_TEMP/source/native/hiakari_inori_layers_v3.model3.json" \
+            --out "$RUNNER_TEMP/lite-2048"
+      - name: Render actual native MOC3 2048 atlas and compare neutral to 4096
+        run: |
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          from PIL import Image,ImageChops
+          from tools.vts_multiview_runtime import render_actual_native_moc3
+          root=Path(os.environ['RUNNER_TEMP'])
+          lite=root/'lite-2048'
+          original=root/'source/native/hiakari_inori_layers_v3.model3.json'
+          smaller=lite/'hiakari_inori_layers_v3.model3.json'
+          qa=json.loads((lite/'LITE_QA.json').read_text())
+          assert qa['same_moc3_binary'] and qa['relative_references_valid']
+          if qa['original_physics_sha256']:
+             assert qa['original_physics_sha256']==qa['lite_physics_sha256']
+          result=render_actual_native_moc3(smaller,root/'lite-poses')
+          flags=['native_pose_rendered','pose_activity_passed','native_pose_geometry_passed']
+          assert all(result.get(k) is True for k in flags),result
+          src_image=root/'source/poses/neutral.png'
+          lite_image=root/'lite-poses/neutral.png'
+          if src_image.exists() and lite_image.exists():
+             a=Image.open(src_image).convert('RGBA')
+             b=Image.open(lite_image).convert('RGBA')
+             assert a.size==b.size
+             changed=ImageChops.difference(a,b).getbbox() is not None
+          else:changed=None
+          qa.update(live_cubism_render_verified=True,live_native_pose_tests={
+            key:result.get(key) for key in flags},
+            visual_texture_differs_from_4096=changed,
+            original_character_art_verified=False,
+            cubism_free_all_limits_verified=False,
+            status='REAL_2048_ONE_ATLAS_MOC3_RENDER_PASSED_NOT_FULL_FREE_OR_ART')
+          (lite/'LITE_QA.json').write_text(json.dumps(qa,ensure_ascii=False,indent=2))
+          print(json.dumps(qa,ensure_ascii=False,indent=2))
+          PY
+      - name: Deliver verified 2048-runtime model and genuine pose screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-stage9-real-2048-runtime-native-render
+          path: |
+            ${{ runner.temp }}/lite-2048/**
+            ${{ runner.temp }}/lite-poses/**
+          if-no-files-found: ignore
+          retention-days: 14
