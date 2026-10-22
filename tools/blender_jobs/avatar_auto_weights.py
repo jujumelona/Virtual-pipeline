@@ -25,10 +25,31 @@ def main():
     imported = bpy.ops.import_scene.gltf(filepath=source)
     if "FINISHED" not in imported:
         raise RuntimeError("Blender failed to import canonical rigged glTF")
+    # Blender may import additional mesh objects from the same GLB (e.g.
+    # accessory or eye objects). Identify the EXACT canonical primitive by
+    # matching the original GLB accessor count, not by choosing the largest
+    # object or silently grafting weights onto an unrelated mesh.
+    import struct
+    blob = Path(source).read_bytes()
+    if blob[:4] != b"glTF" or len(blob) < 20:
+        raise RuntimeError("Input is not a real GLB")
+    chunk_length, chunk_type = struct.unpack_from("<I4s", blob, 12)
+    if chunk_type != b"JSON":
+        raise RuntimeError("GLB JSON chunk missing")
+    gltf_json = json.loads(blob[20:20 + chunk_length])
+    source_meshes = gltf_json.get("meshes", [])
+    if len(source_meshes) != 1 or len(source_meshes[0].get("primitives", [])) != 1:
+        raise RuntimeError("Expected single canonical source GLB mesh primitive")
+    attrib = source_meshes[0]["primitives"][0]["attributes"]
+    canonical_vertices = gltf_json["accessors"][attrib["POSITION"]]["count"]
     meshes = [obj for obj in bpy.data.objects if obj.type == "MESH"]
-    if len(meshes) != 1:
-        raise RuntimeError(f"Expected one canonical mesh, imported {len(meshes)}")
-    mesh = meshes[0]
+    candidates = [obj for obj in meshes if len(obj.data.vertices) == canonical_vertices]
+    if len(candidates) != 1:
+        raise RuntimeError(
+            "Cannot uniquely identify canonical Blender mesh: "
+            f"expected_vertices={canonical_vertices}, imported="
+            + str([(o.name, len(o.data.vertices)) for o in meshes]))
+    mesh = candidates[0]
     attached = [
         mod.object for mod in mesh.modifiers
         if mod.type == "ARMATURE" and mod.object is not None
@@ -94,6 +115,9 @@ def main():
             "engine": "Blender ARMATURE_AUTO",
             "blender_version": bpy.app.version_string,
             "source_vertex_count": source_vertex_count,
+            "canonical_glb_vertex_count_verified": source_vertex_count == canonical_vertices,
+            "selected_canonical_object": mesh.name,
+            "extra_imported_mesh_object_count": len(meshes) - 1,
             "armature_bones": len(arm.data.bones),
             "weighted_vertices": source_vertex_count - missing,
             "unweighted_vertices": missing,
