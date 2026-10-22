@@ -190,7 +190,7 @@ def test_same_psd_global_layer_order_keeps_rear_hair_behind_face(tmp_path):
     assert assembled["preserved_authored_parts"]
     with Image.open(assembled["art_psd"]) as actual:
         assert actual.format == "PSD"
-    neutral = Image.open(tmp_path / "converted" / "neutral_preserved.png")
+    neutral = Image.open(Path(assembled["art_psd"]).with_name("neutral_preserved.png"))
     with Image.open(comp["composite_png"]) as reference:
         from tools.vts_preserved_source_parts import _equivalent
         assert _equivalent(neutral.convert("RGBA"), reference.convert("RGBA"))
