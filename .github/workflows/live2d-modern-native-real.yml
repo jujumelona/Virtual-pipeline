@@ -8,6 +8,7 @@ on:
       - "tools/vts_modern_editable_project.py"
       - "tools/vts_reference_keyform_author.py"
       - "tools/vts_modern_mcp_probe.py"
+      - "tools/vts_modern_real_mesh_trial.py"
       - "tools/vts_open_quality_cases.py"
       - ".github/workflows/live2d-modern-native-real.yml"
   workflow_dispatch:
@@ -91,6 +92,21 @@ jobs:
             --project /tmp/psd2live-imported-cmo3/ds.psd2live \
             --source "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
             --output /tmp/psd2live-edit-probe
+      - name: Commit REAL structure-guided mesh edit on exported CMO3 and verify new native MOC3
+        run: |
+          python -m tools.vts_modern_real_mesh_trial \
+            --project /tmp/psd2live-imported-cmo3/ds.psd2live \
+            --source "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
+            --output /tmp/psd2live-real-mesh-trial
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("/tmp/psd2live-real-mesh-trial/real_mesh_trial.json").read_text())
+          assert d["native_project_opened"] and d["editable_copy_saved"]
+          assert d["mesh_changes_committed"] and d["model_exported"]
+          assert Path(d["model3_json"]).is_file()
+          print("REAL_V360_CMO3_MESH_EDIT_AND_EXPORT_VERIFIED", d["selected_target"])
+          PY
       - name: Upload logs, artifacts and native rejection evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -102,6 +118,7 @@ jobs:
             /tmp/psd2live-editable-real/**
             /tmp/psd2live-imported-cmo3/**
             /tmp/psd2live-edit-probe/**
+            /tmp/psd2live-real-mesh-trial/**
             /content/vtuber_builder/third_party/modern_psd2live_clone.log
           if-no-files-found: ignore
           retention-days: 5
