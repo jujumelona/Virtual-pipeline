@@ -45,6 +45,8 @@ jobs:
           assert status['native_pose_qa_passed']
           assert status['source_unchanged']
           assert {x['name'] for x in status['deleted_real_layer_ids']}=={
+            'ears-r','ears-l','tail 1','tail 2','tail 3'}
+          assert set(status['effective_removed_animal_layer_names'])=={
             'ears-r','ears-l','tail 1','tail 2-t','tail 2-b','tail 3'}
           print('REAL_ANIMAL_FREE_RIG_AS_PARENT_VERIFIED')
           PY
