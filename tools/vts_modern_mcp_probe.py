@@ -41,6 +41,16 @@ def inspect_native_editability(project: Path, output: Path, *,
                 inspected[scope] = value
             if inspected["project"].get("project_id") != load["project_id"]:
                 raise RuntimeError("PSD2LIVE_INSPECT_DIFFERENT_PROJECT")
+            # Parameter range is a real rig limit, not an artistic label.
+            # A generic yaw at ±45 MUST NOT be marketed as a true 90 profile.
+            yaw = next((p for p in inspected["parameters"].get("items", [])
+                        if p.get("id") == "ParamAngleX"), None)
+            if yaw is None:
+                raise RuntimeError("PSD2LIVE_REAL_RIG_NO_YAW_PARAMETER")
+            yaw_min, yaw_max = yaw.get("min"), yaw.get("max")
+            if not all(isinstance(v, (int, float)) for v in (yaw_min, yaw_max)):
+                raise RuntimeError("PSD2LIVE_REAL_RIG_YAW_RANGE_INVALID")
+            full90_range = yaw_min <= -90 and yaw_max >= 90
             # Store raw native details for deterministic mesh/keyform binding.
             report = {
                 "schema": "vtuber/v360-real-mcp-introspection-v1",
@@ -49,6 +59,9 @@ def inspect_native_editability(project: Path, output: Path, *,
                 "native_objects_inspected": True,
                 "raw_inspection": inspected,
                 "mesh_or_warp_edit_committed": False,
+                "native_yaw_range": [yaw_min, yaw_max],
+                "full_90_parameter_range_verified": full90_range,
+                "full_90_profile_artwork_and_render_verified": False,
                 "rendered_pose_improvement_verified": False,
                 "vtube_studio_tracking_verified": False,
             }
@@ -74,6 +87,8 @@ def main():
         "layers": str(raw["layers"])[:3000],
         "parameters": str(raw["parameters"])[:1500],
         "mesh_or_warp_edit_committed": False,
+        "native_yaw_range": report["native_yaw_range"],
+        "full_90_parameter_range_verified": report["full_90_parameter_range_verified"],
     }, ensure_ascii=False, indent=2))
 
 
