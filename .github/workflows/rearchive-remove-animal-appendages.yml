@@ -1,0 +1,79 @@
+name: REARCHIVE remove original animal ears and tails in actual MOC3
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/vts_rearchive_native_remove_animal_parts.py'
+      - '.github/workflows/rearchive-remove-animal-appendages.yml'
+  workflow_dispatch:
+jobs:
+  actual-delete-and-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install dependencies for source validation
+        run: python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3'
+      - name: Fetch ACTUALLY MODIFIED stage2 CC0 project
+        run: |
+          mkdir -p "$RUNNER_TEMP/stage2-source"
+          gh run download 39766269362 --repo "${{ github.repository }}" \
+            --name rearchive-nine-cosmetic-native-retarget-not-final-art --dir "$RUNNER_TEMP/stage2-source"
+          test -s "$RUNNER_TEMP/stage2-source/REARCHIVE_MINT_AND_COSTUME_TRIAL.psd2live"
+      - name: Prepare official v3.6 PSD2Live headless editor
+        run: |
+          python - <<'PY'
+          from tools.vts_psd2live_modern import ensure_modern_psd2live
+          print(ensure_modern_psd2live(None,clone=True))
+          PY
+      - name: Remove all five actual animal ear/tail layers from cloned MOC3
+        run: |
+          python -m tools.vts_rearchive_native_remove_animal_parts \
+            --source "$RUNNER_TEMP/stage2-source/REARCHIVE_MINT_AND_COSTUME_TRIAL.psd2live" \
+            --editor "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
+            --out "$RUNNER_TEMP/stage3"
+      - name: Render independent Cubism Core pose evidence after layer deletion
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          from tools.vts_multiview_runtime import render_actual_native_moc3
+          out=Path(os.environ["RUNNER_TEMP"])/"stage3"
+          report=json.loads((out/"STATUS.json").read_text())
+          assert report['native_export_verified']
+          assert len(report['deleted_real_layer_ids'])==5
+          result=render_actual_native_moc3(Path(report["model3_json"]),out/"poses")
+          report['native_pose_qa_passed']=all(result.get(x) is True for x in
+            ('native_pose_rendered','pose_activity_passed','native_pose_geometry_passed'))
+          (out/'STATUS.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          if not report['native_pose_qa_passed']:
+              raise RuntimeError('Real pose failed after layer deletion')
+          print("REMOVED_5_REAL_ANIMAL_LAYERS_AND_RENDERED_NATIVE_MOC3")
+          PY
+      - name: Upload real editable rig, runtime model, pose screenshots and exact failure logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-animal-free-real-native-trial
+          path: |
+            ${{ runner.temp }}/stage3/STATUS.json
+            ${{ runner.temp }}/stage3/*.psd2live
+            ${{ runner.temp }}/stage3/native/**
+            ${{ runner.temp }}/stage3/poses/**
+            ${{ runner.temp }}/stage3/mcp/**/headless_mcp.log
+          if-no-files-found: ignore
+          retention-days: 14
