@@ -1,5 +1,8 @@
 name: REARCHIVE stage7 remove legacy red braided hair ArtMeshes
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/rearchive-real-red-braid-cleanup-stage7.yml']
   workflow_run:
     workflows:
       - "REARCHIVE stage6 actually recolor main skirt and long sleeves"
@@ -7,7 +10,7 @@ on:
   workflow_dispatch:
 jobs:
   clean-old-braid:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions: {actions: read, contents: read}
@@ -21,21 +24,34 @@ jobs:
         with: {distribution: temurin, java-version: '21'}
       - name: Python dependencies
         run: python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3'
-      - name: Retrieve real dark dress with dual independent twin tails
+      - name: Select verified stage6 parent or safe stage5 twin-tail fallback
         env:
-          PARENT_RUN: ${{ github.event.workflow_run.id }}
+          PARENT_RUN: ${{ github.event.workflow_run.id || '39786689164' }}
+          SOURCE_EVENT: ${{ github.event_name }}
         run: |
           test -n "$PARENT_RUN"
           mkdir -p "$RUNNER_TEMP/parent"
+          if [ "$SOURCE_EVENT" = "workflow_run" ]; then
+            ARTIFACT="rearchive-real-hair-and-dress-rig-stage6-not-final"
+            MODEL="REARCHIVE_MINT_AND_COSTUME_TRIAL.psd2live"
+          else
+            ARTIFACT="rearchive-real-twintails-rigged-stage5-not-final-art"
+            MODEL="REARCHIVE_STAGE5_REAL_TWIN_TAILS.psd2live"
+          fi
           gh run download "$PARENT_RUN" --repo "${{ github.repository }}" \
-            --name rearchive-real-hair-and-dress-rig-stage6-not-final --dir "$RUNNER_TEMP/parent"
-          test -s "$RUNNER_TEMP/parent/REARCHIVE_MINT_AND_COSTUME_TRIAL.psd2live"
+            --name "$ARTIFACT" --dir "$RUNNER_TEMP/parent"
+          test -s "$RUNNER_TEMP/parent/$MODEL"
+          echo "REARCHIVE_PARENT_EDITABLE=$RUNNER_TEMP/parent/$MODEL" >> "$GITHUB_ENV"
           python - <<'PY'
           from pathlib import Path
           import os,json
           d=json.loads((Path(os.environ['RUNNER_TEMP'])/'parent/STATUS.json').read_text())
           assert d['native_pose_qa_passed'] and d['native_export_verified']
-          assert {x['name'] for x in d['replaced_layers']}=={'bottomwear','handwear 1-r','handwear 1-l'}
+          if os.environ['SOURCE_EVENT']=='workflow_run':
+              assert {x['name'] for x in d['replaced_layers']}=={
+                'bottomwear','handwear 1-r','handwear 1-l'}
+          else:
+              assert d['swing_physics_built'] and len(d['new_twin_tail_parts'])==2
           PY
       - name: Provision actual PSD2Live 3.6 edit project runtime
         run: |
@@ -46,7 +62,7 @@ jobs:
       - name: Replace all four old red-braid native textures with RGBA transparent
         run: |
           python -m tools.vts_rearchive_native_remove_red_braid \
-            --source "$RUNNER_TEMP/parent/REARCHIVE_MINT_AND_COSTUME_TRIAL.psd2live" \
+            --source "$REARCHIVE_PARENT_EDITABLE" \
             --editor "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
             --out "$RUNNER_TEMP/stage7"
       - name: Independently render edited MOC3 and verify face and head motion
