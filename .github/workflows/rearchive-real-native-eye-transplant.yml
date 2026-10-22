@@ -1,0 +1,58 @@
+name: REARCHIVE real PSD2Live eye-rig transplant
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/vts_rearchive_native_iris_trial.py'
+      - 'tools/vts_rearchive_cc0_repaint.py'
+      - '.github/workflows/rearchive-real-native-eye-transplant.yml'
+  workflow_dispatch:
+jobs:
+  edit-verified-cc0-project:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install source and rendering dependencies
+        run: python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3' 'psd-tools==1.14.2'
+      - name: Retrieve actual SHA-verified CC0 project and PSD layers
+        run: python -m tools.vts_cc0_source_layer_audit --case hiakari-inori --out "$RUNNER_TEMP/cc0" --export-guides
+      - name: Generate actual new REARCHIVE mint-eye PNG textures
+        run: python -m tools.vts_rearchive_cc0_repaint --source-guides "$RUNNER_TEMP/cc0/CC0_SOURCE_LAYER_PAINT_GUIDES.zip" --out "$RUNNER_TEMP/new-art"
+      - name: Provision current upstream PSD2Live v3.6 MCP editor
+        run: |
+          python - <<'PY'
+          from tools.vts_psd2live_modern import ensure_modern_psd2live
+          print('OFFICIAL_PSD2LIVE_EDITOR', ensure_modern_psd2live(None, clone=True))
+          PY
+      - name: Actually replace source rig iris layers and export native editable model
+        shell: bash
+        run: |
+          BASE=$(find "$RUNNER_TEMP/cc0/download" -type f -name 'hiakari_inori_layers_v3.psd2live' -print -quit)
+          test -n "$BASE"
+          python -m tools.vts_rearchive_native_iris_trial \
+            --source-project "$BASE" \
+            --edited-zip "$RUNNER_TEMP/new-art/REARCHIVE_ACTUAL_33_LAYER_PAINTINGS.zip" \
+            --editor "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
+            --out "$RUNNER_TEMP/native-trial"
+      - name: Upload real project and native export or exact failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-real-iris-transplant-audit
+          path: |
+            ${{ runner.temp }}/new-art/ACTUAL_BEFORE_AFTER.jpg
+            ${{ runner.temp }}/native-trial/NATIVE_TRIAL_STATUS.json
+            ${{ runner.temp }}/native-trial/ACTUAL_NATIVE_SOURCE_LAYERS.json
+            ${{ runner.temp }}/native-trial/*.psd2live
+            ${{ runner.temp }}/native-trial/native/**
+            ${{ runner.temp }}/native-trial/mcp/**/headless_mcp.log
+          if-no-files-found: ignore
+          retention-days: 14
