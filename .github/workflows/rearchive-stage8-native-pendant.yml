@@ -1,0 +1,92 @@
+name: REARCHIVE stage8 independent DNA archive pendant physics
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/vts_rearchive_native_capsule_stage8.py'
+      - '.github/workflows/rearchive-stage8-native-pendant.yml'
+  workflow_dispatch:
+jobs:
+  add-real-capsule-swing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions: {actions: read, contents: read}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21'}
+      - name: Install rig and rendering dependencies
+        run: python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3'
+      - name: Download actual successful stage7 hair and dark skirt project
+        run: |
+          mkdir -p "$RUNNER_TEMP/parent"
+          gh run download 39790304173 --repo "${{ github.repository }}" \
+            --name rearchive-stage7-actual-twin-tail-dress-cleanup-not-final \
+            --dir "$RUNNER_TEMP/parent"
+          test -s "$RUNNER_TEMP/parent/REARCHIVE_NO_RED_BRAID_EDITABLE.psd2live"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads((Path(os.environ['RUNNER_TEMP'])/'parent/STATUS.json').read_text())
+          assert r['native_pose_qa_passed'] and r['native_export_verified']
+          assert len(r['replaced_native_split_layers'])==4
+          PY
+      - name: Download actual hand-painted DNA archive capsule from verified stage4
+        run: |
+          mkdir -p "$RUNNER_TEMP/capsule"
+          gh run download 39777137990 --repo "${{ github.repository }}" \
+            --name rearchive-animal-free-dna-texture-real-model-not-final \
+            --dir "$RUNNER_TEMP/capsule"
+          test -s "$RUNNER_TEMP/capsule/REARCHIVE_DNA_CAPSULE_FRONT.png"
+      - name: Prepare upstream PSD2Live 3.6 rig editor
+        run: |
+          python - <<'PY'
+          from tools.vts_psd2live_modern import ensure_modern_psd2live
+          print(ensure_modern_psd2live(None,clone=True))
+          PY
+      - name: Actually import independent DNA pendant as new mesh and install swinging physics
+        run: |
+          python -m tools.vts_rearchive_native_capsule_stage8 \
+            --source "$RUNNER_TEMP/parent/REARCHIVE_NO_RED_BRAID_EDITABLE.psd2live" \
+            --capsule "$RUNNER_TEMP/capsule/REARCHIVE_DNA_CAPSULE_FRONT.png" \
+            --editor "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
+            --out "$RUNNER_TEMP/stage8"
+      - name: Render actual independently rigged DNA MOC3 using Cubism Core
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          from tools.vts_multiview_runtime import render_actual_native_moc3
+          p=Path(os.environ['RUNNER_TEMP'])/'stage8'
+          s=json.loads((p/'STATUS.json').read_text())
+          assert s['native_export_verified'] and s['independent_dna_mesh_inserted']
+          assert s['independent_dna_physics_generated']
+          report=render_actual_native_moc3(Path(s['model3_json']),p/'poses')
+          s['native_pose_qa_passed']=all(report.get(k) is True for k in (
+            'native_pose_rendered','pose_activity_passed','native_pose_geometry_passed'))
+          if not s['native_pose_qa_passed']:
+            raise RuntimeError('True native MOC3 pose fails after DNA capsule import')
+          s['status']='REAL_DNA_MESH_AND_SWING_MOC3_POSES_PASS_ART_NOT_FINAL'
+          (p/'STATUS.json').write_text(json.dumps(s,ensure_ascii=False,indent=2))
+          print(s['status'])
+          PY
+      - name: Preserve genuine stage8 editable project, MOC3 and true pose evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-stage8-independent-dna-rig-native-not-final-art
+          path: |
+            ${{ runner.temp }}/stage8/STATUS.json
+            ${{ runner.temp }}/stage8/*.png
+            ${{ runner.temp }}/stage8/*.psd2live
+            ${{ runner.temp }}/stage8/native/**
+            ${{ runner.temp }}/stage8/poses/**
+            ${{ runner.temp }}/stage8/mcp/**/headless_mcp.log
+          if-no-files-found: ignore
+          retention-days: 14
