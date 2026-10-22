@@ -1,0 +1,91 @@
+name: REARCHIVE stage6 actually recolor main skirt and long sleeves
+on:
+  workflow_run:
+    workflows:
+      - "REARCHIVE real independent twin tail meshes and sway"
+    types: [completed]
+  workflow_dispatch:
+jobs:
+  actual-cloth-native:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions: {actions: read, contents: read}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21'}
+      - name: Install Python dependencies
+        run: python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3'
+      - name: Load successfully rigged twin-tail parent
+        env:
+          PARENT_RUN: ${{ github.event.workflow_run.id }}
+        run: |
+          test -n "$PARENT_RUN"
+          mkdir -p "$RUNNER_TEMP/parent"
+          gh run download "$PARENT_RUN" --repo "${{ github.repository }}" \
+            --name rearchive-real-twintails-rigged-stage5-not-final-art \
+            --dir "$RUNNER_TEMP/parent"
+          test -s "$RUNNER_TEMP/parent/REARCHIVE_STAGE5_REAL_TWIN_TAILS.psd2live"
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          d=json.loads((Path(os.environ['RUNNER_TEMP'])/'parent/STATUS.json').read_text())
+          assert d['native_pose_qa_passed'] and d['native_export_verified']
+          assert d['swing_physics_built'] and len(d['new_twin_tail_parts'])==2
+          PY
+      - name: Download genuine recolored source part art
+        run: |
+          mkdir -p "$RUNNER_TEMP/source-art"
+          gh run download 39759387454 --repo "${{ github.repository }}" \
+            --name rearchive-edited-33-source-parts-unrigged --dir "$RUNNER_TEMP/source-art"
+      - name: Prepare upstream source layer editor
+        run: |
+          python - <<'PY'
+          from tools.vts_psd2live_modern import ensure_modern_psd2live
+          print(ensure_modern_psd2live(None,clone=True))
+          PY
+      - name: Replace actual main skirt and long sleeves into cloned native project
+        run: |
+          python -m tools.vts_rearchive_native_costume_trial \
+            --source-project "$RUNNER_TEMP/parent/REARCHIVE_STAGE5_REAL_TWIN_TAILS.psd2live" \
+            --edited-zip "$RUNNER_TEMP/source-art/REARCHIVE_ACTUAL_33_LAYER_PAINTINGS.zip" \
+            --editor "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
+            --layers bottomwear "handwear 2-r" "handwear 2-l" \
+            --out "$RUNNER_TEMP/stage6"
+      - name: Validate actual new MOC3 multiple head, eye and mouth poses
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
+          python - <<'PY'
+          from pathlib import Path
+          import json,os
+          from tools.vts_multiview_runtime import render_actual_native_moc3
+          p=Path(os.environ['RUNNER_TEMP'])/'stage6'
+          d=json.loads((p/'STATUS.json').read_text())
+          assert d['native_export_verified']
+          assert {x['name'] for x in d['replaced_layers']}=={'bottomwear','handwear 2-r','handwear 2-l'}
+          verdict=render_actual_native_moc3(Path(d['exported_model3']),p/'poses')
+          assert all(verdict.get(k) is True for k in
+            ('native_pose_rendered','pose_activity_passed','native_pose_geometry_passed'))
+          d['native_pose_qa_passed']=True
+          d['status']='REAL_STAGED_CC0_REARCHIVE_HAIR_SKIRT_SLEEVES_RIG_QA_PASSED_ART_NOT_FINAL'
+          (p/'STATUS.json').write_text(json.dumps(d,ensure_ascii=False,indent=2))
+          PY
+      - name: Preserve actual PSD2Live project, MOC3, physics and proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-real-hair-and-dress-rig-stage6-not-final
+          path: |
+            ${{ runner.temp }}/stage6/STATUS.json
+            ${{ runner.temp }}/stage6/*.psd2live
+            ${{ runner.temp }}/stage6/native/**
+            ${{ runner.temp }}/stage6/poses/**
+            ${{ runner.temp }}/stage6/mcp/**/headless_mcp.log
+          if-no-files-found: ignore
+          retention-days: 14
