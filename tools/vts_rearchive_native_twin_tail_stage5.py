@@ -122,9 +122,23 @@ def build(source_project:Path,edited_parts_zip:Path,output:Path,*,
                 editor.edit("project_save_as",path=str(clone))
                 if not clone.is_file():raise RuntimeError("Native copy missing")
                 inventory=_pages(editor,"layers")
-                old_hide_ids=[_get_id(inventory,n) for n in ORIGINAL_HAIR_TO_HIDE]
-                anchor=_get_id(inventory,"back hair")
-                for orig_name,ident in zip(ORIGINAL_HAIR_TO_HIDE,old_hide_ids):
+                (output/"ACTUAL_STAGE4_SOURCE_LAYERS.json").write_text(
+                   json.dumps(inventory,ensure_ascii=False,indent=2,default=str),
+                   encoding="utf-8")
+                def optional_layer(name):
+                    matches=[x for x in inventory if isinstance(x,dict) and
+                       str(x.get("name","")).strip().lower()==name]
+                    if len(matches)>1:raise RuntimeError("Ambiguous native layer "+name)
+                    if not matches:return None
+                    return matches[0].get("id") or matches[0].get("layer_id")
+                old_hide_ids=[(n,optional_layer(n)) for n in ORIGINAL_HAIR_TO_HIDE]
+                anchor=optional_layer("back hair") or optional_layer("front hair")
+                if not isinstance(anchor,str) or not anchor:
+                    raise RuntimeError("No real known head anchor for new twin-tails")
+                verdict["skipped_old_hair_names_not_in_live_rig"]=[
+                    name for name,ident in old_hide_ids if ident is None]
+                for orig_name,ident in old_hide_ids:
+                    if ident is None:continue
                     meta=editor.call("layer_get_texture",{"layer_id":ident})[0]
                     raster=meta.get("raster")
                     if not isinstance(raster,dict):raise RuntimeError("Old hair raster missing")
