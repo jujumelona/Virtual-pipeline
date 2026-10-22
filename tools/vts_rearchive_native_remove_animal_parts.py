@@ -52,9 +52,22 @@ def remove_animals(source_project:Path,output:Path,*,editor_root=None,connect=No
                     if editor.state()==old:raise RuntimeError("Layer removal was not committed")
                     report["deleted_real_layer_ids"].append({"name":name,"id":ident})
                 remaining=_pages(editor,"layers")
-                present={str(x.get("name","")).strip().lower() for x in remaining}
+                deletion_state=[]
                 for name in DELETE:
-                    if name in present:raise RuntimeError("Deleted layer is still active "+name)
+                    listed=[x for x in remaining if str(x.get("name","")).strip().lower()==name]
+                    if not listed:
+                        deletion_state.append({"name":name,"state":"removed_from_inspection"})
+                        continue
+                    if len(listed)!=1:raise RuntimeError("Duplicate derived layer after deletion: "+name)
+                    ident=listed[0].get("id") or listed[0].get("layer_id")
+                    # Derived source-split layers are soft-tombstoned by
+                    # upstream, and may remain in the layer inspection list.
+                    actual=editor.call("layer_get_texture",{"layer_id":ident})[0]
+                    if actual.get("deleted") is not True:
+                        raise RuntimeError(
+                            f"Deleted layer is still textured/active: {name}; {actual.get('deleted')}")
+                    deletion_state.append({"name":name,"state":"upstream_deleted_tombstone"})
+                report["actual_native_deletion_states"]=deletion_state
                 editor.edit("project_save")
                 native=out/"native"
                 editor.edit("project_export_model",output_directory=str(native))
