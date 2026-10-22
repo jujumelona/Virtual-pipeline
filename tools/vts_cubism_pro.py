@@ -139,6 +139,19 @@ def build_cubism_pro_handoff(artwork_zip: Path, output_zip: Path, *,
                                  allowZip64=True) as dest:
                 with source.open(member) as src, dest.open("avatar.psd", "w", force_zip64=True) as dst:
                     shutil.copyfileobj(src, dst, length=1024 * 1024)
+                # Retain real PNG masks, QA reports and part references, not just the PSD.
+                # Preserve each original relative path under artwork/ to avoid collisions.
+                included = []
+                for item in source.infolist():
+                    if item.is_dir() or item.filename == member.filename:
+                        continue
+                    if item.filename.startswith(("cubism_pro/", "templates/")):
+                        continue
+                    with source.open(item) as src, dest.open(
+                            "artwork/" + item.filename, "w", force_zip64=True) as dst:
+                        shutil.copyfileobj(src, dst, length=1024 * 1024)
+                    included.append(item.filename)
+                plan["source_artwork_members"] = included
                 if template is not None:
                     dest.write(template, "templates/source.cmo3")
                 dest.writestr("cubism_pro/rig_transfer_plan.json",
