@@ -188,7 +188,14 @@ def run_blender_heat(baseline_file: str, output_dir: str,
         except subprocess.TimeoutExpired as exc:
             raise RuntimeError(f"Blender heat skin timed out; log={logfile}") from exc
     if proc.returncode or not npz.is_file() or not native_report.is_file():
-        raise RuntimeError(f"Blender automatic bone weights failed; log={logfile}")
+        # Job scratch directories are cleaned after CI failure. Surface the
+        # actual Blender error, not just a now-unreachable /tmp log path.
+        tail = logfile.read_text(encoding="utf-8", errors="replace").splitlines()[-45:]
+        raise RuntimeError(
+            "Blender automatic bone weights failed: "
+            f"exit={proc.returncode} npz={npz.is_file()} "
+            f"report={native_report.is_file()} log={logfile} "
+            + " | ".join(tail))
     native = json.loads(native_report.read_text(encoding="utf-8"))
     if native.get("real_operator_passed") is not True:
         raise RuntimeError("Blender heat weight evidence missing")
