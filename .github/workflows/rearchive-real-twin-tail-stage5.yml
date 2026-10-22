@@ -1,0 +1,91 @@
+name: REARCHIVE real independent twin tail meshes and sway
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/vts_rearchive_native_twin_tail_stage5.py'
+      - '.github/workflows/rearchive-real-twin-tail-stage5.yml'
+  workflow_dispatch:
+jobs:
+  actual-import-and-animate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 43
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21'}
+      - name: Dependencies for source sprites and runtime
+        run: python -m pip install --disable-pip-version-check 'Pillow>=11,<13' 'numpy>=2,<3'
+      - name: Download ACTUAL stage4 DNA capsule rig parent
+        run: |
+          mkdir -p "$RUNNER_TEMP/stage4"
+          gh run download 39777137990 --repo "${{ github.repository }}" --name \
+            rearchive-animal-free-dna-texture-real-model-not-final --dir "$RUNNER_TEMP/stage4"
+          test -s "$RUNNER_TEMP/stage4/REARCHIVE_DNA_CAPSULE_EDITABLE.psd2live"
+          python - <<'PY'
+          from pathlib import Path
+          import json,os
+          p=Path(os.environ['RUNNER_TEMP'])/'stage4/STATUS.json'
+          d=json.loads(p.read_text())
+          assert d['native_export_verified'] and d['pose_test_passed']
+          assert d['capsule_texture_inserted_into_actual_front_neckwear_layer']
+          PY
+      - name: Load real painted long hair sprite source and geometry
+        run: |
+          mkdir -p "$RUNNER_TEMP/paint"
+          gh run download 39759387454 --repo "${{ github.repository }}" --name \
+            rearchive-edited-33-source-parts-unrigged --dir "$RUNNER_TEMP/paint"
+          test -s "$RUNNER_TEMP/paint/REARCHIVE_ACTUAL_33_LAYER_PAINTINGS.zip"
+      - name: Prepare official PSD2Live 3.6 native editor
+        run: |
+          python - <<'PY'
+          from tools.vts_psd2live_modern import ensure_modern_psd2live
+          print(ensure_modern_psd2live(None,clone=True))
+          PY
+      - name: Real import both new twin-tail textures and generate live hair physics
+        run: |
+          python -m tools.vts_rearchive_native_twin_tail_stage5 \
+            --source-project "$RUNNER_TEMP/stage4/REARCHIVE_DNA_CAPSULE_EDITABLE.psd2live" \
+            --edited-parts-zip "$RUNNER_TEMP/paint/REARCHIVE_ACTUAL_33_LAYER_PAINTINGS.zip" \
+            --editor "$HOME/.cache/vtuber-pipeline/psd2live-v3.6.0" \
+            --out "$RUNNER_TEMP/stage5"
+      - name: Test actual new model MOC3 and pose movement
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglu1-mesa
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          from tools.vts_multiview_runtime import render_actual_native_moc3
+          p=Path(os.environ['RUNNER_TEMP'])/'stage5'
+          d=json.loads((p/'STATUS.json').read_text())
+          assert d['native_export_verified'] and d['swing_physics_built']
+          assert len(d['new_twin_tail_parts'])==2
+          report=render_actual_native_moc3(Path(d['model3_json']),p/'poses')
+          d['native_pose_qa_passed']=all(report.get(k) is True for k in
+            ('native_pose_rendered','pose_activity_passed','native_pose_geometry_passed'))
+          (p/'STATUS.json').write_text(json.dumps(d,ensure_ascii=False,indent=2))
+          assert d['native_pose_qa_passed']
+          print('REAL_NEW_TWINTAIL_MESHES_AND_SWING_MOVEMENT_EXPORTED_AND_RENDERED')
+          PY
+      - name: Preserve editable rig, MOC3, physics3, poses and exact error report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rearchive-real-twintails-rigged-stage5-not-final-art
+          path: |
+            ${{ runner.temp }}/stage5/STATUS.json
+            ${{ runner.temp }}/stage5/*.png
+            ${{ runner.temp }}/stage5/*.psd2live
+            ${{ runner.temp }}/stage5/native/**
+            ${{ runner.temp }}/stage5/poses/**
+            ${{ runner.temp }}/stage5/mcp/**/headless_mcp.log
+          if-no-files-found: ignore
+          retention-days: 14
