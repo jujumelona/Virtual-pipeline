@@ -56,8 +56,17 @@ def main():
         assert heat["changed_body_vertices"] > 0, heat
         rig = heat["rigged_mesh"]
         generated = generate_expressions(rig)
-        assert generated["status"] == "complete", generated
-        expressions = generated["expressions"]
+        # Production morph authoring returns 'generated'; verify its real
+        # nonempty geometric vertex deltas rather than insisting on an
+        # unrelated bridge status name or printing 13 giant morph payloads.
+        expressions = generated.get("expressions", {})
+        assert generated.get("status") in ("generated", "complete")
+        assert len(expressions) >= 13
+        assert all(len(v.get("morph_targets", [])) >= 4 for v in expressions.values())
+        assert any(abs(float(delta)) > 1e-5
+                   for item in expressions.values()
+                   for _, xyz in item["morph_targets"]
+                   for delta in xyz)
         validated = validate_expressions(expressions, str(root / "expressions"))
         assert validated["pass"] is True, validated
         gaze = configure_gaze(rig, str(root / "gaze"))
