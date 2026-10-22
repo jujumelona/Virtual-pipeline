@@ -167,8 +167,9 @@ def build(source_project:Path,edited_parts_zip:Path,output:Path,*,
                         str(x.get("name","")).startswith(name))]
                     if len(recognized)!=1:
                         raise RuntimeError(f"Need unique imported drawable for swing: {name}, got {len(recognized)}")
-                    mesh=recognized[0].get("id")
-                    if not isinstance(mesh,str):raise RuntimeError("Imported mesh handle absent")
+                    mesh=recognized[0].get("target")
+                    if not isinstance(mesh,str) or not mesh.startswith("mesh:"):
+                        raise RuntimeError("PSD2Live workspace_inspect did not provide a real mesh:<id> target for "+name)
                     swing_id="RearchiveTailWhite" if light else "RearchiveTailBlack"
                     swing=editor.edit("swing_put",id=swing_id,name=name+" swaying hair",
                          targets=[mesh],kind="lateral",segments=2,
