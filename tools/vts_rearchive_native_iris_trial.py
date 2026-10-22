@@ -98,9 +98,9 @@ def retarget(source_project,edited_zip,output,*,editor_root=None,connect=None,se
                     if not isinstance(info,dict):raise RuntimeError("No layer texture info")
                     rect=info.get("canvas_rect")
                     if isinstance(rect,dict):
-                        rect=[rect.get(k) for k in ("x","y","width","height")]
+                        rect=[rect.get(k) for k in ("left","top","width","height")]
                     expected=[xyxy[0],xyxy[1],xyxy[2]-xyxy[0],xyxy[3]-xyxy[1]]
-                    if not isinstance(rect,list) or len(rect)!=4 or any(
+                    if not isinstance(rect,list) or len(rect)!=4 or any(x is None for x in rect) or any(
                         abs(float(a)-float(b))>3 for a,b in zip(rect,expected)
                     ):
                         raise RuntimeError(f"Real mesh registration mismatch {name} {rect} vs {expected}")
