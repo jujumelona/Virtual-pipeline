@@ -1,0 +1,895 @@
+{
+  "schema": "rearchive/production-identity-parts-v1",
+  "version": "2026-10-24",
+  "cost_policy": {
+    "maximum_purchase_price_krw": 0,
+    "paid_assets": false,
+    "require_modification_permission": true
+  },
+  "character_design": {
+    "identity": "717 Ma speculative pre-Cryogenian genetically modified humanlike bio-android preserving DNA and lost human memory",
+    "face": "expressive cute adult 19-20-looking anime face; large mint-lime eyes, thin rings and DNA micro HUD",
+    "hair": "black-white silver twin-tails, mint tips, DNA double helix hair ornaments",
+    "skin": "human skin, tiny biotech markings on neck, ear backs, wrists",
+    "outfit": "premium white charcoal grey archivist preservation ceremonial uniform, inner suit, layered jacket/cape, noncombat",
+    "dna": "visible chest core independent physics, iris details, hairpin, ear ports, garment helix seams, auxiliary vial",
+    "ancient_cryogenic": "archive code, faded seals, snow crystal/transparent icy parts",
+    "prohibit": [
+      "animal ears and tails",
+      "heavy mech",
+      "plague mask",
+      "school uniform",
+      "maid costume",
+      "neon cyberpunk",
+      "unrelated character face"
+    ]
+  },
+  "canvas": {
+    "artwork_size": [
+      1536,
+      2304
+    ],
+    "mode": "RGBA",
+    "upscale_working_target": [
+      3072,
+      4608
+    ],
+    "atlas_goal": [
+      2048,
+      2048
+    ],
+    "atlas_pages": 1
+  },
+  "sheets": [
+    {
+      "id": "S01_FRONT_NEUTRAL",
+      "path": "art/S01_front_neutral.png",
+      "required": true,
+      "description": "neutral, transparent 1536x2304 front art; not composite concept sheet"
+    },
+    {
+      "id": "S02_LEFT_45",
+      "path": "references/S02_left_45.png",
+      "required": true,
+      "description": "same character turned 45 degrees to character left"
+    },
+    {
+      "id": "S03_RIGHT_45",
+      "path": "references/S03_right_45.png",
+      "required": true,
+      "description": "same character turned 45 degrees to character right"
+    },
+    {
+      "id": "S04_LEFT_90",
+      "path": "references/S04_left_90.png",
+      "required": false,
+      "description": "optional profile"
+    },
+    {
+      "id": "S05_RIGHT_90",
+      "path": "references/S05_right_90.png",
+      "required": false,
+      "description": "optional profile"
+    },
+    {
+      "id": "S06_EXPRESSIONS",
+      "path": "references/S06_expressions.png",
+      "required": false,
+      "description": "8 facial expressions"
+    },
+    {
+      "id": "S07_EYE_DETAIL",
+      "path": "references/S07_eye_detail.png",
+      "required": false,
+      "description": "mint iris, DNA helix, HUD, eyelids"
+    },
+    {
+      "id": "S08_HAIR",
+      "path": "references/S08_hair_underpaint.png",
+      "required": false,
+      "description": "bunches/roots/underpaint"
+    },
+    {
+      "id": "S09_DNA_DEVICES",
+      "path": "references/S09_dna_devices.png",
+      "required": false,
+      "description": "core glass, helix, hairpin, ear module, waist vial"
+    },
+    {
+      "id": "S10_OUTFIT",
+      "path": "references/S10_outfit_construction.png",
+      "required": false,
+      "description": "inner suit, outer jacket, cape, sleeves"
+    },
+    {
+      "id": "S11_PALETTE",
+      "path": "references/S11_materials.png",
+      "required": false,
+      "description": "cold glass, matte fabric, metal and mint emission"
+    }
+  ],
+  "parts": [
+    {
+      "id": "face_base",
+      "group": "face",
+      "path": "parts/face/face_base.png",
+      "required": true,
+      "rig_reference": "Hiakari primary + Kirishima face/neck",
+      "underpaint": true
+    },
+    {
+      "id": "face_underhair",
+      "group": "face",
+      "path": "parts/face/face_underhair.png",
+      "required": true,
+      "rig_reference": "Hiakari primary + Kirishima face/neck",
+      "underpaint": true
+    },
+    {
+      "id": "forehead_underpaint",
+      "group": "face",
+      "path": "parts/face/forehead_underpaint.png",
+      "required": true,
+      "rig_reference": "Hiakari primary + Kirishima face/neck",
+      "underpaint": true
+    },
+    {
+      "id": "ear_l",
+      "group": "face",
+      "path": "parts/face/ear_l.png",
+      "required": true,
+      "rig_reference": "Hiakari primary + Kirishima face/neck",
+      "underpaint": true
+    },
+    {
+      "id": "ear_r",
+      "group": "face",
+      "path": "parts/face/ear_r.png",
+      "required": true,
+      "rig_reference": "Hiakari primary + Kirishima face/neck",
+      "underpaint": true
+    },
+    {
+      "id": "nose",
+      "group": "face",
+      "path": "parts/face/nose.png",
+      "required": true,
+      "rig_reference": "Hiakari primary + Kirishima face/neck",
+      "underpaint": true
+    },
+    {
+      "id": "bridge_shadow",
+      "group": "face",
+      "path": "parts/face/bridge_shadow.png",
+      "required": true,
+      "rig_reference": "Hiakari primary + Kirishima face/neck",
+      "underpaint": true
+    },
+    {
+      "id": "cheek_l",
+      "group": "face",
+      "path": "parts/face/cheek_l.png",
+      "required": true,
+      "rig_reference": "Hiakari primary + Kirishima face/neck",
+      "underpaint": true
+    },
+    {
+      "id": "cheek_r",
+      "group": "face",
+      "path": "parts/face/cheek_r.png",
+      "required": true,
+      "rig_reference": "Hiakari primary + Kirishima face/neck",
+      "underpaint": true
+    },
+    {
+      "id": "neck",
+      "group": "face",
+      "path": "parts/face/neck.png",
+      "required": true,
+      "rig_reference": "Hiakari primary + Kirishima face/neck",
+      "underpaint": true
+    },
+    {
+      "id": "neck_underjaw",
+      "group": "face",
+      "path": "parts/face/neck_underjaw.png",
+      "required": true,
+      "rig_reference": "Hiakari primary + Kirishima face/neck",
+      "underpaint": true
+    },
+    {
+      "id": "eye_l_sclera",
+      "group": "eyes",
+      "path": "parts/eyes/eye_l_sclera.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_r_sclera",
+      "group": "eyes",
+      "path": "parts/eyes/eye_r_sclera.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_l_iris",
+      "group": "eyes",
+      "path": "parts/eyes/eye_l_iris.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_r_iris",
+      "group": "eyes",
+      "path": "parts/eyes/eye_r_iris.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_l_pupil",
+      "group": "eyes",
+      "path": "parts/eyes/eye_l_pupil.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_r_pupil",
+      "group": "eyes",
+      "path": "parts/eyes/eye_r_pupil.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_l_highlight",
+      "group": "eyes",
+      "path": "parts/eyes/eye_l_highlight.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_r_highlight",
+      "group": "eyes",
+      "path": "parts/eyes/eye_r_highlight.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_l_upper_lid",
+      "group": "eyes",
+      "path": "parts/eyes/eye_l_upper_lid.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_r_upper_lid",
+      "group": "eyes",
+      "path": "parts/eyes/eye_r_upper_lid.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_l_lower_lid",
+      "group": "eyes",
+      "path": "parts/eyes/eye_l_lower_lid.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_r_lower_lid",
+      "group": "eyes",
+      "path": "parts/eyes/eye_r_lower_lid.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_l_lashes",
+      "group": "eyes",
+      "path": "parts/eyes/eye_l_lashes.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "eye_r_lashes",
+      "group": "eyes",
+      "path": "parts/eyes/eye_r_lashes.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "brow_l",
+      "group": "eyes",
+      "path": "parts/eyes/brow_l.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "brow_r",
+      "group": "eyes",
+      "path": "parts/eyes/brow_r.png",
+      "required": true,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "iris_l_hud",
+      "group": "eyes",
+      "path": "parts/eyes/iris_l_hud.png",
+      "required": false,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "iris_r_hud",
+      "group": "eyes",
+      "path": "parts/eyes/iris_r_hud.png",
+      "required": false,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "iris_l_helix",
+      "group": "eyes",
+      "path": "parts/eyes/iris_l_helix.png",
+      "required": false,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "iris_r_helix",
+      "group": "eyes",
+      "path": "parts/eyes/iris_r_helix.png",
+      "required": false,
+      "rig_reference": "Hiakari primary; Kirishima eye topology",
+      "underpaint": true
+    },
+    {
+      "id": "mouth_upper_lip",
+      "group": "mouth",
+      "path": "parts/mouth/mouth_upper_lip.png",
+      "required": true,
+      "rig_reference": "Kirishima mouth/topology",
+      "underpaint": true
+    },
+    {
+      "id": "mouth_lower_lip",
+      "group": "mouth",
+      "path": "parts/mouth/mouth_lower_lip.png",
+      "required": true,
+      "rig_reference": "Kirishima mouth/topology",
+      "underpaint": true
+    },
+    {
+      "id": "mouth_inner",
+      "group": "mouth",
+      "path": "parts/mouth/mouth_inner.png",
+      "required": true,
+      "rig_reference": "Kirishima mouth/topology",
+      "underpaint": true
+    },
+    {
+      "id": "mouth_open_shape",
+      "group": "mouth",
+      "path": "parts/mouth/mouth_open_shape.png",
+      "required": true,
+      "rig_reference": "Kirishima mouth/topology",
+      "underpaint": true
+    },
+    {
+      "id": "mouth_smile",
+      "group": "mouth",
+      "path": "parts/mouth/mouth_smile.png",
+      "required": true,
+      "rig_reference": "Kirishima mouth/topology",
+      "underpaint": true
+    },
+    {
+      "id": "mouth_teeth",
+      "group": "mouth",
+      "path": "parts/mouth/mouth_teeth.png",
+      "required": true,
+      "rig_reference": "Kirishima mouth/topology",
+      "underpaint": true
+    },
+    {
+      "id": "scalp_hidden",
+      "group": "hair",
+      "path": "parts/hair/scalp_hidden.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "back_hair_l",
+      "group": "hair",
+      "path": "parts/hair/back_hair_l.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "back_hair_r",
+      "group": "hair",
+      "path": "parts/hair/back_hair_r.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "bangs_center",
+      "group": "hair",
+      "path": "parts/hair/bangs_center.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "bangs_l",
+      "group": "hair",
+      "path": "parts/hair/bangs_l.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "bangs_r",
+      "group": "hair",
+      "path": "parts/hair/bangs_r.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "side_l",
+      "group": "hair",
+      "path": "parts/hair/side_l.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "side_r",
+      "group": "hair",
+      "path": "parts/hair/side_r.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "twin_root_l",
+      "group": "hair",
+      "path": "parts/hair/twin_root_l.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "twin_root_r",
+      "group": "hair",
+      "path": "parts/hair/twin_root_r.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "twin_tail_l",
+      "group": "hair",
+      "path": "parts/hair/twin_tail_l.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "twin_tail_r",
+      "group": "hair",
+      "path": "parts/hair/twin_tail_r.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "strand_l",
+      "group": "hair",
+      "path": "parts/hair/strand_l.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "strand_r",
+      "group": "hair",
+      "path": "parts/hair/strand_r.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "ahoge_l",
+      "group": "hair",
+      "path": "parts/hair/ahoge_l.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "ahoge_r",
+      "group": "hair",
+      "path": "parts/hair/ahoge_r.png",
+      "required": true,
+      "rig_reference": "Hiakari hair physics, new twin-tail roots",
+      "underpaint": true
+    },
+    {
+      "id": "torso_base",
+      "group": "outfit",
+      "path": "parts/outfit/torso_base.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "inner_suit",
+      "group": "outfit",
+      "path": "parts/outfit/inner_suit.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "collar_inner",
+      "group": "outfit",
+      "path": "parts/outfit/collar_inner.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "collar_outer",
+      "group": "outfit",
+      "path": "parts/outfit/collar_outer.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "chest_panel",
+      "group": "outfit",
+      "path": "parts/outfit/chest_panel.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "skirt_front",
+      "group": "outfit",
+      "path": "parts/outfit/skirt_front.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "waist_belt",
+      "group": "outfit",
+      "path": "parts/outfit/waist_belt.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "left_upper_arm",
+      "group": "outfit",
+      "path": "parts/outfit/left_upper_arm.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "right_upper_arm",
+      "group": "outfit",
+      "path": "parts/outfit/right_upper_arm.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "left_hand",
+      "group": "outfit",
+      "path": "parts/outfit/left_hand.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "right_hand",
+      "group": "outfit",
+      "path": "parts/outfit/right_hand.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "left_sleeve_base",
+      "group": "outfit",
+      "path": "parts/outfit/left_sleeve_base.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "right_sleeve_base",
+      "group": "outfit",
+      "path": "parts/outfit/right_sleeve_base.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "left_sleeve_tip",
+      "group": "outfit",
+      "path": "parts/outfit/left_sleeve_tip.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "right_sleeve_tip",
+      "group": "outfit",
+      "path": "parts/outfit/right_sleeve_tip.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "cape_back_l",
+      "group": "outfit",
+      "path": "parts/outfit/cape_back_l.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "cape_back_r",
+      "group": "outfit",
+      "path": "parts/outfit/cape_back_r.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "cape_front_l",
+      "group": "outfit",
+      "path": "parts/outfit/cape_front_l.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "cape_front_r",
+      "group": "outfit",
+      "path": "parts/outfit/cape_front_r.png",
+      "required": true,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "translucent_cape_film_l",
+      "group": "outfit",
+      "path": "parts/outfit/translucent_cape_film_l.png",
+      "required": false,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "translucent_cape_film_r",
+      "group": "outfit",
+      "path": "parts/outfit/translucent_cape_film_r.png",
+      "required": false,
+      "rig_reference": "Hiakari sleeve/cape physics, new silhouette",
+      "underpaint": true
+    },
+    {
+      "id": "dna_mount",
+      "group": "dna",
+      "path": "parts/dna/dna_mount.png",
+      "required": true,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "dna_glass_back",
+      "group": "dna",
+      "path": "parts/dna/dna_glass_back.png",
+      "required": true,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "dna_helix_back",
+      "group": "dna",
+      "path": "parts/dna/dna_helix_back.png",
+      "required": true,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "dna_helix_front",
+      "group": "dna",
+      "path": "parts/dna/dna_helix_front.png",
+      "required": true,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "dna_glass_front",
+      "group": "dna",
+      "path": "parts/dna/dna_glass_front.png",
+      "required": true,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "dna_glow",
+      "group": "dna",
+      "path": "parts/dna/dna_glow.png",
+      "required": true,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "dna_metal_bezel",
+      "group": "dna",
+      "path": "parts/dna/dna_metal_bezel.png",
+      "required": true,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "dna_hairpin_l",
+      "group": "dna",
+      "path": "parts/dna/dna_hairpin_l.png",
+      "required": true,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "dna_hairpin_r",
+      "group": "dna",
+      "path": "parts/dna/dna_hairpin_r.png",
+      "required": true,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "ear_sync_l",
+      "group": "dna",
+      "path": "parts/dna/ear_sync_l.png",
+      "required": true,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "ear_sync_r",
+      "group": "dna",
+      "path": "parts/dna/ear_sync_r.png",
+      "required": true,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "waist_vial",
+      "group": "dna",
+      "path": "parts/dna/waist_vial.png",
+      "required": false,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "wrist_interface_l",
+      "group": "dna",
+      "path": "parts/dna/wrist_interface_l.png",
+      "required": false,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "wrist_interface_r",
+      "group": "dna",
+      "path": "parts/dna/wrist_interface_r.png",
+      "required": false,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "garment_dna_seam_l",
+      "group": "dna",
+      "path": "parts/dna/garment_dna_seam_l.png",
+      "required": false,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "garment_dna_seam_r",
+      "group": "dna",
+      "path": "parts/dna/garment_dna_seam_r.png",
+      "required": false,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "archive_number",
+      "group": "dna",
+      "path": "parts/dna/archive_number.png",
+      "required": false,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    },
+    {
+      "id": "frost_mark",
+      "group": "dna",
+      "path": "parts/dna/frost_mark.png",
+      "required": false,
+      "rig_reference": "Stage9 chest physics; independently authored other details",
+      "underpaint": true
+    }
+  ],
+  "rig_sources": [
+    {
+      "id": "hiakari-inori",
+      "license": "CC0-1.0",
+      "price": 0,
+      "role": "Primary editable base eye/lip/head/cloth physics, not final artwork",
+      "url": "https://github.com/tsunehimatoi/psd2live-examples/tree/main/cases/hiakari-inori"
+    },
+    {
+      "id": "kirishima-mio",
+      "license": "CC0-1.0",
+      "price": 0,
+      "role": "Face/eye/neck reference, not a merged MOC3"
+    },
+    {
+      "id": "star_lan",
+      "license": "CC0-1.0",
+      "price": 0,
+      "role": "mesh layout technique reference"
+    },
+    {
+      "id": "REARCHIVE Stage9",
+      "price": 0,
+      "role": "existing DNA ArtMesh swing physics, needs reauthoring new costume/face"
+    }
+  ],
+  "budget_goal": {
+    "artmeshes_max": 100,
+    "part_folders_max": 30,
+    "deformers_max": 50,
+    "parameters_max": 30,
+    "blendshapes_max": 3,
+    "artpaths_max": 3,
+    "texture_page": [
+      2048,
+      2048
+    ],
+    "texture_pages": 1
+  },
+  "approval_gates": [
+    "ART_APPROVED",
+    "PARTS_APPROVED",
+    "NATIVE_POSE_APPROVED",
+    "VTUBE_STUDIO_APPROVED"
+  ],
+  "current_status": "REFERENCE_CONCEPT_EXISTS_NO_FINAL_ART_OR_RIG"
+}
