@@ -1,0 +1,89 @@
+{
+  "schema": "rearchive/free-only-production-lock/v1",
+  "updated": "2026-10-24",
+  "project": "RE:ARCHIVE",
+  "policy": {
+    "maximum_purchase_price_krw": 0,
+    "maximum_purchase_price_jpy": 0,
+    "allow_paid_booth_assets": false,
+    "allow_pro_license_purchase": false,
+    "all_reused_art_must_allow_modification": true,
+    "all_reused_rigs_must_allow_retargting": true,
+    "unverified_license": "reject",
+    "external_asset_redistribution": "do-not-package-by-default",
+    "final_art_style": "one-consistent-source-master"
+  },
+  "character": {
+    "era": "~717 million years before present, speculative pre-Cryogenian civilization",
+    "identity": "human-like genetically modified bio-android, archive and biological restoration survivor",
+    "face": "young-adult-looking friendly feminine anime face; distinctly large mint/lime eyes; clearly separate sclera, iris, pupil, upper/lower eyelid, highlights; no plague doctor mask",
+    "hair": "black, white and silver twin-tails; mint micro-highlights; left/right physically separable roots, front and side locks; small DNA motif in hairpin",
+    "body": "human-looking smooth skin; subtle neck/ear mechanical markings, not heavy armor",
+    "clothing": "detailed white/gray/black ancient-future preservation/research ceremonial uniform; no school uniform, maid costume or contemporary combat armor",
+    "identity_object": "high-visibility transparent mint DNA double-helix capsule on upper chest; independent accessory mesh, pivot and physics; subordinate DNA hairpin and optional iris micro-pattern",
+    "prohibited": [
+      "animal ears and tails",
+      "plague mask in neutral base",
+      "large neon cyberpunk glow",
+      "unapproved pink as dominant color",
+      "elf/fantasy silhouette",
+      "mixing visually incompatible character faces",
+      "nondescript plain school uniform"
+    ]
+  },
+  "reusable_free_sources": [
+    {
+      "case": "hiakari-inori",
+      "license": "CC0-1.0",
+      "price_jpy": 0,
+      "role": "primary editable rig; eyes, mouth, long sleeves, physics. Animal ears/tails excluded.",
+      "url": "https://github.com/tsunehimatoi/psd2live-examples/tree/main/cases/hiakari-inori",
+      "sha256": "71a2b25b75763d50d1d2bcd72f683915c0138a583ede8fa4bcdc895e00778f64"
+    },
+    {
+      "case": "kirishima-mio",
+      "license": "CC0-1.0",
+      "price_jpy": 0,
+      "role": "reference for registration, mouth and face seams; not a source of mixed final-style art",
+      "url": "https://github.com/tsunehimatoi/psd2live-examples/tree/main/cases/kirishima-mio",
+      "sha256": "ce09667ec781f05df5ff9a41451299f6090d5b0ab207d1c575ae2f8a7be84390"
+    },
+    {
+      "case": "star_lan",
+      "license": "CC0-1.0",
+      "price_jpy": 0,
+      "role": "reference for joint mesh and texture layout only",
+      "url": "https://github.com/tsunehimatoi/psd2live-examples/tree/main/cases/star_lan",
+      "sha256": "9485008ffd52c165dbdcf6ec8dd035d882bbd0dfdc54404c65bf3230453b52fe"
+    }
+  ],
+  "editor": {
+    "primary": "free and open PSD2Live pipeline with editable .psd2live",
+    "alternative": "Live2D Cubism FREE when within limits",
+    "optional_beta": "Ayatsuri2D (unverified for this specific model)",
+    "pro_purchase_required": false
+  },
+  "budgets": {
+    "texture_pages": 1,
+    "texture_page_width": 2048,
+    "texture_page_height": 2048,
+    "max_artmeshes": 100,
+    "max_part_folders": 30,
+    "max_deformers": 50,
+    "max_parameters": 30,
+    "max_blend_shape_params": 3,
+    "max_artpaths": 3
+  },
+  "outputs_required": [
+    "same-style front master RGBA",
+    "complete separate face-eye-mouth-hair-body-outfit-accessory RGBA source layers and underpaint",
+    "layered PSD",
+    "editable rig source",
+    "valid moc3/model3/physics3",
+    "real posed renders including blink/mouth/angle extremes",
+    "FREE budget report",
+    "actual VTube Studio tracking validation"
+  ],
+  "runtime_status": "not-broadcast-ready",
+  "art_status": "high-end final face and outfit still require original part art; no completed .cmo3 RE:ARCHIVE claim"
+}
