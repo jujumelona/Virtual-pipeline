@@ -1,0 +1,20 @@
+name: REARCHIVE free production preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/REARCHIVE_PRODUCTION_CONTRACT.json'
+      - 'tools/rearchive_production_preflight.py'
+      - 'tests/test_rearchive_production_preflight.py'
+      - '.github/workflows/rearchive-production-preflight.yml'
+  workflow_dispatch:
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow
+      - run: python -m unittest tests.test_rearchive_production_preflight -v
