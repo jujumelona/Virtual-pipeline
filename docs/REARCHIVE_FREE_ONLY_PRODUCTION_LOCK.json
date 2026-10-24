@@ -8,7 +8,7 @@
     "allow_paid_booth_assets": false,
     "allow_pro_license_purchase": false,
     "all_reused_art_must_allow_modification": true,
-    "all_reused_rigs_must_allow_retargting": true,
+    "all_reused_rigs_must_allow_retargeting": true,
     "unverified_license": "reject",
     "external_asset_redistribution": "do-not-package-by-default",
     "final_art_style": "one-consistent-source-master"
